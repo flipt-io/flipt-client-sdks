@@ -1,5 +1,8 @@
 LIB = libfliptengine
 
+.DEFAULT_GOAL := help
+.PHONY: go node python ruby help clean
+
 # run cargo build if anything in engine/ changes
 build: $(shell find engine/src/ -type f) ## Build the shared engine library
 	cargo build --release
@@ -18,7 +21,13 @@ python: build ## Prepare the python client for building
 ruby: build ## Prepare the ruby client for building
 	cp target/release/$(LIB).* ruby/flipt-client-ruby/lib/ext/
 
-.PHONY: go node python ruby help
+clean: ## Clean up build artifacts
+	rm -rf target
+	rm -rf go/flipt-client-go/$(LIB).*
+	rm -rf node/flipt-client-node/$(LIB).*
+	rm -rf python/flipt-client-python/$(LIB).*
+	rm -rf ruby/flipt-client-ruby/lib/ext/$(LIB).*
+	rm -rf ruby/flipt-client-ruby/pkg/
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk \
