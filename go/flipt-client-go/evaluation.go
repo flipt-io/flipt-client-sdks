@@ -1,7 +1,7 @@
 package evaluation
 
 /*
-#cgo LDFLAGS: -L. -lengine
+#cgo LDFLAGS: -L. -fliptlengine
 #include <stdlib.h>
 #include <string.h>
 

@@ -1,4 +1,5 @@
 # Flipt Client Node
+
 The `flipt-client-node` directory contains the TypeScript source code for a Flipt evaluation client using FFI to make calls to a core built in Rust.
 
 ## Instructions
@@ -13,9 +14,9 @@ This should generate a `target/` directory in the root of this repository, which
 
 The `path/to/lib` will be the path to the dynamic library which will have the following paths depending on your platform.
 
-- **Linux**: `{REPO_ROOT}/target/release/libengine.so`
-- **Windows**: `{REPO_ROOT}/target/release/libengine.dll`
-- **MacOS**: `{REPO_ROOT}/target/release/libengine.dylib`
+- **Linux**: `{REPO_ROOT}/target/release/libfliptengine.so`
+- **Windows**: `{REPO_ROOT}/target/release/libfliptengine.dll`
+- **MacOS**: `{REPO_ROOT}/target/release/libfliptengine.dylib`
 
 You can then use the client like so:
 

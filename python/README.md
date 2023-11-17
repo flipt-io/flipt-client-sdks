@@ -12,9 +12,9 @@ cargo build --release
 
 This should generate a `target/` directory in the root of this repository, which contains the dynamic linking library built for your platform. This dynamic library will contain the functionality necessary for the Python client to make FFI calls. You'll need to set the `FLIPT_ENGINE_LIB_PATH` environment variable depending on your platform:
 
-- **Linux**: `{REPO_ROOT}/target/release/libengine.so`
-- **Windows**: `{REPO_ROOT}/target/release/libengine.dll`
-- **MacOS**: `{REPO_ROOT}/target/release/libengine.dylib`
+- **Linux**: `{REPO_ROOT}/target/release/libfliptengine.so`
+- **Windows**: `{REPO_ROOT}/target/release/libfliptengine.dll`
+- **MacOS**: `{REPO_ROOT}/target/release/libfliptengine.dylib`
 
 In your Python code you can import this client and use it as so:
 
