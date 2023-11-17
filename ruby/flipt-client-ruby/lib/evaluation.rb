@@ -49,12 +49,14 @@ module Flipt
     end
 
     def variant(evaluation_request = {})
+      evaluation_request[:namespace_key] = @namespace
       validate_evaluation_request(evaluation_request)
       resp = self.class.variant(@engine, evaluation_request.to_json)
       JSON.parse(resp)
     end
 
     def boolean(evaluation_request = {})
+      evaluation_request[:namespace_key] = @namespace
       validate_evaluation_request(evaluation_request)
       resp = self.class.boolean(@engine, evaluation_request.to_json)
       JSON.parse(resp)

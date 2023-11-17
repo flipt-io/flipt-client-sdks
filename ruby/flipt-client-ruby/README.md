@@ -10,15 +10,15 @@ To use this client, you can run the following command from the root of the repos
 cargo build --release
 ```
 
-This should generate a `target/` directory in the root of this repository, which contains the dynamically linked library built for your platform. This dynamic library will contain the functionality necessary for the Ruby client to make FFI calls. 
+This should generate a `target/` directory in the root of this repository, which contains the dynamically linked library built for your platform. This dynamic library will contain the functionality necessary for the Ruby client to make FFI calls.
 
 TODO: Currently, you'll need copy the dynamic library to the `flipt-client-ruby/lib/ext` directory. This is a temporary solution until we can figure out a better way to package the libraries with the gem.
 
 The `path/to/lib` will be the path to the dynamic library which will have the following paths depending on your platform.
 
-- **Linux**: `{FLIPT_REPO_ROOT}/target/release/libfliptengine.so`
-- **Windows**: `{FLIPT_REPO_ROOT}/target/release/libfliptengine.dll`
-- **MacOS**: `{FLIPT_REPO_ROOT}/target/release/libfliptengine.dylib`
+- **Linux**: `{REPO_ROOT}/target/release/libfliptengine.so`
+- **Windows**: `{REPO_ROOT}/target/release/libfliptengine.dll`
+- **MacOS**: `{REPO_ROOT}/target/release/libfliptengine.dylib`
 
 You can then build the gem and install it locally:
 
@@ -33,7 +33,7 @@ In your Ruby code you can import this client and use it as so:
 require 'flipt_client'
 
 client = Flipt::EvaluationClient.new() # uses 'default' namespace
-resp = client.variant({ flagKey: 'buzz', entityId: 'someentity', context: { fizz: 'buzz' } })
+resp = client.variant({ flag_key: 'buzz', entity_id: 'someentity', context: { fizz: 'buzz' } })
 
 puts resp
 ```
