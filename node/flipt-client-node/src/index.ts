@@ -3,7 +3,7 @@ import { alloc, allocCString, types } from 'ref-napi';
 import { BooleanResult, EvaluationRequest, VariantResult } from './models';
 
 const engineLib = ffi.Library(
-  process.env.ENGINE_LIB_PATH || 'libengine.dylib',
+  process.env.ENGINE_LIB_PATH || 'libfliptengine.so',
   {
     initialize_engine: ['void *', ['char **']],
     variant: ['string', ['void *', 'string']],

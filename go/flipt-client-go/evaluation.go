@@ -1,17 +1,8 @@
 package evaluation
 
 /*
-#cgo LDFLAGS: -L. -fliptlengine
-#include <stdlib.h>
-#include <string.h>
-
-void* initialize_engine(char** namespaces);
-
-char* variant(void* engine, char* evaluation_request);
-
-char* boolean(void* engine, char* evaluation_request);
-
-void destroy_engine(void* engine);
+#cgo LDFLAGS: -L. -lfliptengine
+#include "flipt_engine.h"
 */
 import "C"
 import (
