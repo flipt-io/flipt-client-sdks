@@ -41,6 +41,7 @@ func main() {
  // You can initialize the client with a namespace using "WithNamespace", otherwise
  // it will target the default namespace.
  evaluationClient := evaluation.NewClient(evaluation.WithNamespace("staging"))
+ defer evaluationClient.Close()
 
  variantResult, err := evaluationClient.Variant(context.Background(), "flag1", "someentity", map[string]string{
   "fizz": "buzz",
@@ -56,3 +57,9 @@ func main() {
 ## Memory Management
 
 The engine that is allocated on the Rust side to compute evaluations for flag state will not be properly deallocated unless you call the `Close()` method on a `Client` instance, please be sure to do that to avoid leaking memory.
+
+ie:
+
+```go
+defer evaluationClient.Close()
+```
