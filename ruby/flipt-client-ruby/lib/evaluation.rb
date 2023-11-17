@@ -1,5 +1,6 @@
 require "client/version"
 require "ffi"
+require "json"
 
 module Flipt
   class Error < StandardError; end
@@ -47,16 +48,27 @@ module Flipt
       proc { self.destroy_engine(engine) }
     end
 
-    def variant(evaluation_request)
-      # TODO: create a struct for evaluation_request and marshal it to json
-      self.class.variant(@engine, evaluation_request)
-      # TODO: create a struct for evaluation_response and unmarshal it from json
+    def variant(evaluation_request = {})
+      validate_evaluation_request(evaluation_request)
+      resp = self.class.variant(@engine, evaluation_request.to_json)
+      JSON.parse(resp)
     end
 
-    def boolean(evaluation_request)
-      # TODO: create a struct for evaluation_request and marshal it to json
-      self.class.boolean(@engine, evaluation_request)
-      # TODO: create a struct for evaluation_response and unmarshal it from json
+    def boolean(evaluation_request = {})
+      validate_evaluation_request(evaluation_request)
+      resp = self.class.boolean(@engine, evaluation_request.to_json)
+      JSON.parse(resp)
+    end
+
+    private 
+    def validate_evaluation_request(evaluation_request)
+      if evaluation_request[:entity_id].nil? || evaluation_request[:entity_id].empty?
+        raise ArgumentError, "entity_id is required"
+      elsif evaluation_request[:namespace_key].nil? || evaluation_request[:namespace_key].empty?
+        raise ArgumentError, "namespace_key is required"
+      elsif evaluation_request[:flag_key].nil? || evaluation_request[:flag_key].empty?
+        raise ArgumentError, "flag_key is required"
+      end
     end
   end
 end
