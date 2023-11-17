@@ -1,8 +1,9 @@
 package evaluation
 
 /*
-#cgo LDFLAGS: -L. -lfliptengine
+#cgo LDFLAGS: -L. -lflip-mtengine
 #include "flipt_engine.h"
+#include <string.h>
 */
 import "C"
 import (

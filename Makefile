@@ -6,7 +6,7 @@ LIB = libfliptengine
 # run cargo build if anything in engine/ changes
 build: $(shell find engine/src/ -type f) ## Build the shared engine library
 	cargo build --release
-	cd engine && cbindgen --config cbindgen.toml --crate flipt-client-engine --output flipt_engine.h
+	cd engine && cbindgen --config cbindgen.toml --lang c --crate flipt-client-engine --output flipt_engine.h
 
 go: build ## Prepare the go client for building
 	cp target/release/$(LIB).* go/flipt-client-go/
