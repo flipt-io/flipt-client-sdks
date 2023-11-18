@@ -9,13 +9,13 @@ use std::path::PathBuf;
 use super::snapshot::Parser;
 use crate::models::transport;
 
-pub struct FliptParser {
+pub struct HTTPParser {
     namespaces: Vec<String>,
     http_client: reqwest::blocking::Client,
     http_url: String,
 }
 
-impl FliptParser {
+impl HTTPParser {
     pub fn new(namespaces: Vec<String>) -> Self {
         // We will allow the following line to panic when an error is encountered.
         let http_client = reqwest::blocking::Client::builder()
@@ -34,7 +34,7 @@ impl FliptParser {
     }
 }
 
-impl Parser for FliptParser {
+impl Parser for HTTPParser {
     fn parse(&self, namespace: String) -> Result<transport::Document, Whatever> {
         let response = match self
             .http_client

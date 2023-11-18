@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
+use store::parsers;
 
 pub mod evaluator;
 mod models;
@@ -25,7 +26,8 @@ pub struct Engine {
 
 impl Engine {
     pub fn new(namespaces: Vec<String>) -> Self {
-        let evaluation_engine = evaluator::Evaluator::new(namespaces);
+        let source = parsers::HTTPParser::new(namespaces);
+        let evaluation_engine = evaluator::Evaluator::new(Box::new(source));
 
         let mut evaluator = Self {
             evaluator: Arc::new(Mutex::new(evaluation_engine.unwrap())),

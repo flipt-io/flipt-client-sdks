@@ -7,7 +7,6 @@ use std::time::{Duration, SystemTime, SystemTimeError};
 
 use crate::models::common;
 use crate::models::flipt;
-use crate::store::parsers;
 use crate::store::snapshot::{Parser, Snapshot, Store};
 
 const DEFAULT_PERCENT: f32 = 100.0;
@@ -15,7 +14,7 @@ const DEFAULT_TOTAL_BUCKET_NUMBER: u32 = 1000;
 const DEFAULT_PERCENT_MULTIPIER: f32 = DEFAULT_TOTAL_BUCKET_NUMBER as f32 / DEFAULT_PERCENT;
 
 pub struct Evaluator {
-    flipt_parser: Box<dyn Parser + Send>,
+    source: Box<dyn Parser + Send>,
     snapshot: Box<dyn Store + Send>,
     mtx: Arc<RwLock<i32>>,
 }
@@ -101,12 +100,11 @@ type VariantEvaluationResult<T> = std::result::Result<T, Whatever>;
 type BooleanEvaluationResult<T> = std::result::Result<T, Whatever>;
 
 impl Evaluator {
-    pub fn new(namespaces: Vec<String>) -> Result<Self, Whatever> {
-        let flipt_parser = parsers::FliptParser::new(namespaces.clone());
-        let snap = Snapshot::build(&flipt_parser)?;
+    pub fn new(source: Box<dyn Parser + Sync + Send>) -> Result<Self, Whatever> {
+        let snap = Snapshot::build(&*source)?;
 
         Ok(Self {
-            flipt_parser: Box::new(flipt_parser),
+            source,
             snapshot: Box::new(snap),
             mtx: Arc::new(RwLock::new(0)),
         })
@@ -114,7 +112,7 @@ impl Evaluator {
 
     pub fn replace_snapshot(&mut self) {
         let _w_lock = self.mtx.write().unwrap();
-        let snap = Snapshot::build(self.flipt_parser.as_ref());
+        let snap = Snapshot::build(self.source.as_ref());
         self.snapshot = Box::new(snap.unwrap());
     }
 
@@ -987,7 +985,7 @@ mod tests {
             .returning(|_, _| Some(vec![]));
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            source: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1078,7 +1076,7 @@ mod tests {
             .returning(|_, _| Some(vec![]));
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            source: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1196,7 +1194,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            source: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1296,7 +1294,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            source: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1401,7 +1399,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            source: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1533,7 +1531,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            source: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1616,7 +1614,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            source: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1712,7 +1710,7 @@ mod tests {
             .returning(|_, _| Some(vec![]));
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            source: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1802,7 +1800,7 @@ mod tests {
             .returning(|_, _| Some(vec![]));
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            source: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1919,7 +1917,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            source: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -2018,7 +2016,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            source: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -2114,7 +2112,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            source: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -2245,7 +2243,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            source: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -2327,7 +2325,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            source: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -2448,7 +2446,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            source: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -2559,7 +2557,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            source: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
