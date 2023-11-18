@@ -1,8 +1,8 @@
-## Flipt Client Ruby
+# Flipt Client Ruby
 
 The `flipt-client-ruby` directory contains the Ruby source code for a Flipt evaluation client using FFI to make calls to a core built in Rust.
 
-### Instructions
+## Instructions
 
 To use this client, you can run the following command from the root of the repository:
 
