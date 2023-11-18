@@ -1,16 +1,17 @@
 LIB = libfliptengine
+ENGINE_DIR = flipt-engine
 
 .DEFAULT_GOAL := help
 .PHONY: go node python ruby help clean
 
 # run cargo build if anything in engine/ changes
-build: $(shell find engine/src/ -type f) ## Build the shared engine library
+build: $(shell find $(ENGINE_DIR)/src/ -type f) ## Build the shared engine library
 	cargo build --release
-	cd engine && cbindgen --config cbindgen.toml --lang c --crate flipt-client-engine --output flipt_engine.h
+	cd $(ENGINE_DIR) && cbindgen --config cbindgen.toml --lang c --crate flipt-client-engine --output flipt_engine.h
 
 go: build ## Prepare the go client for building
 	cp target/release/$(LIB).* flipt-client-go/
-	cp engine/flipt_engine.h flipt-client-go/
+	cp $(ENGINE_DIR)/flipt_engine.h flipt-client-go/
 
 node: build ## Prepare the node client for building
 	cp target/release/$(LIB).* flipt-client-node/
