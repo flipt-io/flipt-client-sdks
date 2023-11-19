@@ -25,12 +25,9 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn new(namespaces: Vec<String>) -> Self {
-        let source = parser::HTTPParser::new();
-        let evaluator = evaluator::Evaluator::new(namespaces, Box::new(source));
-
+    pub fn new(evaluator: evaluator::Evaluator) -> Self {
         let mut engine = Self {
-            evaluator: Arc::new(Mutex::new(evaluator.unwrap())),
+            evaluator: Arc::new(Mutex::new(evaluator)),
         };
 
         engine.update();
@@ -146,7 +143,9 @@ pub unsafe extern "C" fn initialize_engine(namespaces: *const *const c_char) -> 
         index += 1;
     }
 
-    Box::into_raw(Box::new(Engine::new(namespaces_vec))) as *mut c_void
+    let parser = Box::new(parser::HTTPParser::new());
+    let evaluator = evaluator::Evaluator::new(namespaces_vec, parser);
+    Box::into_raw(Box::new(Engine::new(evaluator.unwrap()))) as *mut c_void
 }
 
 /// # Safety
