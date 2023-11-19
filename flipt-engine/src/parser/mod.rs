@@ -8,25 +8,20 @@ pub trait Parser {
 }
 
 pub struct LocalParser {
-    path: String,
+    state: String,
 }
 
 impl LocalParser {
-    pub fn new(path: String) -> Self {
-        Self { path }
+    pub fn new(state: String) -> Self {
+        Self { state }
     }
 }
 
 impl Parser for LocalParser {
     fn parse(&self, _: String) -> Result<source::Document, Whatever> {
-        let state = match std::fs::read_to_string(&self.path) {
-            Ok(state) => state,
-            Err(e) => whatever!("failed to read file: err {}", e),
-        };
-
-        let document: source::Document = match serde_json::from_str(&state) {
+        let document: source::Document = match serde_json::from_str(&self.state) {
             Ok(document) => document,
-            Err(e) => whatever!("failed to deserialize text into document: err {}", e),
+            Err(e) => whatever!("failed to deserialize JSON into document: err {}", e),
         };
 
         Ok(document)
@@ -77,7 +72,7 @@ impl Parser for HTTPParser {
 
         let document: source::Document = match serde_json::from_str(&response_text) {
             Ok(doc) => doc,
-            Err(e) => whatever!("failed to deserialize text into document: err {}", e),
+            Err(e) => whatever!("failed to deserialize response into document: err {}", e),
         };
 
         Ok(document)

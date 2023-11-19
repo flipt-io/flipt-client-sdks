@@ -3,7 +3,8 @@ require 'json'
 require_relative '../lib/evaluation'
 
 RSpec.describe Flipt::EvaluationClient do
-  let(:client) { Flipt::EvaluationClient.new('default', state: 'spec/fixtures/state.json') }
+  let(:state) { File.read('spec/fixtures/state.json') }
+  let(:client) { Flipt::EvaluationClient.new('default', state: state) }
 
   describe '#variant' do
     let (:evaluation_request) { {flag_key: "flag1", entity_id: "entity1", context: {fizz:"buzz"}} }

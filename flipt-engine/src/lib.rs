@@ -154,9 +154,9 @@ pub unsafe extern "C" fn initialize_engine(namespaces: *const *const c_char) -> 
 #[no_mangle]
 pub unsafe extern "C" fn initialize_engine_with_state(
     namespaces: *const *const c_char,
-    path: *const c_char,
+    state: *const c_char,
 ) -> *mut c_void {
-    let c_str = CStr::from_ptr(path);
+    let c_str = CStr::from_ptr(state);
     let rust_str = c_str.to_str().unwrap();
 
     let mut index = 0;
