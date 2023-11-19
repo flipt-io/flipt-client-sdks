@@ -26,14 +26,12 @@ type BooleanEvaluationResponse struct {
 	Timestamp             string  `json:"timestamp"`
 }
 
-type VariantResult struct {
-	Status       string                     `json:"status"`
-	Result       *VariantEvaluationResponse `json:"result,omitempty"`
-	ErrorMessage string                     `json:"error_message,omitempty"`
+type Result[R any] struct {
+	Status       string `json:"status"`
+	Result       *R     `json:"result,omitempty"`
+	ErrorMessage string `json:"error_message,omitempty"`
 }
 
-type BooleanResult struct {
-	Status       string                     `json:"status"`
-	Result       *BooleanEvaluationResponse `json:"result,omitempty"`
-	ErrorMessage string                     `json:"error_message,omitempty"`
-}
+type VariantResult Result[VariantEvaluationResponse]
+
+type BooleanResult Result[BooleanEvaluationResponse]
