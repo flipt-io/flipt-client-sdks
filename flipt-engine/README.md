@@ -19,15 +19,24 @@ TODO: Add more details
 ### Prerequisites
 
 - [Rust](https://www.rust-lang.org/tools/install)
+- [cbindgen](https://github.com/mozilla/cbindgen)
 
 ### Build
 
 ```bash
-cargo build
+cargo build --release
 ```
 
 ### Test
 
 ```bash
 cargo test
+```
+
+### Generate the FFI Header
+
+Requires [cbindgen](https://github.com/mozilla/cbindgen)
+
+```bash
+cbindgen --config cbindgen.toml --crate flipt-client-engine --output flipt_engine.h
 ```

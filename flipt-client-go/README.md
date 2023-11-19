@@ -15,14 +15,14 @@ This should generate a `target/` directory in the root of this repository, which
 You can import the module that contains the evaluation client: `go.flipt.io/flipt/flipt-client-go` and build your Go project with the `CGO_LDFLAGS` environment variable set:
 
 ```bash
-CGO_LDFLAGS="-L/path/to/lib -lengine"
+CGO_LDFLAGS="-L/path/to/lib -lfliptengine"
 ```
 
 The `path/to/lib` will be the path to the dynamic library which will have the following paths depending on your platform.
 
-- **Linux**: `{REPO_ROOT}/target/release/libengine.so`
-- **Windows**: `{REPO_ROOT}/target/release/libengine.dll`
-- **MacOS**: `{REPO_ROOT}/target/release/libengine.dylib`
+- **Linux**: `{REPO_ROOT}/target/release/libfliptengine.so`
+- **Windows**: `{REPO_ROOT}/target/release/libfliptengine.dll`
+- **MacOS**: `{REPO_ROOT}/target/release/libfliptengine.dylib`
 
 You can then use the client like so:
 
