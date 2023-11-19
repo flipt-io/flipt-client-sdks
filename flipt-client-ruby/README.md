@@ -37,3 +37,17 @@ resp = client.variant({ flag_key: 'buzz', entity_id: 'someentity', context: { fi
 
 puts resp
 ```
+
+## Testing
+
+### Preqrequisites
+
+- Ruby
+- Bundler
+- Run `make ruby` from the root of the repository to build the Rust library and copy the necessary files over.
+
+To run the tests for this client, you can run the following command from this directory:
+
+```bash
+rspec .
+```

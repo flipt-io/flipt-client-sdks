@@ -6,8 +6,18 @@ RSpec.describe Flipt::EvaluationClient do
   let(:client) { Flipt::EvaluationClient.new('default', state: 'spec/fixtures/state.json') }
 
   describe '#variant' do
+    let (:evaluation_request) { {flag_key: "flag1", entity_id: "entity1", context: {fizz:"buzz"}} }
     it 'returns the variant' do
-      expect(client.variant({"flag_key": "key1", "entity_id": "entity1"})).to eq({"flag_key": "key1", "entity_id": "entity1", "variant": "variant1"})
+      resp = client.variant(evaluation_request)
+      expect(resp["status"]).to eq("success")
+      expect(resp["result"]).to_not be_nil
+      expect(resp["result"]["flag_key"]).to eq("flag1")
+      expect(resp["result"]["variant_key"]).to eq("variant1")
+      expect(resp["result"]["match"]).to eq(true)
     end
+  end
+
+  describe '#boolean' do
+    skip 'TODO: implement boolean evaluation spec'
   end
 end
