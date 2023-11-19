@@ -6,10 +6,10 @@ use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
-use store::parsers;
 
 pub mod evaluator;
 mod models;
+mod parser;
 mod store;
 
 #[derive(Deserialize)]
@@ -26,7 +26,7 @@ pub struct Engine {
 
 impl Engine {
     pub fn new(namespaces: Vec<String>) -> Self {
-        let source = parsers::HTTPParser::new();
+        let source = parser::HTTPParser::new();
         let evaluation_engine = evaluator::Evaluator::new(namespaces, Box::new(source));
 
         let mut engine = Self {

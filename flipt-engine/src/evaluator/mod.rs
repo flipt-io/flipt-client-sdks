@@ -7,8 +7,8 @@ use std::time::{Duration, SystemTime, SystemTimeError};
 
 use crate::models::common;
 use crate::models::flipt;
-use crate::store::parsers::Parser;
-use crate::store::snapshot::{Snapshot, Store};
+use crate::parser::Parser;
+use crate::store::{Snapshot, Store};
 
 const DEFAULT_PERCENT: f32 = 100.0;
 const DEFAULT_TOTAL_BUCKET_NUMBER: u32 = 1000;
@@ -673,8 +673,8 @@ mod tests {
     use super::*;
     use crate::models::common;
     use crate::models::flipt;
-    use crate::store::parsers::TestParser;
-    use crate::store::snapshot::MockStore;
+    use crate::parser::TestParser;
+    use crate::store::MockStore;
 
     macro_rules! matches_string_tests {
         ($($name:ident: $value:expr,)*) => {

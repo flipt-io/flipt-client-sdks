@@ -20,8 +20,8 @@ impl HTTPParser {
             .build()
             .unwrap();
 
-        let http_url =
-            env::var("FLIPT_REMOTE_URL").unwrap_or(String::from("http://localhost:8080"));
+        // TODO: This should be a config option and not an env var.
+        let http_url = env::var("FLIPT_URL").unwrap_or(String::from("http://localhost:8080"));
 
         Self {
             http_client,
