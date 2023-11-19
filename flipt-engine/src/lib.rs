@@ -26,16 +26,30 @@ pub struct Engine {
 
 impl Engine {
     pub fn new(namespaces: Vec<String>) -> Self {
-        let source = parsers::HTTPParser::new(namespaces);
-        let evaluation_engine = evaluator::Evaluator::new(Box::new(source));
+        let source = parsers::HTTPParser::new();
+        let evaluation_engine = evaluator::Evaluator::new(namespaces, Box::new(source));
 
-        let mut evaluator = Self {
+        let mut engine = Self {
             evaluator: Arc::new(Mutex::new(evaluation_engine.unwrap())),
         };
 
-        evaluator.update();
+        engine.update();
 
-        evaluator
+        engine
+    }
+
+    // This function is used for testing purposes only.
+    pub fn from_json(json: String) -> Self {
+        let source = parsers::LocalParser::new(json);
+        let evaluation_engine = evaluator::Evaluator::new(vec![], Box::new(source));
+
+        let mut engine = Self {
+            evaluator: Arc::new(Mutex::new(evaluation_engine.unwrap())),
+        };
+
+        engine.update();
+
+        engine
     }
 
     fn update(&mut self) {

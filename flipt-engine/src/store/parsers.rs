@@ -1,22 +1,40 @@
 use snafu::{prelude::*, Whatever};
 use std::env;
 
-#[cfg(test)]
-use std::fs;
-#[cfg(test)]
-use std::path::PathBuf;
-
-use super::snapshot::Parser;
 use crate::models::transport;
 
+pub trait Parser {
+    fn parse(&self, namespace: String) -> Result<transport::Document, Whatever>;
+}
+
+pub struct LocalParser {
+    json: String,
+}
+
+impl LocalParser {
+    pub fn new(json: String) -> Self {
+        Self { json }
+    }
+}
+
+impl Parser for LocalParser {
+    fn parse(&self, _: String) -> Result<transport::Document, Whatever> {
+        let document: transport::Document = match serde_json::from_str(&self.json) {
+            Ok(doc) => doc,
+            Err(e) => whatever!("failed to deserialize text into document: err {}", e),
+        };
+
+        Ok(document)
+    }
+}
+
 pub struct HTTPParser {
-    namespaces: Vec<String>,
     http_client: reqwest::blocking::Client,
     http_url: String,
 }
 
 impl HTTPParser {
-    pub fn new(namespaces: Vec<String>) -> Self {
+    pub fn new() -> Self {
         // We will allow the following line to panic when an error is encountered.
         let http_client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
@@ -27,7 +45,6 @@ impl HTTPParser {
             env::var("FLIPT_REMOTE_URL").unwrap_or(String::from("http://localhost:8080"));
 
         Self {
-            namespaces,
             http_client,
             http_url,
         }
@@ -60,32 +77,38 @@ impl Parser for HTTPParser {
 
         Ok(document)
     }
-
-    fn get_namespaces(&self) -> Vec<String> {
-        self.namespaces.clone()
-    }
 }
 
 #[cfg(test)]
+use std::fs;
+#[cfg(test)]
+use std::path::PathBuf;
+
+#[cfg(test)]
 pub struct TestParser {
-    namespaces: Vec<String>,
+    path: Option<String>,
 }
 
 #[cfg(test)]
 impl TestParser {
-    pub fn new(namespaces: Vec<String>) -> Self {
-        Self { namespaces }
+    pub fn new() -> Self {
+        Self { path: None }
     }
 }
 
 #[cfg(test)]
 impl Parser for TestParser {
     fn parse(&self, _: String) -> Result<transport::Document, Whatever> {
-        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        d.push("src/testdata/state.json");
+        let f = match &self.path {
+            Some(path) => path.to_owned(),
+            None => {
+                let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+                d.push("src/testdata/state.json");
+                d.display().to_string()
+            }
+        };
 
-        let state =
-            fs::read_to_string(d.display().to_string()).expect("file should have read correctly");
+        let state = fs::read_to_string(f).expect("file should have read correctly");
 
         let document: transport::Document = match serde_json::from_str(&state) {
             Ok(document) => document,
@@ -93,9 +116,5 @@ impl Parser for TestParser {
         };
 
         Ok(document)
-    }
-
-    fn get_namespaces(&self) -> Vec<String> {
-        self.namespaces.clone()
     }
 }
