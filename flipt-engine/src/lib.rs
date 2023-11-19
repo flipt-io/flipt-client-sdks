@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 
 pub mod evaluator;
 mod models;
-mod parser;
+pub mod parser;
 mod store;
 
 #[derive(Deserialize)]
@@ -144,6 +144,34 @@ pub unsafe extern "C" fn initialize_engine(namespaces: *const *const c_char) -> 
     }
 
     let parser = Box::new(parser::HTTPParser::new());
+    let evaluator = evaluator::Evaluator::new(namespaces_vec, parser);
+    Box::into_raw(Box::new(Engine::new(evaluator.unwrap()))) as *mut c_void
+}
+
+/// # Safety
+///
+/// This function will initialize an Engine from a given state in JSON and return a pointer back to the caller.
+#[no_mangle]
+pub unsafe extern "C" fn initialize_engine_with_state(
+    namespaces: *const *const c_char,
+    path: *const c_char,
+) -> *mut c_void {
+    let c_str = CStr::from_ptr(path);
+    let rust_str = c_str.to_str().unwrap();
+
+    let mut index = 0;
+    let mut namespaces_vec = Vec::new();
+
+    while !(*namespaces.offset(index)).is_null() {
+        let c_str = CStr::from_ptr(*namespaces.offset(index));
+        if let Ok(rust_str) = c_str.to_str() {
+            namespaces_vec.push(rust_str.to_string());
+        }
+
+        index += 1;
+    }
+
+    let parser = Box::new(parser::LocalParser::new(rust_str.to_string()));
     let evaluator = evaluator::Evaluator::new(namespaces_vec, parser);
     Box::into_raw(Box::new(Engine::new(evaluator.unwrap()))) as *mut c_void
 }

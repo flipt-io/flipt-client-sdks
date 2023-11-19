@@ -26,6 +26,8 @@ module Flipt
 
     # void *initialize_engine(const char *const *namespaces);
     attach_function :initialize_engine, [:pointer], :pointer
+    # void *initialize_engine_with_state(const char *const *namespaces, const char *state);
+    attach_function :initialize_engine_with_state, [:pointer, :string], :pointer
     # void destroy_engine(void *engine_ptr);
     attach_function :destroy_engine, [:pointer], :void
     # const char *variant(void *engine_ptr, const char *evaluation_request);
@@ -33,14 +35,20 @@ module Flipt
     # const char *boolean(void *engine_ptr, const char *evaluation_request);
     attach_function :boolean, [:pointer, :string], :string
 
-    def initialize(namespace = "default")
+    def initialize(namespace = "default", opts = {})
       @namespace = namespace
       namespace_list = [namespace]
       ns = FFI::MemoryPointer.new(:pointer, namespace_list.size)
       namespace_list.each_with_index do |namespace, i|
         ns[i].put_pointer(0, FFI::MemoryPointer.from_string(namespace))
       end
-      @engine = self.class.initialize_engine(ns)
+
+      if opts[:state].nil?
+        @engine = self.class.initialize_engine(ns)
+      else
+        @engine = self.class.initialize_engine_with_state(ns, opts[:state])
+      end
+
       ObjectSpace.define_finalizer(self, self.class.finalize(@engine))
     end
 

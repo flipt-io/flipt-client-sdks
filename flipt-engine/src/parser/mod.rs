@@ -7,6 +7,32 @@ pub trait Parser {
     fn parse(&self, namespace: String) -> Result<source::Document, Whatever>;
 }
 
+pub struct LocalParser {
+    path: String,
+}
+
+impl LocalParser {
+    pub fn new(path: String) -> Self {
+        Self { path }
+    }
+}
+
+impl Parser for LocalParser {
+    fn parse(&self, _: String) -> Result<source::Document, Whatever> {
+        let state = match std::fs::read_to_string(&self.path) {
+            Ok(state) => state,
+            Err(e) => whatever!("failed to read file: err {}", e),
+        };
+
+        let document: source::Document = match serde_json::from_str(&state) {
+            Ok(document) => document,
+            Err(e) => whatever!("failed to deserialize text into document: err {}", e),
+        };
+
+        Ok(document)
+    }
+}
+
 pub struct HTTPParser {
     http_client: reqwest::blocking::Client,
     http_url: String,
