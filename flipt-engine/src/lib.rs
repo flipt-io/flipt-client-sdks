@@ -27,10 +27,10 @@ pub struct Engine {
 impl Engine {
     pub fn new(namespaces: Vec<String>) -> Self {
         let source = parser::HTTPParser::new();
-        let evaluation_engine = evaluator::Evaluator::new(namespaces, Box::new(source));
+        let evaluator = evaluator::Evaluator::new(namespaces, Box::new(source));
 
         let mut engine = Self {
-            evaluator: Arc::new(Mutex::new(evaluation_engine.unwrap())),
+            evaluator: Arc::new(Mutex::new(evaluator.unwrap())),
         };
 
         engine.update();
