@@ -1,31 +1,10 @@
 use snafu::{prelude::*, Whatever};
 use std::env;
 
-use crate::models::transport;
+use crate::models::source;
 
 pub trait Parser {
-    fn parse(&self, namespace: String) -> Result<transport::Document, Whatever>;
-}
-
-pub struct LocalParser {
-    json: String,
-}
-
-impl LocalParser {
-    pub fn new(json: String) -> Self {
-        Self { json }
-    }
-}
-
-impl Parser for LocalParser {
-    fn parse(&self, _: String) -> Result<transport::Document, Whatever> {
-        let document: transport::Document = match serde_json::from_str(&self.json) {
-            Ok(doc) => doc,
-            Err(e) => whatever!("failed to deserialize text into document: err {}", e),
-        };
-
-        Ok(document)
-    }
+    fn parse(&self, namespace: String) -> Result<source::Document, Whatever>;
 }
 
 pub struct HTTPParser {
@@ -52,7 +31,7 @@ impl HTTPParser {
 }
 
 impl Parser for HTTPParser {
-    fn parse(&self, namespace: String) -> Result<transport::Document, Whatever> {
+    fn parse(&self, namespace: String) -> Result<source::Document, Whatever> {
         let response = match self
             .http_client
             .get(format!(
@@ -70,7 +49,7 @@ impl Parser for HTTPParser {
             Err(e) => whatever!("failed to get response body: err {}", e),
         };
 
-        let document: transport::Document = match serde_json::from_str(&response_text) {
+        let document: source::Document = match serde_json::from_str(&response_text) {
             Ok(doc) => doc,
             Err(e) => whatever!("failed to deserialize text into document: err {}", e),
         };
@@ -98,7 +77,7 @@ impl TestParser {
 
 #[cfg(test)]
 impl Parser for TestParser {
-    fn parse(&self, _: String) -> Result<transport::Document, Whatever> {
+    fn parse(&self, _: String) -> Result<source::Document, Whatever> {
         let f = match &self.path {
             Some(path) => path.to_owned(),
             None => {
@@ -110,7 +89,7 @@ impl Parser for TestParser {
 
         let state = fs::read_to_string(f).expect("file should have read correctly");
 
-        let document: transport::Document = match serde_json::from_str(&state) {
+        let document: source::Document = match serde_json::from_str(&state) {
             Ok(document) => document,
             Err(e) => whatever!("failed to deserialize text into document: err {}", e),
         };

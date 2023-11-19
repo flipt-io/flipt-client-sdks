@@ -38,20 +38,6 @@ impl Engine {
         engine
     }
 
-    // This function is used for testing purposes only.
-    pub fn from_json(json: String) -> Self {
-        let source = parsers::LocalParser::new(json);
-        let evaluation_engine = evaluator::Evaluator::new(vec![], Box::new(source));
-
-        let mut engine = Self {
-            evaluator: Arc::new(Mutex::new(evaluation_engine.unwrap())),
-        };
-
-        engine.update();
-
-        engine
-    }
-
     fn update(&mut self) {
         let evaluator = self.evaluator.clone();
         let update_interval = std::env::var("FLIPT_UPDATE_INTERVAL")

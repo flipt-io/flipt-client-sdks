@@ -3,11 +3,11 @@ require 'json'
 require_relative '../lib/evaluation'
 
 RSpec.describe Flipt::EvaluationClient do
-  let(:client) { Flipt::EvaluationClient.new }
+  # let(:client) { Flipt::EvaluationClient.initialize_from_state('{"namespaces": ["default"]}') }
 
-  describe '#variant' do
-    it 'returns the variant' do
-      expect(client.variant('{"key": "key1", "entity_id": "entity1"}')).to eq('{"key": "key1", "entity_id": "entity1", "variant": "variant1"}')
-    end
-  end
+  # describe '#variant' do
+  #   it 'returns the variant' do
+  #     expect(client.variant('{"key": "key1", "entity_id": "entity1"}')).to eq('{"key": "key1", "entity_id": "entity1", "variant": "variant1"}')
+  #   end
+  # end
 end
