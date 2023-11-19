@@ -16,7 +16,7 @@ const DEFAULT_PERCENT_MULTIPIER: f32 = DEFAULT_TOTAL_BUCKET_NUMBER as f32 / DEFA
 
 pub struct Evaluator {
     namespaces: Vec<String>,
-    source: Box<dyn Parser + Send>,
+    parser: Box<dyn Parser + Send>,
     snapshot: Box<dyn Store + Send>,
     mtx: Arc<RwLock<i32>>,
 }
@@ -104,13 +104,13 @@ type BooleanEvaluationResult<T> = std::result::Result<T, Whatever>;
 impl Evaluator {
     pub fn new(
         namespaces: Vec<String>,
-        source: Box<dyn Parser + Sync + Send>,
+        parser: Box<dyn Parser + Sync + Send>,
     ) -> Result<Self, Whatever> {
-        let snap = Snapshot::build(&namespaces, &*source)?;
+        let snap = Snapshot::build(&namespaces, &*parser)?;
 
         Ok(Self {
             namespaces,
-            source,
+            parser,
             snapshot: Box::new(snap),
             mtx: Arc::new(RwLock::new(0)),
         })
@@ -118,7 +118,7 @@ impl Evaluator {
 
     pub fn replace_snapshot(&mut self) {
         let _w_lock = self.mtx.write().unwrap();
-        let snap = Snapshot::build(&self.namespaces, self.source.as_ref());
+        let snap = Snapshot::build(&self.namespaces, self.parser.as_ref());
         self.snapshot = Box::new(snap.unwrap());
     }
 
@@ -992,7 +992,7 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            source: Box::new(test_parser),
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1084,7 +1084,7 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            source: Box::new(test_parser),
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1203,7 +1203,7 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            source: Box::new(test_parser),
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1304,7 +1304,7 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            source: Box::new(test_parser),
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1410,7 +1410,7 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            source: Box::new(test_parser),
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1543,7 +1543,7 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            source: Box::new(test_parser),
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1627,7 +1627,7 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            source: Box::new(test_parser),
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1724,7 +1724,7 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            source: Box::new(test_parser),
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1815,7 +1815,7 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            source: Box::new(test_parser),
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1933,7 +1933,7 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            source: Box::new(test_parser),
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -2033,7 +2033,7 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            source: Box::new(test_parser),
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -2130,7 +2130,7 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            source: Box::new(test_parser),
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -2262,7 +2262,7 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            source: Box::new(test_parser),
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -2345,7 +2345,7 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            source: Box::new(test_parser),
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -2467,7 +2467,7 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            source: Box::new(test_parser),
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -2579,7 +2579,7 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            source: Box::new(test_parser),
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
