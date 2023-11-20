@@ -6,7 +6,7 @@ class EvaluationRequest(BaseModel):
     namespace_key: str
     flag_key: str
     entity_id: str
-    context: str
+    context: dict
 
 
 class VariantEvaluationResponse(BaseModel):
