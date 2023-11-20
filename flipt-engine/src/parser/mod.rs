@@ -7,27 +7,6 @@ pub trait Parser {
     fn parse(&self, namespace: String) -> Result<source::Document, Whatever>;
 }
 
-pub struct LocalParser {
-    state: String,
-}
-
-impl LocalParser {
-    pub fn new(state: String) -> Self {
-        Self { state }
-    }
-}
-
-impl Parser for LocalParser {
-    fn parse(&self, _: String) -> Result<source::Document, Whatever> {
-        let document: source::Document = match serde_json::from_str(&self.state) {
-            Ok(document) => document,
-            Err(e) => whatever!("failed to deserialize JSON into document: err {}", e),
-        };
-
-        Ok(document)
-    }
-}
-
 pub struct HTTPParser {
     http_client: reqwest::blocking::Client,
     http_url: String,
