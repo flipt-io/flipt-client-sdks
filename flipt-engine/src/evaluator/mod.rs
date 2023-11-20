@@ -7,15 +7,16 @@ use std::time::{Duration, SystemTime, SystemTimeError};
 
 use crate::models::common;
 use crate::models::flipt;
-use crate::store::parsers;
-use crate::store::snapshot::{Parser, Snapshot, Store};
+use crate::parser::Parser;
+use crate::store::{Snapshot, Store};
 
 const DEFAULT_PERCENT: f32 = 100.0;
 const DEFAULT_TOTAL_BUCKET_NUMBER: u32 = 1000;
 const DEFAULT_PERCENT_MULTIPIER: f32 = DEFAULT_TOTAL_BUCKET_NUMBER as f32 / DEFAULT_PERCENT;
 
 pub struct Evaluator {
-    flipt_parser: Box<dyn Parser + Send>,
+    namespaces: Vec<String>,
+    parser: Box<dyn Parser + Send>,
     snapshot: Box<dyn Store + Send>,
     mtx: Arc<RwLock<i32>>,
 }
@@ -101,12 +102,15 @@ type VariantEvaluationResult<T> = std::result::Result<T, Whatever>;
 type BooleanEvaluationResult<T> = std::result::Result<T, Whatever>;
 
 impl Evaluator {
-    pub fn new(namespaces: Vec<String>) -> Result<Self, Whatever> {
-        let flipt_parser = parsers::FliptParser::new(namespaces.clone());
-        let snap = Snapshot::build(&flipt_parser)?;
+    pub fn new(
+        namespaces: Vec<String>,
+        parser: Box<dyn Parser + Sync + Send>,
+    ) -> Result<Self, Whatever> {
+        let snap = Snapshot::build(&namespaces, &*parser)?;
 
         Ok(Self {
-            flipt_parser: Box::new(flipt_parser),
+            namespaces,
+            parser,
             snapshot: Box::new(snap),
             mtx: Arc::new(RwLock::new(0)),
         })
@@ -114,7 +118,7 @@ impl Evaluator {
 
     pub fn replace_snapshot(&mut self) {
         let _w_lock = self.mtx.write().unwrap();
-        let snap = Snapshot::build(self.flipt_parser.as_ref());
+        let snap = Snapshot::build(&self.namespaces, self.parser.as_ref());
         self.snapshot = Box::new(snap.unwrap());
     }
 
@@ -669,8 +673,8 @@ mod tests {
     use super::*;
     use crate::models::common;
     use crate::models::flipt;
-    use crate::store::parsers::TestParser;
-    use crate::store::snapshot::MockStore;
+    use crate::parser::TestParser;
+    use crate::store::MockStore;
 
     macro_rules! matches_string_tests {
         ($($name:ident: $value:expr,)*) => {
@@ -936,7 +940,7 @@ mod tests {
     // Segment Match Type ALL
     #[test]
     fn test_evaluator_match_all_no_variants_no_distributions() {
-        let test_parser = TestParser::new(vec!["default".into()]);
+        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -987,7 +991,8 @@ mod tests {
             .returning(|_, _| Some(vec![]));
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            namespaces: vec!["default".into()],
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1014,7 +1019,7 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_all_multiple_segments() {
-        let test_parser = TestParser::new(vec!["default".into()]);
+        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1078,7 +1083,8 @@ mod tests {
             .returning(|_, _| Some(vec![]));
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            namespaces: vec!["default".into()],
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1125,7 +1131,7 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_all_distribution_not_matched() {
-        let test_parser = TestParser::new(vec!["default".into()]);
+        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1196,7 +1202,8 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            namespaces: vec!["default".into()],
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1225,7 +1232,7 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_all_single_variant_distribution() {
-        let test_parser = TestParser::new(vec!["default".into()]);
+        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1296,7 +1303,8 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            namespaces: vec!["default".into()],
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1335,7 +1343,7 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_all_rollout_distribution() {
-        let test_parser = TestParser::new(vec!["default".into()]);
+        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1401,7 +1409,8 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            namespaces: vec!["default".into()],
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1448,7 +1457,7 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_all_rollout_distribution_multi_rule() {
-        let test_parser = TestParser::new(vec!["default".into()]);
+        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1533,7 +1542,8 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            namespaces: vec!["default".into()],
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1563,7 +1573,7 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_all_no_constraints() {
-        let test_parser = TestParser::new(vec!["default".into()]);
+        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1616,7 +1626,8 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            namespaces: vec!["default".into()],
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1661,7 +1672,7 @@ mod tests {
     // Segment Match Type ANY
     #[test]
     fn test_evaluator_match_any_no_variants_no_distributions() {
-        let test_parser = TestParser::new(vec!["default".into()]);
+        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1712,7 +1723,8 @@ mod tests {
             .returning(|_, _| Some(vec![]));
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            namespaces: vec!["default".into()],
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1738,7 +1750,7 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_any_multiple_segments() {
-        let test_parser = TestParser::new(vec!["default".into()]);
+        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1802,7 +1814,8 @@ mod tests {
             .returning(|_, _| Some(vec![]));
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            namespaces: vec!["default".into()],
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1848,7 +1861,7 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_any_distribution_not_matched() {
-        let test_parser = TestParser::new(vec!["default".into()]);
+        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1919,7 +1932,8 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            namespaces: vec!["default".into()],
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -1947,7 +1961,7 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_any_single_variant_distribution() {
-        let test_parser = TestParser::new(vec!["default".into()]);
+        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -2018,7 +2032,8 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            namespaces: vec!["default".into()],
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -2048,7 +2063,7 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_any_rollout_distribution() {
-        let test_parser = TestParser::new(vec!["default".into()]);
+        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -2114,7 +2129,8 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            namespaces: vec!["default".into()],
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -2160,7 +2176,7 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_any_rollout_distribution_multi_rule() {
-        let test_parser = TestParser::new(vec!["default".into()]);
+        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -2245,7 +2261,8 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            namespaces: vec!["default".into()],
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -2274,7 +2291,7 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_any_no_constraints() {
-        let test_parser = TestParser::new(vec!["default".into()]);
+        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -2327,7 +2344,8 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            namespaces: vec!["default".into()],
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -2390,7 +2408,7 @@ mod tests {
     // Test cases where rollouts have a zero value
     #[test]
     fn test_evaluator_first_rollout_rule_zero() {
-        let test_parser = TestParser::new(vec!["default".into()]);
+        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -2448,7 +2466,8 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            namespaces: vec!["default".into()],
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };
@@ -2477,7 +2496,7 @@ mod tests {
 
     #[test]
     fn test_evaluator_multiple_zero_rollout_distributions() {
-        let test_parser = TestParser::new(vec!["default".into()]);
+        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -2559,7 +2578,8 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            flipt_parser: Box::new(test_parser),
+            namespaces: vec!["default".into()],
+            parser: Box::new(test_parser),
             snapshot: Box::new(mock_store),
             mtx: Arc::new(RwLock::new(0)),
         };

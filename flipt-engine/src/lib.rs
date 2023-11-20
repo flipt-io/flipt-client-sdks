@@ -1,6 +1,6 @@
 use libc::c_void;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use snafu::{prelude::*, Whatever};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 
 pub mod evaluator;
 mod models;
+pub mod parser;
 mod store;
 
 #[derive(Deserialize)]
@@ -16,7 +17,7 @@ struct EvaluationReq {
     namespace_key: String,
     flag_key: String,
     entity_id: String,
-    context: String,
+    context: Option<Map<String, Value>>,
 }
 
 pub struct Engine {
@@ -24,16 +25,14 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn new(namespaces: Vec<String>) -> Self {
-        let evaluation_engine = evaluator::Evaluator::new(namespaces);
-
-        let mut evaluator = Self {
-            evaluator: Arc::new(Mutex::new(evaluation_engine.unwrap())),
+    pub fn new(evaluator: evaluator::Evaluator) -> Self {
+        let mut engine = Self {
+            evaluator: Arc::new(Mutex::new(evaluator)),
         };
 
-        evaluator.update();
+        engine.update();
 
-        evaluator
+        engine
     }
 
     fn update(&mut self) {
@@ -144,7 +143,9 @@ pub unsafe extern "C" fn initialize_engine(namespaces: *const *const c_char) -> 
         index += 1;
     }
 
-    Box::into_raw(Box::new(Engine::new(namespaces_vec))) as *mut c_void
+    let parser = Box::new(parser::HTTPParser::new());
+    let evaluator = evaluator::Evaluator::new(namespaces_vec, parser);
+    Box::into_raw(Box::new(Engine::new(evaluator.unwrap()))) as *mut c_void
 }
 
 /// # Safety
@@ -180,16 +181,12 @@ unsafe fn get_evaluation_request(
 ) -> evaluator::EvaluationRequest {
     let evaluation_request_bytes = CStr::from_ptr(evaluation_request).to_bytes();
     let bytes_str_repr = std::str::from_utf8(evaluation_request_bytes).unwrap();
-
     let client_eval_request: EvaluationReq = serde_json::from_str(bytes_str_repr).unwrap();
 
-    let parsed_context: serde_json::Value =
-        serde_json::from_str(&client_eval_request.context).unwrap();
-
     let mut context_map: HashMap<String, String> = HashMap::new();
-    if let serde_json::Value::Object(map) = parsed_context {
-        for (key, value) in map {
-            if let Value::String(val) = value {
+    if let Some(context_value) = client_eval_request.context {
+        for (key, value) in context_value {
+            if let serde_json::Value::String(val) = value {
                 context_map.insert(key, val);
             }
         }

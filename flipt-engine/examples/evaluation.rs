@@ -1,10 +1,12 @@
 // cargo run --example evaluation
 
-use fliptengine::{self, evaluator};
+use fliptengine::{self, evaluator, parser};
 use std::collections::HashMap;
 
 fn main() {
-    let eng = fliptengine::Engine::new(vec!["default".into()]);
+    let evaluator =
+        evaluator::Evaluator::new(vec!["default".into()], Box::new(parser::HTTPParser::new()));
+    let eng = fliptengine::Engine::new(evaluator.unwrap());
     let mut context: HashMap<String, String> = HashMap::new();
     context.insert("fizz".into(), "buzz".into());
 

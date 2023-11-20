@@ -8,5 +8,4 @@ gem "ffi", "~> 1.16"
 
 group :development do
   gem "bundler", "~> 2.0"
-  gem "rspec", "~> 3.0"
 end

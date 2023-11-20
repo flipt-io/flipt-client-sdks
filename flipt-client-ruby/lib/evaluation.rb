@@ -33,13 +33,14 @@ module Flipt
     # const char *boolean(void *engine_ptr, const char *evaluation_request);
     attach_function :boolean, [:pointer, :string], :string
 
-    def initialize(namespace = "default")
+    def initialize(namespace = "default", opts = {})
       @namespace = namespace
       namespace_list = [namespace]
       ns = FFI::MemoryPointer.new(:pointer, namespace_list.size)
       namespace_list.each_with_index do |namespace, i|
         ns[i].put_pointer(0, FFI::MemoryPointer.from_string(namespace))
       end
+
       @engine = self.class.initialize_engine(ns)
       ObjectSpace.define_finalizer(self, self.class.finalize(@engine))
     end
