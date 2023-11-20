@@ -13,20 +13,81 @@ pub mod parser;
 mod store;
 
 #[derive(Deserialize)]
-struct EvaluationReq {
+struct EvalRequest {
     namespace_key: String,
     flag_key: String,
     entity_id: String,
     context: Option<Map<String, Value>>,
 }
 
+#[derive(Serialize)]
+struct EvalResponse<T>
+where
+    T: Serialize,
+{
+    status: Status,
+    result: Option<T>,
+    error_message: Option<String>,
+}
+
+#[derive(Serialize)]
+enum Status {
+    #[serde(rename = "success")]
+    Success,
+    #[serde(rename = "failure")]
+    Failure,
+}
+
+impl<T> From<Result<T, Whatever>> for EvalResponse<T>
+where
+    T: Serialize,
+{
+    fn from(value: Result<T, Whatever>) -> Self {
+        match value {
+            Ok(result) => EvalResponse {
+                status: Status::Success,
+                result: Some(result),
+                error_message: None,
+            },
+            Err(e) => EvalResponse {
+                status: Status::Failure,
+                result: None,
+                error_message: Some(e.to_string()),
+            },
+        }
+    }
+}
+
+fn result_to_json_ptr<T: Serialize>(result: Result<T, Whatever>) -> *mut c_char {
+    let ffi_response: EvalResponse<T> = result.into();
+    let json_string = serde_json::to_string(&ffi_response).unwrap();
+    CString::new(json_string).unwrap().into_raw()
+}
+
+#[derive(Deserialize)]
+pub struct EngineOpts {
+    url: Option<String>,
+    update_interval: Option<u64>,
+}
+
+impl Default for EngineOpts {
+    fn default() -> Self {
+        Self {
+            url: Some("http://localhost:8080".into()),
+            update_interval: Some(120),
+        }
+    }
+}
+
 pub struct Engine {
+    pub opts: EngineOpts,
     pub evaluator: Arc<Mutex<evaluator::Evaluator>>,
 }
 
 impl Engine {
-    pub fn new(evaluator: evaluator::Evaluator) -> Self {
+    pub fn new(evaluator: evaluator::Evaluator, opts: EngineOpts) -> Self {
         let mut engine = Self {
+            opts,
             evaluator: Arc::new(Mutex::new(evaluator)),
         };
 
@@ -37,10 +98,7 @@ impl Engine {
 
     fn update(&mut self) {
         let evaluator = self.evaluator.clone();
-        let update_interval = std::env::var("FLIPT_UPDATE_INTERVAL")
-            .unwrap_or("120".into())
-            .parse::<u64>()
-            .unwrap_or(120);
+        let update_interval = self.opts.update_interval.unwrap_or(120);
 
         std::thread::spawn(move || loop {
             std::thread::sleep(std::time::Duration::from_secs(update_interval));
@@ -70,50 +128,6 @@ impl Engine {
     }
 }
 
-#[derive(Serialize)]
-struct FFIResponse<T>
-where
-    T: Serialize,
-{
-    status: Status,
-    result: Option<T>,
-    error_message: Option<String>,
-}
-
-#[derive(Serialize)]
-enum Status {
-    #[serde(rename = "success")]
-    Success,
-    #[serde(rename = "failure")]
-    Failure,
-}
-
-impl<T> From<Result<T, Whatever>> for FFIResponse<T>
-where
-    T: Serialize,
-{
-    fn from(value: Result<T, Whatever>) -> Self {
-        match value {
-            Ok(result) => FFIResponse {
-                status: Status::Success,
-                result: Some(result),
-                error_message: None,
-            },
-            Err(e) => FFIResponse {
-                status: Status::Failure,
-                result: None,
-                error_message: Some(e.to_string()),
-            },
-        }
-    }
-}
-
-fn result_to_json_ptr<T: Serialize>(result: Result<T, Whatever>) -> *mut c_char {
-    let ffi_response: FFIResponse<T> = result.into();
-    let json_string = serde_json::to_string(&ffi_response).unwrap();
-    CString::new(json_string).unwrap().into_raw()
-}
-
 /// # Safety
 ///
 /// This function should not be called unless an Engine is initiated. It provides a helper
@@ -130,7 +144,10 @@ unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, What
 ///
 /// This function will initialize an Engine and return a pointer back to the caller.
 #[no_mangle]
-pub unsafe extern "C" fn initialize_engine(namespaces: *const *const c_char) -> *mut c_void {
+pub unsafe extern "C" fn initialize_engine(
+    namespaces: *const *const c_char,
+    opts: *const c_char,
+) -> *mut c_void {
     let mut index = 0;
     let mut namespaces_vec = Vec::new();
 
@@ -143,9 +160,18 @@ pub unsafe extern "C" fn initialize_engine(namespaces: *const *const c_char) -> 
         index += 1;
     }
 
-    let parser = Box::new(parser::HTTPParser::new());
+    let engine_opts_bytes = CStr::from_ptr(opts).to_bytes();
+    let bytes_str_repr = std::str::from_utf8(engine_opts_bytes).unwrap();
+    let engine_opts: EngineOpts = serde_json::from_str(bytes_str_repr).unwrap_or_default();
+
+    let http_url = engine_opts
+        .url
+        .to_owned()
+        .unwrap_or("http://localhost:8080".into());
+
+    let parser = Box::new(parser::HTTPParser::new(&http_url));
     let evaluator = evaluator::Evaluator::new(namespaces_vec, parser);
-    Box::into_raw(Box::new(Engine::new(evaluator.unwrap()))) as *mut c_void
+    Box::into_raw(Box::new(Engine::new(evaluator.unwrap(), engine_opts))) as *mut c_void
 }
 
 /// # Safety
@@ -181,7 +207,7 @@ unsafe fn get_evaluation_request(
 ) -> evaluator::EvaluationRequest {
     let evaluation_request_bytes = CStr::from_ptr(evaluation_request).to_bytes();
     let bytes_str_repr = std::str::from_utf8(evaluation_request_bytes).unwrap();
-    let client_eval_request: EvaluationReq = serde_json::from_str(bytes_str_repr).unwrap();
+    let client_eval_request: EvalRequest = serde_json::from_str(bytes_str_repr).unwrap();
 
     let mut context_map: HashMap<String, String> = HashMap::new();
     if let Some(context_value) = client_eval_request.context {

@@ -24,8 +24,8 @@ module Flipt
     extend FFI::Library
     ffi_lib File.expand_path(platform_specific_lib, __dir__)
 
-    # void *initialize_engine(const char *const *namespaces);
-    attach_function :initialize_engine, [:pointer], :pointer
+    # void *initialize_engine(const char *const *namespaces, const char *opts);
+    attach_function :initialize_engine, [:pointer, :string], :pointer
     # void destroy_engine(void *engine_ptr);
     attach_function :destroy_engine, [:pointer], :void
     # const char *variant(void *engine_ptr, const char *evaluation_request);
@@ -41,7 +41,7 @@ module Flipt
         ns[i].put_pointer(0, FFI::MemoryPointer.from_string(namespace))
       end
 
-      @engine = self.class.initialize_engine(ns)
+      @engine = self.class.initialize_engine(ns, opts.to_json)
       ObjectSpace.define_finalizer(self, self.class.finalize(@engine))
     end
 
