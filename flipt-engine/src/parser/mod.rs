@@ -1,10 +1,9 @@
 use snafu::{prelude::*, Whatever};
-use std::env;
 
 use crate::models::source;
 
 pub trait Parser {
-    fn parse(&self, namespace: String) -> Result<source::Document, Whatever>;
+    fn parse(&self, namespace: &str) -> Result<source::Document, Whatever>;
 }
 
 pub struct HTTPParser {
@@ -13,25 +12,22 @@ pub struct HTTPParser {
 }
 
 impl HTTPParser {
-    pub fn new() -> Self {
+    pub fn new(url: &str) -> Self {
         // We will allow the following line to panic when an error is encountered.
         let http_client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
             .unwrap();
 
-        // TODO: This should be a config option and not an env var.
-        let http_url = env::var("FLIPT_URL").unwrap_or(String::from("http://localhost:8080"));
-
         Self {
             http_client,
-            http_url,
+            http_url: url.to_string(),
         }
     }
 }
 
 impl Parser for HTTPParser {
-    fn parse(&self, namespace: String) -> Result<source::Document, Whatever> {
+    fn parse(&self, namespace: &str) -> Result<source::Document, Whatever> {
         let response = match self
             .http_client
             .get(format!(
@@ -77,7 +73,7 @@ impl TestParser {
 
 #[cfg(test)]
 impl Parser for TestParser {
-    fn parse(&self, _: String) -> Result<source::Document, Whatever> {
+    fn parse(&self, _: &str) -> Result<source::Document, Whatever> {
         let f = match &self.path {
             Some(path) => path.to_owned(),
             None => {

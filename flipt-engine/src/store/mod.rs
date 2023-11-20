@@ -44,7 +44,7 @@ impl Snapshot {
         let mut ns: HashMap<String, Namespace> = HashMap::new();
 
         for n in namespaces {
-            let doc = parser.parse(n.clone())?;
+            let doc = parser.parse(n)?;
 
             let mut flags: HashMap<String, flipt::Flag> = HashMap::new();
             let mut eval_rules: HashMap<String, Vec<flipt::EvaluationRule>> = HashMap::new();
