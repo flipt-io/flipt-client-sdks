@@ -335,8 +335,7 @@ impl Evaluator {
                     evaluation_request.flag_key, evaluation_request.entity_id
                 )
                 .as_bytes(),
-            ) as u32
-                % DEFAULT_TOTAL_BUCKET_NUMBER;
+            ) % DEFAULT_TOTAL_BUCKET_NUMBER;
 
             buckets.sort();
 
