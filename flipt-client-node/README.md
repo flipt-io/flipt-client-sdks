@@ -23,8 +23,16 @@ You can then use the client like so:
 ```typescript
 import { FliptEvaluationClient } from 'flipt-client-node';
 
-// namespace is optional here and will have a value of "default" if not specified.
-const fliptEvaluationClient = new FliptEvaluationClient("staging");
+// namespace is the first positional argument and is optional here and will have a value of "default" if not specified.
+// engine_opts is the second positional argument and is also optional, the structure is:
+// {
+//  "url": "http://localhost:8080",
+//  "update_interval": 120 
+// }
+//
+// You can replace the url with where your upstream Flipt instance points to, and the update interval for how long you are willing
+// to wait for the Rust core to fetch updated flag state.
+const fliptEvaluationClient = new FliptEvaluationClient();
 
 const variant = fliptEvaluationClient.variant("flag1", "someentity", {"fizz": "buzz"});
 
