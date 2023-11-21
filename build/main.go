@@ -99,7 +99,6 @@ func getTestDependencies(ctx context.Context, client *dagger.Client, hostDirecto
 
 // pythonTests runs the Poetry test suite against a container running Flipt through the dynamic library.
 func pythonTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, dynamicLibrary *dagger.File, hostDirectory *dagger.Directory) error {
-	// Poetry tests
 	_, err := client.Container().From("python:3.11-buster").
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithWorkdir("/app").
