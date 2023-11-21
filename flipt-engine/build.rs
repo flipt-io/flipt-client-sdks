@@ -12,6 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .to_string();
 
     cbindgen::Builder::new()
+        .with_language(cbindgen::Language::C)
         .with_crate(crate_dir)
         .generate()
         .expect("Unable to generate bindings")
