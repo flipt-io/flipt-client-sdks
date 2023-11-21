@@ -1,11 +1,16 @@
 import * as ffi from 'ffi-napi';
 import { alloc, allocCString, types } from 'ref-napi';
-import { BooleanResult, EvaluationRequest, VariantResult } from './models';
+import {
+  BooleanResult,
+  EngineOpts,
+  EvaluationRequest,
+  VariantResult
+} from './models';
 
 const engineLib = ffi.Library(
-  process.env.ENGINE_LIB_PATH || 'libfliptengine.so',
+  process.env.FLIPT_ENGINE_LIB_PATH || 'libfliptengine.so',
   {
-    initialize_engine: ['void *', ['char **']],
+    initialize_engine: ['void *', ['char **', 'string']],
     variant: ['string', ['void *', 'string']],
     boolean: ['string', ['void *', 'string']],
     destroy_engine: ['void', ['void *']]
@@ -16,9 +21,16 @@ export class FliptEvaluationClient {
   private namespace: string;
   private engine: types.void;
 
-  public constructor(namespace?: string) {
+  public constructor(
+    namespace?: string,
+    engine_opts: EngineOpts = {
+      url: 'http://localhost:8080',
+      update_interval: 120
+    }
+  ) {
     const engine = engineLib.initialize_engine(
-      alloc('char *', Buffer.concat([allocCString(namespace ?? 'default')]))
+      alloc('char *', Buffer.concat([allocCString(namespace ?? 'default')])),
+      allocCString(JSON.stringify(engine_opts))
     );
     this.namespace = namespace ?? 'default';
     this.engine = engine;
@@ -33,7 +45,7 @@ export class FliptEvaluationClient {
       namespace_key: this.namespace,
       flag_key: flag_key,
       entity_id: entity_id,
-      context: JSON.stringify(context)
+      context
     };
 
     const response = Buffer.from(
@@ -56,7 +68,7 @@ export class FliptEvaluationClient {
       namespace_key: this.namespace,
       flag_key: flag_key,
       entity_id: entity_id,
-      context: JSON.stringify(context)
+      context
     };
 
     const response = Buffer.from(

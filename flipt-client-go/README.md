@@ -30,27 +30,32 @@ You can then use the client like so:
 package main
 
 import (
- "context"
- "fmt"
- "log"
+	"context"
+	"fmt"
+	"log"
 
- evaluation "go.flipt.io/flipt/flipt-client-go"
+	evaluation "go.flipt.io/flipt/flipt-client-go"
 )
 
 func main() {
- // You can initialize the client with a namespace using "WithNamespace", otherwise
- // it will target the default namespace.
- evaluationClient := evaluation.NewClient(evaluation.WithNamespace("staging"))
- defer evaluationClient.Close()
+	// The NewClient() accepts options which are the following:
+	// evaluation.WithNamespace(string): configures which namespace you will be making evaluations on
+	// evaluation.WithURL(string): configures which upstream Flipt data should be fetched from
+	// evaluation.WithUpdateInterval(int): configures how often data should be fetched from the upstream
+	evaluationClient, err := evaluation.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer evaluationClient.Close()
 
- variantResult, err := evaluationClient.Variant(context.Background(), "flag1", "someentity", map[string]string{
-  "fizz": "buzz",
- })
- if err != nil {
-  log.Fatal(err)
- }
+	variantResult, err := evaluationClient.Variant(context.Background(), "flag1", "someentity", map[string]string{
+		"fizz": "buzz",
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
- fmt.Println(*variantResult.Result)
+	fmt.Println(*variantResult.Result)
 }
 ```
 

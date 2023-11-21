@@ -1,10 +1,15 @@
 package evaluation
 
 type evaluationRequest struct {
-	NamespaceKey string `json:"namespace_key"`
-	FlagKey      string `json:"flag_key"`
-	EntityId     string `json:"entity_id"`
-	Context      string `json:"context"`
+	NamespaceKey string            `json:"namespace_key"`
+	FlagKey      string            `json:"flag_key"`
+	EntityId     string            `json:"entity_id"`
+	Context      map[string]string `json:"context"`
+}
+
+type EngineOpts struct {
+	URL            string `json:"url,omitempty"`
+	UpdateInterval int    `json:"update_interval,omitempty"`
 }
 
 type VariantEvaluationResponse struct {

@@ -21,3 +21,6 @@ flipt_engine.*
 
 # Python
 __pycache__/
+
+# Node
+node_modules/

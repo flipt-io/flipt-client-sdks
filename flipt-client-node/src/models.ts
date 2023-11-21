@@ -2,7 +2,12 @@ interface EvaluationRequest {
   namespace_key: string;
   flag_key: string;
   entity_id: string;
-  context: string;
+  context: object;
+}
+
+interface EngineOpts {
+  url: string;
+  update_interval: number;
 }
 
 interface VariantEvaluationResponse {
@@ -36,4 +41,4 @@ interface BooleanResult {
   error_message: string;
 }
 
-export { BooleanResult, EvaluationRequest, VariantResult };
+export { BooleanResult, EngineOpts, EvaluationRequest, VariantResult };

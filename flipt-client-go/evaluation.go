@@ -1,9 +1,10 @@
 package evaluation
 
 /*
-#cgo LDFLAGS: -L. -lflip-mtengine
-#include "flipt_engine.h"
+#cgo LDFLAGS: -L. -lfliptengine
 #include <string.h>
+#include <stdlib.h>
+#include "flipt_engine.h"
 */
 import "C"
 import (
@@ -12,21 +13,32 @@ import (
 	"unsafe"
 )
 
-// Client wraps the functionality of making variant and boolean evaluation of Flipt feature flags
-// using an engine that is compiled to a dynamically linked library.
+// Client wraps the functionality of making variant and boolean evaluation of Flipt feature flags.
 type Client struct {
-	engine    unsafe.Pointer
-	namespace string
+	engine         unsafe.Pointer
+	namespace      string
+	url            string
+	updateInterval int
 }
 
 // NewClient constructs an Client.
-func NewClient(opts ...clientOption) *Client {
+func NewClient(opts ...clientOption) (*Client, error) {
 	client := &Client{
 		namespace: "default",
 	}
 
 	for _, opt := range opts {
 		opt(client)
+	}
+
+	engOpts := &EngineOpts{
+		URL:            client.url,
+		UpdateInterval: client.updateInterval,
+	}
+
+	b, err := json.Marshal(engOpts)
+	if err != nil {
+		return nil, err
 	}
 
 	ns := []*C.char{C.CString(client.namespace)}
@@ -40,11 +52,11 @@ func NewClient(opts ...clientOption) *Client {
 
 	nsPtr := (**C.char)(unsafe.Pointer(&ns[0]))
 
-	eng := C.initialize_engine(nsPtr)
+	eng := C.initialize_engine(nsPtr, C.CString(string(b)))
 
 	client.engine = eng
 
-	return client
+	return client, nil
 }
 
 // clientOption adds additional configuraiton for Client parameters
@@ -57,18 +69,27 @@ func WithNamespace(namespace string) clientOption {
 	}
 }
 
-// Variant makes an evaluation on a variant flag using the allocated Rust engine.
-func (e *Client) Variant(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantResult, error) {
-	eb, err := json.Marshal(evalContext)
-	if err != nil {
-		return nil, err
+// WithURL allows for configuring the URL of an upstream Flipt instance to fetch feature data.
+func WithURL(url string) clientOption {
+	return func(c *Client) {
+		c.url = url
 	}
+}
 
+// WithUpdateInterval allows for specifying how often flag state data should be fetched from an upstream Flipt instance.
+func WithUpdateInterval(updateInterval int) clientOption {
+	return func(c *Client) {
+		c.updateInterval = updateInterval
+	}
+}
+
+// Variant makes an evaluation on a variant flag.
+func (e *Client) Variant(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantResult, error) {
 	ereq, err := json.Marshal(evaluationRequest{
 		NamespaceKey: e.namespace,
 		FlagKey:      flagKey,
 		EntityId:     entityID,
-		Context:      string(eb),
+		Context:      evalContext,
 	})
 	if err != nil {
 		return nil, err
@@ -88,18 +109,13 @@ func (e *Client) Variant(_ context.Context, flagKey, entityID string, evalContex
 	return vr, nil
 }
 
-// Boolean makes an evaluation on a boolean flag using the allocated Rust engine.
+// Boolean makes an evaluation on a boolean flag.
 func (e *Client) Boolean(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanResult, error) {
-	eb, err := json.Marshal(evalContext)
-	if err != nil {
-		return nil, err
-	}
-
 	ereq, err := json.Marshal(evaluationRequest{
 		NamespaceKey: e.namespace,
 		FlagKey:      flagKey,
 		EntityId:     entityID,
-		Context:      string(eb),
+		Context:      evalContext,
 	})
 	if err != nil {
 		return nil, err
