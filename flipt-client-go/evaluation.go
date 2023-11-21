@@ -13,8 +13,7 @@ import (
 	"unsafe"
 )
 
-// Client wraps the functionality of making variant and boolean evaluation of Flipt feature flags
-// using an engine that is compiled to a dynamically linked library.
+// Client wraps the functionality of making variant and boolean evaluation of Flipt feature flags.
 type Client struct {
 	engine         unsafe.Pointer
 	namespace      string
@@ -70,21 +69,21 @@ func WithNamespace(namespace string) clientOption {
 	}
 }
 
-// WithURL allows for configuring the Rust core with a URL pointing to an upstream Flipt instance.
+// WithURL allows for configuring the URL of an upstream Flipt instance to fetch feature data.
 func WithURL(url string) clientOption {
 	return func(c *Client) {
 		c.url = url
 	}
 }
 
-// WithUpdateInterval allows for specifying how often the Rust core should fetch data from an upstream Flipt instance.
+// WithUpdateInterval allows for specifying how often flag state data should be fetched from an upstream Flipt instance.
 func WithUpdateInterval(updateInterval int) clientOption {
 	return func(c *Client) {
 		c.updateInterval = updateInterval
 	}
 }
 
-// Variant makes an evaluation on a variant flag using the allocated Rust engine.
+// Variant makes an evaluation on a variant flag.
 func (e *Client) Variant(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantResult, error) {
 	ereq, err := json.Marshal(evaluationRequest{
 		NamespaceKey: e.namespace,
@@ -110,7 +109,7 @@ func (e *Client) Variant(_ context.Context, flagKey, entityID string, evalContex
 	return vr, nil
 }
 
-// Boolean makes an evaluation on a boolean flag using the allocated Rust engine.
+// Boolean makes an evaluation on a boolean flag.
 func (e *Client) Boolean(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanResult, error) {
 	ereq, err := json.Marshal(evaluationRequest{
 		NamespaceKey: e.namespace,

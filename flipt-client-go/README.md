@@ -41,7 +41,7 @@ func main() {
 	// The NewClient() accepts options which are the following:
 	// evaluation.WithNamespace(string): configures which namespace you will be making evaluations on
 	// evaluation.WithURL(string): configures which upstream Flipt data should be fetched from
-	// evaluation.WithUpdateInterval(int): configures how often the Rust core should refetch data from the upstream
+	// evaluation.WithUpdateInterval(int): configures how often data should be fetched from the upstream
 	evaluationClient, err := evaluation.NewClient()
 	if err != nil {
 		log.Fatal(err)

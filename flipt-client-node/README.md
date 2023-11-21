@@ -31,7 +31,7 @@ import { FliptEvaluationClient } from 'flipt-client-node';
 // }
 //
 // You can replace the url with where your upstream Flipt instance points to, and the update interval for how long you are willing
-// to wait for the Rust core to fetch updated flag state.
+// to wait for updated flag state.
 const fliptEvaluationClient = new FliptEvaluationClient();
 
 const variant = fliptEvaluationClient.variant("flag1", "someentity", {"fizz": "buzz"});
