@@ -49,7 +49,7 @@ class FliptEvaluationClient:
 
         bytes_returned = ctypes.c_char_p(response).value
 
-        variant_result = VariantResult.parse_raw(bytes_returned)
+        variant_result = VariantResult.model_validate_json(bytes_returned)
 
         return variant_result
 
@@ -63,7 +63,7 @@ class FliptEvaluationClient:
 
         bytes_returned = ctypes.c_char_p(response).value
 
-        boolean_result = BooleanResult.parse_raw(bytes_returned)
+        boolean_result = BooleanResult.model_validate_json(bytes_returned)
 
         return boolean_result
 
@@ -75,7 +75,7 @@ def serialize_evaluation_request(
         namespace_key=namespace_key,
         flag_key=flag_key,
         entity_id=entity_id,
-        context=json.dumps(context),
+        context=context,
     )
 
-    return evaluation_request.json().encode("utf-8")
+    return evaluation_request.model_dump_json().encode("utf-8")
