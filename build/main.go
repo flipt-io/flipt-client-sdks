@@ -19,7 +19,7 @@ var (
 		"go":     goTests,
 		"node":   nodeTests,
 	}
-	sema = make(chan struct{}, 3)
+	sema = make(chan struct{}, len(languageToFn))
 )
 
 type integrationTestFn func(context.Context, *dagger.Client, *dagger.Container, *dagger.File, *dagger.File, *dagger.Directory) error
