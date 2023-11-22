@@ -4,13 +4,14 @@ import os
 
 from .models import (
     BooleanResult,
+    EngineOpts,
     EvaluationRequest,
     VariantResult,
 )
 
 
 class FliptEvaluationClient:
-    def __init__(self, namespace: str = "default"):
+    def __init__(self, namespace: str = "default", engine_opts: EngineOpts = {}):
         engine_library_path = os.environ.get("FLIPT_ENGINE_LIB_PATH")
         if engine_library_path is None:
             raise Exception("FLIPT_ENGINE_LIB_PATH not set")
@@ -33,7 +34,9 @@ class FliptEvaluationClient:
         ns = (ctypes.c_char_p * len(namespace_list))()
         ns[:] = [s.encode("utf-8") for s in namespace_list]
 
-        self.engine = self.ffi_core.initialize_engine(ns)
+        engine_opts_seriliazed = engine_opts.model_dump_json().encode("utf-8")
+
+        self.engine = self.ffi_core.initialize_engine(ns, engine_opts_seriliazed)
 
     def __del__(self):
         if hasattr(self, "engine") and self.engine is not None:

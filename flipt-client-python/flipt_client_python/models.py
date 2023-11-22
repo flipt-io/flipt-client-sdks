@@ -9,6 +9,11 @@ class EvaluationRequest(BaseModel):
     context: dict
 
 
+class EngineOpts(BaseModel):
+    url: Optional[str] = None
+    update_interval: Optional[int] = None
+
+
 class VariantEvaluationResponse(BaseModel):
     match: bool
     segment_keys: List[str]

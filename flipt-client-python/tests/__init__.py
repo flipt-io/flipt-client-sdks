@@ -1,10 +1,18 @@
+import os
 import unittest
 from flipt_client_python import FliptEvaluationClient
+from flipt_client_python.models import EngineOpts
 
 
 class TestFliptEvaluationClient(unittest.TestCase):
     def setUp(self) -> None:
-        self.flipt_client = FliptEvaluationClient()
+        engine_url = os.environ.get("FLIPT_URL")
+        if engine_url is None:
+            raise Exception("FLIPT_URL not set")
+
+        self.flipt_client = FliptEvaluationClient(
+            engine_opts=EngineOpts(url=engine_url)
+        )
 
     def test_variant(self):
         variant = self.flipt_client.variant("flag1", "someentity", {"fizz": "buzz"})
