@@ -17,8 +17,9 @@ var (
 	languageToFn = map[string]integrationTestFn{
 		"python": pythonTests,
 		"go":     goTests,
+		"node":   nodeTests,
 	}
-	sema = make(chan struct{}, 2)
+	sema = make(chan struct{}, len(languageToFn))
 )
 
 type integrationTestFn func(context.Context, *dagger.Client, *dagger.Container, *dagger.File, *dagger.File, *dagger.Directory) error
@@ -39,6 +40,7 @@ func run() error {
 	var languagesTestsMap = map[string]integrationTestFn{
 		"python": pythonTests,
 		"go":     goTests,
+		"node":   nodeTests,
 	}
 
 	if languages != "" {
@@ -120,7 +122,7 @@ func getTestDependencies(ctx context.Context, client *dagger.Client, hostDirecto
 	return flipt, rust.File("/app/target/release/libfliptengine.so"), rust.File("/app/target/release/flipt_engine.h")
 }
 
-// pythonTests runs the Poetry test suite against a container running Flipt through the dynamic library.
+// pythonTests runs the python integration test suite against a container running Flipt.
 func pythonTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, dynamicLibrary *dagger.File, _ *dagger.File, hostDirectory *dagger.Directory) error {
 	_, err := client.Container().From("python:3.11-bookworm").
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
@@ -137,7 +139,7 @@ func pythonTests(ctx context.Context, client *dagger.Client, flipt *dagger.Conta
 	return err
 }
 
-// goTests runs the golang integration tests suite embedding a C header file and the Rust dynamic library.
+// goTests runs the golang integration test suite against a container running Flipt.
 func goTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, dynamicLibrary *dagger.File, headerFile *dagger.File, hostDirectory *dagger.Directory) error {
 	_, err := client.Container().From("golang:1.21.3-bookworm").
 		WithExec([]string{"apt-get", "update"}).
@@ -154,6 +156,26 @@ func goTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container
 		WithEnvVariable("LD_LIBRARY_PATH", "/app:$LD_LIBRARY_PATH").
 		WithExec([]string{"go", "mod", "download"}).
 		WithExec([]string{"go", "test", "./..."}).
+		Sync(ctx)
+
+	return err
+}
+
+// nodeTests runs the node integration test suite against a container running Flipt.
+func nodeTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, dynamicLibrary *dagger.File, _ *dagger.File, hostDirectory *dagger.Directory) error {
+	_, err := client.Container().From("node:21.2-bookworm").
+		WithWorkdir("/app").
+		// The node_modules should never be version controlled, but we will exclude it here
+		// just to be safe.
+		WithDirectory("/app", hostDirectory.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"./node_modules/"},
+		}).
+		WithFile("/app/libfliptengine.so", dynamicLibrary).
+		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
+		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithEnvVariable("FLIPT_ENGINE_LIB_PATH", "/app/libfliptengine.so").
+		WithExec([]string{"npm", "install"}).
+		WithExec([]string{"npm", "test"}).
 		Sync(ctx)
 
 	return err
