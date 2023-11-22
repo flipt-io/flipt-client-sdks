@@ -9,16 +9,19 @@ import (
 	"strings"
 
 	"dagger.io/dagger"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
 	languages    string
 	languageToFn = map[string]integrationTestFn{
 		"python": pythonTests,
+		"go":     goTests,
 	}
+	sema = make(chan struct{}, 2)
 )
 
-type integrationTestFn func(context.Context, *dagger.Client, *dagger.Container, *dagger.File, *dagger.Directory) error
+type integrationTestFn func(context.Context, *dagger.Client, *dagger.Container, *dagger.File, *dagger.File, *dagger.Directory) error
 
 func init() {
 	flag.StringVar(&languages, "languages", "", "comma separated list of which language(s) to run integration tests for")
@@ -35,6 +38,7 @@ func main() {
 func run() error {
 	var languagesTestsMap = map[string]integrationTestFn{
 		"python": pythonTests,
+		"go":     goTests,
 	}
 
 	if languages != "" {
@@ -61,23 +65,42 @@ func run() error {
 
 	dir := client.Host().Directory(".")
 
-	flipt, dynamicLibrary := getTestDependencies(ctx, client, dir)
+	flipt, dynamicLibrary, headerFile := getTestDependencies(ctx, client, dir)
+
+	var g errgroup.Group
 
 	for _, testFn := range languagesTestsMap {
-		err := testFn(ctx, client, flipt, dynamicLibrary, dir)
+		err := testFn(ctx, client, flipt, dynamicLibrary, headerFile, dir)
 		if err != nil {
 			return err
 		}
+		g.Go(take(func() error {
+			err := testFn(ctx, client, flipt, dynamicLibrary, headerFile, dir)
+			return err
+		}))
 	}
 
-	return nil
+	err = g.Wait()
+
+	return err
+}
+
+func take(fn func() error) func() error {
+	return func() error {
+		// insert into semaphore channel to maintain
+		// a max concurrency
+		sema <- struct{}{}
+		defer func() { <-sema }()
+
+		return fn()
+	}
 }
 
 // getTestDependencies builds the dynamic library for the Rust core, and the Flipt container for the client libraries to run
 // their tests against.
-func getTestDependencies(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) (*dagger.Container, *dagger.File) {
+func getTestDependencies(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) (*dagger.Container, *dagger.File, *dagger.File) {
 	// Dynamic Library
-	rust := client.Container().From("rust:1.73.0-buster").
+	rust := client.Container().From("rust:1.73.0-bookworm").
 		WithWorkdir("/app").
 		WithDirectory("/app/flipt-engine", hostDirectory.Directory("flipt-engine")).
 		WithFile("/app/Cargo.toml", hostDirectory.File("Cargo.toml")).
@@ -94,12 +117,12 @@ func getTestDependencies(ctx context.Context, client *dagger.Client, hostDirecto
 		WithEnvVariable("FLIPT_STORAGE_LOCAL_PATH", "/var/data/flipt").
 		WithExposedPort(8080)
 
-	return flipt, rust.File("/app/target/release/libfliptengine.so")
+	return flipt, rust.File("/app/target/release/libfliptengine.so"), rust.File("/app/target/release/flipt_engine.h")
 }
 
 // pythonTests runs the Poetry test suite against a container running Flipt through the dynamic library.
-func pythonTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, dynamicLibrary *dagger.File, hostDirectory *dagger.Directory) error {
-	_, err := client.Container().From("python:3.11-buster").
+func pythonTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, dynamicLibrary *dagger.File, _ *dagger.File, hostDirectory *dagger.Directory) error {
+	_, err := client.Container().From("python:3.11-bookworm").
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithWorkdir("/app").
 		WithDirectory("/app", hostDirectory.Directory("flipt-client-python")).
@@ -110,9 +133,28 @@ func pythonTests(ctx context.Context, client *dagger.Client, flipt *dagger.Conta
 		WithExec([]string{"poetry", "install", "--without=dev"}).
 		WithExec([]string{"poetry", "run", "test"}).
 		Sync(ctx)
-	if err != nil {
-		return err
-	}
 
-	return nil
+	return err
+}
+
+// goTests runs the golang integration tests suite embedding a C header file and the Rust dynamic library.
+func goTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, dynamicLibrary *dagger.File, headerFile *dagger.File, hostDirectory *dagger.Directory) error {
+	_, err := client.Container().From("golang:1.21.3-bookworm").
+		WithExec([]string{"apt-get", "update"}).
+		WithExec([]string{"apt-get", "-y", "install", "build-essential"}).
+		WithWorkdir("/app").
+		WithDirectory("/app", hostDirectory.Directory("flipt-client-go")).
+		WithFile("/app/libfliptengine.so", dynamicLibrary).
+		WithFile("/app/flipt_engine.h", headerFile).
+		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
+		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		// Since the dynamic library is being sourced from a "non-standard location" we can
+		// modify the LD_LIBRARY_PATH variable to inform the linker different locations for
+		// dynamic libraries.
+		WithEnvVariable("LD_LIBRARY_PATH", "/app:$LD_LIBRARY_PATH").
+		WithExec([]string{"go", "mod", "download"}).
+		WithExec([]string{"go", "test", "./..."}).
+		Sync(ctx)
+
+	return err
 }
