@@ -1,0 +1,48 @@
+name: SDKs
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  lint-python:
+    name: Lint Python
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.7.0
+        
+      - name: Lint Python source
+        working-directory: flipt-client-python
+        run: |
+          poetry install
+          poetry run black --check .
+  
+  lint-typescript:
+    name: Lint Typescript
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+      
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Lint Typescript source
+        working-directory: flipt-client-node
+        run: |
+          npm ci
+          npm run prettier-check
