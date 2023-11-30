@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Stable Toolchain
         uses: actions-rs/toolchain@v1
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Stable Toolchain
         uses: actions-rs/toolchain@v1
