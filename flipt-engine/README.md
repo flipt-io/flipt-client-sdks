@@ -27,16 +27,10 @@ TODO: Add more details
 cargo build --release
 ```
 
+There are some language SDKs that might require a C file header which has the definitions of the functions accessible through the FFI layer. The `cargo build` command will use a build script to generate this header file by way of the [cbindgen](https://github.com/mozilla/cbindgen) tool.
+
 ### Test
 
 ```bash
 cargo test
-```
-
-### Generate the FFI Header
-
-Requires [cbindgen](https://github.com/mozilla/cbindgen)
-
-```bash
-cbindgen --config cbindgen.toml --crate flipt-client-engine --output flipt_engine.h
 ```
