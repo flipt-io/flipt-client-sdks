@@ -1,4 +1,4 @@
-name: Lint SDKs
+name: SDKs
 on:
   push:
     branches:

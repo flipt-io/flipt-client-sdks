@@ -1,4 +1,4 @@
-name: CI
+name: Rust Engine
 on:
   push:
     branches:
