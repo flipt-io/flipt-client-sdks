@@ -65,7 +65,9 @@ func run() error {
 	}
 	defer client.Close()
 
-	dir := client.Host().Directory(".")
+	dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
+		Exclude: []string{"diagrams/"},
+	})
 
 	flipt, dynamicLibrary, headerFile := getTestDependencies(ctx, client, dir)
 
