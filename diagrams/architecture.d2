@@ -1,0 +1,48 @@
+golang: {
+  shape: image
+  icon: https://icon.icepanel.io/Technology/svg/Go.svg
+}
+
+ruby: {
+  shape: image
+  icon: https://icon.icepanel.io/Technology/svg/Ruby.svg
+}
+
+python: {
+  shape: image
+  icon: https://icon.icepanel.io/Technology/svg/Python.svg
+}
+
+typescript: {
+  shape: image
+  icon: https://icon.icepanel.io/Technology/svg/TypeScript.svg
+}
+
+dynamic library: {
+  shape: square
+  rust: {
+    shape: image
+    icon: https://icon.icepanel.io/Technology/svg/Rust.svg
+  }
+}
+
+flipt-service: {
+  shape: square
+  flipt: {
+    shape: image
+    icon: ./flipt.svg
+  }
+}
+
+golang -> dynamic library: FFI
+ruby -> dynamic library: FFI
+python -> dynamic library: FFI
+typescript -> dynamic library: FFI
+
+dynamic library <-> flipt-service: Flag state sync (default 2 mins) {
+  style: {
+    opacity: 0.9
+    stroke-dash: 3
+    shadow: true
+  }
+}
