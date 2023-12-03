@@ -18,6 +18,7 @@ var (
 		"python": pythonTests,
 		"go":     goTests,
 		"node":   nodeTests,
+		"ruby":   rubyTests,
 	}
 	sema = make(chan struct{}, len(languageToFn))
 )
@@ -47,11 +48,11 @@ func run() error {
 		l := strings.Split(languages, ",")
 		tlm := make(map[string]integrationTestFn, len(l))
 		for _, language := range l {
-			if testFn, ok := languageToFn[language]; !ok {
+			testFn, ok := languageToFn[language]
+			if !ok {
 				return fmt.Errorf("language %s is not supported", language)
-			} else {
-				tlm[language] = testFn
 			}
+			tlm[language] = testFn
 		}
 
 		languagesTestsMap = tlm
@@ -178,6 +179,22 @@ func nodeTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 		WithEnvVariable("FLIPT_ENGINE_LIB_PATH", "/app/libfliptengine.so").
 		WithExec([]string{"npm", "install"}).
 		WithExec([]string{"npm", "test"}).
+		Sync(ctx)
+
+	return err
+}
+
+// rubyTests runs the ruby integration test suite against a container running Flipt.
+func rubyTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, dynamicLibrary *dagger.File, _ *dagger.File, hostDirectory *dagger.Directory) error {
+	_, err := client.Container().From("ruby:3.1.0-bookworm").
+		WithWorkdir("/app").
+		WithDirectory("/app", hostDirectory.Directory("flipt-client-ruby")).
+		WithFile("/app/libfliptengine.so", dynamicLibrary).
+		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
+		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithEnvVariable("FLIPT_ENGINE_LIB_PATH", "/app/libfliptengine.so").
+		WithExec([]string{"bundle", "install"}).
+		WithExec([]string{"bundle", "exec", "rake", "test"}).
 		Sync(ctx)
 
 	return err
