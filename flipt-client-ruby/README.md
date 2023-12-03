@@ -1,6 +1,6 @@
 # Flipt Client Ruby
 
-The `flipt-client-ruby` directory contains the Ruby source code for a Flipt evaluation client using FFI to make calls to a core built in Rust.
+The `flipt-client-ruby` directory contains the Ruby source code for a Flipt evaluation client.
 
 ## Instructions
 
@@ -36,18 +36,4 @@ client = Flipt::EvaluationClient.new() # uses 'default' namespace
 resp = client.variant({ flag_key: 'buzz', entity_id: 'someentity', context: { fizz: 'buzz' } })
 
 puts resp
-```
-
-## Testing
-
-### Preqrequisites
-
-- Ruby
-- Bundler
-- Run `make ruby` from the root of the repository to build the Rust library and copy the necessary files over.
-
-To run the tests for this client, you can run the following command from this directory:
-
-```bash
-rspec .
 ```

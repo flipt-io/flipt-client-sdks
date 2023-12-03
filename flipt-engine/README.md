@@ -1,7 +1,5 @@
 # Flipt Client Engine
 
-![Status: Experimental](https://img.shields.io/badge/status-experimental-yellow)
-
 This is the client engine for Flipt. It is responsible for evaluating context provided by the native language client SDKs and returning the results of the evaluation.
 
 ## Development

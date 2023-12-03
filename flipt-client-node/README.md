@@ -1,6 +1,6 @@
 # Flipt Client Node
 
-The `flipt-client-node` directory contains the TypeScript source code for a Flipt evaluation client using FFI to make calls to a core built in Rust.
+The `flipt-client-node` directory contains the TypeScript source code for a Flipt evaluation client.
 
 ## Instructions
 
@@ -41,4 +41,10 @@ console.log(variant);
 
 ## Memory Management
 
-Since TypeScript/JavaScript is a garbage collected language there is no concept of "freeing" memory. We had to allocated memory for the engine through the `initialize_engine` FFI call, and with that being said please make sure to call the `freeEngine` method on the `FliptEvaluationClient` class once you are done using it.
+Since TypeScript/JavaScript is a garbage collected language there is no concept of "freeing" memory. We have to allocate memory for the engine through the `initialize_engine` FFI call.
+
+Make sure to call the `freeEngine` method on the `FliptEvaluationClient` class once you are done using it.
+
+```typescript
+fliptEvaluationClient.freeEngine();
+```

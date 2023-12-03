@@ -1,6 +1,6 @@
 # Flipt Client Python
 
-The `flipt-client-python` directory contains the Python source code for a Flipt evaluation client using FFI to make calls to a core built in Rust.
+The `flipt-client-python` directory contains the Python source code for a Flipt evaluation client.
 
 ## Instructions
 
@@ -10,7 +10,7 @@ To use this client, you can run the following command from the root of the repos
 cargo build --release
 ```
 
-This should generate a `target/` directory in the root of this repository, which contains the dynamic linking library built for your platform. This dynamic library will contain the functionality necessary for the Python client to make FFI calls. You'll need to set the `FLIPT_ENGINE_LIB_PATH` environment variable depending on your platform:
+This should generate a `target/` directory in the root of this repository which contains the dynamic linking library built for your platform. This dynamic library will contain the functionality necessary for the Python client to make FFI calls. You'll need to set the `FLIPT_ENGINE_LIB_PATH` environment variable depending on your platform:
 
 - **Linux**: `{REPO_ROOT}/target/release/libfliptengine.so`
 - **Windows**: `{REPO_ROOT}/target/release/libfliptengine.dll`
