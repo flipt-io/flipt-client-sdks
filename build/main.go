@@ -194,7 +194,7 @@ func rubyTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_ENGINE_LIB_PATH", "/app/libfliptengine.so").
 		WithExec([]string{"bundle", "install"}).
-		WithExec([]string{"bundle", "exec", "rake", "test"}).
+		WithExec([]string{"bundle", "exec", "rspec"}).
 		Sync(ctx)
 
 	return err
