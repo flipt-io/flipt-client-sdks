@@ -185,7 +185,7 @@ func nodeTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 
 // rubyTests runs the ruby integration test suite against a container running Flipt.
 func rubyTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, dynamicLibrary *dagger.File, _ *dagger.File, hostDirectory *dagger.Directory) error {
-	_, err := client.Container().From("ruby:3.1.0-bookworm").
+	_, err := client.Container().From("ruby:3.1-bookworm").
 		WithWorkdir("/app").
 		WithDirectory("/app", hostDirectory.Directory("flipt-client-ruby")).
 		WithFile("/app/libfliptengine.so", dynamicLibrary).
