@@ -188,10 +188,9 @@ func rubyTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 	_, err := client.Container().From("ruby:3.1-bookworm").
 		WithWorkdir("/app").
 		WithDirectory("/app", hostDirectory.Directory("flipt-client-ruby")).
-		WithFile("/app/libfliptengine.so", dynamicLibrary).
+		WithFile("/app/lib/ext/libfliptengine.so", dynamicLibrary).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
-		WithEnvVariable("FLIPT_ENGINE_LIB_PATH", "/app/libfliptengine.so").
 		WithExec([]string{"bundle", "install"}).
 		WithExec([]string{"bundle", "exec", "rspec"}).
 		Sync(ctx)
