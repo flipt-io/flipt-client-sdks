@@ -1,14 +1,14 @@
 {
   "name": "flipt-client-node",
   "version": "0.0.1",
-  "description": "Flipt Node Client for evaluations through FFI",
+  "description": "Flipt Node Client for client-side evaluation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "scripts": {
-    "prettier-format": "prettier --config .prettierrc 'src/**/*.ts' --write",
-    "prettier-check": "prettier --check src/**/*.ts",
+    "fmt": "prettier --config .prettierrc 'src/**/*.ts' --write",
+    "lint": "prettier --check src/**/*.ts",
     "test": "jest"
   },
   "dependencies": {

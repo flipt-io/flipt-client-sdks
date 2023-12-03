@@ -1,4 +1,4 @@
-name: SDKs
+name: Lint SDKs
 on:
   push:
     branches:
@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
-      
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -22,20 +22,20 @@ jobs:
         uses: snok/install-poetry@v1
         with:
           version: 1.7.0
-        
+
       - name: Lint Python source
         working-directory: flipt-client-python
         run: |
           poetry install
           poetry run black --check .
-  
+
   lint-typescript:
     name: Lint Typescript
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
-      
+
       - name: Install Node
         uses: actions/setup-node@v4
         with:
@@ -45,4 +45,4 @@ jobs:
         working-directory: flipt-client-node
         run: |
           npm ci
-          npm run prettier-check
+          npm run lint
