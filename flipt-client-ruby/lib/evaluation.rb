@@ -1,12 +1,14 @@
-require "client/version"
-require "ffi"
-require "json"
+# frozen_string_literal: true
+
+require 'client/version'
+require 'ffi'
+require 'json'
 
 module Flipt
   class Error < StandardError; end
 
   class EvaluationClient
-    FLIPTENGINE="ext/libfliptengine"
+    FLIPTENGINE = 'ext/libfliptengine'
 
     def self.platform_specific_lib
       case RbConfig::CONFIG['host_os']
@@ -25,15 +27,15 @@ module Flipt
     ffi_lib File.expand_path(platform_specific_lib, __dir__)
 
     # void *initialize_engine(const char *const *namespaces, const char *opts);
-    attach_function :initialize_engine, [:pointer, :string], :pointer
+    attach_function :initialize_engine, %i[pointer string], :pointer
     # void destroy_engine(void *engine_ptr);
     attach_function :destroy_engine, [:pointer], :void
     # const char *variant(void *engine_ptr, const char *evaluation_request);
-    attach_function :variant, [:pointer, :string], :string
+    attach_function :variant, %i[pointer string], :string
     # const char *boolean(void *engine_ptr, const char *evaluation_request);
-    attach_function :boolean, [:pointer, :string], :string
+    attach_function :boolean, %i[pointer string], :string
 
-    def initialize(namespace = "default", opts = {})
+    def initialize(namespace = 'default', opts = {})
       @namespace = namespace
       namespace_list = [namespace]
       ns = FFI::MemoryPointer.new(:pointer, namespace_list.size)
@@ -46,7 +48,7 @@ module Flipt
     end
 
     def self.finalize(engine)
-      proc { self.destroy_engine(engine) }
+      proc { destroy_engine(engine) }
     end
 
     def variant(evaluation_request = {})
@@ -63,14 +65,15 @@ module Flipt
       JSON.parse(resp)
     end
 
-    private 
+    private
+
     def validate_evaluation_request(evaluation_request)
       if evaluation_request[:entity_id].nil? || evaluation_request[:entity_id].empty?
-        raise ArgumentError, "entity_id is required"
+        raise ArgumentError, 'entity_id is required'
       elsif evaluation_request[:namespace_key].nil? || evaluation_request[:namespace_key].empty?
-        raise ArgumentError, "namespace_key is required"
+        raise ArgumentError, 'namespace_key is required'
       elsif evaluation_request[:flag_key].nil? || evaluation_request[:flag_key].empty?
-        raise ArgumentError, "flag_key is required"
+        raise ArgumentError, 'flag_key is required'
       end
     end
   end
