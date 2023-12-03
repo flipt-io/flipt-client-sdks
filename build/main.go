@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"maps"
 	"os"
 	"strings"
 
@@ -38,24 +39,22 @@ func main() {
 }
 
 func run() error {
-	var languagesTestsMap = map[string]integrationTestFn{
-		"python": pythonTests,
-		"go":     goTests,
-		"node":   nodeTests,
-	}
+	var tests = make(map[string]integrationTestFn, len(languageToFn))
+
+	maps.Copy(tests, languageToFn)
 
 	if languages != "" {
 		l := strings.Split(languages, ",")
-		tlm := make(map[string]integrationTestFn, len(l))
+		subset := make(map[string]integrationTestFn, len(l))
 		for _, language := range l {
 			testFn, ok := languageToFn[language]
 			if !ok {
 				return fmt.Errorf("language %s is not supported", language)
 			}
-			tlm[language] = testFn
+			subset[language] = testFn
 		}
 
-		languagesTestsMap = tlm
+		tests = subset
 	}
 
 	ctx := context.Background()
@@ -74,7 +73,7 @@ func run() error {
 
 	var g errgroup.Group
 
-	for _, testFn := range languagesTestsMap {
+	for _, testFn := range tests {
 		err := testFn(ctx, client, flipt, dynamicLibrary, headerFile, dir)
 		if err != nil {
 			return err
