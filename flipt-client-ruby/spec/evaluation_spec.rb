@@ -11,12 +11,12 @@ RSpec.describe Flipt::EvaluationClient do
     end
   end
 
-  describe '#variant' do
-    it 'returns a variant' do
+  describe '#evaluate_variant' do
+    it 'returns a variant result' do
       url = ENV.fetch('FLIPT_URL', 'http://localhost:8080')
       client = Flipt::EvaluationClient.new('default', { url: url })
 
-      resp = client.variant({ flag_key: 'flag1', entity_id: 'someentity', context: { "fizz": 'buzz' } })
+      resp = client.evaluate_variant({ flag_key: 'flag1', entity_id: 'someentity', context: { "fizz": 'buzz' } })
 
       expect(resp).to_not be_nil
       expect(resp['status']).to eq('success')
@@ -29,12 +29,12 @@ RSpec.describe Flipt::EvaluationClient do
     end
   end
 
-  describe '#boolean' do
-    it 'returns a boolean' do
+  describe '#evaluate_boolean' do
+    it 'returns a boolean result' do
       url = ENV.fetch('FLIPT_URL', 'http://localhost:8080')
       client = Flipt::EvaluationClient.new('default', { url: url })
 
-      resp = client.boolean({ flag_key: 'flag_boolean', entity_id: 'someentity', context: { "fizz": 'buzz' } })
+      resp = client.evaluate_boolean({ flag_key: 'flag_boolean', entity_id: 'someentity', context: { "fizz": 'buzz' } })
 
       expect(resp).to_not be_nil
       expect(resp['status']).to eq('success')

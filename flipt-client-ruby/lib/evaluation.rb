@@ -51,14 +51,14 @@ module Flipt
       proc { destroy_engine(engine) }
     end
 
-    def variant(evaluation_request = {})
+    def evaluate_variant(evaluation_request = {})
       evaluation_request[:namespace_key] = @namespace
       validate_evaluation_request(evaluation_request)
       resp = self.class.variant(@engine, evaluation_request.to_json)
       JSON.parse(resp)
     end
 
-    def boolean(evaluation_request = {})
+    def evaluate_boolean(evaluation_request = {})
       evaluation_request[:namespace_key] = @namespace
       validate_evaluation_request(evaluation_request)
       resp = self.class.boolean(@engine, evaluation_request.to_json)
