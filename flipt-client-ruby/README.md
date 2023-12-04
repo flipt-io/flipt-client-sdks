@@ -24,7 +24,7 @@ You can then build the gem and install it locally:
 
 ```bash
 rake build
-gem install pkg/flipt_client-0.1.0.gem
+gem install pkg/flipt_client-{version}.gem
 ```
 
 In your Ruby code you can import this client and use it as so:
@@ -33,7 +33,7 @@ In your Ruby code you can import this client and use it as so:
 require 'flipt_client'
 
 client = Flipt::EvaluationClient.new() # uses 'default' namespace
-resp = client.variant({ flag_key: 'buzz', entity_id: 'someentity', context: { fizz: 'buzz' } })
+resp = client.evaluate_variant({ flag_key: 'buzz', entity_id: 'someentity', context: { fizz: 'buzz' } })
 
 puts resp
 ```
