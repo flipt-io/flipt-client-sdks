@@ -160,6 +160,14 @@ pub unsafe extern "C" fn initialize_engine(
         index += 1;
     }
 
+    // TODO(yquansah): There seems to be some issue across the FFI layer where the char** is picked up at this
+    // layer to have another "empty" string in its input. For now we will filter out the empty string, but
+    // should circle back to investigate what may be happening upstream.
+    let namespaces_vec: Vec<String> = namespaces_vec
+        .into_iter()
+        .filter(|namespace| !namespace.is_empty())
+        .collect();
+
     let engine_opts_bytes = CStr::from_ptr(opts).to_bytes();
     let bytes_str_repr = std::str::from_utf8(engine_opts_bytes).unwrap();
     let engine_opts: EngineOpts = serde_json::from_str(bytes_str_repr).unwrap_or_default();
@@ -171,6 +179,7 @@ pub unsafe extern "C" fn initialize_engine(
 
     let parser = Box::new(parser::HTTPParser::new(&http_url));
     let evaluator = evaluator::Evaluator::new(namespaces_vec, parser);
+
     Box::into_raw(Box::new(Engine::new(evaluator.unwrap(), engine_opts))) as *mut c_void
 }
 
