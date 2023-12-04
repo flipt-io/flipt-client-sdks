@@ -24,7 +24,9 @@ test('variant', () => {
 test('boolean', () => {
   const fec = new FliptEvaluationClient('default', { url: fliptUrl });
 
-  const boolean = fec.evaluateBoolean('flag_boolean', 'someentity', { fizz: 'buzz' });
+  const boolean = fec.evaluateBoolean('flag_boolean', 'someentity', {
+    fizz: 'buzz'
+  });
 
   expect(boolean.error_message).toBeNull();
   expect(boolean.status).toEqual('success');
