@@ -34,7 +34,7 @@ import { FliptEvaluationClient } from 'flipt-client-node';
 // to wait for updated flag state.
 const fliptEvaluationClient = new FliptEvaluationClient();
 
-const variant = fliptEvaluationClient.variant("flag1", "someentity", {"fizz": "buzz"});
+const variant = fliptEvaluationClient.evaluateVariant("flag1", "someentity", {"fizz": "buzz"});
 
 console.log(variant);
 ```

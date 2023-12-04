@@ -26,7 +26,7 @@ from flipt_client_python import FliptEvaluationClient
 # engine_opts: follows the model EngineOpts in the models.py file. Configures the url of the upstream Flipt instance, and the interval in which to fetch new flag state
 flipt_evaluation_client = FliptEvaluationClient()
 
-variant_result = flipt_evaluation_client.variant(flag_key="flag1", entity_id="entity", context={"fizz": "buzz"})
+variant_result = flipt_evaluation_client.evaluate_variant(flag_key="flag1", entity_id="entity", context={"fizz": "buzz"})
 
 print(variant_result)
 ```

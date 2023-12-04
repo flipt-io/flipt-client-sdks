@@ -187,7 +187,7 @@ pub unsafe extern "C" fn initialize_engine(
 ///
 /// This function will take in a pointer to the engine and return a variant evaluation response.
 #[no_mangle]
-pub unsafe extern "C" fn variant(
+pub unsafe extern "C" fn evaluate_variant(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
@@ -201,7 +201,7 @@ pub unsafe extern "C" fn variant(
 ///
 /// This function will take in a pointer to the engine and return a boolean evaluation response.
 #[no_mangle]
-pub unsafe extern "C" fn boolean(
+pub unsafe extern "C" fn evaluate_boolean(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {

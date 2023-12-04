@@ -30,10 +30,10 @@ module Flipt
     attach_function :initialize_engine, %i[pointer string], :pointer
     # void destroy_engine(void *engine_ptr);
     attach_function :destroy_engine, [:pointer], :void
-    # const char *variant(void *engine_ptr, const char *evaluation_request);
-    attach_function :variant, %i[pointer string], :string
-    # const char *boolean(void *engine_ptr, const char *evaluation_request);
-    attach_function :boolean, %i[pointer string], :string
+    # const char *evaluate_variant(void *engine_ptr, const char *evaluation_request);
+    attach_function :evaluate_variant, %i[pointer string], :string
+    # const char *evaluate_boolean(void *engine_ptr, const char *evaluation_request);
+    attach_function :evaluate_boolean, %i[pointer string], :string
 
     def initialize(namespace = 'default', opts = {})
       @namespace = namespace
@@ -51,17 +51,17 @@ module Flipt
       proc { destroy_engine(engine) }
     end
 
-    def variant(evaluation_request = {})
+    def evaluate_variant(evaluation_request = {})
       evaluation_request[:namespace_key] = @namespace
       validate_evaluation_request(evaluation_request)
-      resp = self.class.variant(@engine, evaluation_request.to_json)
+      resp = self.class.evaluate_variant(@engine, evaluation_request.to_json)
       JSON.parse(resp)
     end
 
-    def boolean(evaluation_request = {})
+    def evaluate_boolean(evaluation_request = {})
       evaluation_request[:namespace_key] = @namespace
       validate_evaluation_request(evaluation_request)
-      resp = self.class.boolean(@engine, evaluation_request.to_json)
+      resp = self.class.evaluate_boolean(@engine, evaluation_request.to_json)
       JSON.parse(resp)
     end
 

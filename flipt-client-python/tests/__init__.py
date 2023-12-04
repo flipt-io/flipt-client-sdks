@@ -15,7 +15,9 @@ class TestFliptEvaluationClient(unittest.TestCase):
         )
 
     def test_variant(self):
-        variant = self.flipt_client.variant("flag1", "someentity", {"fizz": "buzz"})
+        variant = self.flipt_client.evaluate_variant(
+            "flag1", "someentity", {"fizz": "buzz"}
+        )
         self.assertIsNone(variant.error_message)
         self.assertEqual("success", variant.status)
         self.assertEqual("flag1", variant.result.flag_key)
@@ -25,7 +27,7 @@ class TestFliptEvaluationClient(unittest.TestCase):
         self.assertIn("segment1", variant.result.segment_keys)
 
     def test_boolean(self):
-        boolean = self.flipt_client.boolean(
+        boolean = self.flipt_client.evaluate_boolean(
             "flag_boolean", "someentity", {"fizz": "buzz"}
         )
         self.assertIsNone(boolean.error_message)

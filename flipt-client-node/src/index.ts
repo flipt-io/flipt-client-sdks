@@ -11,8 +11,8 @@ const engineLib = ffi.Library(
   process.env.FLIPT_ENGINE_LIB_PATH || 'libfliptengine.so',
   {
     initialize_engine: ['void *', ['char **', 'string']],
-    variant: ['string', ['void *', 'string']],
-    boolean: ['string', ['void *', 'string']],
+    evaluate_variant: ['string', ['void *', 'string']],
+    evaluate_boolean: ['string', ['void *', 'string']],
     destroy_engine: ['void', ['void *']]
   }
 );
@@ -36,7 +36,7 @@ export class FliptEvaluationClient {
     this.engine = engine;
   }
 
-  public variant(
+  public evaluateVariant(
     flag_key: string,
     entity_id: string,
     context: {}
@@ -49,7 +49,7 @@ export class FliptEvaluationClient {
     };
 
     const response = Buffer.from(
-      engineLib.variant(
+      engineLib.evaluate_variant(
         this.engine,
         allocCString(JSON.stringify(evaluation_request))
       )
@@ -59,7 +59,7 @@ export class FliptEvaluationClient {
     return variantResult;
   }
 
-  public boolean(
+  public evaluateBoolean(
     flag_key: string,
     entity_id: string,
     context: {}
@@ -72,7 +72,7 @@ export class FliptEvaluationClient {
     };
 
     const response = Buffer.from(
-      engineLib.boolean(
+      engineLib.evaluate_boolean(
         this.engine,
         allocCString(JSON.stringify(evaluation_request))
       )

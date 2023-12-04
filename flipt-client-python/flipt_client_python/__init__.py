@@ -23,11 +23,11 @@ class FliptEvaluationClient:
         self.ffi_core.initialize_engine.restype = ctypes.c_void_p
         self.ffi_core.destroy_engine.argtypes = [ctypes.c_void_p]
 
-        self.ffi_core.variant.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
-        self.ffi_core.variant.restype = ctypes.c_char_p
+        self.ffi_core.evaluate_variant.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+        self.ffi_core.evaluate_variant.restype = ctypes.c_char_p
 
-        self.ffi_core.boolean.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
-        self.ffi_core.boolean.restype = ctypes.c_char_p
+        self.ffi_core.evaluate_boolean.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+        self.ffi_core.evaluate_boolean.restype = ctypes.c_char_p
 
         namespace_list = [namespace]
 
@@ -42,8 +42,10 @@ class FliptEvaluationClient:
         if hasattr(self, "engine") and self.engine is not None:
             self.ffi_core.destroy_engine(self.engine)
 
-    def variant(self, flag_key: str, entity_id: str, context: dict) -> VariantResult:
-        response = self.ffi_core.variant(
+    def evaluate_variant(
+        self, flag_key: str, entity_id: str, context: dict
+    ) -> VariantResult:
+        response = self.ffi_core.evaluate_variant(
             self.engine,
             serialize_evaluation_request(
                 self.namespace_key, flag_key, entity_id, context
@@ -56,8 +58,10 @@ class FliptEvaluationClient:
 
         return variant_result
 
-    def boolean(self, flag_key: str, entity_id: str, context: dict) -> BooleanResult:
-        response = self.ffi_core.boolean(
+    def evaluate_boolean(
+        self, flag_key: str, entity_id: str, context: dict
+    ) -> BooleanResult:
+        response = self.ffi_core.evaluate_boolean(
             self.engine,
             serialize_evaluation_request(
                 self.namespace_key, flag_key, entity_id, context
