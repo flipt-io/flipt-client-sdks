@@ -9,7 +9,7 @@ if (!fliptUrl) {
 test('variant', () => {
   const fec = new FliptEvaluationClient('default', { url: fliptUrl });
 
-  const variant = fec.variant('flag1', 'someentity', { fizz: 'buzz' });
+  const variant = fec.evaluateVariant('flag1', 'someentity', { fizz: 'buzz' });
 
   expect(variant.error_message).toBeNull();
   expect(variant.status).toEqual('success');
@@ -24,7 +24,7 @@ test('variant', () => {
 test('boolean', () => {
   const fec = new FliptEvaluationClient('default', { url: fliptUrl });
 
-  const boolean = fec.boolean('flag_boolean', 'someentity', { fizz: 'buzz' });
+  const boolean = fec.evaluateBoolean('flag_boolean', 'someentity', { fizz: 'buzz' });
 
   expect(boolean.error_message).toBeNull();
   expect(boolean.status).toEqual('success');

@@ -48,7 +48,7 @@ func main() {
  }
  defer evaluationClient.Close()
 
- variantResult, err := evaluationClient.Variant(context.Background(), "flag1", "someentity", map[string]string{
+ variantResult, err := evaluationClient.EvaluateVariant(context.Background(), "flag1", "someentity", map[string]string{
   "fizz": "buzz",
  })
  if err != nil {

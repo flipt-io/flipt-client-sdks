@@ -23,7 +23,7 @@ func TestVariant(t *testing.T) {
 	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl))
 	require.NoError(t, err)
 
-	variant, err := evaluationClient.Variant(context.TODO(), "flag1", "someentity", map[string]string{
+	variant, err := evaluationClient.EvaluateVariant(context.TODO(), "flag1", "someentity", map[string]string{
 		"fizz": "buzz",
 	})
 	require.NoError(t, err)
@@ -40,7 +40,7 @@ func TestBoolean(t *testing.T) {
 	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl))
 	require.NoError(t, err)
 
-	boolean, err := evaluationClient.Boolean(context.TODO(), "flag_boolean", "someentity", map[string]string{
+	boolean, err := evaluationClient.EvaluateBoolean(context.TODO(), "flag_boolean", "someentity", map[string]string{
 		"fizz": "buzz",
 	})
 	require.NoError(t, err)

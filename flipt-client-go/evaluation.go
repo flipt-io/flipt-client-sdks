@@ -83,8 +83,8 @@ func WithUpdateInterval(updateInterval int) clientOption {
 	}
 }
 
-// Variant makes an evaluation on a variant flag.
-func (e *Client) Variant(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantResult, error) {
+// EvaluateVariant makes an evaluation on a variant flag.
+func (e *Client) EvaluateVariant(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantResult, error) {
 	ereq, err := json.Marshal(evaluationRequest{
 		NamespaceKey: e.namespace,
 		FlagKey:      flagKey,
@@ -95,7 +95,7 @@ func (e *Client) Variant(_ context.Context, flagKey, entityID string, evalContex
 		return nil, err
 	}
 
-	variant := C.variant(e.engine, C.CString(string(ereq)))
+	variant := C.evaluate_variant(e.engine, C.CString(string(ereq)))
 	defer C.free(unsafe.Pointer(variant))
 
 	b := C.GoBytes(unsafe.Pointer(variant), (C.int)(C.strlen(variant)))
@@ -110,7 +110,7 @@ func (e *Client) Variant(_ context.Context, flagKey, entityID string, evalContex
 }
 
 // Boolean makes an evaluation on a boolean flag.
-func (e *Client) Boolean(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanResult, error) {
+func (e *Client) EvaluateBoolean(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanResult, error) {
 	ereq, err := json.Marshal(evaluationRequest{
 		NamespaceKey: e.namespace,
 		FlagKey:      flagKey,
@@ -121,7 +121,7 @@ func (e *Client) Boolean(_ context.Context, flagKey, entityID string, evalContex
 		return nil, err
 	}
 
-	boolean := C.boolean(e.engine, C.CString(string(ereq)))
+	boolean := C.evaluate_boolean(e.engine, C.CString(string(ereq)))
 	defer C.free(unsafe.Pointer(boolean))
 
 	b := C.GoBytes(unsafe.Pointer(boolean), (C.int)(C.strlen(boolean)))
