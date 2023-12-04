@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"maps"
 	"os"
 	"strings"
 
@@ -18,6 +19,7 @@ var (
 		"python": pythonTests,
 		"go":     goTests,
 		"node":   nodeTests,
+		"ruby":   rubyTests,
 	}
 	sema = make(chan struct{}, len(languageToFn))
 )
@@ -37,24 +39,22 @@ func main() {
 }
 
 func run() error {
-	var languagesTestsMap = map[string]integrationTestFn{
-		"python": pythonTests,
-		"go":     goTests,
-		"node":   nodeTests,
-	}
+	var tests = make(map[string]integrationTestFn, len(languageToFn))
+
+	maps.Copy(tests, languageToFn)
 
 	if languages != "" {
 		l := strings.Split(languages, ",")
-		tlm := make(map[string]integrationTestFn, len(l))
+		subset := make(map[string]integrationTestFn, len(l))
 		for _, language := range l {
-			if testFn, ok := languageToFn[language]; !ok {
+			testFn, ok := languageToFn[language]
+			if !ok {
 				return fmt.Errorf("language %s is not supported", language)
-			} else {
-				tlm[language] = testFn
 			}
+			subset[language] = testFn
 		}
 
-		languagesTestsMap = tlm
+		tests = subset
 	}
 
 	ctx := context.Background()
@@ -73,7 +73,7 @@ func run() error {
 
 	var g errgroup.Group
 
-	for _, testFn := range languagesTestsMap {
+	for _, testFn := range tests {
 		err := testFn(ctx, client, flipt, dynamicLibrary, headerFile, dir)
 		if err != nil {
 			return err
@@ -178,6 +178,21 @@ func nodeTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 		WithEnvVariable("FLIPT_ENGINE_LIB_PATH", "/app/libfliptengine.so").
 		WithExec([]string{"npm", "install"}).
 		WithExec([]string{"npm", "test"}).
+		Sync(ctx)
+
+	return err
+}
+
+// rubyTests runs the ruby integration test suite against a container running Flipt.
+func rubyTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, dynamicLibrary *dagger.File, _ *dagger.File, hostDirectory *dagger.Directory) error {
+	_, err := client.Container().From("ruby:3.1-bookworm").
+		WithWorkdir("/app").
+		WithDirectory("/app", hostDirectory.Directory("flipt-client-ruby")).
+		WithFile("/app/lib/ext/libfliptengine.so", dynamicLibrary).
+		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
+		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithExec([]string{"bundle", "install"}).
+		WithExec([]string{"bundle", "exec", "rspec"}).
 		Sync(ctx)
 
 	return err

@@ -1,14 +1,16 @@
-## Integration Testing
+# Integration Tests
 
-The different languages clients should all have an integration test suite that is dependent on a dynamic library being present somewhere and a running instance of Flipt. In the `build/` directory we will use [Dagger](https://dagger.io/) to orchestrate setting up the dependencies for running the test suites for the different languages.
+The different languages clients should all have an integration test suite that is dependent on the dynamic library being present somewhere and a running instance of Flipt.
 
-### Requirements
+In the `build/` directory we will use [Dagger](https://dagger.io/) to orchestrate setting up the dependencies for running the test suites for the different languages.
+
+## Requirements
 
 Make sure you have `dagger` installed. This module is pinned to `v0.9.3` currently.
 
 Here are the [installation instructions](https://docs.dagger.io/quickstart/729236/cli) for `dagger`.
 
-### How to run tests?
+## Running Tests
 
 From the root of this repository you can run:
 

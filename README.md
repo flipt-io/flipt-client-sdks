@@ -1,14 +1,18 @@
 # Client SDKs
 
-The intention of this repo is to centralize the core evaluation logic for Flipt's feature flags, and have thin multi-language wrappers around that logic.
+![Status: Experimental](https://img.shields.io/badge/status-experimental-yellow)
 
-The evaluation logic is written in Rust and can be found in the `flipt-engine` directory. The language clients that wrap the engine can be found in the `flipt-client-{language}` directories.
+This repository centralizes the client-side SDKs for [Flipt](https://github.com/flipt-io/flipt).
 
-The Rust core is compiled down into a dynamically-linked library and the language clients are able to access that logic through [FFI (foreign function interface)](https://levelup.gitconnected.com/what-is-ffi-foreign-function-interface-an-intuitive-explanation-7327444e347a).
+These client-side SDKs are responsible for evaluating context and returning the results of the evaluation. They enable developers to easily integrate Flipt into their applications without relying on server-side SDKs.
 
-You can refer to the architecture diagram below:
+## Architecture
 
-<img src="./diagrams/architecture.png" alt="Client SDKs Architecture" width="500px" />
+The client SDKs are designed to be embedded in end-user applications.
+
+The evaluation logic is written in Rust and can be found in the `flipt-engine` directory. The language clients that are used in end-user applications wrap the engine can be found in the `flipt-client-{language}` directories.
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## Language Support
 

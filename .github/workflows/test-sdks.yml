@@ -1,4 +1,4 @@
-name: Tests
+name: Test SDKs
 on:
   push:
     branches:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   test:
-    name: Dagger ITs
+    name: Integration Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
@@ -18,12 +18,12 @@ jobs:
           go-version: "1.21.3"
           check-latest: true
           cache: true
-      
+
       - name: Install Dagger
         run: |
           cd /usr/local
           curl -L https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=0.9.3 sh
-      
-      - name: Run ITs
+
+      - name: Run Integration Tests
         run: |
           dagger run go run ./build
