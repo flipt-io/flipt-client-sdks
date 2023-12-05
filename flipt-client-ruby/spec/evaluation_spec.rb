@@ -6,7 +6,8 @@ RSpec.describe Flipt::EvaluationClient do
   describe '#initialize' do
     it 'initializes the engine' do
       url = ENV.fetch('FLIPT_URL', 'http://localhost:8080')
-      client = Flipt::EvaluationClient.new('default', { url: url })
+      auth_token = ENV.fetch('FLIPT_AUTH_TOKEN', 'secret')
+      client = Flipt::EvaluationClient.new('default', { url: url, auth_token: auth_token })
       expect(client).to be_a(Flipt::EvaluationClient)
     end
   end
@@ -14,7 +15,8 @@ RSpec.describe Flipt::EvaluationClient do
   describe '#evaluate_variant' do
     it 'returns a variant result' do
       url = ENV.fetch('FLIPT_URL', 'http://localhost:8080')
-      client = Flipt::EvaluationClient.new('default', { url: url })
+      auth_token = ENV.fetch('FLIPT_AUTH_TOKEN', 'secret')
+      client = Flipt::EvaluationClient.new('default', { url: url, auth_token: auth_token })
 
       resp = client.evaluate_variant({ flag_key: 'flag1', entity_id: 'someentity', context: { "fizz": 'buzz' } })
 
@@ -32,7 +34,8 @@ RSpec.describe Flipt::EvaluationClient do
   describe '#evaluate_boolean' do
     it 'returns a boolean result' do
       url = ENV.fetch('FLIPT_URL', 'http://localhost:8080')
-      client = Flipt::EvaluationClient.new('default', { url: url })
+      auth_token = ENV.fetch('FLIPT_AUTH_TOKEN', 'secret')
+      client = Flipt::EvaluationClient.new('default', { url: url, auth_token: auth_token })
 
       resp = client.evaluate_boolean({ flag_key: 'flag_boolean', entity_id: 'someentity', context: { "fizz": 'buzz' } })
 
