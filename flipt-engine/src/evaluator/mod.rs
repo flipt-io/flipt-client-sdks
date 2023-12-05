@@ -14,10 +14,14 @@ const DEFAULT_PERCENT: f32 = 100.0;
 const DEFAULT_TOTAL_BUCKET_NUMBER: u32 = 1000;
 const DEFAULT_PERCENT_MULTIPIER: f32 = DEFAULT_TOTAL_BUCKET_NUMBER as f32 / DEFAULT_PERCENT;
 
-pub struct Evaluator {
+pub struct Evaluator<P, S>
+where
+    P: Parser + Send,
+    S: Store + Send,
+{
     namespaces: Vec<String>,
-    parser: Box<dyn Parser + Send>,
-    snapshot: Box<dyn Store + Send>,
+    parser: P,
+    snapshot: S,
     mtx: Arc<RwLock<i32>>,
 }
 
@@ -101,25 +105,38 @@ type VariantEvaluationResult<T> = std::result::Result<T, Whatever>;
 
 type BooleanEvaluationResult<T> = std::result::Result<T, Whatever>;
 
-impl Evaluator {
-    pub fn new(
-        namespaces: Vec<String>,
-        parser: Box<dyn Parser + Sync + Send>,
-    ) -> Result<Self, Whatever> {
-        let snap = Snapshot::build(&namespaces, &*parser)?;
+impl<P> Evaluator<P, Snapshot>
+where
+    P: Parser + Send,
+{
+    pub fn new_snapshot_evaluator(namespaces: Vec<String>, parser: P) -> Result<Self, Whatever> {
+        let snap = Snapshot::build(&namespaces, &parser)?;
+        Evaluator::new(namespaces, parser, snap)
+    }
 
+    pub fn replace_snapshot(&mut self) {
+        let snap = Snapshot::build(&self.namespaces, &self.parser);
+        self.replace_store(snap.unwrap());
+    }
+}
+
+impl<P, S> Evaluator<P, S>
+where
+    P: Parser + Send,
+    S: Store + Send,
+{
+    pub fn new(namespaces: Vec<String>, parser: P, store_impl: S) -> Result<Self, Whatever> {
         Ok(Self {
             namespaces,
             parser,
-            snapshot: Box::new(snap),
+            snapshot: store_impl,
             mtx: Arc::new(RwLock::new(0)),
         })
     }
 
-    pub fn replace_snapshot(&mut self) {
+    pub fn replace_store(&mut self, store_impl: S) {
         let _w_lock = self.mtx.write().unwrap();
-        let snap = Snapshot::build(&self.namespaces, self.parser.as_ref());
-        self.snapshot = Box::new(snap.unwrap());
+        self.snapshot = store_impl;
     }
 
     pub fn variant(
@@ -991,8 +1008,8 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            parser: Box::new(test_parser),
-            snapshot: Box::new(mock_store),
+            parser: test_parser,
+            snapshot: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -1083,8 +1100,8 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            parser: Box::new(test_parser),
-            snapshot: Box::new(mock_store),
+            parser: test_parser,
+            snapshot: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -1202,8 +1219,8 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            parser: Box::new(test_parser),
-            snapshot: Box::new(mock_store),
+            parser: test_parser,
+            snapshot: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -1303,8 +1320,8 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            parser: Box::new(test_parser),
-            snapshot: Box::new(mock_store),
+            parser: test_parser,
+            snapshot: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -1409,8 +1426,8 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            parser: Box::new(test_parser),
-            snapshot: Box::new(mock_store),
+            parser: test_parser,
+            snapshot: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -1542,8 +1559,8 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            parser: Box::new(test_parser),
-            snapshot: Box::new(mock_store),
+            parser: test_parser,
+            snapshot: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -1626,8 +1643,8 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            parser: Box::new(test_parser),
-            snapshot: Box::new(mock_store),
+            parser: test_parser,
+            snapshot: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -1723,8 +1740,8 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            parser: Box::new(test_parser),
-            snapshot: Box::new(mock_store),
+            parser: test_parser,
+            snapshot: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -1814,8 +1831,8 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            parser: Box::new(test_parser),
-            snapshot: Box::new(mock_store),
+            parser: test_parser,
+            snapshot: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -1932,8 +1949,8 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            parser: Box::new(test_parser),
-            snapshot: Box::new(mock_store),
+            parser: test_parser,
+            snapshot: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -2032,8 +2049,8 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            parser: Box::new(test_parser),
-            snapshot: Box::new(mock_store),
+            parser: test_parser,
+            snapshot: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -2129,8 +2146,8 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            parser: Box::new(test_parser),
-            snapshot: Box::new(mock_store),
+            parser: test_parser,
+            snapshot: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -2261,8 +2278,8 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            parser: Box::new(test_parser),
-            snapshot: Box::new(mock_store),
+            parser: test_parser,
+            snapshot: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -2344,8 +2361,8 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            parser: Box::new(test_parser),
-            snapshot: Box::new(mock_store),
+            parser: test_parser,
+            snapshot: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -2466,8 +2483,8 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            parser: Box::new(test_parser),
-            snapshot: Box::new(mock_store),
+            parser: test_parser,
+            snapshot: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -2578,8 +2595,8 @@ mod tests {
 
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
-            parser: Box::new(test_parser),
-            snapshot: Box::new(mock_store),
+            parser: test_parser,
+            snapshot: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 

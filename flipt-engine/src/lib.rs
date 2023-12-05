@@ -1,4 +1,5 @@
 use libc::c_void;
+use parser::{HTTPParser, Parser};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use snafu::{prelude::*, Whatever};
@@ -6,6 +7,7 @@ use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
+use store::{Snapshot, Store};
 
 pub mod evaluator;
 mod models;
@@ -79,13 +81,17 @@ impl Default for EngineOpts {
     }
 }
 
-pub struct Engine {
+pub struct Engine<P, S>
+where
+    P: Parser + Send,
+    S: Store + Send,
+{
     pub opts: EngineOpts,
-    pub evaluator: Arc<Mutex<evaluator::Evaluator>>,
+    pub evaluator: Arc<Mutex<evaluator::Evaluator<P, S>>>,
 }
 
-impl Engine {
-    pub fn new(evaluator: evaluator::Evaluator, opts: EngineOpts) -> Self {
+impl Engine<HTTPParser, Snapshot> {
+    pub fn new(evaluator: evaluator::Evaluator<HTTPParser, Snapshot>, opts: EngineOpts) -> Self {
         let mut engine = Self {
             opts,
             evaluator: Arc::new(Mutex::new(evaluator)),
@@ -132,11 +138,13 @@ impl Engine {
 ///
 /// This function should not be called unless an Engine is initiated. It provides a helper
 /// utility to retrieve an Engine instance for evaluation use.
-unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, Whatever> {
+unsafe fn get_engine<'a>(
+    engine_ptr: *mut c_void,
+) -> Result<&'a mut Engine<HTTPParser, Snapshot>, Whatever> {
     if engine_ptr.is_null() {
         whatever!("null pointer engine error");
     } else {
-        Ok(unsafe { &mut *(engine_ptr as *mut Engine) })
+        Ok(unsafe { &mut *(engine_ptr as *mut Engine<HTTPParser, Snapshot>) })
     }
 }
 
@@ -177,8 +185,8 @@ pub unsafe extern "C" fn initialize_engine(
         .to_owned()
         .unwrap_or("http://localhost:8080".into());
 
-    let parser = Box::new(parser::HTTPParser::new(&http_url));
-    let evaluator = evaluator::Evaluator::new(namespaces_vec, parser);
+    let parser = parser::HTTPParser::new(&http_url);
+    let evaluator = evaluator::Evaluator::new_snapshot_evaluator(namespaces_vec, parser);
 
     Box::into_raw(Box::new(Engine::new(evaluator.unwrap(), engine_opts))) as *mut c_void
 }
@@ -244,5 +252,7 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
         return;
     }
 
-    drop(Box::from_raw(engine_ptr as *mut Engine));
+    drop(Box::from_raw(
+        engine_ptr as *mut Engine<HTTPParser, Snapshot>,
+    ));
 }
