@@ -859,7 +859,7 @@ mod tests {
             "blah",
         );
 
-        assert!(!result.is_ok());
+        assert!(result.is_err());
         assert_eq!(
             result.err().unwrap().to_string(),
             "error parsing boolean blah: err provided string was not `true` or `false`"
@@ -878,7 +878,7 @@ mod tests {
             "notanumber",
         );
 
-        assert!(!result_one.is_ok());
+        assert!(result_one.is_err());
         assert_eq!(
             result_one.err().unwrap().to_string(),
             "error parsing number notanumber, err: invalid digit found in string"
@@ -894,7 +894,7 @@ mod tests {
             "9",
         );
 
-        assert!(!result_two.is_ok());
+        assert!(result_two.is_err());
         assert_eq!(
             result_two.err().unwrap().to_string(),
             "error parsing number notanumber, err: invalid digit found in string"
@@ -913,7 +913,7 @@ mod tests {
             "2006-01-02T15:04:05Z",
         );
 
-        assert!(!result_one.is_ok());
+        assert!(result_one.is_err());
         assert_eq!(
             result_one.err().unwrap().to_string(),
             "error parsing time blah, err: input contains invalid characters"
@@ -929,7 +929,7 @@ mod tests {
             "blah",
         );
 
-        assert!(!result_two.is_ok());
+        assert!(result_two.is_err());
         assert_eq!(
             result_two.err().unwrap().to_string(),
             "error parsing time blah, err: input contains invalid characters"
@@ -1011,7 +1011,7 @@ mod tests {
         let v = variant.unwrap();
 
         assert_eq!(v.flag_key, String::from("foo"));
-        assert_eq!(v.r#match, true);
+        assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
@@ -1654,7 +1654,7 @@ mod tests {
             namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("01"),
-            context: context,
+            context,
         });
 
         assert!(variant.is_ok());
@@ -1742,7 +1742,7 @@ mod tests {
         let v = variant.unwrap();
 
         assert_eq!(v.flag_key, String::from("foo"));
-        assert_eq!(v.r#match, true);
+        assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
@@ -2390,7 +2390,7 @@ mod tests {
             namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("01"),
-            context: context,
+            context,
         });
 
         assert!(variant.is_ok());

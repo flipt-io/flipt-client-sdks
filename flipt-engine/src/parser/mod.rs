@@ -88,6 +88,12 @@ pub struct TestParser {
 }
 
 #[cfg(test)]
+impl Default for TestParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TestParser {
     pub fn new() -> Self {
         Self { path: None }
