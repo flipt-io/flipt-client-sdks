@@ -1,4 +1,5 @@
 use libc::c_void;
+use parser::HTTPParser;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use snafu::{prelude::*, Whatever};
@@ -6,6 +7,7 @@ use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
+use store::Snapshot;
 
 pub mod evaluator;
 mod models;
@@ -81,11 +83,11 @@ impl Default for EngineOpts {
 
 pub struct Engine {
     pub opts: EngineOpts,
-    pub evaluator: Arc<Mutex<evaluator::Evaluator>>,
+    pub evaluator: Arc<Mutex<evaluator::Evaluator<HTTPParser, Snapshot>>>,
 }
 
 impl Engine {
-    pub fn new(evaluator: evaluator::Evaluator, opts: EngineOpts) -> Self {
+    pub fn new(evaluator: evaluator::Evaluator<HTTPParser, Snapshot>, opts: EngineOpts) -> Self {
         let mut engine = Self {
             opts,
             evaluator: Arc::new(Mutex::new(evaluator)),
@@ -177,8 +179,8 @@ pub unsafe extern "C" fn initialize_engine(
         .to_owned()
         .unwrap_or("http://localhost:8080".into());
 
-    let parser = Box::new(parser::HTTPParser::new(&http_url));
-    let evaluator = evaluator::Evaluator::new(namespaces_vec, parser);
+    let parser = parser::HTTPParser::new(&http_url);
+    let evaluator = evaluator::Evaluator::new_snapshot_evaluator(namespaces_vec, parser);
 
     Box::into_raw(Box::new(Engine::new(evaluator.unwrap(), engine_opts))) as *mut c_void
 }
