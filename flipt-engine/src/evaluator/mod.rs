@@ -21,7 +21,7 @@ where
 {
     namespaces: Vec<String>,
     parser: P,
-    snapshot: S,
+    store: S,
     mtx: Arc<RwLock<i32>>,
 }
 
@@ -129,14 +129,14 @@ where
         Ok(Self {
             namespaces,
             parser,
-            snapshot: store_impl,
+            store: store_impl,
             mtx: Arc::new(RwLock::new(0)),
         })
     }
 
     pub fn replace_store(&mut self, store_impl: S) {
         let _w_lock = self.mtx.write().unwrap();
-        self.snapshot = store_impl;
+        self.store = store_impl;
     }
 
     pub fn variant(
@@ -144,7 +144,7 @@ where
         evaluation_request: &EvaluationRequest,
     ) -> VariantEvaluationResult<VariantEvaluationResponse> {
         let _r_lock = self.mtx.read().unwrap();
-        let flag = match self.snapshot.get_flag(
+        let flag = match self.store.get_flag(
             &evaluation_request.namespace_key,
             &evaluation_request.flag_key,
         ) {
@@ -169,7 +169,7 @@ where
         evaluation_request: &EvaluationRequest,
     ) -> BooleanEvaluationResult<BooleanEvaluationResponse> {
         let _r_lock = self.mtx.read().unwrap();
-        let flag = match self.snapshot.get_flag(
+        let flag = match self.store.get_flag(
             &evaluation_request.namespace_key,
             &evaluation_request.flag_key,
         ) {
@@ -197,7 +197,7 @@ where
 
         for request in requests {
             let flag = match self
-                .snapshot
+                .store
                 .get_flag(&request.namespace_key, &request.flag_key)
             {
                 Some(f) => f,
@@ -257,7 +257,7 @@ where
             return Ok(variant_evaluation_response);
         }
 
-        let evaluation_rules = match self.snapshot.get_evaluation_rules(
+        let evaluation_rules = match self.store.get_evaluation_rules(
             &evaluation_request.namespace_key,
             &evaluation_request.flag_key,
         ) {
@@ -308,7 +308,7 @@ where
             variant_evaluation_response.segment_keys = segment_keys;
 
             let distributions = match self
-                .snapshot
+                .store
                 .get_evaluation_distributions(&evaluation_request.namespace_key, &rule.id)
             {
                 Some(evaluation_distributions) => evaluation_distributions,
@@ -390,7 +390,7 @@ where
         let now = SystemTime::now();
         let mut last_rank = 0;
 
-        let evaluation_rollouts = match self.snapshot.get_evaluation_rollouts(
+        let evaluation_rollouts = match self.store.get_evaluation_rollouts(
             &evaluation_request.namespace_key,
             &evaluation_request.flag_key,
         ) {
@@ -1009,7 +1009,7 @@ mod tests {
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
             parser: test_parser,
-            snapshot: mock_store,
+            store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -1101,7 +1101,7 @@ mod tests {
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
             parser: test_parser,
-            snapshot: mock_store,
+            store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -1220,7 +1220,7 @@ mod tests {
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
             parser: test_parser,
-            snapshot: mock_store,
+            store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -1321,7 +1321,7 @@ mod tests {
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
             parser: test_parser,
-            snapshot: mock_store,
+            store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -1427,7 +1427,7 @@ mod tests {
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
             parser: test_parser,
-            snapshot: mock_store,
+            store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -1560,7 +1560,7 @@ mod tests {
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
             parser: test_parser,
-            snapshot: mock_store,
+            store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -1644,7 +1644,7 @@ mod tests {
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
             parser: test_parser,
-            snapshot: mock_store,
+            store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -1741,7 +1741,7 @@ mod tests {
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
             parser: test_parser,
-            snapshot: mock_store,
+            store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -1832,7 +1832,7 @@ mod tests {
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
             parser: test_parser,
-            snapshot: mock_store,
+            store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -1950,7 +1950,7 @@ mod tests {
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
             parser: test_parser,
-            snapshot: mock_store,
+            store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -2050,7 +2050,7 @@ mod tests {
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
             parser: test_parser,
-            snapshot: mock_store,
+            store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -2147,7 +2147,7 @@ mod tests {
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
             parser: test_parser,
-            snapshot: mock_store,
+            store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -2279,7 +2279,7 @@ mod tests {
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
             parser: test_parser,
-            snapshot: mock_store,
+            store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -2362,7 +2362,7 @@ mod tests {
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
             parser: test_parser,
-            snapshot: mock_store,
+            store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -2484,7 +2484,7 @@ mod tests {
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
             parser: test_parser,
-            snapshot: mock_store,
+            store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
@@ -2596,7 +2596,7 @@ mod tests {
         let evaluator = &Evaluator {
             namespaces: vec!["default".into()],
             parser: test_parser,
-            snapshot: mock_store,
+            store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
