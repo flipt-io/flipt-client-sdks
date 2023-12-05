@@ -4,10 +4,11 @@ use fliptengine::{self, evaluator, parser};
 use std::collections::HashMap;
 
 fn main() {
-    let evaluator = evaluator::Evaluator::new(
+    let evaluator = evaluator::Evaluator::new_snapshot_evaluator(
         vec!["default".into()],
-        Box::new(parser::HTTPParser::new("http://localhost:8080", None)),
+        parser::HTTPParser::new("http://localhost:8080", None),
     );
+
     let eng = fliptengine::Engine::new(evaluator.unwrap(), Default::default());
     let mut context: HashMap<String, String> = HashMap::new();
     context.insert("fizz".into(), "buzz".into());

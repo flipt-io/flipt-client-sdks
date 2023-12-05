@@ -40,7 +40,10 @@ struct Namespace {
 }
 
 impl Snapshot {
-    pub fn build(namespaces: &Vec<String>, parser: &dyn Parser) -> Result<Snapshot, Whatever> {
+    pub fn build<P>(namespaces: &Vec<String>, parser: &P) -> Result<Snapshot, Whatever>
+    where
+        P: Parser + Send,
+    {
         let mut ns: HashMap<String, Namespace> = HashMap::new();
 
         for n in namespaces {
