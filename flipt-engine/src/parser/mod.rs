@@ -54,6 +54,7 @@ impl Parser for HTTPParser {
                 "{}/internal/v1/evaluation/snapshot/namespace/{}",
                 self.http_url, namespace
             ))
+            .headers(headers)
             .send()
         {
             Ok(resp) => resp,

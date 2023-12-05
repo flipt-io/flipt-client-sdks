@@ -42,6 +42,7 @@ func main() {
  // evaluation.WithNamespace(string): configures which namespace you will be making evaluations on
  // evaluation.WithURL(string): configures which upstream Flipt data should be fetched from
  // evaluation.WithUpdateInterval(int): configures how often data should be fetched from the upstream
+ // evaluation.WithAuthToken(string): configures an auth token if your upstream Flipt instance requires it
  evaluationClient, err := evaluation.NewClient()
  if err != nil {
   log.Fatal(err)

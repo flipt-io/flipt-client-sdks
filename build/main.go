@@ -119,6 +119,9 @@ func getTestDependencies(ctx context.Context, client *dagger.Client, hostDirecto
 		WithUser("flipt").
 		WithEnvVariable("FLIPT_STORAGE_TYPE", "local").
 		WithEnvVariable("FLIPT_STORAGE_LOCAL_PATH", "/var/data/flipt").
+		WithEnvVariable("FLIPT_AUTHENTICATION_METHODS_TOKEN_ENABLED", "1").
+		WithEnvVariable("FLIPT_AUTHENTICATION_METHODS_TOKEN_BOOTSTRAP_TOKEN", "secret").
+		WithEnvVariable("FLIPT_AUTHENTICATION_REQUIRED", "1").
 		WithExposedPort(8080)
 
 	return flipt, rust.File("/app/target/release/libfliptengine.so"), rust.File("/app/target/release/flipt_engine.h")
@@ -133,6 +136,7 @@ func pythonTests(ctx context.Context, client *dagger.Client, flipt *dagger.Conta
 		WithFile("/app/libfliptengine.so", dynamicLibrary).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithEnvVariable("FLIPT_ENGINE_LIB_PATH", "/app/libfliptengine.so").
 		WithExec([]string{"poetry", "install", "--without=dev"}).
 		WithExec([]string{"poetry", "run", "test"}).
@@ -152,6 +156,7 @@ func goTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container
 		WithFile("/app/flipt_engine.h", headerFile).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		// Since the dynamic library is being sourced from a "non-standard location" we can
 		// modify the LD_LIBRARY_PATH variable to inform the linker different locations for
 		// dynamic libraries.
@@ -175,6 +180,7 @@ func nodeTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 		WithFile("/app/libfliptengine.so", dynamicLibrary).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithEnvVariable("FLIPT_ENGINE_LIB_PATH", "/app/libfliptengine.so").
 		WithExec([]string{"npm", "install"}).
 		WithExec([]string{"npm", "test"}).

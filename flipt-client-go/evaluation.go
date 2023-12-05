@@ -85,6 +85,13 @@ func WithUpdateInterval(updateInterval int) clientOption {
 	}
 }
 
+// WithAuthToken allows for configuring an auth token to communicate with a protected Flipt server.
+func WithAuthToken(authToken string) clientOption {
+	return func(c *Client) {
+		c.authToken = authToken
+	}
+}
+
 // EvaluateVariant makes an evaluation on a variant flag.
 func (e *Client) EvaluateVariant(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantResult, error) {
 	ereq, err := json.Marshal(evaluationRequest{

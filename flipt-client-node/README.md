@@ -27,11 +27,12 @@ import { FliptEvaluationClient } from 'flipt-client-node';
 // engine_opts is the second positional argument and is also optional, the structure is:
 // {
 //  "url": "http://localhost:8080",
-//  "update_interval": 120 
+//  "update_interval": 120,
+//  "auth_token": "secret"
 // }
 //
-// You can replace the url with where your upstream Flipt instance points to, and the update interval for how long you are willing
-// to wait for updated flag state.
+// You can replace the url with where your upstream Flipt instance points to, the update interval for how long you are willing
+// to wait for updated flag state, and the auth token if your Flipt instance requires it.
 const fliptEvaluationClient = new FliptEvaluationClient();
 
 const variant = fliptEvaluationClient.evaluateVariant("flag1", "someentity", {"fizz": "buzz"});

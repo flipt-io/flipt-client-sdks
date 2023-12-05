@@ -10,8 +10,12 @@ class TestFliptEvaluationClient(unittest.TestCase):
         if engine_url is None:
             raise Exception("FLIPT_URL not set")
 
+        auth_token = os.environ.get("FLIPT_AUTH_TOKEN")
+        if auth_token is None:
+            raise Exception("FLIPT_AUTH_TOKEN not set")
+
         self.flipt_client = FliptEvaluationClient(
-            engine_opts=EngineOpts(url=engine_url)
+            engine_opts=EngineOpts(url=engine_url, auth_token=auth_token)
         )
 
     def test_variant(self):
