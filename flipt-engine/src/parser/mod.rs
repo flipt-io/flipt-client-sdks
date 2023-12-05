@@ -41,14 +41,11 @@ impl Parser for HTTPParser {
             reqwest::header::HeaderValue::from_static("application/json"),
         );
 
-        match self.auth_token {
-            Some(ref token) => {
-                headers.insert(
-                    reqwest::header::AUTHORIZATION,
-                    reqwest::header::HeaderValue::from_str(&format!("Bearer {}", token)).unwrap(),
-                );
-            }
-            None => {}
+        if let Some(ref token) = self.auth_token {
+            headers.insert(
+                reqwest::header::AUTHORIZATION,
+                reqwest::header::HeaderValue::from_str(&format!("Bearer {}", token)).unwrap(),
+            );
         }
 
         let response = match self
@@ -88,12 +85,6 @@ pub struct TestParser {
 }
 
 #[cfg(test)]
-impl Default for TestParser {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl TestParser {
     pub fn new() -> Self {
         Self { path: None }
