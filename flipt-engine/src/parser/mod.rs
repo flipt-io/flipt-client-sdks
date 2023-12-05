@@ -9,10 +9,12 @@ pub trait Parser {
 pub struct HTTPParser {
     http_client: reqwest::blocking::Client,
     http_url: String,
+    auth_token: Option<String>,
 }
 
 impl HTTPParser {
-    pub fn new(url: &str) -> Self {
+    // TODO: potentially use builder pattern if we need to add more options
+    pub fn new(url: &str, auth_token: Option<&str>) -> Self {
         // We will allow the following line to panic when an error is encountered.
         let http_client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
@@ -22,12 +24,33 @@ impl HTTPParser {
         Self {
             http_client,
             http_url: url.to_string(),
+            auth_token: auth_token.unwrap_or_default().to_string().into(),
         }
     }
 }
 
 impl Parser for HTTPParser {
     fn parse(&self, namespace: &str) -> Result<source::Document, Whatever> {
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            reqwest::header::CONTENT_TYPE,
+            reqwest::header::HeaderValue::from_static("application/json"),
+        );
+        headers.insert(
+            reqwest::header::ACCEPT,
+            reqwest::header::HeaderValue::from_static("application/json"),
+        );
+
+        match self.auth_token {
+            Some(ref token) => {
+                headers.insert(
+                    reqwest::header::AUTHORIZATION,
+                    reqwest::header::HeaderValue::from_str(&format!("Bearer {}", token)).unwrap(),
+                );
+            }
+            None => {}
+        }
+
         let response = match self
             .http_client
             .get(format!(

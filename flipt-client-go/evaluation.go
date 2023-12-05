@@ -18,6 +18,7 @@ type Client struct {
 	engine         unsafe.Pointer
 	namespace      string
 	url            string
+	authToken      string
 	updateInterval int
 }
 
@@ -34,6 +35,7 @@ func NewClient(opts ...clientOption) (*Client, error) {
 	engOpts := &EngineOpts{
 		URL:            client.url,
 		UpdateInterval: client.updateInterval,
+		AuthToken:      client.authToken,
 	}
 
 	b, err := json.Marshal(engOpts)

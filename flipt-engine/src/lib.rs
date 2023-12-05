@@ -67,6 +67,7 @@ fn result_to_json_ptr<T: Serialize>(result: Result<T, Whatever>) -> *mut c_char 
 #[derive(Deserialize)]
 pub struct EngineOpts {
     url: Option<String>,
+    auth_token: Option<String>,
     update_interval: Option<u64>,
 }
 
@@ -74,6 +75,7 @@ impl Default for EngineOpts {
     fn default() -> Self {
         Self {
             url: Some("http://localhost:8080".into()),
+            auth_token: None,
             update_interval: Some(120),
         }
     }
@@ -177,7 +179,9 @@ pub unsafe extern "C" fn initialize_engine(
         .to_owned()
         .unwrap_or("http://localhost:8080".into());
 
-    let parser = Box::new(parser::HTTPParser::new(&http_url));
+    let auth_token = engine_opts.auth_token.to_owned();
+
+    let parser = Box::new(parser::HTTPParser::new(&http_url, auth_token.as_deref()));
     let evaluator = evaluator::Evaluator::new(namespaces_vec, parser);
 
     Box::into_raw(Box::new(Engine::new(evaluator.unwrap(), engine_opts))) as *mut c_void
