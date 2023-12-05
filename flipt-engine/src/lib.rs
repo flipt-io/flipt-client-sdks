@@ -1,5 +1,5 @@
 use libc::c_void;
-use parser::{HTTPParser, Parser};
+use parser::HTTPParser;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use snafu::{prelude::*, Whatever};
@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
-use store::{Snapshot, Store};
+use store::Snapshot;
 
 pub mod evaluator;
 mod models;
@@ -81,16 +81,12 @@ impl Default for EngineOpts {
     }
 }
 
-pub struct Engine<P, S>
-where
-    P: Parser + Send,
-    S: Store + Send,
-{
+pub struct Engine {
     pub opts: EngineOpts,
-    pub evaluator: Arc<Mutex<evaluator::Evaluator<P, S>>>,
+    pub evaluator: Arc<Mutex<evaluator::Evaluator<HTTPParser, Snapshot>>>,
 }
 
-impl Engine<HTTPParser, Snapshot> {
+impl Engine {
     pub fn new(evaluator: evaluator::Evaluator<HTTPParser, Snapshot>, opts: EngineOpts) -> Self {
         let mut engine = Self {
             opts,
@@ -138,13 +134,11 @@ impl Engine<HTTPParser, Snapshot> {
 ///
 /// This function should not be called unless an Engine is initiated. It provides a helper
 /// utility to retrieve an Engine instance for evaluation use.
-unsafe fn get_engine<'a>(
-    engine_ptr: *mut c_void,
-) -> Result<&'a mut Engine<HTTPParser, Snapshot>, Whatever> {
+unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, Whatever> {
     if engine_ptr.is_null() {
         whatever!("null pointer engine error");
     } else {
-        Ok(unsafe { &mut *(engine_ptr as *mut Engine<HTTPParser, Snapshot>) })
+        Ok(unsafe { &mut *(engine_ptr as *mut Engine) })
     }
 }
 
@@ -252,7 +246,5 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
         return;
     }
 
-    drop(Box::from_raw(
-        engine_ptr as *mut Engine<HTTPParser, Snapshot>,
-    ));
+    drop(Box::from_raw(engine_ptr as *mut Engine));
 }
