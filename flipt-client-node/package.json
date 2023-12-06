@@ -6,10 +6,15 @@
   "types": "dist/index.d.ts",
   "author": "",
   "license": "MIT",
+  "files": [
+    "dist",
+    "ext"
+  ],
   "scripts": {
     "fmt": "prettier --config .prettierrc 'src/**/*.ts' --write",
     "lint": "prettier --check src/**/*.ts",
-    "test": "jest"
+    "test": "jest",
+    "build": "tsc"
   },
   "dependencies": {
     "ffi-napi": "^4.0.3",

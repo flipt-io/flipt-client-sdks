@@ -2,17 +2,39 @@
 
 The `flipt-client-ruby` directory contains the Ruby source code for a Flipt evaluation client.
 
-## Instructions
+## Installation
 
-To use this client, you can run the following command from the root of the repository:
+Currently, to use this client, you'll need to build the dynamic library and the gem locally and install it. This is a temporary solution until we can figure out a better way to package and distribute the libraries.
 
-```bash
-cargo build --release
-```
+The dynamic library will contain the functionality necessary for the Node client to make FFI calls.
+
+### Prerequisites
+
+- [Rust](https://www.rust-lang.org/tools/install)
+- [Ruby](https://www.ruby-lang.org/en/documentation/installation/)
+- [Make](https://www.gnu.org/software/make/)
+
+### Automated Build
+
+1. Build and copy the Rust dynamic library to the `flipt-client-ruby/lib/ext` directory. You can do this by running the following command from the root of the repository:
+
+    ```bash
+
+    ```bash
+    make ruby
+    ```
+
+### Manual Build
+
+1. Build the Rust dynamic library
+
+    ```bash
+    cargo build --release
+    ```
 
 This should generate a `target/` directory in the root of this repository, which contains the dynamically linked library built for your platform. This dynamic library will contain the functionality necessary for the Ruby client to make FFI calls.
 
-TODO: Currently, you'll need copy the dynamic library to the `flipt-client-ruby/lib/ext` directory. This is a temporary solution until we can figure out a better way to package the libraries with the gem.
+2. You'll need to copy the dynamic library to the `flipt-client-ruby/lib/ext` directory. This is a temporary solution until we can figure out a better way to package the libraries with the gem.
 
 The `path/to/lib` will be the path to the dynamic library which will have the following paths depending on your platform.
 
@@ -20,12 +42,14 @@ The `path/to/lib` will be the path to the dynamic library which will have the fo
 - **Windows**: `{REPO_ROOT}/target/release/libfliptengine.dll`
 - **MacOS**: `{REPO_ROOT}/target/release/libfliptengine.dylib`
 
-You can then build the gem and install it locally:
+3. You can then build the gem and install it locally. You can do this by running the following command from the `flipt-client-ruby` directory:
 
 ```bash
 rake build
 gem install pkg/flipt_client-{version}.gem
 ```
+
+## Usage
 
 In your Ruby code you can import this client and use it as so:
 

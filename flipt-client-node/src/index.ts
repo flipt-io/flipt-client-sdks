@@ -1,5 +1,6 @@
 import * as ffi from 'ffi-napi';
 import { alloc, allocCString, types } from 'ref-napi';
+import * as os from 'os';
 import {
   BooleanResult,
   EngineOpts,
@@ -7,8 +8,11 @@ import {
   VariantResult
 } from './models';
 
+let libfile =
+  os.platform() === 'darwin' ? 'libfliptengine.dylib' : 'libfliptengine.so';
+
 const engineLib = ffi.Library(
-  process.env.FLIPT_ENGINE_LIB_PATH || 'libfliptengine.so',
+  process.env.FLIPT_ENGINE_LIB_PATH || `../ext/${libfile}`,
   {
     initialize_engine: ['void *', ['char **', 'string']],
     evaluate_variant: ['string', ['void *', 'string']],
