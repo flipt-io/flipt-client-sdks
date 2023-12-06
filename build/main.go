@@ -74,13 +74,8 @@ func run() error {
 	var g errgroup.Group
 
 	for _, testFn := range tests {
-		err := testFn(ctx, client, flipt, dynamicLibrary, headerFile, dir)
-		if err != nil {
-			return err
-		}
 		g.Go(take(func() error {
-			err := testFn(ctx, client, flipt, dynamicLibrary, headerFile, dir)
-			return err
+			return testFn(ctx, client, flipt, dynamicLibrary, headerFile, dir)
 		}))
 	}
 
