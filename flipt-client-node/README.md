@@ -6,7 +6,7 @@ The `flipt-client-node` directory contains the TypeScript source code for a Flip
 
 Currently, to use this client, you'll need to build the dynamic library and the Node package locally and install it. This is a temporary solution until we can figure out a better way to package and distribute the libraries.
 
-The dynamic library will contain the functionality necessary for the Node client to make FFI calls.
+The dynamic library will contain the functionality necessary for the client to make calls to the Flipt engine via FFI. See [flipt-engine](../flipt-engine) for more information on the Flipt engine and FFI.
 
 ### Prerequisites
 
@@ -16,7 +16,7 @@ The dynamic library will contain the functionality necessary for the Node client
 
 ### Automated Build
 
-1. Build and copy the Rust dynamic library to the `flipt-client-node` directory. You can do this by running the following command from the root of the repository:
+1. Build and copy the dynamic library to the `flipt-client-node` directory. You can do this by running the following command from the root of the repository:
 
     ```bash
 
@@ -38,7 +38,7 @@ The dynamic library will contain the functionality necessary for the Node client
     cargo build --release
     ```
 
-This should generate a `target/` directory in the root of this repository, which contains the dynamic linking library built for your platform.
+This should generate a `target/` directory in the root of this repository, which contains the dynamically linked library built for your platform.
 
 2. You'll need to copy the dynamic library to the `flipt-client-node/ext` directory. This is a temporary solution until we can figure out a better way to package the libraries with the package.
 

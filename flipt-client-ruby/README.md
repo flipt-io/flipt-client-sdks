@@ -6,7 +6,7 @@ The `flipt-client-ruby` directory contains the Ruby source code for a Flipt eval
 
 Currently, to use this client, you'll need to build the dynamic library and the gem locally and install it. This is a temporary solution until we can figure out a better way to package and distribute the libraries.
 
-The dynamic library will contain the functionality necessary for the Node client to make FFI calls.
+The dynamic library will contain the functionality necessary for the client to make calls to the Flipt engine via FFI. See [flipt-engine](../flipt-engine) for more information on the Flipt engine and FFI.
 
 ### Prerequisites
 
@@ -16,7 +16,7 @@ The dynamic library will contain the functionality necessary for the Node client
 
 ### Automated Build
 
-1. Build and copy the Rust dynamic library to the `flipt-client-ruby/lib/ext` directory. You can do this by running the following command from the root of the repository:
+1. Build and copy the dynamic library to the `flipt-client-ruby/lib/ext` directory. You can do this by running the following command from the root of the repository:
 
     ```bash
 
@@ -32,7 +32,7 @@ The dynamic library will contain the functionality necessary for the Node client
     cargo build --release
     ```
 
-This should generate a `target/` directory in the root of this repository, which contains the dynamically linked library built for your platform. This dynamic library will contain the functionality necessary for the Ruby client to make FFI calls.
+This should generate a `target/` directory in the root of this repository, which contains the dynamically linked library built for your platform.
 
 2. You'll need to copy the dynamic library to the `flipt-client-ruby/lib/ext` directory. This is a temporary solution until we can figure out a better way to package the libraries with the gem.
 
@@ -56,7 +56,17 @@ In your Ruby code you can import this client and use it as so:
 ```ruby
 require 'flipt_client'
 
-client = Flipt::EvaluationClient.new() # uses 'default' namespace
+# namespace is the first positional argument and is optional here and will have a value of "default" if not specified.
+# opts is the second positional argument and is also optional, the structure is:
+# {
+#   "url": "http://localhost:8080",
+#   "update_interval": 120,
+#   "auth_token": "secret"
+# }
+# 
+# You can replace the url with where your upstream Flipt instance points to, the update interval for how long you are willing
+# to wait for updated flag state, and the auth token if your Flipt instance requires it.
+client = Flipt::EvaluationClient.new()
 resp = client.evaluate_variant({ flag_key: 'buzz', entity_id: 'someentity', context: { fizz: 'buzz' } })
 
 puts resp
