@@ -25,7 +25,8 @@ export class FliptEvaluationClient {
     namespace?: string,
     engine_opts: EngineOpts = {
       url: 'http://localhost:8080',
-      update_interval: 120
+      update_interval: 120,
+      auth_token: ''
     }
   ) {
     const engine = engineLib.initialize_engine(

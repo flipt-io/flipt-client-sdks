@@ -6,8 +6,17 @@ if (!fliptUrl) {
   process.exit(1);
 }
 
+const authToken = process.env['FLIPT_AUTH_TOKEN'];
+if (!authToken) {
+  console.error('please set the FLIPT_AUTH_TOKEN environment variable');
+  process.exit(1);
+}
+
 test('variant', () => {
-  const fec = new FliptEvaluationClient('default', { url: fliptUrl });
+  const fec = new FliptEvaluationClient('default', {
+    url: fliptUrl,
+    auth_token: authToken
+  });
 
   const variant = fec.evaluateVariant('flag1', 'someentity', { fizz: 'buzz' });
 
@@ -22,7 +31,10 @@ test('variant', () => {
 });
 
 test('boolean', () => {
-  const fec = new FliptEvaluationClient('default', { url: fliptUrl });
+  const fec = new FliptEvaluationClient('default', {
+    url: fliptUrl,
+    auth_token: authToken
+  });
 
   const boolean = fec.evaluateBoolean('flag_boolean', 'someentity', {
     fizz: 'buzz'

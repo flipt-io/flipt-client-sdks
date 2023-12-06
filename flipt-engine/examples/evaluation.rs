@@ -6,7 +6,7 @@ use std::collections::HashMap;
 fn main() {
     let evaluator = evaluator::Evaluator::new_snapshot_evaluator(
         vec!["default".into()],
-        parser::HTTPParser::new("http://localhost:8080"),
+        parser::HTTPParser::new("http://localhost:8080", Some("secret")),
     );
 
     let eng = fliptengine::Engine::new(evaluator.unwrap(), Default::default());

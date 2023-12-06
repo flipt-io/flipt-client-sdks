@@ -278,7 +278,7 @@ mod tests {
             .expect("flag1 should exist");
 
         assert_eq!(flag_variant.key, "flag1");
-        assert_eq!(flag_variant.enabled, true);
+        assert!(flag_variant.enabled);
         assert_eq!(flag_variant.r#type, common::FlagType::Variant);
 
         let flag_boolean = snapshot
@@ -286,7 +286,7 @@ mod tests {
             .expect("flag_boolean should exist");
 
         assert_eq!(flag_boolean.key, "flag_boolean");
-        assert_eq!(flag_boolean.enabled, true);
+        assert!(flag_boolean.enabled);
         assert_eq!(flag_boolean.r#type, common::FlagType::Boolean);
 
         let evaluation_rules = snapshot
@@ -342,7 +342,7 @@ mod tests {
             .as_ref()
             .expect("first rollout should be segment");
 
-        assert_eq!(segment_rollout.value, true);
+        assert!(segment_rollout.value);
         assert_eq!(
             segment_rollout.segment_operator,
             common::SegmentOperator::Or

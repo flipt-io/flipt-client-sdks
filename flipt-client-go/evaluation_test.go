@@ -11,16 +11,22 @@ import (
 )
 
 var fliptUrl string
+var authToken string
 
 func init() {
 	fliptUrl = os.Getenv("FLIPT_URL")
 	if fliptUrl == "" {
 		panic("set FLIPT_URL")
 	}
+
+	authToken = os.Getenv("FLIPT_AUTH_TOKEN")
+	if authToken == "" {
+		panic("set FLIPT_AUTH_TOKEN")
+	}
 }
 
 func TestVariant(t *testing.T) {
-	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl))
+	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl), evaluation.WithAuthToken(authToken))
 	require.NoError(t, err)
 
 	variant, err := evaluationClient.EvaluateVariant(context.TODO(), "flag1", "someentity", map[string]string{
@@ -37,7 +43,7 @@ func TestVariant(t *testing.T) {
 }
 
 func TestBoolean(t *testing.T) {
-	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl))
+	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl), evaluation.WithAuthToken(authToken))
 	require.NoError(t, err)
 
 	boolean, err := evaluationClient.EvaluateBoolean(context.TODO(), "flag_boolean", "someentity", map[string]string{
