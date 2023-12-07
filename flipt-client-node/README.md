@@ -1,6 +1,6 @@
 # Flipt Client Node
 
-The `flipt-client-node` directory contains the TypeScript source code for a Flipt evaluation client.
+The `flipt-client-node` directory contains the TypeScript source code for the Flipt client-side evaluation client.
 
 ## Installation
 
@@ -25,7 +25,7 @@ The dynamic library will contain the functionality necessary for the client to m
 2. Install the package locally. You can do this by running the following command from the `flipt-client-node` directory:
 
     ```bash
-    npm install -g flipt-client-node-{version}.tgz
+    npm install -g flipt-client-{version}.tgz
     ```
 
 ### Manual Build
@@ -52,7 +52,7 @@ The `path/to/lib` will be the path to the dynamic library which will have the fo
     npm install
     npm run build
     npm pack
-    npm install -g flipt-client-node-{version}.tgz
+    npm install -g flipt-client-{version}.tgz
     ```
 
 ## Usage
@@ -60,7 +60,7 @@ The `path/to/lib` will be the path to the dynamic library which will have the fo
 In your Node code you can import this client and use it as so:
 
 ```typescript
-import { FliptEvaluationClient } from 'flipt-client-node';
+import { FliptEvaluationClient } from 'flipt-client';
 
 // namespace is the first positional argument and is optional here and will have a value of "default" if not specified.
 // engine_opts is the second positional argument and is also optional, the structure is:

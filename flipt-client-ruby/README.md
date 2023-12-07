@@ -1,6 +1,6 @@
 # Flipt Client Ruby
 
-The `flipt-client-ruby` directory contains the Ruby source code for a Flipt evaluation client.
+The `flipt-client-ruby` directory contains the Ruby source code for the Flipt client-side evaluation client.
 
 ## Installation
 
@@ -16,9 +16,7 @@ The dynamic library will contain the functionality necessary for the client to m
 
 ### Automated Build
 
-1. Build and copy the dynamic library to the `flipt-client-ruby/lib/ext` directory. You can do this by running the following command from the root of the repository:
-
-    ```bash
+1. Build and copy the dynamic library to the `flipt-client-ruby/lib/ext` directory. This will also build and install the `flipt_client` gem on your local machine. You can do this by running the following command from the root of the repository:
 
     ```bash
     make ruby
@@ -44,10 +42,10 @@ The `path/to/lib` will be the path to the dynamic library which will have the fo
 
 3. You can then build the gem and install it locally. You can do this by running the following command from the `flipt-client-ruby` directory:
 
-```bash
-rake build
-gem install pkg/flipt_client-{version}.gem
-```
+    ```bash
+    rake build
+    gem install pkg/flipt_client-{version}.gem
+    ```
 
 ## Usage
 

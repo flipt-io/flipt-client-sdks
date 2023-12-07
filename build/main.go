@@ -133,11 +133,10 @@ func pythonTests(ctx context.Context, client *dagger.Client, flipt *dagger.Conta
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithWorkdir("/app").
 		WithDirectory("/app", hostDirectory.Directory("flipt-client-python")).
-		WithFile("/app/libfliptengine.so", dynamicLibrary).
+		WithFile("/app/ext/libfliptengine.so", dynamicLibrary).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithEnvVariable("FLIPT_ENGINE_LIB_PATH", "/app/libfliptengine.so").
 		WithExec([]string{"poetry", "install", "--without=dev"}).
 		WithExec([]string{"poetry", "run", "test"}).
 		Sync(ctx)

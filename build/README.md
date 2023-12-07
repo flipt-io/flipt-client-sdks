@@ -8,7 +8,7 @@ In the `build/` directory we will use [Dagger](https://dagger.io/) to orchestrat
 
 Make sure you have `dagger` installed. This module is pinned to `v0.9.3` currently.
 
-Here are the [installation instructions](https://docs.dagger.io/quickstart/729236/cli) for `dagger`.
+Here are the [Dagger Installation Instructions](https://docs.dagger.io/quickstart/729236/cli).
 
 ## Running Tests
 

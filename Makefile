@@ -14,8 +14,9 @@ node: build ## Build the node client package
 	cp target/release/$(LIB).* flipt-client-node/ext/
 	cd flipt-client-node && npm install && npm run build && npm pack
 
-python: build ## Prepare the python client for building
-	cp target/release/$(LIB).* flipt-client-python/
+python: build ## Build the python client package
+	cp target/release/$(LIB).* flipt-client-python/ext/
+	cd flipt-client-python && poetry build
 
 ruby: build ## Build the ruby client gem
 	cp target/release/$(LIB).* flipt-client-ruby/lib/ext/
@@ -26,7 +27,7 @@ clean: ## Clean up build artifacts
 	rm -rf flipt-client-go/$(LIB).* flipt-client-go/$(HEADER)
 	rm -rf flipt-client-node/ext/$(LIB).*
 	rm -rf flipt-client-node/*.tgz
-	rm -rf flipt-client-python/$(LIB).*
+	rm -rf flipt-client-python/ext/$(LIB).*
 	rm -rf flipt-client-ruby/lib/ext/$(LIB).*
 	rm -rf flipt-client-ruby/pkg/
 

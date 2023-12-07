@@ -10,23 +10,22 @@ import {
 
 let libfile = '';
 
-switch (os.platform()) {
-  case 'darwin':
-    libfile = 'libfliptengine.dylib';
-    break;
-  case 'win32':
-    libfile = 'libfliptengine.dll';
-    break;
-  default:
-    libfile = 'libfliptengine.so';
-    break;
-}
-
 // get absolute path to libfliptengine
 if (process.env.FLIPT_ENGINE_LIB_PATH) {
   libfile = process.env.FLIPT_ENGINE_LIB_PATH;
 } else {
   const path = require('path');
+  switch (os.platform()) {
+    case 'darwin':
+      libfile = 'libfliptengine.dylib';
+      break;
+    case 'win32':
+      libfile = 'libfliptengine.dll';
+      break;
+    default:
+      libfile = 'libfliptengine.so';
+      break;
+  }
   libfile = path.join(__dirname, '..', 'ext', libfile);
 }
 

@@ -1,5 +1,4 @@
 import ctypes
-import json
 import os
 
 from .models import (
@@ -12,9 +11,21 @@ from .models import (
 
 class FliptEvaluationClient:
     def __init__(self, namespace: str = "default", engine_opts: EngineOpts = {}):
+        # first try to load the engine library from FLIPT_ENGINE_LIB_PATH env var if it exists
         engine_library_path = os.environ.get("FLIPT_ENGINE_LIB_PATH")
+
         if engine_library_path is None:
-            raise Exception("FLIPT_ENGINE_LIB_PATH not set")
+            # if not set, get the absolute path to the engine library from the ../ext directory
+            engine_library_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "../ext/libfliptengine.so"
+            )
+
+        if not os.path.exists(engine_library_path):
+            raise Exception(
+                "The engine library could not be found at the path: {}".format(
+                    engine_library_path
+                )
+            )
 
         self.namespace_key = namespace
 

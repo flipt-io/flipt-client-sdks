@@ -1,7 +1,7 @@
 import os
 import unittest
-from flipt_client_python import FliptEvaluationClient
-from flipt_client_python.models import EngineOpts
+from flipt_client import FliptEvaluationClient
+from flipt_client.models import EngineOpts
 
 
 class TestFliptEvaluationClient(unittest.TestCase):
