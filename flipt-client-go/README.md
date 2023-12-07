@@ -1,22 +1,38 @@
 # Flipt Client Go
 
-The `flipt-client-go` directory contains the Go source code for a Flipt evaluation client.
+The `flipt-client-go` directory contains the Go source code for the Flipt client-side evaluation client.
 
-## Instructions
+## Installation
 
-To use this client, you can run the following command from the root of the repository:
+Currently, to use this client, you'll need to build the dynamic library and the gem locally and install it. This is a temporary solution until we can figure out a better way to package and distribute the libraries.
 
-```bash
-cargo build --release
-```
+The dynamic library will contain the functionality necessary for the client to make calls to the Flipt engine via FFI. See [flipt-engine](../flipt-engine) for more information on the Flipt engine and FFI.
 
-This should generate a `target/` directory in the root of this repository, which contains the dynamic linking library built for your platform. This dynamic library will contain the functionality necessary for the Go client to make FFI calls.
+### Prerequisites
 
-You can import the module that contains the evaluation client: `go.flipt.io/flipt/flipt-client-go` and build your Go project with the `CGO_LDFLAGS` environment variable set:
+- [Rust](https://www.rust-lang.org/tools/install)
+- [Go](https://golang.org/doc/install)
+- [Make](https://www.gnu.org/software/make/)
 
-```bash
-CGO_LDFLAGS="-L/path/to/lib -lfliptengine"
-```
+### Automated Build
+
+1. Build and copy the dynamic library to the `flipt-client-go/ext` directory.
+
+    ```bash
+    make go
+    ```
+
+### Manual Build
+
+1. Build the Rust dynamic library
+
+    ```bash
+    cargo build --release
+    ```
+
+This should generate a `target/` directory in the root of this repository, which contains the dynamically linked library built for your platform.
+
+2. You'll need to copy the dynamic library to the `flipt-client-go/ext` directory. This is a temporary solution until we can figure out a better way to package the libraries with the module.
 
 The `path/to/lib` will be the path to the dynamic library which will have the following paths depending on your platform.
 
@@ -24,7 +40,15 @@ The `path/to/lib` will be the path to the dynamic library which will have the fo
 - **Windows**: `{REPO_ROOT}/target/release/libfliptengine.dll`
 - **MacOS**: `{REPO_ROOT}/target/release/libfliptengine.dylib`
 
-You can then use the client like so:
+3. You can then install the module locally. You can do this by running the following command from the `flipt-client-go` directory:
+
+    ```bash
+    go install .
+    ```
+
+## Usage
+
+In your Go code you can import this client and use it as so:
 
 ```go
 package main
@@ -34,7 +58,7 @@ import (
  "fmt"
  "log"
 
- evaluation "go.flipt.io/flipt/flipt-client-go"
+ evaluation "go.flipt.io/flipt/flipt-client"
 )
 
 func main() {

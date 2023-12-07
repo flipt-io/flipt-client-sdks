@@ -9,6 +9,7 @@ build: ## Build the shared engine library
 
 go: build ## Build the go client package
 	cp target/release/$(LIB).* target/release/$(HEADER) flipt-client-go/ext/
+	go install ./flipt-client-go
 
 node: build ## Build the node client package
 	cp target/release/$(LIB).* flipt-client-node/ext/

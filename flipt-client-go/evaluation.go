@@ -1,10 +1,10 @@
 package evaluation
 
 /*
-#cgo LDFLAGS: -L${SRCDIR/ext/lib} -lfliptengine
+#cgo LDFLAGS: -L${SRCDIR}/ext/. -lfliptengine
 #include <string.h>
 #include <stdlib.h>
-#include "ext/flipt_engine.h"
+#include "./ext/flipt_engine.h"
 */
 import "C"
 import (
