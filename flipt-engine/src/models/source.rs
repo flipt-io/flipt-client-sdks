@@ -8,6 +8,18 @@ pub struct Document {
     pub flags: Vec<Flag>,
 }
 
+impl Default for Document {
+    fn default() -> Self {
+        Self {
+            namespace: Namespace {
+                key: "".into(),
+                name: None,
+            },
+            flags: Vec::new(),
+        }
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Namespace {

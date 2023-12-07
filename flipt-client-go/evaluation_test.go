@@ -57,3 +57,31 @@ func TestBoolean(t *testing.T) {
 	assert.True(t, boolean.Result.Enabled)
 	assert.Equal(t, "MATCH_EVALUATION_REASON", boolean.Result.Reason)
 }
+
+func TestVariantFailure(t *testing.T) {
+	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl), evaluation.WithAuthToken(authToken))
+	require.NoError(t, err)
+
+	variant, err := evaluationClient.EvaluateVariant(context.TODO(), "nonexistent", "someentity", map[string]string{
+		"fizz": "buzz",
+	})
+	require.NoError(t, err)
+
+	assert.Nil(t, variant.Result)
+	assert.Equal(t, "failure", variant.Status)
+	assert.Equal(t, "failed to get flag information default/nonexistent", variant.ErrorMessage)
+}
+
+func TestBooleanFailure(t *testing.T) {
+	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl), evaluation.WithAuthToken(authToken))
+	require.NoError(t, err)
+
+	boolean, err := evaluationClient.EvaluateBoolean(context.TODO(), "nonexistent", "someentity", map[string]string{
+		"fizz": "buzz",
+	})
+	require.NoError(t, err)
+
+	assert.Nil(t, boolean.Result)
+	assert.Equal(t, "failure", boolean.Status)
+	assert.Equal(t, "failed to get flag information default/nonexistent", boolean.ErrorMessage)
+}
