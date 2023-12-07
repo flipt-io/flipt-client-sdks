@@ -19,8 +19,6 @@ The dynamic library will contain the functionality necessary for the client to m
 1. Build and copy the dynamic library to the `flipt-client-node` directory. You can do this by running the following command from the root of the repository:
 
     ```bash
-
-    ```bash
     make node
     ```
 
