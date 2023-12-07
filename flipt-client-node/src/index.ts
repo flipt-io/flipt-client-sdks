@@ -12,19 +12,23 @@ let libfile = '';
 
 // get absolute path to libfliptengine
 if (process.env.FLIPT_ENGINE_LIB_PATH) {
+  // use the path if it is provided
   libfile = process.env.FLIPT_ENGINE_LIB_PATH;
 } else {
+  // otherwise, use the default path
   const path = require('path');
   switch (os.platform()) {
-    case 'darwin':
-      libfile = 'libfliptengine.dylib';
-      break;
     case 'win32':
       libfile = 'libfliptengine.dll';
       break;
-    default:
+    case 'darwin':
+      libfile = 'libfliptengine.dylib';
+      break;
+    case 'linux':
       libfile = 'libfliptengine.so';
       break;
+    default:
+      throw new Error('Unsupported platform: ' + os.platform());
   }
   libfile = path.join(__dirname, '..', 'ext', libfile);
 }

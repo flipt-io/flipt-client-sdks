@@ -22,8 +22,10 @@ class FliptEvaluationClient:
                 libfile = "fliptengine.dll"
             elif platform.system() == "Darwin":
                 libfile = "libfliptengine.dylib"
-            else:
+            elif platform.system() == "Linux":
                 libfile = "libfliptengine.so"
+            else:
+                raise Exception(f"Unsupported platform: {platform.system()}.")
 
             # if not set, get the absolute path to the engine library from the ../ext directory
             engine_library_path = os.path.join(

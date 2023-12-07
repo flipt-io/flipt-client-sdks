@@ -7,8 +7,8 @@ HEADER = flipt_engine.h
 build: ## Build the shared engine library
 	cargo build --release
 
-go: build ## Prepare the go client for building
-	cp target/release/$(LIB).* target/release/$(HEADER) flipt-client-go/
+go: build ## Build the go client package
+	cp target/release/$(LIB).* target/release/$(HEADER) flipt-client-go/ext/
 
 node: build ## Build the node client package
 	cp target/release/$(LIB).* flipt-client-node/ext/
@@ -27,7 +27,9 @@ clean: ## Clean up build artifacts
 	rm -rf flipt-client-go/$(LIB).* flipt-client-go/$(HEADER)
 	rm -rf flipt-client-node/ext/$(LIB).*
 	rm -rf flipt-client-node/*.tgz
+	rm -rf flipt-client-node/dist
 	rm -rf flipt-client-python/ext/$(LIB).*
+	rm -rf flipt-client-python/dist
 	rm -rf flipt-client-ruby/lib/ext/$(LIB).*
 	rm -rf flipt-client-ruby/pkg/
 
