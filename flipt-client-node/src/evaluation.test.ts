@@ -65,7 +65,7 @@ test('variant failure', () => {
   );
 });
 
-test('boolean', () => {
+test('boolean failure', () => {
   const fec = new FliptEvaluationClient('default', {
     url: fliptUrl,
     auth_token: authToken
