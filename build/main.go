@@ -177,11 +177,10 @@ func nodeTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 		WithDirectory("/app", hostDirectory.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./node_modules/"},
 		}).
-		WithFile("/app/libfliptengine.so", dynamicLibrary).
+		WithFile("/app/ext/libfliptengine.so", dynamicLibrary).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithEnvVariable("FLIPT_ENGINE_LIB_PATH", "/app/libfliptengine.so").
 		WithExec([]string{"npm", "install"}).
 		WithExec([]string{"npm", "test"}).
 		Sync(ctx)

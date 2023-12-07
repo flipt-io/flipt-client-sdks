@@ -4,14 +4,13 @@ HEADER = flipt_engine.h
 .DEFAULT_GOAL := help
 .PHONY: build go node python ruby help clean
 
-# run cargo build if anything in engine/ changes
 build: ## Build the shared engine library
 	cargo build --release
 
 go: build ## Prepare the go client for building
 	cp target/release/$(LIB).* target/release/$(HEADER) flipt-client-go/
 
-node: build ## Build the node package
+node: build ## Build the node client package
 	cp target/release/$(LIB).* flipt-client-node/ext/
 	cd flipt-client-node && npm install && npm run build && npm pack
 

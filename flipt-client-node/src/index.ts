@@ -8,18 +8,34 @@ import {
   VariantResult
 } from './models';
 
-let libfile =
-  os.platform() === 'darwin' ? 'libfliptengine.dylib' : 'libfliptengine.so';
+let libfile = '';
 
-const engineLib = ffi.Library(
-  process.env.FLIPT_ENGINE_LIB_PATH || `../ext/${libfile}`,
-  {
-    initialize_engine: ['void *', ['char **', 'string']],
-    evaluate_variant: ['string', ['void *', 'string']],
-    evaluate_boolean: ['string', ['void *', 'string']],
-    destroy_engine: ['void', ['void *']]
-  }
-);
+switch (os.platform()) {
+  case 'darwin':
+    libfile = 'libfliptengine.dylib';
+    break;
+  case 'win32':
+    libfile = 'libfliptengine.dll';
+    break;
+  default:
+    libfile = 'libfliptengine.so';
+    break;
+}
+
+// get absolute path to libfliptengine
+if (process.env.FLIPT_ENGINE_LIB_PATH) {
+  libfile = process.env.FLIPT_ENGINE_LIB_PATH;
+} else {
+  const path = require('path');
+  libfile = path.join(__dirname, '..', 'ext', libfile);
+}
+
+const engineLib = ffi.Library(libfile, {
+  initialize_engine: ['void *', ['char **', 'string']],
+  evaluate_variant: ['string', ['void *', 'string']],
+  evaluate_boolean: ['string', ['void *', 'string']],
+  destroy_engine: ['void', ['void *']]
+});
 
 export class FliptEvaluationClient {
   private namespace: string;
