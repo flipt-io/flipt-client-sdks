@@ -40,6 +40,26 @@ class TestFliptEvaluationClient(unittest.TestCase):
         self.assertEqual("flag_boolean", boolean.result.flag_key)
         self.assertEqual("MATCH_EVALUATION_REASON", boolean.result.reason)
 
+    def test_failure_variant(self):
+        variant = self.flipt_client.evaluate_variant(
+            "nonexistent", "someentity", {"fizz": "buzz"}
+        )
+        self.assertIsNone(variant.result)
+        self.assertEqual(
+            variant.error_message, "failed to get flag information default/nonexistent"
+        )
+        self.assertEqual("failure", variant.status)
+
+    def test_failure_boolean(self):
+        boolean = self.flipt_client.evaluate_boolean(
+            "nonexistent", "someentity", {"fizz": "buzz"}
+        )
+        self.assertIsNone(boolean.result)
+        self.assertEqual(
+            boolean.error_message, "failed to get flag information default/nonexistent"
+        )
+        self.assertEqual("failure", boolean.status)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,10 +1,10 @@
 use crate::models::common;
 use crate::models::flipt;
+use crate::models::source::Document;
 use crate::parser::Parser;
 
 #[cfg(test)]
 use mockall::automock;
-use snafu::Whatever;
 use std::collections::HashMap;
 
 #[cfg_attr(test, automock)]
@@ -40,14 +40,14 @@ struct Namespace {
 }
 
 impl Snapshot {
-    pub fn build<P>(namespaces: &Vec<String>, parser: &P) -> Result<Snapshot, Whatever>
+    pub fn build<P>(namespaces: &Vec<String>, parser: &P) -> Snapshot
     where
         P: Parser + Send,
     {
         let mut ns: HashMap<String, Namespace> = HashMap::new();
 
         for n in namespaces {
-            let doc = parser.parse(n)?;
+            let doc = parser.parse(n).unwrap_or(Document::default());
 
             let mut flags: HashMap<String, flipt::Flag> = HashMap::new();
             let mut eval_rules: HashMap<String, Vec<flipt::EvaluationRule>> = HashMap::new();
@@ -207,7 +207,7 @@ impl Snapshot {
             );
         }
 
-        Ok(Self { namespaces: ns })
+        Self { namespaces: ns }
     }
 }
 
@@ -268,10 +268,7 @@ mod tests {
     fn test_snapshot() {
         let tp = TestParser::new();
 
-        let snapshot = match Snapshot::build(&vec!["default".into()], &tp) {
-            Ok(s) => s,
-            Err(e) => panic!("{}", e),
-        };
+        let snapshot = Snapshot::build(&vec!["default".into()], &tp);
 
         let flag_variant = snapshot
             .get_flag("default", "flag1")

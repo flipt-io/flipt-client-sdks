@@ -109,14 +109,14 @@ impl<P> Evaluator<P, Snapshot>
 where
     P: Parser + Send,
 {
-    pub fn new_snapshot_evaluator(namespaces: Vec<String>, parser: P) -> Result<Self, Whatever> {
-        let snap = Snapshot::build(&namespaces, &parser)?;
+    pub fn new_snapshot_evaluator(namespaces: Vec<String>, parser: P) -> Self {
+        let snap = Snapshot::build(&namespaces, &parser);
         Evaluator::new(namespaces, parser, snap)
     }
 
     pub fn replace_snapshot(&mut self) {
         let snap = Snapshot::build(&self.namespaces, &self.parser);
-        self.replace_store(snap.unwrap());
+        self.replace_store(snap);
     }
 }
 
@@ -125,13 +125,13 @@ where
     P: Parser + Send,
     S: Store + Send,
 {
-    pub fn new(namespaces: Vec<String>, parser: P, store_impl: S) -> Result<Self, Whatever> {
-        Ok(Self {
+    pub fn new(namespaces: Vec<String>, parser: P, store_impl: S) -> Self {
+        Self {
             namespaces,
             parser,
             store: store_impl,
             mtx: Arc::new(RwLock::new(0)),
-        })
+        }
     }
 
     pub fn replace_store(&mut self, store_impl: S) {

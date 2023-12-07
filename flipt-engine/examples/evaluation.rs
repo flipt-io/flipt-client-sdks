@@ -9,7 +9,7 @@ fn main() {
         parser::HTTPParser::new("http://localhost:8080", Some("secret")),
     );
 
-    let eng = fliptengine::Engine::new(evaluator.unwrap(), Default::default());
+    let eng = fliptengine::Engine::new(evaluator, Default::default());
     let mut context: HashMap<String, String> = HashMap::new();
     context.insert("fizz".into(), "buzz".into());
 
