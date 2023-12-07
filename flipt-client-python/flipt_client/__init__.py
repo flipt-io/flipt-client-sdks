@@ -1,5 +1,6 @@
 import ctypes
 import os
+import platform
 
 from .models import (
     BooleanResult,
@@ -15,16 +16,23 @@ class FliptEvaluationClient:
         engine_library_path = os.environ.get("FLIPT_ENGINE_LIB_PATH")
 
         if engine_library_path is None:
+            # get dynamic library extension for the current platform
+
+            if platform.system() == "Windows":
+                libfile = "fliptengine.dll"
+            elif platform.system() == "Darwin":
+                libfile = "libfliptengine.dylib"
+            else:
+                libfile = "libfliptengine.so"
+
             # if not set, get the absolute path to the engine library from the ../ext directory
             engine_library_path = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "../ext/libfliptengine.so"
+                os.path.dirname(os.path.abspath(__file__)), f"../ext/{libfile}"
             )
 
         if not os.path.exists(engine_library_path):
             raise Exception(
-                "The engine library could not be found at the path: {}".format(
-                    engine_library_path
-                )
+                f"The engine library could not be found at the path: {engine_library_path}"
             )
 
         self.namespace_key = namespace
