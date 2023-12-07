@@ -49,7 +49,7 @@ RSpec.describe Flipt::EvaluationClient do
   end
 
   describe '#evaluate_variant failure' do
-    it 'returns a variant result' do
+    it 'gracefully handles failures for variant flag evaluation' do
       url = ENV.fetch('FLIPT_URL', 'http://localhost:8080')
       auth_token = ENV.fetch('FLIPT_AUTH_TOKEN', 'secret')
       client = Flipt::EvaluationClient.new('default', { url: url, auth_token: auth_token })
@@ -64,7 +64,7 @@ RSpec.describe Flipt::EvaluationClient do
   end
 
   describe '#evaluate_boolean failure' do
-    it 'returns a boolean result' do
+    it 'gracefully handles failures for boolean flag evaluation' do
       url = ENV.fetch('FLIPT_URL', 'http://localhost:8080')
       auth_token = ENV.fetch('FLIPT_AUTH_TOKEN', 'secret')
       client = Flipt::EvaluationClient.new('default', { url: url, auth_token: auth_token })
