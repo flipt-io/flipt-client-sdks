@@ -47,3 +47,37 @@ test('boolean', () => {
   expect(boolean.result.enabled).toEqual(true);
   expect(boolean.result.reason).toEqual('MATCH_EVALUATION_REASON');
 });
+
+test('variant failure', () => {
+  const fec = new FliptEvaluationClient('default', {
+    url: fliptUrl,
+    auth_token: authToken
+  });
+
+  const variant = fec.evaluateVariant('nonexistent', 'someentity', {
+    fizz: 'buzz'
+  });
+
+  expect(variant.result).toBeNull();
+  expect(variant.status).toEqual('failure');
+  expect(variant.error_message).toEqual(
+    'failed to get flag information default/nonexistent'
+  );
+});
+
+test('boolean', () => {
+  const fec = new FliptEvaluationClient('default', {
+    url: fliptUrl,
+    auth_token: authToken
+  });
+
+  const boolean = fec.evaluateVariant('nonexistent', 'someentity', {
+    fizz: 'buzz'
+  });
+
+  expect(boolean.result).toBeNull();
+  expect(boolean.status).toEqual('failure');
+  expect(boolean.error_message).toEqual(
+    'failed to get flag information default/nonexistent'
+  );
+});
