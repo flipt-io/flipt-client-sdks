@@ -4,7 +4,7 @@ The `flipt-client-python` directory contains the Python source code for the Flip
 
 ## Installation
 
-Currently, to use this client, you'll need to build the dynamic library and the gem locally and install it. This is a temporary solution until we can figure out a better way to package and distribute the libraries.
+Currently, to use this client, you'll need to build the dynamic library and the package locally and install it. This is a temporary solution until we can figure out a better way to package and distribute the libraries.
 
 The dynamic library will contain the functionality necessary for the client to make calls to the Flipt engine via FFI. See [flipt-engine](../flipt-engine) for more information on the Flipt engine and FFI.
 
