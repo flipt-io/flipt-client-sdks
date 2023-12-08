@@ -1,4 +1,4 @@
-golang: {
+go: {
   shape: image
   icon: https://icon.icepanel.io/Technology/svg/Go.svg
 }
@@ -18,7 +18,7 @@ typescript: {
   icon: https://icon.icepanel.io/Technology/svg/TypeScript.svg
 }
 
-dynamic library: {
+flipt-engine: {
   shape: square
   rust: {
     shape: image
@@ -34,12 +34,12 @@ flipt-service: {
   }
 }
 
-golang -> dynamic library: FFI
-ruby -> dynamic library: FFI
-python -> dynamic library: FFI
-typescript -> dynamic library: FFI
+go <-> flipt-engine: FFI
+ruby <-> flipt-engine: FFI
+python <-> flipt-engine: FFI
+typescript <-> flipt-engine: FFI
 
-dynamic library <-> flipt-service: Flag state sync (default 2 mins) {
+flipt-engine <-> flipt-service: Evaluation State Sync {
   style: {
     opacity: 0.9
     stroke-dash: 3

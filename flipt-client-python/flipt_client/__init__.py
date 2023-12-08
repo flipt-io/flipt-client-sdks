@@ -1,6 +1,6 @@
 import ctypes
-import json
 import os
+import platform
 
 from .models import (
     BooleanResult,
@@ -12,9 +12,25 @@ from .models import (
 
 class FliptEvaluationClient:
     def __init__(self, namespace: str = "default", engine_opts: EngineOpts = {}):
-        engine_library_path = os.environ.get("FLIPT_ENGINE_LIB_PATH")
-        if engine_library_path is None:
-            raise Exception("FLIPT_ENGINE_LIB_PATH not set")
+        # get dynamic library extension for the current platform
+        if platform.system() == "Windows":
+            libfile = "fliptengine.dll"
+        elif platform.system() == "Darwin":
+            libfile = "libfliptengine.dylib"
+        elif platform.system() == "Linux":
+            libfile = "libfliptengine.so"
+        else:
+            raise Exception(f"Unsupported platform: {platform.system()}.")
+
+        # get the absolute path to the engine library from the ../ext directory
+        engine_library_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), f"../ext/{libfile}"
+        )
+
+        if not os.path.exists(engine_library_path):
+            raise Exception(
+                f"The engine library could not be found at the path: {engine_library_path}"
+            )
 
         self.namespace_key = namespace
 

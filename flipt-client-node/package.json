@@ -1,15 +1,20 @@
 {
-  "name": "flipt-client-node",
+  "name": "flipt-client",
   "version": "0.0.1",
   "description": "Flipt Node Client for client-side evaluation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "author": "",
   "license": "MIT",
+  "files": [
+    "dist",
+    "ext"
+  ],
   "scripts": {
     "fmt": "prettier --config .prettierrc 'src/**/*.ts' --write",
     "lint": "prettier --check src/**/*.ts",
-    "test": "jest"
+    "test": "jest",
+    "build": "tsc"
   },
   "dependencies": {
     "ffi-napi": "^4.0.3",

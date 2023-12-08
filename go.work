@@ -1,3 +1,6 @@
 go 1.21.3
 
-use ./build
+use (
+	./build
+	./flipt-client-go
+)

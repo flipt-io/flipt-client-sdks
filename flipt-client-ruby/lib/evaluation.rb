@@ -12,12 +12,12 @@ module Flipt
 
     def self.platform_specific_lib
       case RbConfig::CONFIG['host_os']
+      when /mswin|msys|mingw|cygwin|bccwin|wince|emc/
+        "#{FLIPTENGINE}.dll"
       when /darwin|mac os/
         "#{FLIPTENGINE}.dylib"
       when /linux/
         "#{FLIPTENGINE}.so"
-      when /mswin|msys|mingw|cygwin|bccwin|wince|emc/
-        "#{FLIPTENGINE}.dll"
       else
         raise "unsupported platform #{RbConfig::CONFIG['host_os']}"
       end

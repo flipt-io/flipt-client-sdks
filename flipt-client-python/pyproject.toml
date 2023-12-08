@@ -1,5 +1,6 @@
 [tool.poetry]
-name = "flipt-client-python"
+include = [{ path = "ext/libfliptengine.*" }]
+name = "flipt-client"
 version = "0.0.1"
 description = ""
 authors = ["Flipt Devs <dev@flipt.io>"]

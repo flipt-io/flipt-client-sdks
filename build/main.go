@@ -130,11 +130,10 @@ func pythonTests(ctx context.Context, client *dagger.Client, flipt *dagger.Conta
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithWorkdir("/app").
 		WithDirectory("/app", hostDirectory.Directory("flipt-client-python")).
-		WithFile("/app/libfliptengine.so", dynamicLibrary).
+		WithFile("/app/ext/libfliptengine.so", dynamicLibrary).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithEnvVariable("FLIPT_ENGINE_LIB_PATH", "/app/libfliptengine.so").
 		WithExec([]string{"poetry", "install", "--without=dev"}).
 		WithExec([]string{"poetry", "run", "test"}).
 		Sync(ctx)
@@ -149,15 +148,15 @@ func goTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container
 		WithExec([]string{"apt-get", "-y", "install", "build-essential"}).
 		WithWorkdir("/app").
 		WithDirectory("/app", hostDirectory.Directory("flipt-client-go")).
-		WithFile("/app/libfliptengine.so", dynamicLibrary).
-		WithFile("/app/flipt_engine.h", headerFile).
+		WithFile("/app/ext/libfliptengine.so", dynamicLibrary).
+		WithFile("/app/ext/flipt_engine.h", headerFile).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		// Since the dynamic library is being sourced from a "non-standard location" we can
 		// modify the LD_LIBRARY_PATH variable to inform the linker different locations for
 		// dynamic libraries.
-		WithEnvVariable("LD_LIBRARY_PATH", "/app:$LD_LIBRARY_PATH").
+		WithEnvVariable("LD_LIBRARY_PATH", "/app/ext:$LD_LIBRARY_PATH").
 		WithExec([]string{"go", "mod", "download"}).
 		WithExec([]string{"go", "test", "./..."}).
 		Sync(ctx)
@@ -174,11 +173,10 @@ func nodeTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 		WithDirectory("/app", hostDirectory.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./node_modules/"},
 		}).
-		WithFile("/app/libfliptengine.so", dynamicLibrary).
+		WithFile("/app/ext/libfliptengine.so", dynamicLibrary).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithEnvVariable("FLIPT_ENGINE_LIB_PATH", "/app/libfliptengine.so").
 		WithExec([]string{"npm", "install"}).
 		WithExec([]string{"npm", "test"}).
 		Sync(ctx)

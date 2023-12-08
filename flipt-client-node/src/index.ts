@@ -1,21 +1,39 @@
 import * as ffi from 'ffi-napi';
 import { alloc, allocCString, types } from 'ref-napi';
+import * as os from 'os';
 import {
   BooleanResult,
   EngineOpts,
   EvaluationRequest,
   VariantResult
 } from './models';
+import * as path from 'path';
 
-const engineLib = ffi.Library(
-  process.env.FLIPT_ENGINE_LIB_PATH || 'libfliptengine.so',
-  {
-    initialize_engine: ['void *', ['char **', 'string']],
-    evaluate_variant: ['string', ['void *', 'string']],
-    evaluate_boolean: ['string', ['void *', 'string']],
-    destroy_engine: ['void', ['void *']]
-  }
-);
+let libfile = '';
+
+// get absolute path to libfliptengine
+switch (os.platform()) {
+  case 'win32':
+    libfile = 'libfliptengine.dll';
+    break;
+  case 'darwin':
+    libfile = 'libfliptengine.dylib';
+    break;
+  case 'linux':
+    libfile = 'libfliptengine.so';
+    break;
+  default:
+    throw new Error('Unsupported platform: ' + os.platform());
+}
+
+libfile = path.join(__dirname, '..', 'ext', libfile);
+
+const engineLib = ffi.Library(libfile, {
+  initialize_engine: ['void *', ['char **', 'string']],
+  evaluate_variant: ['string', ['void *', 'string']],
+  evaluate_boolean: ['string', ['void *', 'string']],
+  destroy_engine: ['void', ['void *']]
+});
 
 export class FliptEvaluationClient {
   private namespace: string;
