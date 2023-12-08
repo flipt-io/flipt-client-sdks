@@ -7,11 +7,11 @@ import {
   EvaluationRequest,
   VariantResult
 } from './models';
+import * as path from 'path';
 
 let libfile = '';
 
 // get absolute path to libfliptengine
-const path = require('path');
 switch (os.platform()) {
   case 'win32':
     libfile = 'libfliptengine.dll';
