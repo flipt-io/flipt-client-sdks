@@ -3,15 +3,6 @@
 require_relative '../lib/evaluation'
 
 RSpec.describe Flipt::EvaluationClient do
-  describe '#initialize' do
-    it 'initializes the engine' do
-      url = ENV.fetch('FLIPT_URL', 'http://localhost:8080')
-      auth_token = ENV.fetch('FLIPT_AUTH_TOKEN', 'secret')
-      client = Flipt::EvaluationClient.new('default', { url: url, auth_token: auth_token })
-      expect(client).to be_a(Flipt::EvaluationClient)
-    end
-  end
-
   describe '#evaluate_variant' do
     it 'returns a variant result' do
       url = ENV.fetch('FLIPT_URL', 'http://localhost:8080')
