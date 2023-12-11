@@ -1,7 +1,7 @@
 require "../flipt-client-ruby/lib/evaluation"
 
 # note: this script assumes you have built the flipt-client Ruby gem locally via the instructions in the README
-# and that the flag "my_feature" exists in the default namespace
+# and that the flag "my-feature" exists in the default namespace
 # and that the flag is a boolean flag
 
 FLIPT_URL = ENV.fetch("FLIPT_URL", "http://localhost:8080")
