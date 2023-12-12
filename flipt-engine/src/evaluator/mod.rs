@@ -596,7 +596,7 @@ fn matches_number(
     let v_number = match v.parse::<i32>() {
         Ok(v) => v,
         Err(err) => Err(Error::InvalidRequest(format!(
-            "error parsing number {}, err: {}",
+            "error parsing number {}: {}",
             v, err
         )))?,
     };
@@ -604,7 +604,7 @@ fn matches_number(
     let value_number = match evaluation_constraint.value.parse::<i32>() {
         Ok(v) => v,
         Err(err) => Err(Error::InvalidRequest(format!(
-            "error parsing number {}, err: {}",
+            "error parsing number {}: {}",
             evaluation_constraint.value, err
         )))?,
     };
@@ -643,7 +643,7 @@ fn matches_boolean(
     let v_bool = match v.parse::<bool>() {
         Ok(v) => v,
         Err(err) => Err(Error::InvalidRequest(format!(
-            "error parsing boolean {}: err {}",
+            "error parsing boolean {}: {}",
             v, err
         )))?,
     };
@@ -678,7 +678,7 @@ fn matches_datetime(
     let d = match DateTime::parse_from_rfc3339(v) {
         Ok(t) => t.timestamp(),
         Err(e) => Err(Error::InvalidRequest(format!(
-            "error parsing time {}, err: {}",
+            "error parsing time {}: {}",
             v, e
         )))?,
     };
@@ -686,7 +686,7 @@ fn matches_datetime(
     let value = match DateTime::parse_from_rfc3339(&evaluation_constraint.value) {
         Ok(t) => t.timestamp(),
         Err(e) => Err(Error::InvalidRequest(format!(
-            "error parsing time {}, err: {}",
+            "error parsing time {}: {}",
             &evaluation_constraint.value, e
         )))?,
     };
@@ -904,7 +904,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.err().unwrap().to_string(),
-            "error parsing boolean blah: err provided string was not `true` or `false`"
+            "invalid request: error parsing boolean blah: provided string was not `true` or `false`"
         );
     }
 
@@ -923,7 +923,7 @@ mod tests {
         assert!(result_one.is_err());
         assert_eq!(
             result_one.err().unwrap().to_string(),
-            "error parsing number notanumber, err: invalid digit found in string"
+            "invalid request: error parsing number notanumber: invalid digit found in string"
         );
 
         let result_two = matches_number(
@@ -939,7 +939,7 @@ mod tests {
         assert!(result_two.is_err());
         assert_eq!(
             result_two.err().unwrap().to_string(),
-            "error parsing number notanumber, err: invalid digit found in string"
+            "invalid request: error parsing number notanumber: invalid digit found in string"
         );
     }
 
@@ -958,7 +958,7 @@ mod tests {
         assert!(result_one.is_err());
         assert_eq!(
             result_one.err().unwrap().to_string(),
-            "error parsing time blah, err: input contains invalid characters"
+            "invalid request: error parsing time blah: input contains invalid characters"
         );
 
         let result_two = matches_datetime(
@@ -974,7 +974,7 @@ mod tests {
         assert!(result_two.is_err());
         assert_eq!(
             result_two.err().unwrap().to_string(),
-            "error parsing time blah, err: input contains invalid characters"
+            "invalid request: error parsing time blah: input contains invalid characters"
         );
     }
 
