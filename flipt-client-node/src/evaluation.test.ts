@@ -61,7 +61,7 @@ test('variant failure', () => {
   expect(variant.result).toBeNull();
   expect(variant.status).toEqual('failure');
   expect(variant.error_message).toEqual(
-    'failed to get flag information default/nonexistent'
+    'invalid request: failed to get flag information default/nonexistent'
   );
 });
 
@@ -78,6 +78,6 @@ test('boolean failure', () => {
   expect(boolean.result).toBeNull();
   expect(boolean.status).toEqual('failure');
   expect(boolean.error_message).toEqual(
-    'failed to get flag information default/nonexistent'
+    'invalid request: failed to get flag information default/nonexistent'
   );
 });

@@ -50,7 +50,7 @@ RSpec.describe Flipt::EvaluationClient do
       expect(resp).to_not be_nil
       expect(resp['result']).to be_nil
       expect(resp['status']).to eq('failure')
-      expect(resp['error_message']).to eq('failed to get flag information default/nonexistent')
+      expect(resp['error_message']).to eq('invalid request: failed to get flag information default/nonexistent')
     end
   end
 
@@ -65,7 +65,7 @@ RSpec.describe Flipt::EvaluationClient do
       expect(resp).to_not be_nil
       expect(resp['result']).to be_nil
       expect(resp['status']).to eq('failure')
-      expect(resp['error_message']).to eq('failed to get flag information default/nonexistent')
+      expect(resp['error_message']).to eq('invalid request: failed to get flag information default/nonexistent')
     end
   end
 end
