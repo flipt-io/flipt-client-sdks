@@ -71,11 +71,13 @@ func main() {
  if err != nil {
   log.Fatal(err)
  }
+ 
  defer evaluationClient.Close()
 
  variantResult, err := evaluationClient.EvaluateVariant(context.Background(), "flag1", "someentity", map[string]string{
   "fizz": "buzz",
  })
+
  if err != nil {
   log.Fatal(err)
  }
