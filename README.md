@@ -33,6 +33,8 @@ Languages we are planning to support:
 1. C#
 1. PHP
 
+Want to see a client in a language we don't support? [Open an issue](https://github.com/flipt-io/client-sdks/issues/new) and let us know!
+
 ## Installation
 
 See each client's README for installation instructions.
