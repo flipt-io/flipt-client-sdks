@@ -1,9 +1,8 @@
-use snafu::{prelude::*, Whatever};
-
+use crate::error::Error;
 use crate::models::source;
 
 pub trait Parser {
-    fn parse(&self, namespace: &str) -> Result<source::Document, Whatever>;
+    fn parse(&self, namespace: &str) -> Result<source::Document, Error>;
 }
 
 pub struct HTTPParser {
@@ -30,7 +29,7 @@ impl HTTPParser {
 }
 
 impl Parser for HTTPParser {
-    fn parse(&self, namespace: &str) -> Result<source::Document, Whatever> {
+    fn parse(&self, namespace: &str) -> Result<source::Document, Error> {
         let mut headers = reqwest::header::HeaderMap::new();
         headers.insert(
             reqwest::header::CONTENT_TYPE,
@@ -58,17 +57,27 @@ impl Parser for HTTPParser {
             .send()
         {
             Ok(resp) => resp,
-            Err(e) => whatever!("failed to make request: err {}", e),
+            Err(e) => {
+                return Err(Error::ServerError(format!(
+                    "failed to make request: err {}",
+                    e
+                )))
+            }
         };
 
         let response_text = match response.text() {
             Ok(t) => t,
-            Err(e) => whatever!("failed to get response body: err {}", e),
+            Err(e) => {
+                return Err(Error::ServerError(format!(
+                    "failed to get response body: err {}",
+                    e
+                )))
+            }
         };
 
         let document: source::Document = match serde_json::from_str(&response_text) {
             Ok(doc) => doc,
-            Err(e) => whatever!("failed to deserialize response into document: err {}", e),
+            Err(e) => return Err(Error::InvalidJSON(e)),
         };
 
         Ok(document)
@@ -94,7 +103,7 @@ impl TestParser {
 
 #[cfg(test)]
 impl Parser for TestParser {
-    fn parse(&self, _: &str) -> Result<source::Document, Whatever> {
+    fn parse(&self, _: &str) -> Result<source::Document, Error> {
         let f = match &self.path {
             Some(path) => path.to_owned(),
             None => {
@@ -108,7 +117,7 @@ impl Parser for TestParser {
 
         let document: source::Document = match serde_json::from_str(&state) {
             Ok(document) => document,
-            Err(e) => whatever!("failed to deserialize text into document: err {}", e),
+            Err(e) => return Err(Error::InvalidJSON(e)),
         };
 
         Ok(document)

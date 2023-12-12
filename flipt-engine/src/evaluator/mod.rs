@@ -1,10 +1,10 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use snafu::{prelude::*, Whatever};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime, SystemTimeError};
 
+use crate::error::Error;
 use crate::models::common;
 use crate::models::flipt;
 use crate::parser::Parser;
@@ -101,9 +101,9 @@ impl Default for ErrorEvaluationResponse {
     }
 }
 
-type VariantEvaluationResult<T> = std::result::Result<T, Whatever>;
+type VariantEvaluationResult<T> = std::result::Result<T, Error>;
 
-type BooleanEvaluationResult<T> = std::result::Result<T, Whatever>;
+type BooleanEvaluationResult<T> = std::result::Result<T, Error>;
 
 impl<P> Evaluator<P, Snapshot>
 where
@@ -150,15 +150,19 @@ where
         ) {
             Some(f) => {
                 if f.r#type != common::FlagType::Variant {
-                    whatever!("{} is not a variant flag", &evaluation_request.flag_key);
+                    return Err(Error::InvalidRequest(format!(
+                        "{} is not a variant flag",
+                        &evaluation_request.flag_key,
+                    )));
                 }
                 f
             }
-            None => whatever!(
-                "failed to get flag information {}/{}",
-                &evaluation_request.namespace_key,
-                &evaluation_request.flag_key
-            ),
+            None => {
+                return Err(Error::InvalidRequest(format!(
+                    "failed to get flag information {}/{}",
+                    &evaluation_request.namespace_key, &evaluation_request.flag_key,
+                )));
+            }
         };
 
         self.variant_evaluation(&flag, evaluation_request)
@@ -175,15 +179,19 @@ where
         ) {
             Some(f) => {
                 if f.r#type != common::FlagType::Boolean {
-                    whatever!("{} is not a boolean flag", &evaluation_request.flag_key);
+                    return Err(Error::InvalidRequest(format!(
+                        "{} is not a boolean flag",
+                        &evaluation_request.flag_key,
+                    )));
                 }
                 f
             }
-            None => whatever!(
-                "failed to get flag information {}/{}",
-                &evaluation_request.namespace_key,
-                &evaluation_request.flag_key
-            ),
+            None => {
+                return Err(Error::InvalidRequest(format!(
+                    "failed to get flag information {}/{}",
+                    &evaluation_request.namespace_key, &evaluation_request.flag_key,
+                )));
+            }
         };
 
         self.boolean_evaluation(&flag, evaluation_request)
@@ -192,7 +200,7 @@ where
     pub fn batch(
         &self,
         requests: Vec<EvaluationRequest>,
-    ) -> Result<Vec<Box<dyn EvaluationResponse>>, Whatever> {
+    ) -> Result<Vec<Box<dyn EvaluationResponse>>, Error> {
         let mut evaluation_responses: Vec<Box<dyn EvaluationResponse>> = Vec::new();
 
         for request in requests {
@@ -261,17 +269,22 @@ where
             &evaluation_request.namespace_key,
             &evaluation_request.flag_key,
         ) {
-            Some(evaluation_rules) => evaluation_rules,
-            None => whatever!(
-                "error getting evaluation rules for namespace {} and flag {}",
-                evaluation_request.namespace_key.clone(),
-                evaluation_request.flag_key.clone()
-            ),
+            Some(rules) => rules,
+            None => {
+                return Err(Error::Unknown(format!(
+                    "error getting evaluation rules for namespace {} and flag {}",
+                    evaluation_request.namespace_key.clone(),
+                    evaluation_request.flag_key.clone()
+                )));
+            }
         };
 
         for rule in evaluation_rules {
             if rule.rank < last_rank {
-                whatever!("rule rank: {} detected out of order", rule.rank);
+                return Err(Error::InvalidRequest(format!(
+                    "rule rank: {} detected out of order",
+                    rule.rank
+                )));
             }
 
             last_rank = rule.rank;
@@ -312,11 +325,13 @@ where
                 .get_evaluation_distributions(&evaluation_request.namespace_key, &rule.id)
             {
                 Some(evaluation_distributions) => evaluation_distributions,
-                None => whatever!(
-                    "error getting evaluation distributions for namespace {} and rule {}",
-                    evaluation_request.namespace_key.clone(),
-                    rule.id.clone()
-                ),
+                None => {
+                    return Err(Error::Unknown(format!(
+                        "error getting evaluation distributions for namespace {} and rule {}",
+                        evaluation_request.namespace_key.clone(),
+                        rule.id.clone()
+                    )))
+                }
             };
 
             let mut valid_distributions: Vec<flipt::EvaluationDistribution> = Vec::new();
@@ -395,16 +410,21 @@ where
             &evaluation_request.flag_key,
         ) {
             Some(rollouts) => rollouts,
-            None => whatever!(
-                "error getting evaluation rollouts for namespace {} and flag {}",
-                evaluation_request.namespace_key.clone(),
-                evaluation_request.flag_key.clone()
-            ),
+            None => {
+                return Err(Error::Unknown(format!(
+                    "error getting evaluation rollouts for namespace {} and flag {}",
+                    evaluation_request.namespace_key.clone(),
+                    evaluation_request.flag_key.clone()
+                )));
+            }
         };
 
         for rollout in evaluation_rollouts {
             if rollout.rank < last_rank {
-                whatever!("rollout rank: {} detected out of order", rollout.rank);
+                return Err(Error::InvalidRequest(format!(
+                    "rollout rank: {} detected out of order",
+                    rollout.rank
+                )));
             }
 
             last_rank = rollout.rank;
@@ -483,7 +503,7 @@ where
         eval_context: &HashMap<String, String>,
         constraints: &Vec<flipt::EvaluationConstraint>,
         segment_match_type: &common::SegmentMatchType,
-    ) -> Result<bool, Whatever> {
+    ) -> Result<bool, Error> {
         let mut constraint_matches: usize = 0;
 
         for constraint in constraints {
@@ -556,7 +576,7 @@ fn matches_string(evaluation_constraint: &flipt::EvaluationConstraint, v: &str) 
 fn matches_number(
     evaluation_constraint: &flipt::EvaluationConstraint,
     v: &str,
-) -> Result<bool, Whatever> {
+) -> Result<bool, Error> {
     let operator = evaluation_constraint.operator.as_str();
 
     match operator {
@@ -575,16 +595,18 @@ fn matches_number(
 
     let v_number = match v.parse::<i32>() {
         Ok(v) => v,
-        Err(err) => whatever!("error parsing number {}, err: {}", v, err),
+        Err(err) => Err(Error::InvalidRequest(format!(
+            "error parsing number {}, err: {}",
+            v, err
+        )))?,
     };
 
     let value_number = match evaluation_constraint.value.parse::<i32>() {
         Ok(v) => v,
-        Err(err) => whatever!(
+        Err(err) => Err(Error::InvalidRequest(format!(
             "error parsing number {}, err: {}",
-            evaluation_constraint.value,
-            err
-        ),
+            evaluation_constraint.value, err
+        )))?,
     };
 
     match operator {
@@ -601,7 +623,7 @@ fn matches_number(
 fn matches_boolean(
     evaluation_constraint: &flipt::EvaluationConstraint,
     v: &str,
-) -> Result<bool, Whatever> {
+) -> Result<bool, Error> {
     let operator = evaluation_constraint.operator.as_str();
 
     match operator {
@@ -620,7 +642,10 @@ fn matches_boolean(
 
     let v_bool = match v.parse::<bool>() {
         Ok(v) => v,
-        Err(err) => whatever!("error parsing boolean {}: err {}", v, err),
+        Err(err) => Err(Error::InvalidRequest(format!(
+            "error parsing boolean {}: err {}",
+            v, err
+        )))?,
     };
 
     match operator {
@@ -633,7 +658,7 @@ fn matches_boolean(
 fn matches_datetime(
     evaluation_constraint: &flipt::EvaluationConstraint,
     v: &str,
-) -> Result<bool, Whatever> {
+) -> Result<bool, Error> {
     let operator = evaluation_constraint.operator.as_str();
 
     match operator {
@@ -652,16 +677,18 @@ fn matches_datetime(
 
     let d = match DateTime::parse_from_rfc3339(v) {
         Ok(t) => t.timestamp(),
-        Err(e) => whatever!("error parsing time {}, err: {}", v, e),
+        Err(e) => Err(Error::InvalidRequest(format!(
+            "error parsing time {}, err: {}",
+            v, e
+        )))?,
     };
 
     let value = match DateTime::parse_from_rfc3339(&evaluation_constraint.value) {
         Ok(t) => t.timestamp(),
-        Err(e) => whatever!(
+        Err(e) => Err(Error::InvalidRequest(format!(
             "error parsing time {}, err: {}",
-            &evaluation_constraint.value,
-            e
-        ),
+            &evaluation_constraint.value, e
+        )))?,
     };
 
     match operator {
@@ -675,12 +702,10 @@ fn matches_datetime(
     }
 }
 
-fn get_duration_millis(elapsed: Result<Duration, SystemTimeError>) -> Result<f64, Whatever> {
+fn get_duration_millis(elapsed: Result<Duration, SystemTimeError>) -> Result<f64, Error> {
     match elapsed {
         Ok(elapsed) => Ok(elapsed.as_secs_f64() * 1000.0),
-        Err(e) => {
-            whatever!("error getting duration {}", e)
-        }
+        Err(e) => Err(Error::Unknown(format!("error getting duration {}", e))),
     }
 }
 
