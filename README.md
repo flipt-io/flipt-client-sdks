@@ -6,7 +6,7 @@ This repository centralizes the client-side SDKs for [Flipt](https://github.com/
 
 These client-side SDKs are responsible for evaluating context and returning the results of the evaluation. They enable developers to easily integrate Flipt into their applications without relying on server-side evaluation.
 
-**Note**: These SDKs are currently experimental. We are looking for feedback on the design and implementation. Please open an issue if you have any feedback or questions.
+> [!NOTE] These SDKs are currently experimental. We are looking for feedback on the design and implementation. Please open an issue if you have any feedback or questions.
 
 ## Architecture
 
