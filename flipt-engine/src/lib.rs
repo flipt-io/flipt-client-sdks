@@ -1,14 +1,15 @@
+use error::Error;
 use libc::c_void;
 use parser::HTTPParser;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use snafu::{prelude::*, Whatever};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
 use store::Snapshot;
 
+mod error;
 pub mod evaluator;
 mod models;
 pub mod parser;
@@ -40,11 +41,11 @@ enum Status {
     Failure,
 }
 
-impl<T> From<Result<T, Whatever>> for EvalResponse<T>
+impl<T> From<Result<T, Error>> for EvalResponse<T>
 where
     T: Serialize,
 {
-    fn from(value: Result<T, Whatever>) -> Self {
+    fn from(value: Result<T, Error>) -> Self {
         match value {
             Ok(result) => EvalResponse {
                 status: Status::Success,
@@ -60,7 +61,7 @@ where
     }
 }
 
-fn result_to_json_ptr<T: Serialize>(result: Result<T, Whatever>) -> *mut c_char {
+fn result_to_json_ptr<T: Serialize>(result: Result<T, Error>) -> *mut c_char {
     let ffi_response: EvalResponse<T> = result.into();
     let json_string = serde_json::to_string(&ffi_response).unwrap();
     CString::new(json_string).unwrap().into_raw()
@@ -114,7 +115,7 @@ impl Engine {
     pub fn variant(
         &self,
         evaluation_request: &evaluator::EvaluationRequest,
-    ) -> Result<evaluator::VariantEvaluationResponse, Whatever> {
+    ) -> Result<evaluator::VariantEvaluationResponse, Error> {
         let binding = self.evaluator.clone();
         let lock = binding.lock().unwrap();
 
@@ -124,7 +125,7 @@ impl Engine {
     pub fn boolean(
         &self,
         evaluation_request: &evaluator::EvaluationRequest,
-    ) -> Result<evaluator::BooleanEvaluationResponse, Whatever> {
+    ) -> Result<evaluator::BooleanEvaluationResponse, Error> {
         let binding = self.evaluator.clone();
         let lock = binding.lock().unwrap();
 
@@ -136,9 +137,9 @@ impl Engine {
 ///
 /// This function should not be called unless an Engine is initiated. It provides a helper
 /// utility to retrieve an Engine instance for evaluation use.
-unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, Whatever> {
+unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, Error> {
     if engine_ptr.is_null() {
-        whatever!("null pointer engine error");
+        Err(Error::NullPointer)
     } else {
         Ok(unsafe { &mut *(engine_ptr as *mut Engine) })
     }

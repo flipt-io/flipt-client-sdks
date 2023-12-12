@@ -69,7 +69,7 @@ func TestVariantFailure(t *testing.T) {
 
 	assert.Nil(t, variant.Result)
 	assert.Equal(t, "failure", variant.Status)
-	assert.Equal(t, "failed to get flag information default/nonexistent", variant.ErrorMessage)
+	assert.Equal(t, "invalid request: failed to get flag information default/nonexistent", variant.ErrorMessage)
 }
 
 func TestBooleanFailure(t *testing.T) {
@@ -83,5 +83,5 @@ func TestBooleanFailure(t *testing.T) {
 
 	assert.Nil(t, boolean.Result)
 	assert.Equal(t, "failure", boolean.Status)
-	assert.Equal(t, "failed to get flag information default/nonexistent", boolean.ErrorMessage)
+	assert.Equal(t, "invalid request: failed to get flag information default/nonexistent", boolean.ErrorMessage)
 }

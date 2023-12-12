@@ -6,13 +6,14 @@ This repository centralizes the client-side SDKs for [Flipt](https://github.com/
 
 These client-side SDKs are responsible for evaluating context and returning the results of the evaluation. They enable developers to easily integrate Flipt into their applications without relying on server-side evaluation.
 
-> [!NOTE] These SDKs are currently experimental. We are looking for feedback on the design and implementation. Please open an issue if you have any feedback or questions.
+> [!WARNING]
+> These SDKs are currently experimental. We are looking for feedback on the design and implementation. Please open an issue if you have any feedback or questions.
 
 ## Architecture
 
 The client SDKs are designed to be embedded in end-user applications.
 
-The evaluation logic is written in Rust and can be found in the `flipt-engine` directory. The language clients that are used in end-user applications wrap the engine can be found in the `flipt-client-{language}` directories.
+The evaluation logic is written in Rust and can be found in the [flipt-engine](./flipt-engine/) directory. The language clients that are used in end-user applications wrap the engine can be found in the `flipt-client-{language}` directories.
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md).
 
@@ -61,6 +62,14 @@ While the server SDKs performed evaluations in the range of 0-14ms, the client S
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
+### Help Wanted
+
+We are not Rust experts, and are constantly learning. If you see something that can be improved especially in the [flipt-engine](./flipt-engine/), please open an issue or a PR, we would love to learn from you. :heart:
+
 ## License
 
 All code in this repository is licensed under the MIT License. See [LICENSE](./LICENSE).
+
+## Acknowledgements
+
+- [Unleash/yggdrasil](https://github.com/Unleash/yggdrasil) - While we independently decided upon using Rust + FFI as the engine for the client SDKs, we were inspired by the design of the yggdrasil project from Unleash.

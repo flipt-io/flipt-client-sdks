@@ -46,7 +46,8 @@ class TestFliptEvaluationClient(unittest.TestCase):
         )
         self.assertIsNone(variant.result)
         self.assertEqual(
-            variant.error_message, "failed to get flag information default/nonexistent"
+            variant.error_message,
+            "invalid request: failed to get flag information default/nonexistent",
         )
         self.assertEqual("failure", variant.status)
 
@@ -56,7 +57,8 @@ class TestFliptEvaluationClient(unittest.TestCase):
         )
         self.assertIsNone(boolean.result)
         self.assertEqual(
-            boolean.error_message, "failed to get flag information default/nonexistent"
+            boolean.error_message,
+            "invalid request: failed to get flag information default/nonexistent",
         )
         self.assertEqual("failure", boolean.status)
 
