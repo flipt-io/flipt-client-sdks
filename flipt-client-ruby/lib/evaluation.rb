@@ -8,9 +8,11 @@ module Flipt
   class Error < StandardError; end
 
   class EvaluationClient
+    extend FFI::Library
+
     FLIPTENGINE = 'ext/libfliptengine'
 
-    def self.platform_specific_lib
+    def self.libfile
       case RbConfig::CONFIG['host_os']
       when /mswin|msys|mingw|cygwin|bccwin|wince|emc/
         "#{FLIPTENGINE}.dll"
@@ -23,8 +25,7 @@ module Flipt
       end
     end
 
-    extend FFI::Library
-    ffi_lib File.expand_path(platform_specific_lib, __dir__)
+    ffi_lib File.expand_path(libfile, __dir__)
 
     # void *initialize_engine(const char *const *namespaces, const char *opts);
     attach_function :initialize_engine, %i[pointer string], :pointer
@@ -66,7 +67,6 @@ module Flipt
     end
 
     private
-
     def validate_evaluation_request(evaluation_request)
       if evaluation_request[:entity_id].nil? || evaluation_request[:entity_id].empty?
         raise ArgumentError, 'entity_id is required'

@@ -11,3 +11,21 @@ You can refer to the architecture diagram below:
 <p align="center">
     <img src="./diagrams/architecture.png" alt="Client SDKs Architecture" width="500px" />
 </p>
+
+## Engine
+
+The engine is responsible for the following:
+
+- Polling for evaluation state from the Flipt server.
+- Unmarshalling the evaluation state from JSON to memory.
+- Storing the evaluation state in memory per namespace.
+- Evaluating context against the evaluation state and returning the results of the evaluation.
+
+## Client SDKs
+
+The client SDKs are responsible for the following:
+
+- Marshalling context to JSON.
+- Sending context to the engine via FFI.
+- Unmarshalling the results of the evaluation from JSON to memory and returning the results to the caller.
+- Providing a high-level API for the caller to interact with the client SDK.
