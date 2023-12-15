@@ -108,7 +108,7 @@ func getTestDependencies(ctx context.Context, client *dagger.Client, hostDirecto
 		WithExec([]string{"cargo", "build", "--release"})
 
 	// Flipt
-	flipt := client.Container().From("flipt/flipt:nightly").
+	flipt := client.Container().From("flipt/flipt:latest").
 		WithUser("root").
 		WithExec([]string{"mkdir", "-p", "/var/data/flipt"}).
 		WithDirectory("/var/data/flipt", hostDirectory.Directory("test/fixtures/testdata")).
