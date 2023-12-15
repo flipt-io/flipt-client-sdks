@@ -26,4 +26,4 @@ jobs:
 
       - name: Run Integration Tests
         run: |
-          dagger run go run ./build
+          dagger run go run ./test

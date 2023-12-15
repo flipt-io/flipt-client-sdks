@@ -2,7 +2,7 @@
 
 The different languages clients should all have an integration test suite that is dependent on the dynamic library being present somewhere and a running instance of Flipt.
 
-In the `build/` directory we will use [Dagger](https://dagger.io/) to orchestrate setting up the dependencies for running the test suites for the different languages.
+In the `test/` directory we will use [Dagger](https://dagger.io/) to orchestrate setting up the dependencies for running the test suites for the different languages.
 
 ## Requirements
 
@@ -15,7 +15,7 @@ Here are the [Dagger Installation Instructions](https://docs.dagger.io/quickstar
 From the root of this repository you can run:
 
 ```bash
-dagger run go run ./build
+dagger run go run ./test
 ```
 
 This will run integration tests for every language that is supported. If you wish to filter specific languages to test, there is a flag `-languages` which accepts a comma-separated list of values.
@@ -23,5 +23,5 @@ This will run integration tests for every language that is supported. If you wis
 e.g.
 
 ```bash
-dagger run go run ./build -languages=python,ruby
+dagger run go run ./test -languages=python,ruby
 ```

@@ -1,6 +1,6 @@
 go 1.21.3
 
 use (
-	./build
 	./flipt-client-go
+	./test
 )
