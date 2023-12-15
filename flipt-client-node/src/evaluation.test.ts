@@ -31,7 +31,7 @@ test('variant', () => {
     expect(variant.result.reason).toEqual('MATCH_EVALUATION_REASON');
     expect(variant.result.segment_keys).toContain('segment1');
     expect(variant.result.variant_key).toContain('variant1');
-  } catch (_) {
+  } finally {
     if (client) client.freeEngine();
   }
 });
@@ -53,7 +53,7 @@ test('boolean', () => {
     expect(boolean.result.flag_key).toEqual('flag_boolean');
     expect(boolean.result.enabled).toEqual(true);
     expect(boolean.result.reason).toEqual('MATCH_EVALUATION_REASON');
-  } catch (_) {
+  } finally {
     if (client) client.freeEngine();
   }
 });
@@ -74,7 +74,7 @@ test('variant failure', () => {
     expect(variant.error_message).toEqual(
       'invalid request: failed to get flag information default/nonexistent'
     );
-  } catch (_) {
+  } finally {
     if (client) client.freeEngine();
   }
 });
@@ -95,7 +95,7 @@ test('boolean failure', () => {
     expect(boolean.error_message).toEqual(
       'invalid request: failed to get flag information default/nonexistent'
     );
-  } catch (_) {
+  } finally {
     if (client) client.freeEngine();
   }
 });
