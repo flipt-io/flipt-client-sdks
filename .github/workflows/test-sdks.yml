@@ -4,6 +4,7 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -26,4 +27,4 @@ jobs:
 
       - name: Run Integration Tests
         run: |
-          dagger run go run ./build
+          dagger run go run ./test
