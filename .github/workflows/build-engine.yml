@@ -29,6 +29,16 @@ jobs:
           target: ${{ matrix.platform.target }}
           override: true
 
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-${{ matrix.platform.target}}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Build Rust ${{ matrix.platform.name }}
         uses: actions-rs/cargo@v1
         with:
@@ -36,11 +46,8 @@ jobs:
           args: --target ${{ matrix.platform.target }} --release
           use-cross: true
 
-      - run: |
-          tree
-
       - uses: actions/upload-artifact@v4
         with:
           name: libfliptengine-${{ matrix.platform.name }}
-          path: target/release/*.(so|dll|dylib|h)
+          path: target/release/${{ matrix.platform.target}}/release/*.(so|dll|dylib|h)
           retention-days: 5
