@@ -12,32 +12,31 @@ jobs:
       matrix:
         platform:
           - name: Linux-x86_64
-            os: [ubuntu-latest]
-            target: [x86_64-unknown-linux-gnu]
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
           - name: Linux-armv7
-            os: [ubuntu-latest]
-            target: [armv7-unknown-linux-gnueabihf]
+            os: ubuntu-latest
+            target: armv7-unknown-linux-gnueabihf
 
     runs-on: ${{ matrix.platform.os }}
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install Rust
+      - name: Install Rust ${{ matrix.platform.name }}
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           target: ${{ matrix.platform.target }}
           override: true
 
-      - uses: actions-rs/cargo@v1
+      - name: Build Rust ${{ matrix.platform.name }}
+        uses: actions-rs/cargo@v1
         with:
           command: build
           args: --target ${{ matrix.platform.target }} --release
           use-cross: true
 
       - uses: actions/upload-artifact@v4
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           name: libfliptengine-${{ matrix.platform.name }}
           path: target/${{ matrix.platform.target }}/release/*.(so|dll|dylib|h)
