@@ -1,9 +1,7 @@
-name: Build Rust Engine
+name: Package Rust Engine
 on:
-  push:
-    branches:
-      - main
-  pull_request:
+  release:
+    types: [published]
   workflow_dispatch:
 
 jobs:
