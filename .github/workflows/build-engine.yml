@@ -49,5 +49,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: libfliptengine-${{ matrix.platform.name }}
-          path: target/release/${{ matrix.platform.target}}/release/*.(so|dll|dylib|h)
+          path: target/release/*/release/*.(so|dll|dylib|h)
           retention-days: 5
