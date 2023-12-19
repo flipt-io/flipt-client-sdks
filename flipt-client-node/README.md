@@ -83,8 +83,8 @@ console.log(variant);
 
 Since TypeScript/JavaScript is a garbage collected language there is no concept of "freeing" memory. We have to allocate memory for the engine through the `initialize_engine` FFI call.
 
-Make sure to call the `freeEngine` method on the `FliptEvaluationClient` class once you are done using it.
+Make sure to call the `close` method on the `FliptEvaluationClient` class once you are done using it.
 
 ```typescript
-fliptEvaluationClient.freeEngine();
+fliptEvaluationClient.close();
 ```
