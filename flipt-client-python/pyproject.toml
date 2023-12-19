@@ -7,7 +7,7 @@ authors = ["Flipt Devs <dev@flipt.io>"]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-pydantic = "^2.4.2"
+pydantic = "<3.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.11.0"
