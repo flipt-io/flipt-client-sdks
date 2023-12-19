@@ -46,6 +46,10 @@ jobs:
           args: --target ${{ matrix.platform.target }} --release
           use-cross: true
 
+      - run: |
+          cd target/${{ matrix.platform.target }}/release && \
+          ls -la
+
       - uses: actions/upload-artifact@v4
         with:
           name: libfliptengine-${{ matrix.platform.name }}
