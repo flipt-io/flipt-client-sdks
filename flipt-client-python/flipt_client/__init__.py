@@ -14,7 +14,8 @@ class FliptEvaluationClient:
     def __init__(self, namespace: str = "default", engine_opts: EngineOpts = {}):
         # get dynamic library extension for the current platform
         if platform.system() == "Darwin":
-            if platform.machine() == "arm64" or platform.machine() == "aarch64":
+            arch = platform.machine()
+            if arch == "arm64" or arch == "aarch64":
                 libfile = "darwin_arm64/libfliptengine.dylib"
             else:
                 raise Exception(
