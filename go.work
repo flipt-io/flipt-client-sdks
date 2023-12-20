@@ -3,4 +3,5 @@ go 1.21.3
 use (
 	./flipt-client-go
 	./test
+	./build
 )

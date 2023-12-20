@@ -26,12 +26,12 @@ ruby: build ## Build the ruby client gem
 clean: ## Clean up build artifacts
 	rm -rf target
 	rm -rf flipt-client-go/$(LIB).* flipt-client-go/$(HEADER)
-	rm -rf flipt-client-node/ext/$(LIB).*
+	rm -rf flipt-client-node/ext/$(LIB).* flipt-client-node/ext/$(HEADER)
 	rm -rf flipt-client-node/*.tgz
 	rm -rf flipt-client-node/dist
-	rm -rf flipt-client-python/ext/$(LIB).*
+	rm -rf flipt-client-python/ext/$(LIB).* flipt-client-python/ext/$(HEADER)
 	rm -rf flipt-client-python/dist
-	rm -rf flipt-client-ruby/lib/ext/$(LIB).*
+	rm -rf flipt-client-ruby/lib/ext/$(LIB).* flipt-client-ruby/lib/ext/$(HEADER)
 	rm -rf flipt-client-ruby/pkg/
 
 help:

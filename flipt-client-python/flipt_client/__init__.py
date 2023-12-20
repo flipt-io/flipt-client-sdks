@@ -13,12 +13,23 @@ from .models import (
 class FliptEvaluationClient:
     def __init__(self, namespace: str = "default", engine_opts: EngineOpts = {}):
         # get dynamic library extension for the current platform
-        if platform.system() == "Windows":
-            libfile = "fliptengine.dll"
-        elif platform.system() == "Darwin":
-            libfile = "libfliptengine.dylib"
+        if platform.system() == "Darwin":
+            if platform.machine() == "arm64" or platform.machine() == "aarch64":
+                libfile = "libfliptengine.darwin.arm64.dylib"
+            else:
+                raise Exception(
+                    f"Unsupported processor: {platform.processor()}. Please use an M1 Mac."
+                )
         elif platform.system() == "Linux":
-            libfile = "libfliptengine.so"
+            arch = platform.machine()
+            if arch == "x86":
+                libfile = "libfliptengine.linux.x86_64.so"
+            elif arch == "arm64" or arch == "aarch64":
+                libfile = "libfliptengine.linux.arm64.so"
+            else:
+                raise Exception(
+                    f"Unsupported processor: {platform.processor()}. Please use an x86_64 or arm64 Linux machine."
+                )
         else:
             raise Exception(f"Unsupported platform: {platform.system()}.")
 
