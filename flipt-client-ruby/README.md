@@ -16,7 +16,7 @@ The dynamic library will contain the functionality necessary for the client to m
 
 ### Automated Build
 
-1. Build and copy the dynamic library to the `flipt-client-ruby/lib/ext` directory. This will also build and install the `flipt_client` gem on your local machine. You can do this by running the following command from the root of the repository:
+1. Build and copy the dynamic library to the `flipt-client-ruby/lib/ext` directory for yoru platform. This will also build and install the `flipt_client` gem on your local machine. You can do this by running the following command from the root of the repository:
 
     ```bash
     make ruby
@@ -32,7 +32,7 @@ The dynamic library will contain the functionality necessary for the client to m
 
 This should generate a `target/` directory in the root of this repository, which contains the dynamically linked library built for your platform.
 
-2. You'll need to copy the dynamic library to the `flipt-client-ruby/lib/ext` directory. This is a temporary solution until we can figure out a better way to package the libraries with the gem.
+2. You'll need to copy the dynamic library to the `flipt-client-ruby/lib/ext/$OS_$ARCH/` directory. This is a temporary solution until we can figure out a better way to package the libraries with the gem.
 
 The `path/to/lib` will be the path to the dynamic library which will have the following paths depending on your platform.
 
