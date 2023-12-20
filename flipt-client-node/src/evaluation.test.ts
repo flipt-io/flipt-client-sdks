@@ -32,7 +32,7 @@ test('variant', () => {
     expect(variant.result.segment_keys).toContain('segment1');
     expect(variant.result.variant_key).toContain('variant1');
   } finally {
-    if (client) client.freeEngine();
+    if (client) client.close();
   }
 });
 
@@ -54,7 +54,7 @@ test('boolean', () => {
     expect(boolean.result.enabled).toEqual(true);
     expect(boolean.result.reason).toEqual('MATCH_EVALUATION_REASON');
   } finally {
-    if (client) client.freeEngine();
+    if (client) client.close();
   }
 });
 
@@ -75,7 +75,7 @@ test('variant failure', () => {
       'invalid request: failed to get flag information default/nonexistent'
     );
   } finally {
-    if (client) client.freeEngine();
+    if (client) client.close();
   }
 });
 
@@ -96,6 +96,6 @@ test('boolean failure', () => {
       'invalid request: failed to get flag information default/nonexistent'
     );
   } finally {
-    if (client) client.freeEngine();
+    if (client) client.close();
   }
 });

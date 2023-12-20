@@ -101,7 +101,7 @@ export class FliptEvaluationClient {
     return booleanResult;
   }
 
-  public freeEngine() {
+  public close() {
     engineLib.destroy_engine(this.engine);
   }
 }
