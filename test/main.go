@@ -22,7 +22,7 @@ var (
 		"node":   nodeTests,
 		"ruby":   rubyTests,
 	}
-	sema = make(chan struct{}, len(languageToFn))
+	sema = make(chan struct{}, 5)
 )
 
 type testArgs struct {
@@ -81,17 +81,14 @@ func run() error {
 
 	var g errgroup.Group
 
-	for _, testFn := range tests {
-		testFn := testFn
-
+	for _, fn := range tests {
+		fn := fn
 		g.Go(take(func() error {
-			return testFn(ctx, client, flipt, args)
+			return fn(ctx, client, flipt, args)
 		}))
 	}
 
-	err = g.Wait()
-
-	return err
+	return g.Wait()
 }
 
 func take(fn func() error) func() error {
