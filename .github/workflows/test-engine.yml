@@ -1,4 +1,4 @@
-name: Rust Engine
+name: Lint/Test Rust Engine
 on:
   push:
     branches:
