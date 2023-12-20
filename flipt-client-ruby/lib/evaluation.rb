@@ -10,18 +10,18 @@ module Flipt
   class EvaluationClient
     extend FFI::Library
 
-    FLIPTENGINE = 'ext/libfliptengine'
+    FLIPTENGINE = 'libfliptengine'
 
     def self.libfile
-      case RbConfig::CONFIG['host_os']
-      when /mswin|msys|mingw|cygwin|bccwin|wince|emc/
-        "#{FLIPTENGINE}.dll"
-      when /darwin|mac os/
-        "#{FLIPTENGINE}.dylib"
-      when /linux/
-        "#{FLIPTENGINE}.so"
+      case RbConfig::CONFIG['arch']
+      when /arm64-darwin/
+        "ext/darwin_arm64/#{FLIPTENGINE}.dylib"
+      when /arm64-linux|aarch64-linux/
+        "ext/linux_arm64/#{FLIPTENGINE}.so"
+      when /x86_64-linux/
+        "ext/linux_x86_64/#{FLIPTENGINE}.so"
       else
-        raise "unsupported platform #{RbConfig::CONFIG['host_os']}"
+        raise "unsupported platform #{RbConfig::CONFIG['arch']}"
       end
     end
 

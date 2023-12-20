@@ -36,7 +36,10 @@ func run() error {
 	var g errgroup.Group
 
 	for _, fn := range []buildFn{
-		buildPython,
+		pythonBuild,
+		goBuild,
+		nodeBuild,
+		rubyBuild,
 	} {
 		fn := fn
 		g.Go(take(func() error {
@@ -58,15 +61,52 @@ func take(fn func() error) func() error {
 	}
 }
 
-func buildPython(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
+func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
 	_, err := client.Container().From("python:3.11-bookworm").
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithDirectory("/app", hostDirectory.Directory("flipt-client-python")).
 		WithDirectory("/app/ext", hostDirectory.Directory("tmp")).
 		WithWorkdir("/app").
-		WithExec([]string{"poetry", "config", "installer.parallel", "false"}).
-		WithExec([]string{"poetry", "install", "-v"}).
+		WithExec([]string{"poetry", "install", "--without=dev", "-v"}).
 		WithExec([]string{"poetry", "build", "-v"}).
+		Sync(ctx)
+
+	return err
+}
+
+func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
+	_, err := client.Container().From("golang:1.21.3-bookworm").
+		WithDirectory("/app", hostDirectory.Directory("flipt-client-go")).
+		WithDirectory("/app/ext", hostDirectory.Directory("tmp")).
+		WithWorkdir("/app").
+		WithExec([]string{"go", "build", "-v", "."}).
+		Sync(ctx)
+
+	return err
+}
+
+func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
+	_, err := client.Container().From("node:21.2-bookworm").
+		WithDirectory("/app", hostDirectory.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"./node_modules/"},
+		}).
+		WithDirectory("/app/ext", hostDirectory.Directory("tmp")).
+		WithWorkdir("/app").
+		WithExec([]string{"npm", "install"}).
+		WithExec([]string{"npm", "run", "build"}).
+		WithExec([]string{"npm", "pack"}).
+		Sync(ctx)
+
+	return err
+}
+
+func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
+	_, err := client.Container().From("ruby:3.1-bookworm").
+		WithDirectory("/app", hostDirectory.Directory("flipt-client-ruby")).
+		WithDirectory("/app/lib/ext", hostDirectory.Directory("tmp")).
+		WithWorkdir("/app").
+		WithExec([]string{"bundle", "install"}).
+		WithExec([]string{"bundle", "exec", "rake", "build"}).
 		Sync(ctx)
 
 	return err
