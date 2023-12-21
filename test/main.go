@@ -7,6 +7,7 @@ import (
 	"log"
 	"maps"
 	"os"
+	"runtime"
 	"strings"
 
 	"dagger.io/dagger"
@@ -21,10 +22,17 @@ var (
 		"node":   nodeTests,
 		"ruby":   rubyTests,
 	}
-	sema = make(chan struct{}, len(languageToFn))
+	sema = make(chan struct{}, 5)
 )
 
-type integrationTestFn func(context.Context, *dagger.Client, *dagger.Container, *dagger.File, *dagger.File, *dagger.Directory) error
+type testArgs struct {
+	arch       string
+	libFile    *dagger.File
+	headerFile *dagger.File
+	hostDir    *dagger.Directory
+}
+
+type integrationTestFn func(context.Context, *dagger.Client, *dagger.Container, testArgs) error
 
 func init() {
 	flag.StringVar(&languages, "languages", "", "comma separated list of which language(s) to run integration tests for")
@@ -59,31 +67,28 @@ func run() error {
 
 	ctx := context.Background()
 
-	client, err := dagger.Connect(ctx, dagger.WithLogOutput(os.Stderr))
+	client, err := dagger.Connect(ctx, dagger.WithLogOutput(os.Stdout))
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
 	dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
-		Exclude: []string{"diagrams/"},
+		Exclude: []string{"diagrams/", "build/", "tmp/"},
 	})
 
-	flipt, dynamicLibrary, headerFile := getTestDependencies(ctx, client, dir)
+	flipt, args := getTestDependencies(ctx, client, dir)
 
 	var g errgroup.Group
 
-	for _, testFn := range tests {
-		testFn := testFn
-
+	for _, fn := range tests {
+		fn := fn
 		g.Go(take(func() error {
-			return testFn(ctx, client, flipt, dynamicLibrary, headerFile, dir)
+			return fn(ctx, client, flipt, args)
 		}))
 	}
 
-	err = g.Wait()
-
-	return err
+	return g.Wait()
 }
 
 func take(fn func() error) func() error {
@@ -99,7 +104,12 @@ func take(fn func() error) func() error {
 
 // getTestDependencies builds the dynamic library for the Rust core, and the Flipt container for the client libraries to run
 // their tests against.
-func getTestDependencies(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) (*dagger.Container, *dagger.File, *dagger.File) {
+func getTestDependencies(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) (*dagger.Container, testArgs) {
+	arch := "x86_64"
+	if strings.Contains(runtime.GOARCH, "arm64") || strings.Contains(runtime.GOARCH, "aarch64") {
+		arch = "arm64"
+	}
+
 	// Dynamic Library
 	rust := client.Container().From("rust:1.73.0-bookworm").
 		WithWorkdir("/app").
@@ -121,16 +131,22 @@ func getTestDependencies(ctx context.Context, client *dagger.Client, hostDirecto
 		WithEnvVariable("FLIPT_AUTHENTICATION_REQUIRED", "1").
 		WithExposedPort(8080)
 
-	return flipt, rust.File("/app/target/release/libfliptengine.so"), rust.File("/app/target/release/flipt_engine.h")
+	return flipt, testArgs{
+		arch:       arch,
+		libFile:    rust.File("/app/target/release/libfliptengine.so"),
+		headerFile: rust.File("/app/target/release/flipt_engine.h"),
+		hostDir:    hostDirectory,
+	}
 }
 
 // pythonTests runs the python integration test suite against a container running Flipt.
-func pythonTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, dynamicLibrary *dagger.File, _ *dagger.File, hostDirectory *dagger.Directory) error {
+func pythonTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
+
 	_, err := client.Container().From("python:3.11-bookworm").
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithWorkdir("/app").
-		WithDirectory("/app", hostDirectory.Directory("flipt-client-python")).
-		WithFile("/app/ext/libfliptengine.so", dynamicLibrary).
+		WithDirectory("/app", args.hostDir.Directory("flipt-client-python")).
+		WithFile(fmt.Sprintf("/app/ext/linux_%s/libfliptengine.so", args.arch), args.libFile).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -142,21 +158,21 @@ func pythonTests(ctx context.Context, client *dagger.Client, flipt *dagger.Conta
 }
 
 // goTests runs the golang integration test suite against a container running Flipt.
-func goTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, dynamicLibrary *dagger.File, headerFile *dagger.File, hostDirectory *dagger.Directory) error {
+func goTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
 	_, err := client.Container().From("golang:1.21.3-bookworm").
 		WithExec([]string{"apt-get", "update"}).
 		WithExec([]string{"apt-get", "-y", "install", "build-essential"}).
 		WithWorkdir("/app").
-		WithDirectory("/app", hostDirectory.Directory("flipt-client-go")).
-		WithFile("/app/ext/libfliptengine.so", dynamicLibrary).
-		WithFile("/app/ext/flipt_engine.h", headerFile).
+		WithDirectory("/app", args.hostDir.Directory("flipt-client-go")).
+		WithFile(fmt.Sprintf("/app/ext/linux_%s/libfliptengine.so", args.arch), args.libFile).
+		WithFile("/app/ext/flipt_engine.h", args.headerFile).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		// Since the dynamic library is being sourced from a "non-standard location" we can
 		// modify the LD_LIBRARY_PATH variable to inform the linker different locations for
 		// dynamic libraries.
-		WithEnvVariable("LD_LIBRARY_PATH", "/app/ext:$LD_LIBRARY_PATH").
+		WithEnvVariable("LD_LIBRARY_PATH", fmt.Sprintf("/app/ext/linux_%s:$LD_LIBRARY_PATH", args.arch)).
 		WithExec([]string{"go", "mod", "download"}).
 		WithExec([]string{"go", "test", "./..."}).
 		Sync(ctx)
@@ -165,15 +181,15 @@ func goTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container
 }
 
 // nodeTests runs the node integration test suite against a container running Flipt.
-func nodeTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, dynamicLibrary *dagger.File, _ *dagger.File, hostDirectory *dagger.Directory) error {
+func nodeTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
 	_, err := client.Container().From("node:21.2-bookworm").
 		WithWorkdir("/app").
 		// The node_modules should never be version controlled, but we will exclude it here
 		// just to be safe.
-		WithDirectory("/app", hostDirectory.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
+		WithDirectory("/app", args.hostDir.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./node_modules/"},
 		}).
-		WithFile("/app/ext/libfliptengine.so", dynamicLibrary).
+		WithFile(fmt.Sprintf("/app/ext/linux_%s/libfliptengine.so", args.arch), args.libFile).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -185,11 +201,11 @@ func nodeTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 }
 
 // rubyTests runs the ruby integration test suite against a container running Flipt.
-func rubyTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, dynamicLibrary *dagger.File, _ *dagger.File, hostDirectory *dagger.Directory) error {
+func rubyTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
 	_, err := client.Container().From("ruby:3.1-bookworm").
 		WithWorkdir("/app").
-		WithDirectory("/app", hostDirectory.Directory("flipt-client-ruby")).
-		WithFile("/app/lib/ext/libfliptengine.so", dynamicLibrary).
+		WithDirectory("/app", args.hostDir.Directory("flipt-client-ruby")).
+		WithFile(fmt.Sprintf("/app/lib/ext/linux_%s/libfliptengine.so", args.arch), args.libFile).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").

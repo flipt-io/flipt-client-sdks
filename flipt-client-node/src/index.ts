@@ -13,17 +13,23 @@ let libfile = '';
 
 // get absolute path to libfliptengine
 switch (os.platform()) {
-  case 'win32':
-    libfile = 'libfliptengine.dll';
-    break;
   case 'darwin':
-    libfile = 'libfliptengine.dylib';
-    break;
+    if (os.arch() === 'arm64') {
+      libfile = 'darwin_arm64/libfliptengine.dylib';
+      break;
+    }
+    throw new Error('Unsupported platform: ' + os.platform() + '/' + os.arch());
   case 'linux':
-    libfile = 'libfliptengine.so';
-    break;
+    if (os.arch() === 'arm64') {
+      libfile = 'linux_arm64/libfliptengine.so';
+      break;
+    } else if (os.arch() === 'x64') {
+      libfile = 'linux_x86_64/libfliptengine.so';
+      break;
+    }
+    throw new Error('Unsupported platform: ' + os.platform() + '/' + os.arch());
   default:
-    throw new Error('Unsupported platform: ' + os.platform());
+    throw new Error('Unsupported platform: ' + os.platform() + '/' + os.arch());
 }
 
 libfile = path.join(__dirname, '..', 'ext', libfile);
