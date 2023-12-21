@@ -2,24 +2,61 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
+	"log"
+	"maps"
 	"os"
+	"strings"
 
 	"dagger.io/dagger"
 	"golang.org/x/sync/errgroup"
 )
 
-var sema = make(chan struct{}, 5)
+var (
+	languages    string
+	languageToFn = map[string]buildFn{
+		"python": pythonBuild,
+		"go":     goBuild,
+		"node":   nodeBuild,
+		"ruby":   rubyBuild,
+	}
+	sema = make(chan struct{}, 5)
+)
+
+func init() {
+	flag.StringVar(&languages, "languages", "", "comma separated list of which language(s) to run integration tests for")
+}
 
 func main() {
-	err := run()
-	if err != nil {
-		panic(err)
+	flag.Parse()
+
+	if err := run(); err != nil {
+		log.Fatal(err)
 	}
 }
 
 type buildFn func(context.Context, *dagger.Client, *dagger.Directory) error
 
 func run() error {
+	var tests = make(map[string]buildFn, len(languageToFn))
+
+	maps.Copy(tests, languageToFn)
+
+	if languages != "" {
+		l := strings.Split(languages, ",")
+		subset := make(map[string]buildFn, len(l))
+		for _, language := range l {
+			testFn, ok := languageToFn[language]
+			if !ok {
+				return fmt.Errorf("language %s is not supported", language)
+			}
+			subset[language] = testFn
+		}
+
+		tests = subset
+	}
+
 	ctx := context.Background()
 
 	client, err := dagger.Connect(ctx, dagger.WithLogOutput(os.Stdout))
@@ -35,12 +72,7 @@ func run() error {
 
 	var g errgroup.Group
 
-	for _, fn := range []buildFn{
-		pythonBuild,
-		goBuild,
-		nodeBuild,
-		rubyBuild,
-	} {
+	for _, fn := range tests {
 		fn := fn
 		g.Go(take(func() error {
 			return fn(ctx, client, dir)
@@ -107,7 +139,8 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		WithWorkdir("/app").
 		WithExec([]string{"bundle", "install"}).
 		WithExec([]string{"bundle", "exec", "rake", "build"}).
-		Sync(ctx)
+		File("/app/pkg/flipt_client-0.1.0.gem").
+		Export(ctx, "tmp/flipt_client-0.1.0.gem")
 
 	return err
 }

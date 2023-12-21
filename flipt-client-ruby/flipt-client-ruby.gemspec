@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-require_relative 'lib/client/version'
+require_relative 'lib/flipt_client/version'
 
 Gem::Specification.new do |spec|
   spec.name          = 'flipt_client'
-  spec.version       = Flipt::Client::VERSION
+  spec.version       = Flipt::VERSION
   spec.authors       = ['Flipt Devs']
   spec.email         = ['dev@flipt.io']
 
@@ -14,13 +14,13 @@ Gem::Specification.new do |spec|
   spec.license       = 'MIT'
   spec.required_ruby_version = Gem::Requirement.new('>= 2.3.0')
 
-  spec.metadata['allowed_push_host'] = "TODO: Set to 'http://mygemserver.com'"
+  # spec.metadata['allowed_push_host'] = "TODO: Set to 'http://mygemserver.com'"
 
   spec.metadata['homepage_uri'] = spec.homepage
   # spec.metadata["source_code_uri"] = "TODO: Put your gem's public repo URL here."
   # spec.metadata["changelog_uri"] = "TODO: Put your gem's CHANGELOG.md URL here."
 
-  spec.files = Dir.glob('{lib,spec}/**/*') + ['README.md']
+  spec.files = Dir.glob('{lib}/**/*') + ['README.md', 'flipt-client-ruby.gemspec']
   spec.bindir        = 'exe'
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ['lib']
