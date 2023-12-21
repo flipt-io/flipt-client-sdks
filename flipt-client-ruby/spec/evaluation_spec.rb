@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative '../lib/evaluation'
+require_relative '../lib/flipt_client'
 
 RSpec.describe Flipt::EvaluationClient do
   describe '#evaluate_variant' do

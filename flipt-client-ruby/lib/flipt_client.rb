@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'client/version'
+require 'flipt_client/version'
 require 'ffi'
 require 'json'
 
