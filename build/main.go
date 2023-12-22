@@ -158,14 +158,13 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	var err error
 
 	if !push {
-		_, err = container.File("/app/pkg/flipt_client-0.1.0.gem").
-			Export(ctx, "tmp/flipt_client-0.1.0.gem")
+		_, err = container.Sync(ctx)
 		return err
 	}
 
 	_, err = container.
 		WithSecretVariable("GEM_HOST_API_KEY", gemHostAPIKeySecret).
-		WithExec([]string{"gem", "push", "--host", gemHost, "/app/pkg/flipt_client-0.1.0.gem"}).
+		WithExec([]string{"gem", "push", "--host", gemHost, "/app/pkg/flipt_client-*.gem"}).
 		Sync(ctx)
 
 	return err
