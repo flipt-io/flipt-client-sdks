@@ -135,26 +135,26 @@ func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 }
 
 func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
+	gemAPIKey := os.Getenv("RUBYGEMS_API_KEY")
+	if gemAPIKey == "" {
+		return fmt.Errorf("RUBYGEMS_API_KEY is not set")
+	}
+
+	gemHost := os.Getenv("RUBYGEMS_HOST")
+	if gemHost == "" {
+		// TODO: relax this when we push to rubygems.org
+		return fmt.Errorf("RUBYGEMS_HOST is not set")
+	}
+
+	gemHostAPIKeySecret := client.SetSecret("rubygems-api-key", gemAPIKey)
 
 	hostSrv := client.Host().Service([]dagger.PortForward{
 		{Frontend: 3000, Backend: 3000},
 	})
-
-	const (
-		gemHost     = "http://gitea:3000/api/packages/mark/rubygems"
-		token       = "9eeb82f012ac3e4bc95da0431c423aeb14430ccb"
-		credentials = `
----
-%s: Bearer %s
-`
-	)
-
-	file := fmt.Sprintf(credentials, gemHost, token)
-
 	container := client.Container().From("ruby:3.1-bookworm").
+		WithWorkdir("/app").
 		WithDirectory("/app", hostDirectory.Directory("flipt-client-ruby")).
 		WithDirectory("/app/lib/ext", hostDirectory.Directory("tmp")).
-		WithWorkdir("/app").
 		WithExec([]string{"bundle", "install"}).
 		WithExec([]string{"bundle", "exec", "rake", "build"})
 
@@ -166,11 +166,9 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		return err
 	}
 
-	_, err = container.WithNewFile("~/.gem/credentials", dagger.ContainerWithNewFileOpts{
-		Contents: file,
-	}).
-		WithExec([]string{"cat", "~/.gem/credentials"}).
+	_, err = container.
 		WithServiceBinding("gitea", hostSrv).
+		WithSecretVariable("GEM_HOST_API_KEY", gemHostAPIKeySecret).
 		WithExec([]string{"gem", "push", "--host", gemHost, "/app/pkg/flipt_client-0.1.0.gem"}).
 		Sync(ctx)
 
