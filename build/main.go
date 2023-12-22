@@ -148,9 +148,6 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 
 	gemHostAPIKeySecret := client.SetSecret("rubygems-api-key", gemAPIKey)
 
-	hostSrv := client.Host().Service([]dagger.PortForward{
-		{Frontend: 3000, Backend: 3000},
-	})
 	container := client.Container().From("ruby:3.1-bookworm").
 		WithWorkdir("/app").
 		WithDirectory("/app", hostDirectory.Directory("flipt-client-ruby")).
@@ -167,7 +164,6 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	}
 
 	_, err = container.
-		WithServiceBinding("gitea", hostSrv).
 		WithSecretVariable("GEM_HOST_API_KEY", gemHostAPIKeySecret).
 		WithExec([]string{"gem", "push", "--host", gemHost, "/app/pkg/flipt_client-0.1.0.gem"}).
 		Sync(ctx)
