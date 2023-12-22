@@ -15,6 +15,7 @@ import (
 
 var (
 	languages    string
+	push         bool
 	languageToFn = map[string]buildFn{
 		"python": pythonBuild,
 		"go":     goBuild,
@@ -26,6 +27,7 @@ var (
 
 func init() {
 	flag.StringVar(&languages, "languages", "", "comma separated list of which language(s) to run integration tests for")
+	flag.BoolVar(&push, "push", false, "push built artifacts to registry")
 }
 
 func main() {
@@ -67,7 +69,7 @@ func run() error {
 	defer client.Close()
 
 	dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
-		Exclude: []string{"diagrams/", "build/", "test/"},
+		Exclude: []string{"diagrams/", "build/", "test/", ".git/"},
 	})
 
 	var g errgroup.Group
@@ -133,14 +135,44 @@ func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 }
 
 func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
-	_, err := client.Container().From("ruby:3.1-bookworm").
+
+	hostSrv := client.Host().Service([]dagger.PortForward{
+		{Frontend: 3000, Backend: 3000},
+	})
+
+	const (
+		gemHost     = "http://gitea:3000/api/packages/mark/rubygems"
+		token       = "9eeb82f012ac3e4bc95da0431c423aeb14430ccb"
+		credentials = `
+---
+%s: Bearer %s
+`
+	)
+
+	file := fmt.Sprintf(credentials, gemHost, token)
+
+	container := client.Container().From("ruby:3.1-bookworm").
 		WithDirectory("/app", hostDirectory.Directory("flipt-client-ruby")).
 		WithDirectory("/app/lib/ext", hostDirectory.Directory("tmp")).
 		WithWorkdir("/app").
 		WithExec([]string{"bundle", "install"}).
-		WithExec([]string{"bundle", "exec", "rake", "build"}).
-		File("/app/pkg/flipt_client-0.1.0.gem").
-		Export(ctx, "tmp/flipt_client-0.1.0.gem")
+		WithExec([]string{"bundle", "exec", "rake", "build"})
+
+	var err error
+
+	if !push {
+		_, err = container.File("/app/pkg/flipt_client-0.1.0.gem").
+			Export(ctx, "tmp/flipt_client-0.1.0.gem")
+		return err
+	}
+
+	_, err = container.WithNewFile("~/.gem/credentials", dagger.ContainerWithNewFileOpts{
+		Contents: file,
+	}).
+		WithExec([]string{"cat", "~/.gem/credentials"}).
+		WithServiceBinding("gitea", hostSrv).
+		WithExec([]string{"gem", "push", "--host", gemHost, "/app/pkg/flipt_client-0.1.0.gem"}).
+		Sync(ctx)
 
 	return err
 }
