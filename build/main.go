@@ -118,11 +118,6 @@ func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagg
 		return err
 	}
 
-	// expose host service on port 3000
-	gitea := client.Host().Service([]dagger.PortForward{
-		{Frontend: 3000, Backend: 3000},
-	})
-
 	if os.Getenv("PYPI_API_KEY") == "" {
 		return fmt.Errorf("PYPI_API_KEY is not set")
 	}
@@ -137,7 +132,6 @@ func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagg
 
 	_, err = container.WithEnvVariable("POETRY_HTTP_BASIC_PUBLISH_USERNAME", "__token__").
 		WithSecretVariable("POETRY_HTTP_BASIC_PUBLISH_PASSWORD", pypiAPIKeySecret).
-		WithServiceBinding("gitea", gitea).
 		WithExec([]string{"poetry", "config", "repositories.publish", fmt.Sprintf("%s://%s", protocol, pypiHost)}).
 		WithExec([]string{"poetry", "publish", "-v", "-r", "publish"}).
 		Sync(ctx)
