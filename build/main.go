@@ -120,7 +120,19 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 }
 
 func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
-	_, err := client.Container().From("node:21.2-bookworm").
+	if os.Getenv("NPM_API_KEY") == "" {
+		return fmt.Errorf("NPM_API_KEY is not set")
+	}
+
+	npmAPIKeySecret := client.SetSecret("npm-api-key", os.Getenv("NPM_API_KEY"))
+
+	npmHost := os.Getenv("NPM_HOST")
+	if npmHost == "" {
+		// TODO: relax this when we push to npmjs.com
+		return fmt.Errorf("NPM_HOST is not set")
+	}
+
+	container := client.Container().From("node:21.2-bookworm").
 		WithDirectory("/app", hostDirectory.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./node_modules/"},
 		}).
@@ -128,7 +140,19 @@ func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		WithWorkdir("/app").
 		WithExec([]string{"npm", "install"}).
 		WithExec([]string{"npm", "run", "build"}).
-		WithExec([]string{"npm", "pack"}).
+		WithExec([]string{"npm", "pack"})
+
+	var err error
+
+	if !push {
+		_, err = container.Sync(ctx)
+		return err
+	}
+
+	_, err = container.WithSecretVariable("NPM_TOKEN", npmAPIKeySecret).
+		WithExec([]string{"npm", "config", "set", "@flipt-io:registry", fmt.Sprintf("http://%s", npmHost)}).
+		WithExec([]string{"npm", "config", "set", "--", fmt.Sprintf("//%s:_authToken", npmHost), "${NPM_TOKEN}"}).
+		WithExec([]string{"npm", "publish"}).
 		Sync(ctx)
 
 	return err
