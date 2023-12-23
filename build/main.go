@@ -29,7 +29,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&languages, "languages", "", "comma separated list of which language(s) to run integration tests for")
+	flag.StringVar(&languages, "languages", "", "comma separated list of which language(s) to run builds for")
 	flag.BoolVar(&push, "push", false, "push built artifacts to registry")
 	flag.BoolVar(&secure, "secure", true, "use secure protocol (https) to push artifacts")
 	flag.StringVar(&version, "version", "", "version to build")
@@ -142,6 +142,7 @@ func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagg
 }
 
 func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
+
 	if version == "" {
 		return fmt.Errorf("version is not set")
 	}
