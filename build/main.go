@@ -2,24 +2,63 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
+	"log"
+	"maps"
 	"os"
+	"strings"
 
 	"dagger.io/dagger"
 	"golang.org/x/sync/errgroup"
 )
 
-var sema = make(chan struct{}, 5)
+var (
+	languages    string
+	push         bool
+	languageToFn = map[string]buildFn{
+		"python": pythonBuild,
+		"go":     goBuild,
+		"node":   nodeBuild,
+		"ruby":   rubyBuild,
+	}
+	sema = make(chan struct{}, 5)
+)
+
+func init() {
+	flag.StringVar(&languages, "languages", "", "comma separated list of which language(s) to run integration tests for")
+	flag.BoolVar(&push, "push", false, "push built artifacts to registry")
+}
 
 func main() {
-	err := run()
-	if err != nil {
-		panic(err)
+	flag.Parse()
+
+	if err := run(); err != nil {
+		log.Fatal(err)
 	}
 }
 
 type buildFn func(context.Context, *dagger.Client, *dagger.Directory) error
 
 func run() error {
+	var tests = make(map[string]buildFn, len(languageToFn))
+
+	maps.Copy(tests, languageToFn)
+
+	if languages != "" {
+		l := strings.Split(languages, ",")
+		subset := make(map[string]buildFn, len(l))
+		for _, language := range l {
+			testFn, ok := languageToFn[language]
+			if !ok {
+				return fmt.Errorf("language %s is not supported", language)
+			}
+			subset[language] = testFn
+		}
+
+		tests = subset
+	}
+
 	ctx := context.Background()
 
 	client, err := dagger.Connect(ctx, dagger.WithLogOutput(os.Stdout))
@@ -30,17 +69,12 @@ func run() error {
 	defer client.Close()
 
 	dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
-		Exclude: []string{"diagrams/", "build/", "test/"},
+		Exclude: []string{"diagrams/", "build/", "test/", ".git/"},
 	})
 
 	var g errgroup.Group
 
-	for _, fn := range []buildFn{
-		pythonBuild,
-		goBuild,
-		nodeBuild,
-		rubyBuild,
-	} {
+	for _, fn := range tests {
 		fn := fn
 		g.Go(take(func() error {
 			return fn(ctx, client, dir)
@@ -86,7 +120,19 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 }
 
 func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
-	_, err := client.Container().From("node:21.2-bookworm").
+	if os.Getenv("NPM_API_KEY") == "" {
+		return fmt.Errorf("NPM_API_KEY is not set")
+	}
+
+	npmAPIKeySecret := client.SetSecret("npm-api-key", os.Getenv("NPM_API_KEY"))
+
+	npmHost := os.Getenv("NPM_HOST")
+	if npmHost == "" {
+		// TODO: relax this when we push to npmjs.com
+		return fmt.Errorf("NPM_HOST is not set")
+	}
+
+	container := client.Container().From("node:21.2-bookworm").
 		WithDirectory("/app", hostDirectory.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./node_modules/"},
 		}).
@@ -94,19 +140,54 @@ func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		WithWorkdir("/app").
 		WithExec([]string{"npm", "install"}).
 		WithExec([]string{"npm", "run", "build"}).
-		WithExec([]string{"npm", "pack"}).
+		WithExec([]string{"npm", "pack"})
+
+	var err error
+
+	if !push {
+		_, err = container.Sync(ctx)
+		return err
+	}
+
+	_, err = container.WithSecretVariable("NPM_TOKEN", npmAPIKeySecret).
+		WithExec([]string{"npm", "config", "set", "@flipt-io:registry", fmt.Sprintf("http://%s", npmHost)}).
+		WithExec([]string{"npm", "config", "set", "--", fmt.Sprintf("//%s:_authToken", npmHost), "${NPM_TOKEN}"}).
+		WithExec([]string{"npm", "publish"}).
 		Sync(ctx)
 
 	return err
 }
 
 func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
-	_, err := client.Container().From("ruby:3.1-bookworm").
+	if os.Getenv("RUBYGEMS_API_KEY") == "" {
+		return fmt.Errorf("RUBYGEMS_API_KEY is not set")
+	}
+
+	gemHostAPIKeySecret := client.SetSecret("rubygems-api-key", os.Getenv("RUBYGEMS_API_KEY"))
+
+	gemHost := os.Getenv("RUBYGEMS_HOST")
+	if gemHost == "" {
+		// TODO: relax this when we push to rubygems.org
+		return fmt.Errorf("RUBYGEMS_HOST is not set")
+	}
+
+	container := client.Container().From("ruby:3.1-bookworm").
+		WithWorkdir("/app").
 		WithDirectory("/app", hostDirectory.Directory("flipt-client-ruby")).
 		WithDirectory("/app/lib/ext", hostDirectory.Directory("tmp")).
-		WithWorkdir("/app").
 		WithExec([]string{"bundle", "install"}).
-		WithExec([]string{"bundle", "exec", "rake", "build"}).
+		WithExec([]string{"bundle", "exec", "rake", "build"})
+
+	var err error
+
+	if !push {
+		_, err = container.Sync(ctx)
+		return err
+	}
+
+	_, err = container.
+		WithSecretVariable("GEM_HOST_API_KEY", gemHostAPIKeySecret).
+		WithExec([]string{"gem", "push", "--host", gemHost, "/app/pkg/flipt_client-*.gem"}).
 		Sync(ctx)
 
 	return err

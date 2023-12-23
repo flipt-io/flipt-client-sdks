@@ -74,7 +74,7 @@ func run() error {
 	defer client.Close()
 
 	dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
-		Exclude: []string{"diagrams/", "build/", "tmp/"},
+		Exclude: []string{"diagrams/", "build/", "tmp/", ".git/"},
 	})
 
 	flipt, args := getTestDependencies(ctx, client, dir)
