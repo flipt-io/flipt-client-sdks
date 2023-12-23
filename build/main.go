@@ -18,7 +18,8 @@ var (
 	push         bool
 	secure       bool
 	protocol     string = "https"
-	languageToFn        = map[string]buildFn{
+	version      string
+	languageToFn = map[string]buildFn{
 		"python": pythonBuild,
 		"go":     goBuild,
 		"node":   nodeBuild,
@@ -31,6 +32,7 @@ func init() {
 	flag.StringVar(&languages, "languages", "", "comma separated list of which language(s) to run integration tests for")
 	flag.BoolVar(&push, "push", false, "push built artifacts to registry")
 	flag.BoolVar(&secure, "secure", true, "use secure protocol (https) to push artifacts")
+	flag.StringVar(&version, "version", "", "version to build")
 }
 
 func main() {
@@ -126,7 +128,7 @@ func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagg
 
 	pypiHost := os.Getenv("PYPI_HOST")
 	if pypiHost == "" {
-		// TODO: relax this when we push to pypi.org
+		// TODO: remove this when we push to pypi.org
 		return fmt.Errorf("PYPI_HOST is not set")
 	}
 
@@ -140,12 +142,40 @@ func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagg
 }
 
 func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
-	_, err := client.Container().From("golang:1.21.3-bookworm").
+	if version == "" {
+		return fmt.Errorf("version is not set")
+	}
+
+	container := client.Container().From("golang:1.21.3-bookworm").
 		WithDirectory("/app", hostDirectory.Directory("flipt-client-go")).
 		WithDirectory("/app/ext", hostDirectory.Directory("tmp")).
 		WithWorkdir("/app").
-		WithExec([]string{"go", "build", "-v", "."}).
-		Sync(ctx)
+		WithExec([]string{"go", "install", "-v", "github.com/cloudsmith-io/gopack@latest"}).
+		WithExec([]string{"gopack", version, "/app"})
+
+	var err error
+
+	if !push {
+		_, err = container.Sync(ctx)
+		return err
+	}
+
+	if os.Getenv("GOMOD_API_KEY") == "" {
+		return fmt.Errorf("GO_API_KEY is not set")
+	}
+
+	goModAPIKey := client.SetSecret("go-api-key", os.Getenv("GOMOD_API_KEY"))
+
+	goModHost := os.Getenv("GOMOD_HOST")
+	if goModHost == "" {
+		// TODO: remove this when we push to our own repository
+		return fmt.Errorf("GOMOD_HOST is not set")
+	}
+
+	// TODO: This will probably change when we push to our repository
+	_, err = container.
+		WithSecretVariable("GOMOD_API_KEY", goModAPIKey).
+		WithExec([]string{"curl", "-v", "--user", fmt.Sprintf("%s:%s", "mark", os.Getenv("GOMOD_API_KEY")), "--upload-file", fmt.Sprintf("/app/%s.zip", version), fmt.Sprintf("%s://%s", protocol, goModHost)}).Sync(ctx)
 
 	return err
 }
@@ -177,7 +207,7 @@ func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 
 	npmHost := os.Getenv("NPM_HOST")
 	if npmHost == "" {
-		// TODO: relax this when we push to npmjs.com
+		// TODO: remove this when we push to npmjs.com
 		return fmt.Errorf("NPM_HOST is not set")
 	}
 
@@ -214,7 +244,7 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 
 	gemHost := os.Getenv("RUBYGEMS_HOST")
 	if gemHost == "" {
-		// TODO: relax this when we push to rubygems.org
+		// TODO: remove this when we push to rubygems.org
 		return fmt.Errorf("RUBYGEMS_HOST is not set")
 	}
 
