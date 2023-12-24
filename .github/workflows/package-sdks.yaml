@@ -1,0 +1,57 @@
+name: Package SDKs
+on:
+  workflow_dispatch:
+    inputs:
+      engine-tag:
+        description: "Engine tag to build"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: "1.21.3"
+          check-latest: true
+          cache: true
+
+      - name: Install Dagger
+        run: |
+          cd /usr/local
+          curl -L https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=0.9.3 sh
+
+      - name: Download Mac ARM64 Engine
+        run: |
+          mkdir -p tmp/darwin_arm64 && \
+          wget https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-${{ inputs.engine-tag }}/flipt-engine-Darwin-arm64.tar.gz -O /tmp/flipt-engine-Darwin-arm64.tar.gz && \
+          mkdir -p /tmp/darwin_arm64 && \
+          tar -xzf /tmp/flipt-engine-Darwin-arm64.tar.gz -C /tmp/darwin_arm64 && \
+          mv /tmp/darwin_arm64/target/aarch64-apple-darwin/release/* tmp/darwin_arm64
+
+      - name: Download Linux ARM64 Engine
+        run: |
+          mkdir -p tmp/linux_arm64 && \
+          wget https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-${{ inputs.engine-tag }}/flipt-engine-Linux-arm64.tar.gz -O /tmp/flipt-engine-Linux-arm64.tar.gz && \
+          mkdir -p /tmp/linux_arm64 && \
+          tar -xzf /tmp/flipt-engine-Linux-arm64.tar.gz -C /tmp/linux_arm64 && \
+          mv /tmp/linux_arm64/target/aarch64-unknown-linux-gnu/release/* tmp/linux_arm64
+
+      - name: Download Linux x86_64 Engine
+        run: |
+          mkdir -p tmp/linux_x86_64 && \
+          wget https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-${{ inputs.engine-tag }}/flipt-engine-Linux-x86_64.tar.gz -O /tmp/flipt-engine-Linux-x86_64.tar.gz && \
+          mkdir -p /tmp/linux_x86_64 && \
+          tar -xzf /tmp/flipt-engine-Linux-x86_64.tar.gz -C /tmp/linux_x86_64 && \
+          mv /tmp/linux_x86_64/target/x86_64-unknown-linux-gnu/release/* tmp/linux_x86_64
+
+      - name: Run Build
+        run: |
+          dagger run go run ./build

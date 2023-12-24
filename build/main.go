@@ -21,9 +21,9 @@ var (
 	version      string
 	languageToFn = map[string]buildFn{
 		"python": pythonBuild,
-		"go":     goBuild,
-		"node":   nodeBuild,
-		"ruby":   rubyBuild,
+		//"go":     goBuild,
+		"node": nodeBuild,
+		"ruby": rubyBuild,
 	}
 	sema = make(chan struct{}, 5)
 )
@@ -142,7 +142,6 @@ func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagg
 }
 
 func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
-
 	if version == "" {
 		return fmt.Errorf("version is not set")
 	}
@@ -176,7 +175,7 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 	// TODO: This will probably change when we push to our repository
 	_, err = container.
 		WithSecretVariable("GOMOD_API_KEY", goModAPIKey).
-		WithExec([]string{"curl", "-v", "--user", fmt.Sprintf("%s:%s", "mark", os.Getenv("GOMOD_API_KEY")), "--upload-file", fmt.Sprintf("/app/%s.zip", version), fmt.Sprintf("%s://%s", protocol, goModHost)}).Sync(ctx)
+		WithExec([]string{"curl", "-v", "--user", fmt.Sprintf("%s:%s", "user", os.Getenv("GOMOD_API_KEY")), "--upload-file", fmt.Sprintf("/app/%s.zip", version), fmt.Sprintf("%s://%s", protocol, goModHost)}).Sync(ctx)
 
 	return err
 }
