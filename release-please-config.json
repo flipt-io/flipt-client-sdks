@@ -27,5 +27,10 @@
       "release-type": "ruby",
       "version-file": "lib/flipt_client/version.rb"
     }
-  }
+  },
+  "plugins": [
+    {
+      "type": "sentence-case"
+    }
+  ]
 }
