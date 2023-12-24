@@ -4,7 +4,6 @@
   "bump-patch-for-minor-pre-major": true,
   "draft": true,
   "prerelease": false,
-
   "packages": {
     "flipt-engine": {
       "component": "flipt-engine",
