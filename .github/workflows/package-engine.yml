@@ -3,6 +3,10 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build"
+        required: true
 
 jobs:
   build:
@@ -50,10 +54,10 @@ jobs:
           args: --target ${{ matrix.platform.target }} --release
           use-cross: ${{ matrix.platform.use_cross }}
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v1
         with:
-          name: fliptengine-${{ matrix.platform.name }}
-          path: |
+          tag_name: ${{ github.event.release.tag_name || inputs.tag }}
+          files: |
             target/${{ matrix.platform.target }}/release/libfliptengine.*
             target/${{ matrix.platform.target }}/release/flipt_engine.h
-          retention-days: 5
