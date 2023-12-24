@@ -19,7 +19,8 @@
       "release-type": "python"
     },
     "flipt-client-ruby": {
-      "release-type": "ruby"
+      "release-type": "ruby",
+      "version-file": "lib/flipt_client/version.rb"
     }
   }
 }
