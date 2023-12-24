@@ -59,8 +59,7 @@ jobs:
 
       - run: |
           tar -czvf flipt-engine-${{ matrix.platform.name }}.tar.gz \
-            target/${{ matrix.platform.target }}/release/libfliptengine.* \
-            target/${{ matrix.platform.target }}/release/flipt_engine.h
+            target/${{ matrix.platform.target }}/release/*
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v1
