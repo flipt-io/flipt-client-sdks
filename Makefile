@@ -34,13 +34,13 @@ ruby: build ## Build the ruby client gem
 
 clean: ## Clean up build artifacts
 	rm -rf target
-	rm -rf flipt-client-go/ext/$(OS)_$(ARCH)/$(LIB).* flipt-client-go/ext/$(HEADER)
-	rm -rf flipt-client-node/ext/$(OS)_$(ARCH)/$(LIB).*
+	rm -rf flipt-client-go/ext/*
+	rm -rf flipt-client-node/ext/*
 	rm -rf flipt-client-node/*.tgz
 	rm -rf flipt-client-node/dist
-	rm -rf flipt-client-python/ext/$(OS)_$(ARCH)/$(LIB).*
+	rm -rf flipt-client-python/ext/*
 	rm -rf flipt-client-python/dist
-	rm -rf flipt-client-ruby/lib/ext/$(OS)_$(ARCH)/$(LIB).*
+	rm -rf flipt-client-ruby/lib/ext/*
 	rm -rf flipt-client-ruby/pkg/
 
 help:
