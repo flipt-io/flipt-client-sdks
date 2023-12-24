@@ -8,28 +8,6 @@
     "flipt-engine": {
       "component": "flipt-engine",
       "release-type": "rust"
-    },
-    "flipt-client-go": {
-      "component": "flipt-client-go",
-      "release-type": "go"
-    },
-    "flipt-client-node": {
-      "component": "flipt-client-node",
-      "release-type": "node"
-    },
-    "flipt-client-python": {
-      "component": "flipt-client-python",
-      "release-type": "python"
-    },
-    "flipt-client-ruby": {
-      "component": "flipt-client-ruby",
-      "release-type": "ruby",
-      "version-file": "lib/flipt_client/version.rb"
     }
-  },
-  "plugins": [
-    {
-      "type": "sentence-case"
-    }
-  ]
+  }
 }
