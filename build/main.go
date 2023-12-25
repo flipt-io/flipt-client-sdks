@@ -153,30 +153,8 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 		WithExec([]string{"go", "install", "-v", "github.com/cloudsmith-io/gopack@latest"}).
 		WithExec([]string{"gopack", version, "/app"})
 
-	var err error
-
-	if !push {
-		_, err = container.Sync(ctx)
-		return err
-	}
-
-	if os.Getenv("GOMOD_API_KEY") == "" {
-		return fmt.Errorf("GO_API_KEY is not set")
-	}
-
-	goModAPIKey := client.SetSecret("go-api-key", os.Getenv("GOMOD_API_KEY"))
-
-	goModHost := os.Getenv("GOMOD_HOST")
-	if goModHost == "" {
-		// TODO: remove this when we push to our own repository
-		return fmt.Errorf("GOMOD_HOST is not set")
-	}
-
-	// TODO: This will probably change when we push to our repository
-	_, err = container.
-		WithSecretVariable("GOMOD_API_KEY", goModAPIKey).
-		WithExec([]string{"curl", "-v", "--user", fmt.Sprintf("%s:%s", "user", os.Getenv("GOMOD_API_KEY")), "--upload-file", fmt.Sprintf("/app/%s.zip", version), fmt.Sprintf("%s://%s", protocol, goModHost)}).Sync(ctx)
-
+	// TODO: push
+	_, err := container.Sync(ctx)
 	return err
 }
 
