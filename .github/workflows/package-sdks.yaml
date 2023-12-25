@@ -1,5 +1,8 @@
 name: Package SDKs
 on:
+  workflow_run:
+    workflows: [Package Engine]
+    types: [completed]
   workflow_dispatch:
     inputs:
       engine-tag:
@@ -11,7 +14,6 @@ permissions:
 
 jobs:
   build:
-    name: Integration Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
@@ -23,6 +25,21 @@ jobs:
           check-latest: true
           cache: true
 
+      - name: Download event.json
+        uses: actions/download-artifact@v2
+        if: github.event_name == 'workflow_run'
+        with:
+          name: event.json
+
+      - name: Get Engine Tag
+        id: get_engine_tag
+        run: |
+          if [ -f event.json ]; then
+            echo "engine-tag=$(jq -r '.release.tag_name' event.json)" >> $GITHUB_OUTPUT
+          else
+            echo "engine-tag=${{ github.event.inputs.engine-tag }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Install Dagger
         run: |
           cd /usr/local
@@ -31,7 +48,7 @@ jobs:
       - name: Download Mac ARM64 Engine
         run: |
           mkdir -p tmp/darwin_arm64 && \
-          wget https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-${{ inputs.engine-tag }}/flipt-engine-Darwin-arm64.tar.gz -O /tmp/flipt-engine-Darwin-arm64.tar.gz && \
+          wget https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-${{ steps.get_engine_tag.outputs.engine-tag }}/flipt-engine-Darwin-arm64.tar.gz -O /tmp/flipt-engine-Darwin-arm64.tar.gz && \
           mkdir -p /tmp/darwin_arm64 && \
           tar -xzf /tmp/flipt-engine-Darwin-arm64.tar.gz -C /tmp/darwin_arm64 && \
           mv /tmp/darwin_arm64/target/aarch64-apple-darwin/release/* tmp/darwin_arm64
@@ -39,7 +56,7 @@ jobs:
       - name: Download Linux ARM64 Engine
         run: |
           mkdir -p tmp/linux_arm64 && \
-          wget https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-${{ inputs.engine-tag }}/flipt-engine-Linux-arm64.tar.gz -O /tmp/flipt-engine-Linux-arm64.tar.gz && \
+          wget https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-${{ steps.get_engine_tag.outputs.engine-tag }}/flipt-engine-Linux-arm64.tar.gz -O /tmp/flipt-engine-Linux-arm64.tar.gz && \
           mkdir -p /tmp/linux_arm64 && \
           tar -xzf /tmp/flipt-engine-Linux-arm64.tar.gz -C /tmp/linux_arm64 && \
           mv /tmp/linux_arm64/target/aarch64-unknown-linux-gnu/release/* tmp/linux_arm64
@@ -47,7 +64,7 @@ jobs:
       - name: Download Linux x86_64 Engine
         run: |
           mkdir -p tmp/linux_x86_64 && \
-          wget https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-${{ inputs.engine-tag }}/flipt-engine-Linux-x86_64.tar.gz -O /tmp/flipt-engine-Linux-x86_64.tar.gz && \
+          wget https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-${{ steps.get_engine_tag.outputs.engine-tag }}/flipt-engine-Linux-x86_64.tar.gz -O /tmp/flipt-engine-Linux-x86_64.tar.gz && \
           mkdir -p /tmp/linux_x86_64 && \
           tar -xzf /tmp/flipt-engine-Linux-x86_64.tar.gz -C /tmp/linux_x86_64 && \
           mv /tmp/linux_x86_64/target/x86_64-unknown-linux-gnu/release/* tmp/linux_x86_64

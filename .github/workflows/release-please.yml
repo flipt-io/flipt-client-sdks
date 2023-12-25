@@ -1,9 +1,8 @@
-name: "Release Engine"
+name: "Release Please"
 on:
   push:
     branches:
       - main
-    paths: flipt-engine/**
 
 permissions:
   contents: write
