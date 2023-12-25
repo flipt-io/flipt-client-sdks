@@ -6,9 +6,13 @@ on:
         description: "Engine tag to build"
         required: true
       sdk:
-        description: "SDK to build"
+        description: "SDK(s) to build"
         required: true
         default: "all"
+      push:
+        description: "Push to registry(s)"
+        required: true
+        default: "false"
 
 permissions:
   contents: write
@@ -73,9 +77,9 @@ jobs:
       - name: Build All SDKs
         if: github.event.inputs.sdk == 'all'
         run: |
-          dagger run go run ./build
+          dagger run go run ./build --push=${{ github.event.inputs.push }}
 
       - name: Build Individual SDK(s)
         if: github.event.inputs.sdk != 'all'
         run: |
-          dagger run go run ./build --languages=${{ github.event.inputs.sdk }}
+          dagger run go run ./build --languages=${{ github.event.inputs.sdk }} --push=${{ github.event.inputs.push }}
