@@ -1,13 +1,14 @@
 name: Package SDKs
 on:
-  workflow_run:
-    workflows: [Package Engine]
-    types: [completed]
   workflow_dispatch:
     inputs:
       engine-tag:
         description: "Engine tag to build"
         required: true
+      sdk:
+        description: "SDK to build"
+        required: true
+        default: "all"
 
 permissions:
   contents: write
@@ -69,6 +70,12 @@ jobs:
           tar -xzf /tmp/flipt-engine-Linux-x86_64.tar.gz -C /tmp/linux_x86_64 && \
           mv /tmp/linux_x86_64/target/x86_64-unknown-linux-gnu/release/* tmp/linux_x86_64
 
-      - name: Run Build
+      - name: Build All SDKs
+        if: github.event.inputs.sdk == 'all'
         run: |
           dagger run go run ./build
+
+      - name: Build Individual SDK(s)
+        if: github.event.inputs.sdk != 'all'
+        run: |
+          dagger run go run ./build --languages=${{ github.event.inputs.sdk }}

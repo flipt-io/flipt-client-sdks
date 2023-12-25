@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   build:
+    if: ${{ contains(github.event.release.name, 'flipt-engine') || github.event_name == 'workflow_dispatch' }}
     strategy:
       matrix:
         platform:
@@ -69,14 +70,3 @@ jobs:
           tag_name: ${{ github.event.release.tag_name || inputs.tag }}
           files: |
             flipt-engine-${{ matrix.platform.name }}.tar.gz
-
-      - run: |
-          echo ${{ toJson(github.event) }} > event.json
-        if: github.event_name == 'release'
-
-      - name: Upload event data as artifact
-        uses: actions/upload-artifact@v2
-        if: github.event_name == 'release'
-        with:
-          name: event.json
-          path: event.json
