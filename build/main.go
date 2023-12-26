@@ -184,6 +184,11 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 			"--tree-filter", "cp -r /tmp/ext .",
 			"--", fmt.Sprintf("flipt-client-go-%s", tag)})
 
+	if !push {
+		_, err := filtered.Sync(ctx)
+		return err
+	}
+
 	// push to target repo
 	_, err := filtered.WithExec([]string{
 		"git",

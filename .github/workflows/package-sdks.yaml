@@ -8,11 +8,13 @@ on:
       sdk:
         description: "SDK(s) to build"
         required: true
-        default: "all"
       push:
         description: "Push to registry(s)"
         required: true
         default: "false"
+      tag:
+        description: "Tag to use for registry(s)"
+        required: false
 
 permissions:
   contents: write
@@ -64,12 +66,16 @@ jobs:
           tar -xzf /tmp/flipt-engine-Linux-x86_64.tar.gz -C /tmp/linux_x86_64 && \
           mv /tmp/linux_x86_64/target/x86_64-unknown-linux-gnu/release/* tmp/linux_x86_64
 
-      - name: Build All SDKs
-        if: github.event.inputs.sdk == 'all'
-        run: |
-          dagger run go run ./build --push=${{ github.event.inputs.push }}
+      - name: Generate token
+        id: generate_token
+        uses: tibdex/github-app-token@v1
+        with:
+          app_id: ${{ secrets.FLIPT_RELEASE_BOT_APP_ID }}
+          private_key: ${{ secrets.FLIPT_RELEASE_BOT_APP_PEM }}
+          installation_id: ${{ secrets.FLIPT_RELEASE_BOT_INSTALLATION_ID }}
 
       - name: Build Individual SDK(s)
-        if: github.event.inputs.sdk != 'all'
+        env:
+          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
-          dagger run go run ./build --languages=${{ github.event.inputs.sdk }} --push=${{ github.event.inputs.push }}
+          dagger run go run ./build --languages=${{ github.event.inputs.sdk }} --push=${{ github.event.inputs.push }} --tag=${{ github.event.inputs.tag }}
