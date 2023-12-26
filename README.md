@@ -39,8 +39,6 @@ Want to see a client in a language we don't support? [Open an issue](https://git
 
 See each client's README for installation instructions.
 
-Currently, you'll need to build the dynamic library and the library locally and install it for your architecture. This is a temporary solution until we package and distribute the libraries using their respective package managers.
-
 ## Use Cases
 
 Why you may prefer to use a client-side SDK over our server-side SDKs:
