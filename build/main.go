@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -18,12 +20,12 @@ var (
 	push         bool
 	secure       bool
 	protocol     string = "https"
-	version      string
+	tag          string
 	languageToFn = map[string]buildFn{
 		"python": pythonBuild,
-		//"go":     goBuild,
-		"node": nodeBuild,
-		"ruby": rubyBuild,
+		"go":     goBuild,
+		"node":   nodeBuild,
+		"ruby":   rubyBuild,
 	}
 	sema = make(chan struct{}, 5)
 )
@@ -32,7 +34,7 @@ func init() {
 	flag.StringVar(&languages, "languages", "", "comma separated list of which language(s) to run builds for")
 	flag.BoolVar(&push, "push", false, "push built artifacts to registry")
 	flag.BoolVar(&secure, "secure", true, "use secure protocol (https) to push artifacts")
-	flag.StringVar(&version, "version", "", "version to build")
+	flag.StringVar(&tag, "tag", "", "tag to use for release")
 }
 
 func main() {
@@ -78,7 +80,7 @@ func run() error {
 	defer client.Close()
 
 	dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
-		Exclude: []string{"diagrams/", "build/", "test/", ".git/"},
+		Exclude: []string{"diagrams/", "build/", "test/"},
 	})
 
 	var g errgroup.Group
@@ -107,9 +109,9 @@ func take(fn func() error) func() error {
 func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
 	container := client.Container().From("python:3.11-bookworm").
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
-		WithDirectory("/app", hostDirectory.Directory("flipt-client-python")).
-		WithDirectory("/app/ext", hostDirectory.Directory("tmp")).
-		WithWorkdir("/app").
+		WithDirectory("/src", hostDirectory.Directory("flipt-client-python")).
+		WithDirectory("/src/ext", hostDirectory.Directory("tmp")).
+		WithWorkdir("/src").
 		WithExec([]string{"poetry", "install", "--without=dev", "-v"}).
 		WithExec([]string{"poetry", "build", "-v"})
 
@@ -134,30 +136,61 @@ func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagg
 }
 
 func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
-	if version == "" {
-		return fmt.Errorf("version is not set")
+	if tag == "" {
+		return fmt.Errorf("tag is not set")
 	}
 
-	container := client.Container().From("golang:1.21.3-bookworm").
-		WithDirectory("/app", hostDirectory.Directory("flipt-client-go")).
-		WithDirectory("/app/ext", hostDirectory.Directory("tmp")).
-		WithWorkdir("/app").
-		WithExec([]string{"go", "install", "-v", "github.com/cloudsmith-io/gopack@latest"}).
-		WithExec([]string{"gopack", version, "/app"})
+	targetRepo := os.Getenv("TARGET_REPO")
+	if targetRepo == "" {
+		targetRepo = "https://github.com/flipt-io/flipt-client-go.git"
+	}
+
+	pat := os.Getenv("GITHUB_TOKEN")
+	if pat == "" {
+		return errors.New("GITHUB_TOKEN environment variable must be set")
+	}
+
+	encodedPAT := base64.URLEncoding.EncodeToString([]byte("pat:" + pat))
+
+	var gitUserName = os.Getenv("GIT_USER_NAME")
+	if gitUserName == "" {
+		gitUserName = "flipt-bot"
+	}
+
+	var gitUserEmail = os.Getenv("GIT_USER_EMAIL")
+	if gitUserEmail == "" {
+		gitUserEmail = "dev@flipt.io"
+	}
+
+	git := client.Container().From("golang:1.21.3-bookworm").
+		WithExec([]string{"git", "config", "--global", "user.email", gitUserEmail}).
+		WithExec([]string{"git", "config", "--global", "user.name", gitUserName}).
+		WithExec([]string{"git", "config", "--global",
+			"http.https://github.com/.extraheader",
+			fmt.Sprintf("AUTHORIZATION: Basic %s", encodedPAT)})
+
+	repository := git.
+		WithExec([]string{"git", "clone", "--depth", "1", "https://github.com/flipt-io/flipt-client-sdks.git", "/src"}).
+		WithWorkdir("/src").
+		WithDirectory("/src/flipt-client-go/ext", hostDirectory.Directory("tmp"))
 
 	// TODO: push
-	_, err := container.Sync(ctx)
+	_, err := repository.
+		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").
+		WithExec([]string{"git", "filter-branch", "-f", "--prune-empty", "--subdirectory-filter", "flipt-client-go", "--", fmt.Sprintf("flipt-client-go-%s", tag)}).
+		Sync(ctx)
+
 	return err
 }
 
 func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
 
 	container := client.Container().From("node:21.2-bookworm").
-		WithDirectory("/app", hostDirectory.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
+		WithDirectory("/src", hostDirectory.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./node_modules/"},
 		}).
-		WithDirectory("/app/ext", hostDirectory.Directory("tmp")).
-		WithWorkdir("/app").
+		WithDirectory("/src/ext", hostDirectory.Directory("tmp")).
+		WithWorkdir("/src").
 		WithExec([]string{"npm", "install"}).
 		WithExec([]string{"npm", "run", "build"}).
 		WithExec([]string{"npm", "pack"})
@@ -186,9 +219,9 @@ func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
 
 	container := client.Container().From("ruby:3.1-bookworm").
-		WithWorkdir("/app").
-		WithDirectory("/app", hostDirectory.Directory("flipt-client-ruby")).
-		WithDirectory("/app/lib/ext", hostDirectory.Directory("tmp")).
+		WithWorkdir("/src").
+		WithDirectory("/src", hostDirectory.Directory("flipt-client-ruby")).
+		WithDirectory("/src/lib/ext", hostDirectory.Directory("tmp")).
 		WithExec([]string{"bundle", "install"}).
 		WithExec([]string{"bundle", "exec", "rake", "build"})
 
