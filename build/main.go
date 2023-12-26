@@ -126,16 +126,9 @@ func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagg
 
 	pypiAPIKeySecret := client.SetSecret("pypi-api-key", os.Getenv("PYPI_API_KEY"))
 
-	pypiHost := os.Getenv("PYPI_HOST")
-	if pypiHost == "" {
-		// TODO: remove this when we push to pypi.org
-		return fmt.Errorf("PYPI_HOST is not set")
-	}
-
 	_, err = container.WithEnvVariable("POETRY_HTTP_BASIC_PUBLISH_USERNAME", "__token__").
 		WithSecretVariable("POETRY_HTTP_BASIC_PUBLISH_PASSWORD", pypiAPIKeySecret).
-		WithExec([]string{"poetry", "config", "repositories.publish", fmt.Sprintf("%s://%s", protocol, pypiHost)}).
-		WithExec([]string{"poetry", "publish", "-v", "-r", "publish"}).
+		WithExec([]string{"poetry", "publish", "-v"}).
 		Sync(ctx)
 
 	return err

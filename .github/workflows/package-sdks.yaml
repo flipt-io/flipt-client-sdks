@@ -20,6 +20,7 @@ permissions:
 env:
   RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
   NPM_API_KEY: ${{ secrets.NPM_API_KEY }}
+  PYPI_API_KEY: ${{ secrets.PYPI_API_KEY }}
 
 jobs:
   build:
