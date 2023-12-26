@@ -1,50 +1,12 @@
 # Flipt Client Go
 
-The `flipt-client-go` directory contains the Go source code for the Flipt client-side evaluation client.
+The `flipt-client-go` directory contains the Go source code for the Flipt client-side flipt client.
 
 ## Installation
 
-Currently, to use this client, you'll need to build the dynamic library and the gem locally and install it. This is a temporary solution until we can figure out a better way to package and distribute the libraries.
-
-The dynamic library will contain the functionality necessary for the client to make calls to the Flipt engine via FFI. See [flipt-engine](../flipt-engine) for more information on the Flipt engine and FFI.
-
-### Prerequisites
-
-- [Rust](https://www.rust-lang.org/tools/install)
-- [Go](https://golang.org/doc/install)
-- [Make](https://www.gnu.org/software/make/)
-
-### Automated Build
-
-1. Build and copy the dynamic library to the `flipt-client-go/ext` directory for your platform. You can do this by running the following command from the root of the repository:
-
-    ```bash
-    make go
-    ```
-
-### Manual Build
-
-1. Build the Rust dynamic library
-
-    ```bash
-    cargo build --release
-    ```
-
-This should generate a `target/` directory in the root of this repository, which contains the dynamically linked library built for your platform.
-
-2. You'll need to copy the dynamic library to the `flipt-client-go/ext/$OS_$ARCH/` directory. This is a temporary solution until we can figure out a better way to package the libraries with the module.
-
-The `path/to/lib` will be the path to the dynamic library which will have the following paths depending on your platform.
-
-- **Linux**: `{REPO_ROOT}/target/release/libfliptengine.so`
-- **Windows**: `{REPO_ROOT}/target/release/libfliptengine.dll`
-- **MacOS**: `{REPO_ROOT}/target/release/libfliptengine.dylib`
-
-3. You can then install the module locally. You can do this by running the following command from the `flipt-client-go` directory:
-
-    ```bash
-    go install .
-    ```
+```bash
+go get go.flipt.io/flipt-client
+```
 
 ## Usage
 
@@ -58,16 +20,16 @@ import (
  "fmt"
  "log"
 
- evaluation "go.flipt.io/flipt/flipt-client"
+ flipt "go.flipt.io/flipt-client"
 )
 
 func main() {
  // The NewClient() accepts options which are the following:
- // evaluation.WithNamespace(string): configures which namespace you will be making evaluations on
- // evaluation.WithURL(string): configures which upstream Flipt data should be fetched from
- // evaluation.WithUpdateInterval(int): configures how often data should be fetched from the upstream
- // evaluation.WithAuthToken(string): configures an auth token if your upstream Flipt instance requires it
- evaluationClient, err := evaluation.NewClient()
+ // flipt.WithNamespace(string): configures which namespace you will be making evaluations on
+ // flipt.WithURL(string): configures which upstream Flipt data should be fetched from
+ // flipt.WithUpdateInterval(int): configures how often data should be fetched from the upstream
+ // flipt.WithAuthToken(string): configures an auth token if your upstream Flipt instance requires it
+ evaluationClient, err := flipt.NewClient()
  if err != nil {
   log.Fatal(err)
  }
