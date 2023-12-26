@@ -126,8 +126,7 @@ func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagg
 
 	pypiAPIKeySecret := client.SetSecret("pypi-api-key", os.Getenv("PYPI_API_KEY"))
 
-	_, err = container.WithEnvVariable("POETRY_HTTP_BASIC_PUBLISH_USERNAME", "__token__").
-		WithSecretVariable("POETRY_HTTP_BASIC_PUBLISH_PASSWORD", pypiAPIKeySecret).
+	_, err = container.WithSecretVariable("POETRY_PYPI_TOKEN_PYPI", pypiAPIKeySecret).
 		WithExec([]string{"poetry", "publish", "-v"}).
 		Sync(ctx)
 
