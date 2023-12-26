@@ -17,6 +17,9 @@ on:
 permissions:
   contents: write
 
+env:
+  RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+
 jobs:
   build:
     runs-on: ubuntu-latest

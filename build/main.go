@@ -220,15 +220,9 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 
 	gemHostAPIKeySecret := client.SetSecret("rubygems-api-key", os.Getenv("RUBYGEMS_API_KEY"))
 
-	gemHost := os.Getenv("RUBYGEMS_HOST")
-	if gemHost == "" {
-		// TODO: remove this when we push to rubygems.org
-		return fmt.Errorf("RUBYGEMS_HOST is not set")
-	}
-
 	_, err = container.
 		WithSecretVariable("GEM_HOST_API_KEY", gemHostAPIKeySecret).
-		WithExec([]string{"gem", "push", "--host", fmt.Sprintf("%s://%s", protocol, gemHost), "/app/pkg/flipt_client-*.gem"}).
+		WithExec([]string{"gem", "push", "/app/pkg/flipt_client-*.gem"}).
 		Sync(ctx)
 
 	return err
