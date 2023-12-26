@@ -1,7 +1,12 @@
 # Changelog
 
-## 0.0.1 (2023-12-25)
+## [0.0.2](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-client-go-v0.0.2...flipt-client-go-v0.0.1) (2023-12-26)
 
+### Bug Fixes
+
+* fix go mod path ([43419bb](https://github.com/flipt-io/flipt-client-sdks/commit/43419bb630dbf01493dd6b3f09aeac57f04d2440))
+
+## 0.0.1 (2023-12-25)
 
 ### Features
 
@@ -13,7 +18,6 @@
 * rename methods ([#21](https://github.com/flipt-io/flipt-client-sdks/issues/21)) ([d6e669e](https://github.com/flipt-io/flipt-client-sdks/commit/d6e669e4bbde5a92ea71a7fa5609f5af661277da))
 * update tests for node, go, and python to account for auth token ([136891b](https://github.com/flipt-io/flipt-client-sdks/commit/136891ba634259bd6fa28afac8cd3c1fd3b21368))
 * **wip:** support passing auth token down to engine ([3181a32](https://github.com/flipt-io/flipt-client-sdks/commit/3181a32981f967310c993d1cedd63a8b81ce5969))
-
 
 ### Miscellaneous Chores
 

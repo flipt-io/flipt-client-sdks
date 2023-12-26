@@ -2,7 +2,6 @@
 
 ## 0.0.1 (2023-12-24)
 
-
 ### Features
 
 * add ability to pass opts to the engine ([#7](https://github.com/flipt-io/flipt-client-sdks/issues/7)) ([1abd50d](https://github.com/flipt-io/flipt-client-sdks/commit/1abd50daa2af036b2ba396a1ad85496c5f1d574e))
@@ -16,7 +15,6 @@
 * rename methods ([#21](https://github.com/flipt-io/flipt-client-sdks/issues/21)) ([d6e669e](https://github.com/flipt-io/flipt-client-sdks/commit/d6e669e4bbde5a92ea71a7fa5609f5af661277da))
 * update tests for node, go, and python to account for auth token ([136891b](https://github.com/flipt-io/flipt-client-sdks/commit/136891ba634259bd6fa28afac8cd3c1fd3b21368))
 * **wip:** support passing auth token down to engine ([3181a32](https://github.com/flipt-io/flipt-client-sdks/commit/3181a32981f967310c993d1cedd63a8b81ce5969))
-
 
 ### Miscellaneous Chores
 

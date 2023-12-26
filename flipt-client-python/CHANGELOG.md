@@ -2,7 +2,6 @@
 
 ## 0.0.1 (2023-12-25)
 
-
 ### Features
 
 * add build directory for testing with dagger ([331eb12](https://github.com/flipt-io/flipt-client-sdks/commit/331eb12698d10ffe923070643dba48fc44db605d))
@@ -13,7 +12,6 @@
 * get go and python tests working after changes ([0bcc900](https://github.com/flipt-io/flipt-client-sdks/commit/0bcc900e17d2f9a66495332e69162005cc9d2b18))
 * rename methods ([#21](https://github.com/flipt-io/flipt-client-sdks/issues/21)) ([d6e669e](https://github.com/flipt-io/flipt-client-sdks/commit/d6e669e4bbde5a92ea71a7fa5609f5af661277da))
 * update tests for node, go, and python to account for auth token ([136891b](https://github.com/flipt-io/flipt-client-sdks/commit/136891ba634259bd6fa28afac8cd3c1fd3b21368))
-
 
 ### Miscellaneous Chores
 
