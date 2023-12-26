@@ -1,4 +1,4 @@
-module go.flipt.io/flipt/flipt-client
+module go.flipt.io/flipt-client
 
 go 1.21.3
 

@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	evaluation "go.flipt.io/flipt/flipt-client"
+	evaluation "go.flipt.io/flipt-client"
 )
 
 var fliptUrl string
