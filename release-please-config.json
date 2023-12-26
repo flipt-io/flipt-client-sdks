@@ -11,20 +11,24 @@
     },
     "flipt-client-go": {
       "component": "flipt-client-go",
-      "release-type": "go"
+      "release-type": "go",
+      "skip-github-release": true
     },
     "flipt-client-node": {
       "component": "flipt-client-node",
-      "release-type": "node"
+      "release-type": "node",
+      "skip-github-release": true
     },
     "flipt-client-python": {
       "component": "flipt-client-python",
-      "release-type": "python"
+      "release-type": "python",
+      "skip-github-release": true
     },
     "flipt-client-ruby": {
       "component": "flipt-client-ruby",
       "release-type": "ruby",
-      "version-file": "lib/flipt_client/version.rb"
+      "version-file": "lib/flipt_client/version.rb",
+      "skip-github-release": true
     }
   }
 }
