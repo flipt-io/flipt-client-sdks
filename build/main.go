@@ -80,7 +80,7 @@ func run() error {
 	defer client.Close()
 
 	dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
-		Exclude: []string{"diagrams/", "build/", "test/"},
+		Exclude: []string{"diagrams/", "build/", "test/", ".git/"},
 	})
 
 	var g errgroup.Group
@@ -140,6 +140,9 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 		return fmt.Errorf("tag is not set")
 	}
 
+	// because of how Go modules work, we need to create a new repo that contains
+	// only the go client code. This is because the go client code is in a subdirectory
+	// we also need to copy the ext directory into the tag of this new repo so that it can be used
 	targetRepo := os.Getenv("TARGET_REPO")
 	if targetRepo == "" {
 		targetRepo = "https://github.com/flipt-io/flipt-client-go.git"
@@ -170,14 +173,24 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 			fmt.Sprintf("AUTHORIZATION: Basic %s", encodedPAT)})
 
 	repository := git.
-		WithExec([]string{"git", "clone", "--depth", "1", "https://github.com/flipt-io/flipt-client-sdks.git", "/src"}).
+		WithExec([]string{"git", "clone", "https://github.com/flipt-io/flipt-client-sdks.git", "/src"}).
 		WithWorkdir("/src").
-		WithDirectory("/src/flipt-client-go/ext", hostDirectory.Directory("tmp"))
+		WithDirectory("/tmp/ext", hostDirectory.Directory("tmp"))
 
-	// TODO: push
-	_, err := repository.
+	filtered := repository.
 		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").
-		WithExec([]string{"git", "filter-branch", "-f", "--prune-empty", "--subdirectory-filter", "flipt-client-go", "--", fmt.Sprintf("flipt-client-go-%s", tag)}).
+		WithExec([]string{"git", "filter-branch", "-f", "--prune-empty",
+			"--subdirectory-filter", "flipt-client-go",
+			"--tree-filter", "cp -r /tmp/ext .",
+			"--", fmt.Sprintf("flipt-client-go-%s", tag)})
+
+	// push to target repo
+	_, err := filtered.WithExec([]string{
+		"git",
+		"push",
+		"-f",
+		targetRepo,
+		fmt.Sprintf("flipt-client-go-%s:%s", tag, tag)}).
 		Sync(ctx)
 
 	return err
