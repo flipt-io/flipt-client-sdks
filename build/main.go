@@ -203,7 +203,7 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	container := client.Container().From("ruby:3.1-bookworm").
 		WithWorkdir("/app").
 		WithDirectory("/app", hostDirectory.Directory("flipt-client-ruby")).
-		WithExec([]string{"export", "GEM_VERSION=$(cat /app/lib/flipt_client/version.rb | grep VERSION | cut -d' ' -f 5 | tr -d ')"}).
+		WithExec([]string{"sh", "-c", "export GEM_VERSION=$(cat /app/lib/flipt_client/version.rb | grep VERSION | cut -d' ' -f 5 | tr -d ')"}).
 		WithDirectory("/app/lib/ext", hostDirectory.Directory("tmp")).
 		WithExec([]string{"bundle", "install"}).
 		WithExec([]string{"bundle", "exec", "rake", "build"})
