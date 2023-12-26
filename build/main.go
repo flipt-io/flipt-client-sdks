@@ -183,16 +183,9 @@ func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 
 	npmAPIKeySecret := client.SetSecret("npm-api-key", os.Getenv("NPM_API_KEY"))
 
-	npmHost := os.Getenv("NPM_HOST")
-	if npmHost == "" {
-		// TODO: remove this when we push to npmjs.com
-		return fmt.Errorf("NPM_HOST is not set")
-	}
-
 	_, err = container.WithSecretVariable("NPM_TOKEN", npmAPIKeySecret).
-		WithExec([]string{"npm", "config", "set", "@flipt-io:registry", fmt.Sprintf("%s://%s", protocol, npmHost)}).
-		WithExec([]string{"npm", "config", "set", "--", fmt.Sprintf("//%s:_authToken", npmHost), "${NPM_TOKEN}"}).
-		WithExec([]string{"npm", "publish"}).
+		WithExec([]string{"npm", "config", "set", "--", "//registry.npmjs.org/:_authToken", "${NPM_TOKEN}"}).
+		WithExec([]string{"npm", "publish", "--access", "public"}).
 		Sync(ctx)
 
 	return err

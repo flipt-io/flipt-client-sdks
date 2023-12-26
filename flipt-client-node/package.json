@@ -4,7 +4,8 @@
   "description": "Flipt Client Evaluation SDK",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "author": "",
+  "private": false,
+  "author": "Flipt Devs <dev@flipt.io>",
   "license": "MIT",
   "files": [
     "dist",
