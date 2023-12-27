@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.4](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-client-go-v0.0.3...flipt-client-go-v0.0.4) (2023-12-27)
+
+
+### Features
+
+* document release process; bump go,node,python sdks ([b6585ec](https://github.com/flipt-io/flipt-client-sdks/commit/b6585ec977c26a54f37c6a5e1f55d928d81a83ca))
+
 ## [0.0.3](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-client-go-v0.0.2...flipt-client-go-v0.0.3) (2023-12-27)
 
 
