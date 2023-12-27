@@ -1,4 +1,4 @@
-require "../flipt-client-ruby/lib/evaluation"
+require_relative "lib/flipt_client"
 
 # note: this script assumes you have built the flipt-client Ruby gem locally via the instructions in the README
 # and that the flag "my-feature" exists in the default namespace

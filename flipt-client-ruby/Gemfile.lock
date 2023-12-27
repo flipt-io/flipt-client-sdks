@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    flipt_client (0.1.0)
+    flipt_client (0.0.1)
 
 GEM
   remote: https://rubygems.org/

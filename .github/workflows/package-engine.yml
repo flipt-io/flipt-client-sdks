@@ -59,6 +59,14 @@ jobs:
           use-cross: ${{ matrix.platform.use_cross }}
 
       - run: |
+          strip -x target/${{ matrix.platform.target }}/release/libfliptengine.dylib
+        if: matrix.platform.name == 'Darwin-arm64'
+
+      - run: |
+          strip -x target/${{ matrix.platform.target }}/release/libfliptengine.so
+        if: matrix.platform.name != 'Darwin-arm64'
+
+      - run: |
           tar -czvf flipt-engine-${{ matrix.platform.name }}.tar.gz \
             target/${{ matrix.platform.target }}/release/libfliptengine.* \
             target/${{ matrix.platform.target }}/release/flipt_engine.h \
