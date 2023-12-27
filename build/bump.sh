@@ -23,7 +23,7 @@ prepend() {
 update_readme() {
     local directory=$1
     local file="$directory/README.md"
-    local date_comment="<!-- Last updated: $(date -u) -->"  # Using UTC date and time
+    local date_comment="<!-- Last published: $(date -u) -->"  # Using UTC date and time
 
     # Create the directory if it doesn't exist
     mkdir -p "$directory"
@@ -31,7 +31,7 @@ update_readme() {
     # Check if the README.md exists
     if [ -f "$file" ]; then
         # Check if the first line contains the date stamp
-        if head -n 1 "$file" | grep -q "<!-- Last updated:"; then
+        if head -n 1 "$file" | grep -q "<!-- Last published:"; then
             # Replace the first line with the new date
             tail -n +2 "$file" > "$file.tmp" && mv "$file.tmp" "$file"
         fi
