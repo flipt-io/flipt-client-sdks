@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.2](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-v0.0.1...flipt-engine-v0.0.2) (2023-12-27)
+
+
+### Miscellaneous Chores
+
+* release 0.0.2 ([0cecaba](https://github.com/flipt-io/flipt-client-sdks/commit/0cecaba72e7ee5465048df7a6dc23a4e0419781c))
+
 ## 0.0.1 (2023-12-24)
 
 ### Features
