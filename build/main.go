@@ -148,7 +148,7 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 		targetRepo = "https://github.com/flipt-io/flipt-client-go.git"
 	}
 
-	targetTag := strings.TrimPrefix(tag, "flipt-client-go-")
+	targetTag := strings.TrimPrefix(tag, "refs/tags/flipt-client-go-")
 
 	pat := os.Getenv("GITHUB_TOKEN")
 	if pat == "" {
