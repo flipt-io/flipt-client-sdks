@@ -2,6 +2,10 @@ name: Package Go SDK
 on:
   push:
     tags: ["flipt-client-go-**"]
+
+permissions:
+  contents: write
+
 jobs:
   build:
     uses: ./.github/workflows/package-sdks.yml
