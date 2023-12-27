@@ -1,14 +1,6 @@
 # Changelog
 
-## [0.0.2](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-client-ruby/v0.0.2...flipt-client-ruby/v0.0.2) (2023-12-27)
-
-
-### Miscellaneous Chores
-
-* release as 0.0.2 ([d85a052](https://github.com/flipt-io/flipt-client-sdks/commit/d85a0523d91d2fe68bd61b5f52c20cbc6fb504ca))
-
 ## [0.0.2](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-client-ruby/v0.0.1...flipt-client-ruby/v0.0.2) (2023-12-27)
-
 
 ### Miscellaneous Chores
 
