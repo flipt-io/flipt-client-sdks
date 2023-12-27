@@ -88,4 +88,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
-          dagger run go run ./build --languages=${{ github.event.inputs.sdk }} --push=true --tag=${{ github.event.inputs.tag }}
+          dagger run go run ./build --languages=${{ inputs.sdk }} --push=true --tag=${{ inputs.tag }}
