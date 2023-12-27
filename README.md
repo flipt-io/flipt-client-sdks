@@ -9,6 +9,8 @@ These client-side SDKs are responsible for evaluating context and returning the 
 > [!WARNING]
 > These SDKs are currently experimental. We are looking for feedback on the design and implementation. Please open an issue if you have any feedback or questions.
 
+Check out our introductory [blog post](https://www.flipt.io/blog/new-client-side-evaluation) on these client-side SDKs.
+
 ## Architecture
 
 The client SDKs are designed to be embedded in end-user applications.
