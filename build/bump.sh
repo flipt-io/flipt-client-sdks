@@ -1,27 +1,12 @@
 #!/bin/bash
 
-# This script updates the README.md file in a specified 'flipt-client-<name>' directory with the current UTC date and time on the first line.
-# It optionally takes a semantic version number to commit the changes with a specific message format for release purposes.
-# If a version is provided, it stages and commits the file with the message "chore: release as {version}" and "Release-As: {version}".
-#
-# Usage: ./bump.sh <name> [version]
+# This script updates the README.md file in a specified 'flipt-client-<language>' directory with the current UTC date and time on the first line.
+# Usage: ./bump.sh <language|all>
 #
 # This is used as a workaround for `release-please` to be able to create a release PR for the client libraries independently
 # See: https://github.com/googleapis/release-please/issues/1905
 
-if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
-    echo "Usage: ./bump.sh <name> [version]"
-    exit 1
-fi
-
-NAME=$1
-DIRECTORY="flipt-client-$NAME"
-FILE="$DIRECTORY/README.md"
-DATE_COMMENT="<!-- Last updated: $(date -u) -->"
-VERSION=$2  # Optional version argument
-
-# Create the directory if it doesn't exist
-mkdir -p "$DIRECTORY"
+#!/bin/bash
 
 # Function to prepend text to a file
 prepend() {
@@ -34,28 +19,50 @@ prepend() {
     mv "$temp_file" "$file"
 }
 
-# Check if the README.md exists
-if [ -f "$FILE" ]; then
-    # Check if the first line contains the date stamp
-    if head -n 1 "$FILE" | grep -q "<!-- Last updated:"; then
-        # Replace the first line with the new date
-        tail -n +2 "$FILE" > "$FILE.tmp" && mv "$FILE.tmp" "$FILE"
-        prepend "$FILE" "$DATE_COMMENT"
+# Function to update a single README.md file
+update_readme() {
+    local directory=$1
+    local file="$directory/README.md"
+    local date_comment="<!-- Last updated: $(date -u) -->"  # Using UTC date and time
+
+    # Create the directory if it doesn't exist
+    mkdir -p "$directory"
+
+    # Check if the README.md exists
+    if [ -f "$file" ]; then
+        # Check if the first line contains the date stamp
+        if head -n 1 "$file" | grep -q "<!-- Last updated:"; then
+            # Replace the first line with the new date
+            tail -n +2 "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+        fi
     else
-        # Prepend the date stamp if the first line doesn't contain it
-        prepend "$FILE" "$DATE_COMMENT"
+        # Touch the file to ensure it exists for the prepend operation
+        touch "$file"
     fi
+
+    # Prepend the date stamp
+    prepend "$file" "$date_comment"
+
+    echo "Updated $file"
+}
+
+# Check the number of arguments provided
+if [ "$#" -lt 1 ] ; then
+    echo "Usage: ./bump.sh <language|all>"
+    exit 1
+fi
+
+NAME=$1
+VERSION=$2  # Optional version argument
+
+if [ "$NAME" == "all" ]; then
+    # Loop through each directory starting with 'flipt-client-'
+    for directory in flipt-client-*/; do
+        if [ -d "$directory" ]; then
+            update_readme "$directory"
+        fi
+    done
 else
-    # Create README.md and write the date stamp if the file doesn't exist
-    echo "$DATE_COMMENT" > "$FILE"
+    DIRECTORY="flipt-client-$NAME"
+    update_readme "$DIRECTORY"
 fi
-
-
-# Commit changes with a specific message format
-if [ -n "$VERSION" ]; then
-    # Add the file to the staging area
-    git add "$FILE"
-    git commit -m "chore: release as $VERSION" -m "Release-As: $VERSION"
-fi
-
-echo "Updated $FILE"

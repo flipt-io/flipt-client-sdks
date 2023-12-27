@@ -1,3 +1,4 @@
+<!-- Last updated: Wed Dec 27 19:41:34 UTC 2023 -->
 # Flipt Client Go
 
 The `flipt-client-go` directory contains the Go source code for the Flipt client-side flipt client.
