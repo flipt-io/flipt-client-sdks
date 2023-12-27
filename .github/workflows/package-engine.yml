@@ -2,6 +2,11 @@ name: Package Engine
 on:
   push:
     tags: ["flipt-engine-v**"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag (e.g. v0.1.0)"
+        required: true
 
 permissions:
   contents: write
@@ -56,7 +61,7 @@ jobs:
         run: |
           strip -x target/${{ matrix.platform.target }}/release/libfliptengine.dylib
 
-      - if: matrix.platform.name != 'Darwin-arm64'
+      - if: matrix.platform.name == 'Linux-x86_64'
         run: |
           strip -x target/${{ matrix.platform.target }}/release/libfliptengine.so
 
@@ -66,9 +71,18 @@ jobs:
             target/${{ matrix.platform.target }}/release/flipt_engine.h \
             || true
 
-      - name: Upload Release Assets
+      - name: Upload Release Assets (Tag)
         uses: softprops/action-gh-release@v1
+        if: github.event_name == 'push'
         with:
           tag_name: ${{ github.ref_name }}
+          files: |
+            flipt-engine-${{ matrix.platform.name }}.tar.gz
+
+      - name: Upload Release Assets (Workflow Dispatch)
+        uses: softprops/action-gh-release@v1
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: flipt-engine-${{ github.event.inputs.tag }}
           files: |
             flipt-engine-${{ matrix.platform.name }}.tar.gz
