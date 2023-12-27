@@ -2,6 +2,13 @@ name: Package Node SDK
 on:
   push:
     tags: ["flipt-client-node-**"]
+
+permissions:
+  contents: write
+
+env:
+  NPM_API_KEY: ${{ secrets.NPM_API_KEY }}
+
 jobs:
   build:
     uses: ./.github/workflows/package-sdks.yml

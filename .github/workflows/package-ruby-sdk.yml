@@ -2,6 +2,13 @@ name: Package Ruby SDK
 on:
   push:
     tags: ["flipt-client-ruby/**"]
+
+permissions:
+  contents: write
+
+env:
+  RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+
 jobs:
   build:
     uses: ./.github/workflows/package-sdks.yml
