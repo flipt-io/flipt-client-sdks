@@ -2,9 +2,9 @@
 
 This is the client engine for Flipt. It is responsible for evaluating context provided by the native language client SDKs and returning the results of the evaluation.
 
-## Development
+## Architecture
 
-TODO: Add more details
+See [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ### Prerequisites
 
