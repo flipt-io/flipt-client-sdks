@@ -1,7 +1,7 @@
 name: Package Ruby SDK
 on:
   push:
-    tags: ["flipt-client-ruby-**"]
+    tags: ["flipt-client-ruby/**"]
 jobs:
   build:
     uses: ./.github/workflows/package-sdks.yml
