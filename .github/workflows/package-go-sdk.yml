@@ -1,0 +1,12 @@
+name: Package Go SDK
+on:
+  push:
+    tags: ["flipt-client-go-**"]
+jobs:
+  build:
+    uses: ./.github/workflows/package-sdks.yml
+    with:
+      sdk: go
+      engine-tag: "latest"
+      tag: ${{ github.ref }}
+    secrets: inherit

@@ -1,0 +1,11 @@
+name: Package Python SDK
+on:
+  push:
+    tags: ["flipt-client-python-**"]
+jobs:
+  build:
+    uses: ./.github/workflows/package-sdks.yml
+    with:
+      sdk: python
+      engine-tag: "latest"
+    secrets: inherit

@@ -1,0 +1,11 @@
+name: Package Node SDK
+on:
+  push:
+    tags: ["flipt-client-node-**"]
+jobs:
+  build:
+    uses: ./.github/workflows/package-sdks.yml
+    with:
+      sdk: node
+      engine-tag: "latest"
+    secrets: inherit

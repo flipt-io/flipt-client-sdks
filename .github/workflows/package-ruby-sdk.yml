@@ -1,0 +1,11 @@
+name: Package Ruby SDK
+on:
+  push:
+    tags: ["flipt-client-ruby-**"]
+jobs:
+  build:
+    uses: ./.github/workflows/package-sdks.yml
+    with:
+      sdk: ruby
+      engine-tag: "latest"
+    secrets: inherit

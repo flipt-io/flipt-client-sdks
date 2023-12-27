@@ -148,6 +148,8 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 		targetRepo = "https://github.com/flipt-io/flipt-client-go.git"
 	}
 
+	targetTag := strings.TrimLeft(tag, "flipt-client-go-")
+
 	pat := os.Getenv("GITHUB_TOKEN")
 	if pat == "" {
 		return errors.New("GITHUB_TOKEN environment variable must be set")
@@ -182,20 +184,20 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 		WithExec([]string{"git", "filter-branch", "-f", "--prune-empty",
 			"--subdirectory-filter", "flipt-client-go",
 			"--tree-filter", "cp -r /tmp/ext .",
-			"--", fmt.Sprintf("flipt-client-go-%s", tag)})
+			"--", tag})
 
 	if !push {
 		_, err := filtered.Sync(ctx)
 		return err
 	}
 
-	// push to target repo
+	// push to target repo/tag
 	_, err := filtered.WithExec([]string{
 		"git",
 		"push",
 		"-f",
 		targetRepo,
-		fmt.Sprintf("flipt-client-go-%s:%s", tag, tag)}).
+		fmt.Sprintf("%s:%s", tag, targetTag)}).
 		Sync(ctx)
 
 	return err
