@@ -18,8 +18,6 @@ import (
 var (
 	languages    string
 	push         bool
-	secure       bool
-	protocol     string = "https"
 	tag          string
 	languageToFn = map[string]buildFn{
 		"python": pythonBuild,
@@ -33,16 +31,11 @@ var (
 func init() {
 	flag.StringVar(&languages, "languages", "", "comma separated list of which language(s) to run builds for")
 	flag.BoolVar(&push, "push", false, "push built artifacts to registry")
-	flag.BoolVar(&secure, "secure", true, "use secure protocol (https) to push artifacts")
 	flag.StringVar(&tag, "tag", "", "tag to use for release")
 }
 
 func main() {
 	flag.Parse()
-
-	if !secure {
-		protocol = "http"
-	}
 
 	if err := run(); err != nil {
 		log.Fatal(err)
@@ -183,7 +176,7 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").
 		WithExec([]string{"git", "filter-branch", "-f", "--prune-empty",
 			"--subdirectory-filter", "flipt-client-go",
-			"--tree-filter", "cp -r /tmp/ext .",
+			"--index-filter", "cp -r /tmp/ext .",
 			"--", tag})
 
 	if !push {

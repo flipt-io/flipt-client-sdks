@@ -24,7 +24,7 @@ type Client struct {
 	updateInterval int
 }
 
-// NewClient constructs an Client.
+// NewClient constructs a Client.
 func NewClient(opts ...clientOption) (*Client, error) {
 	client := &Client{
 		namespace: "default",
@@ -63,7 +63,7 @@ func NewClient(opts ...clientOption) (*Client, error) {
 	return client, nil
 }
 
-// clientOption adds additional configuraiton for Client parameters
+// clientOption adds additional configuration for Client parameters
 type clientOption func(*Client)
 
 // WithNamespace allows for specifying which namespace the clients wants to make evaluations from.
@@ -120,7 +120,7 @@ func (e *Client) EvaluateVariant(_ context.Context, flagKey, entityID string, ev
 	return vr, nil
 }
 
-// Boolean makes an evaluation on a boolean flag.
+// EvaluateBoolean makes an evaluation on a boolean flag.
 func (e *Client) EvaluateBoolean(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanResult, error) {
 	ereq, err := json.Marshal(evaluationRequest{
 		NamespaceKey: e.namespace,
