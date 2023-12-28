@@ -63,7 +63,7 @@ func NewClient(opts ...clientOption) (*Client, error) {
 	return client, nil
 }
 
-// clientOption adds additional configuraition for Client parameters
+// clientOption adds additional configuration for Client parameters
 type clientOption func(*Client)
 
 // WithNamespace allows for specifying which namespace the clients wants to make evaluations from.
