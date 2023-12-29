@@ -1,8 +1,7 @@
 use crate::error::Error;
-use crate::models::source;
-
+use protos::flipt::evaluation::EvaluationNamespaceSnapshot;
 pub trait Parser {
-    fn parse(&self, namespace: &str) -> Result<source::Document, Error>;
+    fn parse(&self, namespace: &str) -> Result<EvaluationNamespaceSnapshot, Error>;
 }
 
 pub struct HTTPParser {
@@ -29,7 +28,7 @@ impl HTTPParser {
 }
 
 impl Parser for HTTPParser {
-    fn parse(&self, namespace: &str) -> Result<source::Document, Error> {
+    fn parse(&self, namespace: &str) -> Result<EvaluationNamespaceSnapshot, Error> {
         let mut headers = reqwest::header::HeaderMap::new();
         headers.insert(
             reqwest::header::CONTENT_TYPE,
@@ -68,7 +67,7 @@ impl Parser for HTTPParser {
             Err(e) => return Err(Error::Server(format!("failed to get response body: {}", e))),
         };
 
-        let document: source::Document = match serde_json::from_str(&response_text) {
+        let document: EvaluationNamespaceSnapshot = match serde_json::from_str(&response_text) {
             Ok(doc) => doc,
             Err(e) => return Err(Error::InvalidJSON(e)),
         };
@@ -96,7 +95,7 @@ impl TestParser {
 
 #[cfg(test)]
 impl Parser for TestParser {
-    fn parse(&self, _: &str) -> Result<source::Document, Error> {
+    fn parse(&self, _: &str) -> Result<EvaluationNamespaceSnapshot, Error> {
         let f = match &self.path {
             Some(path) => path.to_owned(),
             None => {
@@ -108,7 +107,7 @@ impl Parser for TestParser {
 
         let state = fs::read_to_string(f).expect("file should have read correctly");
 
-        let document: source::Document = match serde_json::from_str(&state) {
+        let document: EvaluationNamespaceSnapshot = match serde_json::from_str(&state) {
             Ok(document) => document,
             Err(e) => return Err(Error::InvalidJSON(e)),
         };

@@ -18,6 +18,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Unable to generate bindings")
         .write_to_file(generated_header_file);
 
+    let descriptor_path = get_cargo_target_dir()?.join("proto_descriptor.bin");
+
+    tonic_build::configure()
+        .file_descriptor_set_path(&descriptor_path)
+        .build_server(false)
+        .out_dir("gen/src")
+        .compile_well_known_types(true)
+        .extern_path(".google.protobuf", "::pbjson_types")
+        .compile(&["proto/evaluation.proto"], &["proto"])
+        .map_err(|e| format!("tonic compilation failed: {e}"))?;
+
+    let descriptor_set = std::fs::read(&descriptor_path)
+        .unwrap_or_else(|e| panic!("Cannot read {:?}: {}", &descriptor_path, e));
+
+    pbjson_build::Builder::new()
+        .out_dir("gen/src")
+        .register_descriptors(&descriptor_set)?
+        .build(&[".flipt.evaluation"])
+        .map_err(|e| format!("pbjson compilation failed: {e}"))?;
+
     Ok(())
 }
 
