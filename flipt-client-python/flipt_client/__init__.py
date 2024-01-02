@@ -73,7 +73,7 @@ class FliptEvaluationClient:
             self.ffi_core.destroy_engine(self.engine)
 
     def evaluate_variant(
-        self, flag_key: str, entity_id: str, context: dict
+        self, flag_key: str, entity_id: str, context: dict = {}
     ) -> VariantResult:
         response = self.ffi_core.evaluate_variant(
             self.engine,
@@ -89,7 +89,7 @@ class FliptEvaluationClient:
         return variant_result
 
     def evaluate_boolean(
-        self, flag_key: str, entity_id: str, context: dict
+        self, flag_key: str, entity_id: str, context: dict = {}
     ) -> BooleanResult:
         response = self.ffi_core.evaluate_boolean(
             self.engine,

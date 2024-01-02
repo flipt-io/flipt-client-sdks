@@ -62,6 +62,20 @@ class TestFliptEvaluationClient(unittest.TestCase):
         )
         self.assertEqual("failure", boolean.status)
 
+    def test_variant_no_context(self):
+        variant = self.flipt_client.evaluate_variant("flag1", "someentity")
+        self.assertIsNone(variant.error_message)
+        self.assertEqual("success", variant.status)
+        self.assertEqual("flag1", variant.result.flag_key)
+        self.assertFalse(variant.result.match)
+
+    def test_boolean_no_context(self):
+        boolean = self.flipt_client.evaluate_boolean("flag_boolean", "someentity")
+        self.assertIsNone(boolean.error_message)
+        self.assertEqual("success", boolean.status)
+        self.assertFalse(boolean.result.enabled)
+        self.assertEqual("flag_boolean", boolean.result.flag_key)
+
 
 if __name__ == "__main__":
     unittest.main()
