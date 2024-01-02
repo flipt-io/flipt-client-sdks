@@ -9,7 +9,7 @@ pub enum Error {
     #[error("invalid request: {0}")]
     InvalidRequest(String),
     #[error("server error: {0}")]
-    ServerError(String),
+    Server(String),
     #[error("unknown error: {0}")]
     Unknown(String),
 }
