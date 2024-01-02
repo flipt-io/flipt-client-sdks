@@ -57,17 +57,12 @@ impl Parser for HTTPParser {
             .send()
         {
             Ok(resp) => resp,
-            Err(e) => return Err(Error::ServerError(format!("failed to make request: {}", e))),
+            Err(e) => return Err(Error::Server(format!("failed to make request: {}", e))),
         };
 
         let response_text = match response.text() {
             Ok(t) => t,
-            Err(e) => {
-                return Err(Error::ServerError(format!(
-                    "failed to get response body: {}",
-                    e
-                )))
-            }
+            Err(e) => return Err(Error::Server(format!("failed to get response body: {}", e))),
         };
 
         let document: source::Document = match serde_json::from_str(&response_text) {
