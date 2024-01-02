@@ -11,7 +11,9 @@ from .models import (
 
 
 class FliptEvaluationClient:
-    def __init__(self, namespace: str = "default", engine_opts: EngineOpts = {}):
+    def __init__(
+        self, namespace: str = "default", engine_opts: EngineOpts = EngineOpts()
+    ):
         # get dynamic library extension for the current platform
         if platform.system() == "Darwin":
             arch = platform.machine()
