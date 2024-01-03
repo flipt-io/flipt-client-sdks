@@ -65,7 +65,7 @@ Feel free to ask the team for help with this step.
 
 ### 4. Update README
 
-Update the [README.md](../README.md) to include the new client in the list of clients. Follow the existing clients for examples.
+Update the [README.md](./README.md) to include the new client in the list of clients. Follow the existing clients for examples.
 
 ### 5. Create a PR
 
