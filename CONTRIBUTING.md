@@ -44,7 +44,7 @@ The structure of the client folder should be as follows:
 
 The client shape should be as follows:
 
-1. **Constructor**: Should take in an optional namespace and engine options. Engine options should be a map or similar idomatic data structure with the following keys:
+1. **Constructor**: Should take in an optional namespace and engine options. Engine options should be a map or similar idiomatic data structure with the following keys:
     1. `url`: The URL of the Flipt server to connect to.
     2. `update_interval`: The interval in seconds to wait for updated flag state.
     3. `auth_token`: The auth token to use when connecting to the Flipt server.
