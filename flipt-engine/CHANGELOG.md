@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.3](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-v0.0.3...flipt-engine-v0.0.3) (2024-01-03)
+
+
+### Miscellaneous Chores
+
+* release 0.0.3 ([cd97903](https://github.com/flipt-io/flipt-client-sdks/commit/cd979032e1844f162a0317f50e9bed0a5570bfcc))
+
 ## [0.0.3](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-v0.0.2...flipt-engine-v0.0.3) (2024-01-03)
 
 
