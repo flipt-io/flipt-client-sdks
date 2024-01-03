@@ -4,29 +4,10 @@
   "bump-patch-for-minor-pre-major": true,
   "draft": false,
   "prerelease": false,
-  "last-release-sha": "b27d8694d0646a19ab5a0b4d86e85468f7dd559c",
-  "separate-pull-requests": true,
   "packages": {
     "flipt-engine": {
       "component": "flipt-engine",
       "release-type": "rust"
-    },
-    "flipt-client-go": {
-      "component": "flipt-client-go",
-      "release-type": "go"
-    },
-    "flipt-client-node": {
-      "component": "flipt-client-node",
-      "release-type": "node"
-    },
-    "flipt-client-python": {
-      "component": "flipt-client-python",
-      "release-type": "python"
-    },
-    "flipt-client-ruby": {
-      "component": "flipt-client-ruby",
-      "release-type": "ruby",
-      "version-file": "lib/flipt_client/version.rb"
     }
   }
 }
