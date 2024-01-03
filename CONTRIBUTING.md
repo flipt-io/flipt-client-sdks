@@ -52,7 +52,7 @@ The client shape should be as follows:
     Note: If no namespace is specified, the client should default to the `default` namespace.
 
 2. **Evaluate_Variant** method: Should take in a flag key, entity ID, and context. Should return a variant result. Follow language conventions for naming.
-3. **Evaluate_Variant** method: Should take in a flag key, entity ID, and context. Should return a variant result. Follow language conventions for naming.
+3. **Evaluate_Boolean** method: Should take in a flag key, entity ID, and context. Should return a variant result. Follow language conventions for naming.
 4. **Close** method (language dependent): Should close the engine and free any memory allocated by the engine. Follow language conventions for naming.
 
 ### 3. Setup Tests
