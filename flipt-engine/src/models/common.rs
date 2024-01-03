@@ -13,6 +13,7 @@ impl From<i32> for FlagType {
     fn from(n: i32) -> FlagType {
         match n {
             1 => FlagType::Boolean,
+            0 => FlagType::Variant,
             _ => FlagType::Variant,
         }
     }
@@ -31,6 +32,7 @@ impl From<i32> for SegmentOperator {
     fn from(n: i32) -> SegmentOperator {
         match n {
             1 => SegmentOperator::And,
+            0 => SegmentOperator::Or,
             _ => SegmentOperator::Or,
         }
     }
@@ -48,6 +50,7 @@ impl From<i32> for SegmentMatchType {
     fn from(n: i32) -> SegmentMatchType {
         match n {
             1 => SegmentMatchType::Any,
+            0 => SegmentMatchType::All,
             _ => SegmentMatchType::All,
         }
     }
