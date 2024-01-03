@@ -1,4 +1,3 @@
-<!-- Last published: Wed Dec 27 22:18:09 UTC 2023 -->
 # Flipt Client Python
 
 [![pypi](https://img.shields.io/pypi/v/flipt-client.svg)](https://pypi.org/project/flipt-client)
