@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.3](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-client-python-v0.0.2...flipt-client-python-v0.0.3) (2024-01-03)
+
+
+### Features
+
+* allow none to be used for python context ([#64](https://github.com/flipt-io/flipt-client-sdks/issues/64)) ([b02c441](https://github.com/flipt-io/flipt-client-sdks/commit/b02c441e9c5ceb5b837eb06c2b2ce931c2b146a5))
+
+
+### Bug Fixes
+
+* instead of using empty dictionary use actual EngineOpts instance ([#62](https://github.com/flipt-io/flipt-client-sdks/issues/62)) ([9aae5e9](https://github.com/flipt-io/flipt-client-sdks/commit/9aae5e91216a0c101551340567a251e9aa6a240b))
+
 ## [0.0.2](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-client-python-v0.0.1...flipt-client-python-v0.0.2) (2023-12-27)
 
 
