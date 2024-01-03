@@ -20,14 +20,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let descriptor_path = get_cargo_target_dir()?.join("proto_descriptor.bin");
 
-    tonic_build::configure()
+    prost_build::Config::new()
         .file_descriptor_set_path(&descriptor_path)
-        .build_server(false)
-        .out_dir("gen/src")
-        .compile_well_known_types(true)
+        .out_dir("src")
+        .compile_well_known_types()
         .extern_path(".google.protobuf", "::pbjson_types")
-        .compile(&["proto/evaluation.proto"], &["proto"])
-        .map_err(|e| format!("tonic compilation failed: {e}"))?;
+        .compile_protos(&["proto/evaluation.proto"], &["proto"])
+        .map_err(|e| format!("prost_build compilation failed: {e}"))?;
 
     let descriptor_set = std::fs::read(&descriptor_path)
         .unwrap_or_else(|e| panic!("Cannot read {:?}: {}", &descriptor_path, e));

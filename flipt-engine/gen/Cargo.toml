@@ -10,5 +10,4 @@ prost-types = "0.12"
 pbjson = "0.6"
 pbjson-types = "0.6"
 serde = "1.0"
-tonic = { version = "0.10", features = ["gzip"] }
 chrono = { version = "0.4.31", features = ["serde", "rustc-serialize"] }
