@@ -1,0 +1,65 @@
+name: New Language Request
+description: Suggest a new language for Flipt Client SDKs
+labels: ["new-language"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this language request!
+
+  - type: textarea
+    id: language
+    attributes:
+      label: Language
+      description: What language would you like to see a Flipt Client SDK in?
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: ffi
+    attributes:
+      label: FFI Support
+      options:
+        - label: I've validated that the language supports Foreign Function Interface (FFI) bindings
+          required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context about the language request here.
+      placeholder: |
+        Examples:
+
+        - Link to FFI documentation or FFI libraries for the language
+        - Link to other open source projects using FFI in the language
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: willing-to-contribute
+    attributes:
+      label: Willing to Implement
+      options:
+        - label: I'm willing to help implement the Flipt Client SDK in this language if it's accepted. 🙌
+
+  - type: checkboxes
+    id: willing-to-review
+    attributes:
+      label: Willing to Review
+      options:
+        - label: I'm willing to review contributions to the Flipt Client SDK in this language if it's accepted.
+
+  - type: textarea
+    id: additional-notes
+    attributes:
+      label: Additional Notes
+      description: Add any other notes about your specific use case or the language request here.
+
+  - type: markdown
+    attributes:
+      value: |
+        ## Join the Flipt Community
+
+        - [Join our Discord](https://flipt.io/discord) `#sdk-dev` channel to discuss your language request with the Flipt community.
