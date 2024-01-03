@@ -22,9 +22,9 @@ Join our [Discord](https://www.flipt.io/discord) to chat with the team about any
 
 If you would like to add a new language client, please open an issue first to discuss the design and implementation.
 
-You can also look for existing issues with the `new-language` label: <https://github.com/flipt-io/flipt-client-sdks/issues?q=is%3Aissue+is%3Aopen+label%3Anew-language>.
+You can open a new issue using the provided issue template: [New Language](https://github.com/flipt-io/flipt-client-sdks/issues/new?labels=new-language&template=new_language.yml)
 
-Please add this label to any new issues you open for new language clients.
+You can also look for existing issues with the `new-language` label: <https://github.com/flipt-io/flipt-client-sdks/issues?q=is%3Aissue+is%3Aopen+label%3Anew-language>.
 
 After the design and implementation have been discussed and agreed upon, please follow the steps below to add the new language client.
 
