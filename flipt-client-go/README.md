@@ -1,4 +1,4 @@
-<!-- Last published: Wed Jan  3 14:22:05 UTC 2024 -->
+<!-- Last published: Wed Jan  3 14:39:38 UTC 2024 -->
 # Flipt Client Go
 
 [![Client tag](https://img.shields.io/github/v/tag/flipt-io/flipt-client-go?label=latest)](https://github.com/flipt-io/flipt-client-go)
