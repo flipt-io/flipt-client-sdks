@@ -1,4 +1,4 @@
-// cargo run --example grps
+// cargo run --example grpc
 
 use protos::flipt::evaluation::data_service_client::DataServiceClient;
 use protos::flipt::evaluation::EvaluationNamespaceSnapshotRequest;
