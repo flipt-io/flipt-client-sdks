@@ -1,6 +1,6 @@
 {
   "flipt-engine": "0.0.3",
-  "flipt-client-go": "0.0.3",
+  "flipt-client-go": "0.0.4",
   "flipt-client-node": "0.0.3",
   "flipt-client-python": "0.0.3",
   "flipt-client-ruby": "0.0.3"

@@ -4,7 +4,7 @@
   "bump-patch-for-minor-pre-major": true,
   "draft": false,
   "prerelease": false,
-  "last-release-sha": "048330d24f4817aa3c7ded97fc0836878ec9a4b2",
+  "last-release-sha": "b27d8694d0646a19ab5a0b4d86e85468f7dd559c",
   "separate-pull-requests": true,
   "packages": {
     "flipt-engine": {
