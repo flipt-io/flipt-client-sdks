@@ -56,7 +56,10 @@ impl Parser for HTTPParser {
             .headers(headers)
             .send()
         {
-            Ok(resp) => resp,
+            Ok(resp) => match resp.error_for_status() {
+                Ok(resp) => resp,
+                Err(e) => return Err(Error::Server(format!("response: {}", e))),
+            },
             Err(e) => return Err(Error::Server(format!("failed to make request: {}", e))),
         };
 
