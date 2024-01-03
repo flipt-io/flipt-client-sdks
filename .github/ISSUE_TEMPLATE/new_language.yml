@@ -8,7 +8,7 @@ body:
       value: |
         Thanks for taking the time to fill out this language request!
 
-  - type: textarea
+  - type: input
     id: language
     attributes:
       label: Language
@@ -56,6 +56,11 @@ body:
     attributes:
       label: Additional Notes
       description: Add any other notes about your specific use case or the language request here.
+      placeholder: |
+        Examples:
+
+        - How you plan to use Flipt in this language
+        - Documentation on testing frameworks for the language
 
   - type: markdown
     attributes:

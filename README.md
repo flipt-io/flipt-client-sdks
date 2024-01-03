@@ -35,7 +35,7 @@ Languages we are planning to support:
 1. C#
 1. PHP
 
-Want to see a client in a language we don't support? [Open an issue](https://github.com/flipt-io/client-sdks/issues/new) and let us know!
+Want to see a client in a language we don't support? [Open an issue](https://github.com/flipt-io/flipt-client-sdks/issues/new?assignees=&labels=new-language&projects=&template=new_language.yml) and let us know!
 
 ## Installation
 
