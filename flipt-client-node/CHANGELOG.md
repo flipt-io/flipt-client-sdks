@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.3](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-client-node-v0.0.2...flipt-client-node-v0.0.3) (2024-01-03)
+
+
+### Miscellaneous Chores
+
+* release 0.0.3 ([ca83772](https://github.com/flipt-io/flipt-client-sdks/commit/ca83772f90aab77f12a2982fbc999403a75f3318))
+* release 0.0.3 ([cd97903](https://github.com/flipt-io/flipt-client-sdks/commit/cd979032e1844f162a0317f50e9bed0a5570bfcc))
+
 ## [0.0.2](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-client-node-v0.0.1...flipt-client-node-v0.0.2) (2023-12-27)
 
 
