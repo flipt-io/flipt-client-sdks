@@ -1,4 +1,4 @@
-<!-- Last published: Wed Dec 27 22:18:09 UTC 2023 -->
+<!-- Last published: Wed Jan  3 14:22:06 UTC 2024 -->
 # Flipt Client Ruby
 
 [![Gem Version](https://badge.fury.io/rb/flipt_client.svg)](https://badge.fury.io/rb/flipt_client)

@@ -5,6 +5,7 @@
   "draft": false,
   "prerelease": false,
   "last-release-sha": "048330d24f4817aa3c7ded97fc0836878ec9a4b2",
+  "separate-pull-requests": true,
   "packages": {
     "flipt-engine": {
       "component": "flipt-engine",
