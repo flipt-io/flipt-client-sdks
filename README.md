@@ -26,7 +26,7 @@ We are constantly growing our list of clients. Currently, we support the followi
 1. [Go](./flipt-client-go)
 1. [Python](./flipt-client-python)
 1. [Ruby](./flipt-client-ruby)
-1. [TypeScript](./flipt-client-node)
+1. [NodeJS](./flipt-client-node)
 
 Languages we are planning to support:
 
@@ -56,7 +56,7 @@ We have done some simple benchmarking to test the performance of the client SDKs
 
 ![Performance Benchmarks](.github/images/performance.png)
 
-Here we performed 1000 evaluations of a flag using the client SDKs and the server SDKs. The client SDKs were able to perform the evaluations in a fraction of the time it took the server SDKs. This is because the client SDKs are able to perform the evaluations in-memory without having to make a request to the Flipt server.
+Here we performed 1000 evaluations of a flag using the client SDKs and the server SDKs. The client SDKs were able to perform the evaluations in a fraction of the time it took the server SDKs. This is because the client SDKs can perform the evaluations in-memory without having to make a request to the Flipt server.
 
 While the server SDKs performed evaluations in the range of 0-14ms, the client SDKs performed evaluations in the range of 0-0.1ms (100 microseconds).
 
@@ -66,7 +66,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ### Help Wanted
 
-We are not Rust experts, and are constantly learning. If you see something that can be improved especially in the [flipt-engine](./flipt-engine/), please open an issue or a PR, we would love to learn from you. :heart:
+We are not Rust experts and are constantly learning. If you see something that can be improved especially in the [flipt-engine](./flipt-engine/), please open an issue or a PR, we would love to learn from you. :heart:
 
 ## License
 
