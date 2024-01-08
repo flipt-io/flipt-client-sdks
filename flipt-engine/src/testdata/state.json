@@ -1,11 +1,6 @@
 {
   "namespace": {
-    "key": "default",
-    "name": "",
-    "description": "",
-    "protected": false,
-    "createdAt": null,
-    "updatedAt": null
+    "key": "default"
   },
   "flags": [
     {

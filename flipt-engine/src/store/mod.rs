@@ -1,10 +1,11 @@
 use crate::models::common;
 use crate::models::flipt;
-use crate::models::source::Document;
 use crate::parser::Parser;
 
 #[cfg(test)]
 use mockall::automock;
+use protos::flipt::evaluation::evaluation_rollout::Rule;
+use protos::flipt::evaluation::{EvaluationNamespace, EvaluationNamespaceSnapshot};
 use std::collections::HashMap;
 
 #[cfg_attr(test, automock)]
@@ -47,7 +48,10 @@ impl Snapshot {
         let mut ns: HashMap<String, Namespace> = HashMap::new();
 
         for n in namespaces {
-            let doc = parser.parse(n).unwrap_or(Document::default());
+            let doc = parser.parse(n).unwrap_or(EvaluationNamespaceSnapshot {
+                namespace: Some(EvaluationNamespace { key: n.to_string() }),
+                flags: vec![],
+            });
 
             let mut flags: HashMap<String, flipt::Flag> = HashMap::new();
             let mut eval_rules: HashMap<String, Vec<flipt::EvaluationRule>> = HashMap::new();
@@ -59,7 +63,7 @@ impl Snapshot {
                 let f = flipt::Flag {
                     key: flag.key.clone(),
                     enabled: flag.enabled,
-                    r#type: flag.r#type.unwrap_or(common::FlagType::Variant),
+                    r#type: common::FlagType::from(flag.r#type),
                 };
 
                 flags.insert(f.key.clone(), f);
@@ -67,7 +71,7 @@ impl Snapshot {
                 // Flag Rules
                 let mut eval_rules_collection: Vec<flipt::EvaluationRule> = Vec::new();
 
-                let flag_rules = flag.rules.unwrap_or(vec![]);
+                let flag_rules = flag.rules;
 
                 for (idx, rule) in flag_rules.into_iter().enumerate() {
                     let rule_id = uuid::Uuid::new_v4().to_string();
@@ -76,32 +80,28 @@ impl Snapshot {
                         rank: idx + 1,
                         flag_key: flag.key.clone(),
                         segments: HashMap::new(),
-                        segment_operator: rule.segment_operator,
+                        segment_operator: common::SegmentOperator::from(rule.segment_operator),
                     };
 
-                    if rule.segments.is_some() {
-                        let rule_segments = rule.segments.unwrap();
-
-                        for rule_segment in rule_segments {
-                            let mut eval_constraints: Vec<flipt::EvaluationConstraint> = Vec::new();
-                            for constraint in rule_segment.constraints {
-                                eval_constraints.push(flipt::EvaluationConstraint {
-                                    r#type: constraint.r#type,
-                                    property: constraint.property,
-                                    operator: constraint.operator,
-                                    value: constraint.value,
-                                });
-                            }
-
-                            eval_rule.segments.insert(
-                                rule_segment.key.clone(),
-                                flipt::EvaluationSegment {
-                                    segment_key: rule_segment.key,
-                                    match_type: rule_segment.match_type,
-                                    constraints: eval_constraints,
-                                },
-                            );
+                    for rule_segment in rule.segments {
+                        let mut eval_constraints: Vec<flipt::EvaluationConstraint> = Vec::new();
+                        for constraint in rule_segment.constraints {
+                            eval_constraints.push(flipt::EvaluationConstraint {
+                                r#type: common::ConstraintComparisonType::from(constraint.r#type),
+                                property: constraint.property,
+                                operator: constraint.operator,
+                                value: constraint.value,
+                            });
                         }
+
+                        eval_rule.segments.insert(
+                            rule_segment.key.clone(),
+                            flipt::EvaluationSegment {
+                                segment_key: rule_segment.key,
+                                match_type: common::SegmentMatchType::from(rule_segment.match_type),
+                                constraints: eval_constraints,
+                            },
+                        );
                     }
 
                     let mut evaluation_distributions: Vec<flipt::EvaluationDistribution> =
@@ -127,9 +127,7 @@ impl Snapshot {
                 let mut eval_rollout_collection: Vec<flipt::EvaluationRollout> = Vec::new();
                 let mut rollout_idx = 0;
 
-                let flag_rollouts = flag.rollouts.unwrap_or(vec![]);
-
-                for rollout in flag_rollouts {
+                for rollout in flag.rollouts {
                     rollout_idx += 1;
 
                     let mut evaluation_rollout: flipt::EvaluationRollout =
@@ -142,51 +140,54 @@ impl Snapshot {
 
                     evaluation_rollout.rank = rollout_idx;
 
-                    if rollout.threshold.is_some() {
-                        let threshold = rollout.threshold.unwrap();
-                        evaluation_rollout.threshold = Some(flipt::RolloutThreshold {
-                            percentage: threshold.percentage,
-                            value: threshold.value,
-                        });
+                    match rollout.rule {
+                        None => {}
+                        Some(Rule::Threshold(threshold)) => {
+                            evaluation_rollout.threshold = Some(flipt::RolloutThreshold {
+                                percentage: threshold.percentage,
+                                value: threshold.value,
+                            });
+                            evaluation_rollout.rollout_type = common::RolloutType::Threshold;
+                        }
+                        Some(Rule::Segment(segment_rule)) => {
+                            let mut evaluation_rollout_segments: HashMap<
+                                String,
+                                flipt::EvaluationSegment,
+                            > = HashMap::new();
 
-                        evaluation_rollout.rollout_type = common::RolloutType::Threshold;
-                    } else if rollout.segment.is_some() {
-                        let mut evaluation_rollout_segments: HashMap<
-                            String,
-                            flipt::EvaluationSegment,
-                        > = HashMap::new();
-
-                        let segment_rule = rollout.segment.unwrap();
-
-                        for segment in segment_rule.segments {
-                            let mut constraints: Vec<flipt::EvaluationConstraint> = Vec::new();
-                            for constraint in segment.constraints {
-                                constraints.push(flipt::EvaluationConstraint {
-                                    r#type: constraint.r#type,
-                                    property: constraint.property,
-                                    value: constraint.value,
-                                    operator: constraint.operator,
-                                });
+                            for segment in segment_rule.segments {
+                                let mut constraints: Vec<flipt::EvaluationConstraint> = Vec::new();
+                                for constraint in segment.constraints {
+                                    constraints.push(flipt::EvaluationConstraint {
+                                        r#type: common::ConstraintComparisonType::from(
+                                            constraint.r#type,
+                                        ),
+                                        property: constraint.property,
+                                        value: constraint.value,
+                                        operator: constraint.operator,
+                                    });
+                                }
+                                evaluation_rollout_segments.insert(
+                                    segment.key.clone(),
+                                    flipt::EvaluationSegment {
+                                        segment_key: segment.key,
+                                        match_type: common::SegmentMatchType::from(
+                                            segment.match_type,
+                                        ),
+                                        constraints,
+                                    },
+                                );
                             }
 
-                            evaluation_rollout_segments.insert(
-                                segment.key.clone(),
-                                flipt::EvaluationSegment {
-                                    segment_key: segment.key,
-                                    match_type: segment.match_type.clone(),
-                                    constraints,
-                                },
-                            );
+                            evaluation_rollout.rollout_type = common::RolloutType::Segment;
+                            evaluation_rollout.segment = Some(flipt::RolloutSegment {
+                                value: segment_rule.value,
+                                segment_operator: common::SegmentOperator::from(
+                                    segment_rule.segment_operator,
+                                ),
+                                segments: evaluation_rollout_segments,
+                            });
                         }
-
-                        evaluation_rollout.rollout_type = common::RolloutType::Segment;
-                        evaluation_rollout.segment = Some(flipt::RolloutSegment {
-                            value: segment_rule.value,
-                            segment_operator: segment_rule
-                                .segment_operator
-                                .unwrap_or(common::SegmentOperator::Or),
-                            segments: evaluation_rollout_segments,
-                        });
                     }
 
                     eval_rollout_collection.push(evaluation_rollout);

@@ -9,6 +9,16 @@ pub enum FlagType {
     Boolean,
 }
 
+impl From<i32> for FlagType {
+    fn from(n: i32) -> FlagType {
+        match n {
+            1 => FlagType::Boolean,
+            0 => FlagType::Variant,
+            _ => FlagType::Variant,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, Deserialize, PartialEq)]
 pub enum SegmentOperator {
     #[default]
@@ -18,6 +28,16 @@ pub enum SegmentOperator {
     And,
 }
 
+impl From<i32> for SegmentOperator {
+    fn from(n: i32) -> SegmentOperator {
+        match n {
+            1 => SegmentOperator::And,
+            0 => SegmentOperator::Or,
+            _ => SegmentOperator::Or,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, Deserialize, PartialEq)]
 pub enum SegmentMatchType {
     #[default]
@@ -25,6 +45,15 @@ pub enum SegmentMatchType {
     Any,
     #[serde(rename = "ALL_SEGMENT_MATCH_TYPE")]
     All,
+}
+impl From<i32> for SegmentMatchType {
+    fn from(n: i32) -> SegmentMatchType {
+        match n {
+            1 => SegmentMatchType::Any,
+            0 => SegmentMatchType::All,
+            _ => SegmentMatchType::All,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq)]
@@ -40,6 +69,19 @@ pub enum ConstraintComparisonType {
     Boolean,
     #[serde(rename = "DATETIME_CONSTRAINT_COMPARISON_TYPE")]
     DateTime,
+}
+
+impl From<i32> for ConstraintComparisonType {
+    fn from(n: i32) -> ConstraintComparisonType {
+        match n {
+            0 => ConstraintComparisonType::Unknown,
+            1 => ConstraintComparisonType::String,
+            2 => ConstraintComparisonType::Number,
+            3 => ConstraintComparisonType::Boolean,
+            4 => ConstraintComparisonType::DateTime,
+            _ => ConstraintComparisonType::Unknown,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq)]
