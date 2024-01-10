@@ -39,16 +39,16 @@ Want to see a client in a language we don't support? [Open an issue](https://git
 
 ## Installation
 
-See each client's README for installation instructions.
+Please see each client's README for installation and usage instructions.
 
 ## Use Cases
 
 Why you may prefer to use a client-side SDK over our server-side SDKs:
 
 1. You want extreme low-latency evaluation and high throughput.
-1. You are ok with eventual consistency and can tolerate stale data for a short period of time.
+1. You are ok with eventual consistency and can tolerate stale data for a short time.
 1. You want to reduce the load in your network by not having each client make a request to the Flipt server for each evaluation.
-1. You need evaluation to take place in process for some reason (e.g. you are evaluating a flag in a web worker).
+1. You need evaluation to occur in-process for some reason (e.g. you are evaluating a flag in a web worker).
 
 ## Performance
 
@@ -56,7 +56,7 @@ We have done some simple benchmarking to test the performance of the client SDKs
 
 ![Performance Benchmarks](.github/images/performance.png)
 
-Here we performed 1000 evaluations of a flag using the client SDKs and the server SDKs. The client SDKs were able to perform the evaluations in a fraction of the time it took the server SDKs. This is because the client SDKs can perform the evaluations in-memory without having to make a request to the Flipt server.
+Here we performed 1000 evaluations of a flag using the client SDKs and the server SDKs. The client SDKs were able to perform the evaluations in a fraction of the time it took the server SDKs. This is because the client SDKs can perform the evaluations in memory without having to make a request to the Flipt server.
 
 While the server SDKs performed evaluations in the range of 0-14ms, the client SDKs performed evaluations in the range of 0-0.1ms (100 microseconds).
 
@@ -70,7 +70,7 @@ We are not Rust experts and are constantly learning. If you see something that c
 
 ## License
 
-All code in this repository is licensed under the MIT License. See [LICENSE](./LICENSE).
+All code in this repository is licensed under the [MIT License](./LICENSE).
 
 ## Acknowledgements
 
