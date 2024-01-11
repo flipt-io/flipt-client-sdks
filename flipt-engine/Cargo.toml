@@ -19,11 +19,6 @@ cbindgen = "0.26.0"
 [dev-dependencies]
 mockall = "0.12.1"
 
-[workspace]
-members = [
-  "lib/evaluation",
-]
-
 [lib]
 name = "fliptengine"
 crate-type = ["rlib", "dylib"]
