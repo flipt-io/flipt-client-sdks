@@ -147,8 +147,10 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 	if pat == "" {
 		return errors.New("GITHUB_TOKEN environment variable must be set")
 	}
-
-	encodedPAT := base64.URLEncoding.EncodeToString([]byte("pat:" + pat))
+	var (
+		encodedPAT = base64.URLEncoding.EncodeToString([]byte("pat:" + pat))
+		ghToken    = client.SetSecret("gh-token", encodedPAT)
+	)
 
 	var gitUserName = os.Getenv("GIT_USER_NAME")
 	if gitUserName == "" {
@@ -161,11 +163,12 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 	}
 
 	git := client.Container().From("golang:1.21.3-bookworm").
+		WithSecretVariable("GITHUB_TOKEN", ghToken).
 		WithExec([]string{"git", "config", "--global", "user.email", gitUserEmail}).
 		WithExec([]string{"git", "config", "--global", "user.name", gitUserName}).
 		WithExec([]string{"git", "config", "--global",
 			"http.https://github.com/.extraheader",
-			fmt.Sprintf("AUTHORIZATION: Basic %s", encodedPAT)})
+			"AUTHORIZATION: Basic $GITHUB_TOKEN"})
 
 	repository := git.
 		WithExec([]string{"git", "clone", "https://github.com/flipt-io/flipt-client-sdks.git", "/src"}).
