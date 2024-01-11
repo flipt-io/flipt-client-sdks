@@ -4,6 +4,11 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime, SystemTimeError};
 
+pub mod error;
+pub mod models;
+pub mod parser;
+pub mod store;
+
 use crate::error::Error;
 use crate::models::common;
 use crate::models::flipt;
