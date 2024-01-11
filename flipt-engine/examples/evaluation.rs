@@ -1,12 +1,14 @@
 // cargo run --example evaluation
 
-use fliptengine::{self, evaluator, parser};
+use flipt_evaluation::parser::HTTPParser;
+use flipt_evaluation::{EvaluationRequest, Evaluator};
+use fliptengine::{self};
 use std::collections::HashMap;
 
 fn main() {
-    let evaluator = evaluator::Evaluator::new_snapshot_evaluator(
+    let evaluator = Evaluator::new_snapshot_evaluator(
         vec!["default".into()],
-        parser::HTTPParser::new("http://localhost:8080", Some("secret")),
+        HTTPParser::new("http://localhost:8080", Some("secret")),
     );
 
     let eng = fliptengine::Engine::new(evaluator, Default::default());
@@ -15,7 +17,7 @@ fn main() {
 
     let thread = std::thread::spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_millis(5000));
-        let variant = eng.variant(&evaluator::EvaluationRequest {
+        let variant = eng.variant(&EvaluationRequest {
             namespace_key: "default".into(),
             flag_key: "flag1".into(),
             entity_id: "entity".into(),

@@ -1,19 +1,16 @@
-use error::Error;
+use flipt_evaluation::error::Error;
+use flipt_evaluation::parser::HTTPParser;
+use flipt_evaluation::store::Snapshot;
+use flipt_evaluation::{
+    BooleanEvaluationResponse, EvaluationRequest, Evaluator, VariantEvaluationResponse,
+};
 use libc::c_void;
-use parser::HTTPParser;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
-use store::Snapshot;
-
-mod error;
-pub mod evaluator;
-mod models;
-pub mod parser;
-mod store;
 
 #[derive(Deserialize)]
 struct EvalRequest {
@@ -86,11 +83,11 @@ impl Default for EngineOpts {
 
 pub struct Engine {
     pub opts: EngineOpts,
-    pub evaluator: Arc<Mutex<evaluator::Evaluator<HTTPParser, Snapshot>>>,
+    pub evaluator: Arc<Mutex<Evaluator<HTTPParser, Snapshot>>>,
 }
 
 impl Engine {
-    pub fn new(evaluator: evaluator::Evaluator<HTTPParser, Snapshot>, opts: EngineOpts) -> Self {
+    pub fn new(evaluator: Evaluator<HTTPParser, Snapshot>, opts: EngineOpts) -> Self {
         let mut engine = Self {
             opts,
             evaluator: Arc::new(Mutex::new(evaluator)),
@@ -114,8 +111,8 @@ impl Engine {
 
     pub fn variant(
         &self,
-        evaluation_request: &evaluator::EvaluationRequest,
-    ) -> Result<evaluator::VariantEvaluationResponse, Error> {
+        evaluation_request: &EvaluationRequest,
+    ) -> Result<VariantEvaluationResponse, Error> {
         let binding = self.evaluator.clone();
         let lock = binding.lock().unwrap();
 
@@ -124,8 +121,8 @@ impl Engine {
 
     pub fn boolean(
         &self,
-        evaluation_request: &evaluator::EvaluationRequest,
-    ) -> Result<evaluator::BooleanEvaluationResponse, Error> {
+        evaluation_request: &EvaluationRequest,
+    ) -> Result<BooleanEvaluationResponse, Error> {
         let binding = self.evaluator.clone();
         let lock = binding.lock().unwrap();
 
@@ -184,8 +181,8 @@ pub unsafe extern "C" fn initialize_engine(
 
     let auth_token = engine_opts.auth_token.to_owned();
 
-    let parser = parser::HTTPParser::new(&http_url, auth_token.clone().as_deref());
-    let evaluator = evaluator::Evaluator::new_snapshot_evaluator(namespaces_vec, parser);
+    let parser = HTTPParser::new(&http_url, auth_token.clone().as_deref());
+    let evaluator = Evaluator::new_snapshot_evaluator(namespaces_vec, parser);
 
     Box::into_raw(Box::new(Engine::new(evaluator, engine_opts))) as *mut c_void
 }
@@ -218,9 +215,7 @@ pub unsafe extern "C" fn evaluate_boolean(
     result_to_json_ptr(e.boolean(&e_req))
 }
 
-unsafe fn get_evaluation_request(
-    evaluation_request: *const c_char,
-) -> evaluator::EvaluationRequest {
+unsafe fn get_evaluation_request(evaluation_request: *const c_char) -> EvaluationRequest {
     let evaluation_request_bytes = CStr::from_ptr(evaluation_request).to_bytes();
     let bytes_str_repr = std::str::from_utf8(evaluation_request_bytes).unwrap();
     let client_eval_request: EvalRequest = serde_json::from_str(bytes_str_repr).unwrap();
@@ -234,7 +229,7 @@ unsafe fn get_evaluation_request(
         }
     }
 
-    evaluator::EvaluationRequest {
+    EvaluationRequest {
         namespace_key: client_eval_request.namespace_key,
         flag_key: client_eval_request.flag_key,
         entity_id: client_eval_request.entity_id,

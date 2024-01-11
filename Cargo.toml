@@ -1,3 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["./flipt-engine"]
+members = [
+  "./flipt-engine",
+  "./flipt-engine/lib/evaluation",
+]
