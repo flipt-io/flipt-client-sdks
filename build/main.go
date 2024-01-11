@@ -133,6 +133,11 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 		return fmt.Errorf("tag is not set")
 	}
 
+	const tagPrefix = "refs/tags/flipt-client-go-"
+	if !strings.HasPrefix(tag, tagPrefix) {
+		return fmt.Errorf("tag %q must start with %q", tag, tagPrefix)
+	}
+
 	// because of how Go modules work, we need to create a new repo that contains
 	// only the go client code. This is because the go client code is in a subdirectory
 	// we also need to copy the ext directory into the tag of this new repo so that it can be used
@@ -141,12 +146,13 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 		targetRepo = "https://github.com/flipt-io/flipt-client-go.git"
 	}
 
-	targetTag := strings.TrimPrefix(tag, "refs/tags/flipt-client-go-")
+	targetTag := strings.TrimPrefix(tag, tagPrefix)
 
 	pat := os.Getenv("GITHUB_TOKEN")
 	if pat == "" {
 		return errors.New("GITHUB_TOKEN environment variable must be set")
 	}
+
 	var (
 		encodedPAT = base64.URLEncoding.EncodeToString([]byte("pat:" + pat))
 		ghToken    = client.SetSecret("gh-token", encodedPAT)
@@ -166,9 +172,7 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 		WithSecretVariable("GITHUB_TOKEN", ghToken).
 		WithExec([]string{"git", "config", "--global", "user.email", gitUserEmail}).
 		WithExec([]string{"git", "config", "--global", "user.name", gitUserName}).
-		WithExec([]string{"git", "config", "--global",
-			"http.https://github.com/.extraheader",
-			"AUTHORIZATION: Basic $GITHUB_TOKEN"})
+		WithExec([]string{"sh", "-c", `git config --global http.https://github.com/.extraheader "AUTHORIZATION: Basic ${GITHUB_TOKEN}"`})
 
 	repository := git.
 		WithExec([]string{"git", "clone", "https://github.com/flipt-io/flipt-client-sdks.git", "/src"}).
