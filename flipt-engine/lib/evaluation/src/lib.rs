@@ -126,7 +126,6 @@ where
             }
             Err(_) => {
                 // TODO: log::error!("error building snapshot: {}", e);
-                return;
             }
         };
     }
