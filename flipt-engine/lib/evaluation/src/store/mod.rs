@@ -1,6 +1,6 @@
+use crate::error::Error;
 use crate::models::common;
 use crate::models::flipt;
-use crate::models::source::Document;
 use crate::parser::Parser;
 
 #[cfg(test)]
@@ -40,14 +40,14 @@ struct Namespace {
 }
 
 impl Snapshot {
-    pub fn build<P>(namespaces: &Vec<String>, parser: &P) -> Snapshot
+    pub fn build<P>(namespaces: &Vec<String>, parser: &P) -> Result<Snapshot, Error>
     where
         P: Parser + Send,
     {
         let mut ns: HashMap<String, Namespace> = HashMap::new();
 
         for n in namespaces {
-            let doc = parser.parse(n).unwrap_or(Document::default());
+            let doc = parser.parse(n)?;
 
             let mut flags: HashMap<String, flipt::Flag> = HashMap::new();
             let mut eval_rules: HashMap<String, Vec<flipt::EvaluationRule>> = HashMap::new();
@@ -207,7 +207,7 @@ impl Snapshot {
             );
         }
 
-        Self { namespaces: ns }
+        Ok(Self { namespaces: ns })
     }
 }
 
@@ -268,7 +268,7 @@ mod tests {
     fn test_snapshot() {
         let tp = TestParser::new();
 
-        let snapshot = Snapshot::build(&vec!["default".into()], &tp);
+        let snapshot = Snapshot::build(&vec!["default".into()], &tp).unwrap();
 
         let flag_variant = snapshot
             .get_flag("default", "flag1")
