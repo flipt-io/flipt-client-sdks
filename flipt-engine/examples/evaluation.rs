@@ -9,7 +9,8 @@ fn main() {
     let evaluator = Evaluator::new_snapshot_evaluator(
         vec!["default".into()],
         HTTPParser::new("http://localhost:8080", Some("secret")),
-    );
+    )
+    .unwrap();
 
     let eng = fliptengine::Engine::new(evaluator, Default::default());
     let mut context: HashMap<String, String> = HashMap::new();
