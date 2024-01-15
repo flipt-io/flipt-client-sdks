@@ -114,14 +114,21 @@ impl<P> Evaluator<P, Snapshot>
 where
     P: Parser + Send,
 {
-    pub fn new_snapshot_evaluator(namespaces: Vec<String>, parser: P) -> Self {
-        let snap = Snapshot::build(&namespaces, &parser);
-        Evaluator::new(namespaces, parser, snap)
+    pub fn new_snapshot_evaluator(namespaces: Vec<String>, parser: P) -> Result<Self, Error> {
+        let snap = Snapshot::build(&namespaces, &parser)?;
+        Ok(Evaluator::new(namespaces, parser, snap))
     }
 
     pub fn replace_snapshot(&mut self) {
-        let snap = Snapshot::build(&self.namespaces, &self.parser);
-        self.replace_store(snap);
+        match Snapshot::build(&self.namespaces, &self.parser) {
+            Ok(s) => {
+                self.replace_store(s);
+            }
+            Err(_) => {
+                // TODO: log::error!("error building snapshot: {}", e);
+                return;
+            }
+        };
     }
 }
 

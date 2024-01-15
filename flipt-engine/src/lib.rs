@@ -182,7 +182,7 @@ pub unsafe extern "C" fn initialize_engine(
     let auth_token = engine_opts.auth_token.to_owned();
 
     let parser = HTTPParser::new(&http_url, auth_token.clone().as_deref());
-    let evaluator = Evaluator::new_snapshot_evaluator(namespaces_vec, parser);
+    let evaluator = Evaluator::new_snapshot_evaluator(namespaces_vec, parser).unwrap();
 
     Box::into_raw(Box::new(Engine::new(evaluator, engine_opts))) as *mut c_void
 }
