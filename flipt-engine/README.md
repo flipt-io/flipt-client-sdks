@@ -1,6 +1,6 @@
-# Flipt Client Engine
+# Flipt Engine
 
-This is the client engine for Flipt. It is responsible for evaluating context provided by the native language client SDKs and returning the results of the evaluation.
+This is the FFI layer for the Flipt client-side SDKs. It is written in Rust and exposes a C API for the SDKs to use.
 
 ## Architecture
 
@@ -17,7 +17,9 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md).
 cargo build --release
 ```
 
-There are some language SDKs that might require a C file header which has the definitions of the functions accessible through the FFI layer. The `cargo build` command will use a build script to generate this header file by way of the [cbindgen](https://github.com/mozilla/cbindgen) tool.
+There are some language SDKs that might require a C file header which has the definitions of the functions accessible through the FFI layer.
+
+The `cargo build` command will use a build script to generate this header file by way of the [cbindgen](https://github.com/mozilla/cbindgen) tool.
 
 ### Test
 
