@@ -53,11 +53,9 @@ export class FliptEvaluationClient {
       auth_token: ''
     }
   ) {
+    const buf = Buffer.concat([allocCString(namespace ?? 'default')]);
     const engine = engineLib.initialize_engine(
-      alloc(
-        'char *',
-        Buffer.concat([allocCString(namespace ?? 'default')]).toString()
-      ),
+      alloc('char *', buf as unknown as string),
       allocCString(JSON.stringify(engine_opts))
     );
     this.namespace = namespace ?? 'default';
