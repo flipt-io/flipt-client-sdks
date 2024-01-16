@@ -1,10 +1,11 @@
 [package]
-name = "flipt-engine"
+name = "flipt-client-engine"
 version = "0.0.4"
 edition = "2021"
 authors = ["Flipt Devs <dev@flipt.io>"]
 license = "MIT"
-description = "Flipt FFI Engine"
+description = "Flipt FFI Client Engine"
+publish = false
 
 [dependencies]
 libc = "0.2.150"
