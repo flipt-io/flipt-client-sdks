@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.0.3](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-v0.0.3...flipt-engine-v0.0.3) (2024-01-16)
+
+
+### Bug Fixes
+
+* **cargo:** move workspace reference up to root toml ([9bdb2b5](https://github.com/flipt-io/flipt-client-sdks/commit/9bdb2b5ae1745cb2d3a171ec5ff9313ef10b254b))
+* dont wipe out snapshot if error in parser ([#96](https://github.com/flipt-io/flipt-client-sdks/issues/96)) ([75850ab](https://github.com/flipt-io/flipt-client-sdks/commit/75850ab0bcaf61185a7523efa7201ce67d673174))
+* **examples:** rewire the use statements ([f3457a0](https://github.com/flipt-io/flipt-client-sdks/commit/f3457a0033473908864f1aa1485c5c4e3fb7edce))
+
+
+### Miscellaneous Chores
+
+* release 0.0.3 ([cd97903](https://github.com/flipt-io/flipt-client-sdks/commit/cd979032e1844f162a0317f50e9bed0a5570bfcc))
+
 ## [0.0.3](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-v0.0.2...flipt-engine-v0.0.3) (2024-01-03)
 
 
