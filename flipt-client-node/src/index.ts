@@ -1,5 +1,5 @@
 import * as ffi from 'ffi-napi';
-import { alloc, allocCString, types } from 'ref-napi';
+import { Pointer, alloc, allocCString } from 'ref-napi';
 import * as os from 'os';
 import {
   BooleanResult,
@@ -43,7 +43,7 @@ const engineLib = ffi.Library(libfile, {
 
 export class FliptEvaluationClient {
   private namespace: string;
-  private engine: types.void;
+  private engine: Pointer<unknown>;
 
   public constructor(
     namespace?: string,
@@ -54,7 +54,10 @@ export class FliptEvaluationClient {
     }
   ) {
     const engine = engineLib.initialize_engine(
-      alloc('char *', Buffer.concat([allocCString(namespace ?? 'default')])),
+      alloc(
+        'char *',
+        Buffer.concat([allocCString(namespace ?? 'default')]).toString()
+      ),
       allocCString(JSON.stringify(engine_opts))
     );
     this.namespace = namespace ?? 'default';
@@ -73,15 +76,16 @@ export class FliptEvaluationClient {
       context
     };
 
-    const response = Buffer.from(
-      engineLib.evaluate_variant(
-        this.engine,
-        allocCString(JSON.stringify(evaluation_request))
-      )
-    ).toString('utf-8');
-    const variantResult: VariantResult = JSON.parse(response);
+    const response = engineLib.evaluate_variant(
+      this.engine,
+      allocCString(JSON.stringify(evaluation_request))
+    );
 
-    return variantResult;
+    if (response === null) {
+      throw new Error('Failed to evaluate variant');
+    }
+
+    return JSON.parse(Buffer.from(response).toString('utf-8'));
   }
 
   public evaluateBoolean(
@@ -96,15 +100,16 @@ export class FliptEvaluationClient {
       context
     };
 
-    const response = Buffer.from(
-      engineLib.evaluate_boolean(
-        this.engine,
-        allocCString(JSON.stringify(evaluation_request))
-      )
-    ).toString('utf-8');
-    const booleanResult: BooleanResult = JSON.parse(response);
+    const response = engineLib.evaluate_boolean(
+      this.engine,
+      allocCString(JSON.stringify(evaluation_request))
+    );
 
-    return booleanResult;
+    if (response === null) {
+      throw new Error('Failed to evaluate boolean');
+    }
+
+    return JSON.parse(Buffer.from(response).toString('utf-8'));
   }
 
   public close() {

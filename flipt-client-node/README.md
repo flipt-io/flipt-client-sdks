@@ -29,7 +29,9 @@ import { FliptEvaluationClient } from '@flipt-io/flipt-client';
 // to wait for updated flag state, and the auth token if your Flipt instance requires it.
 const fliptEvaluationClient = new FliptEvaluationClient();
 
-const variant = fliptEvaluationClient.evaluateVariant("flag1", "someentity", {"fizz": "buzz"});
+const variant = fliptEvaluationClient.evaluateVariant('flag1', 'someentity', {
+  fizz: 'buzz'
+});
 
 console.log(variant);
 ```
