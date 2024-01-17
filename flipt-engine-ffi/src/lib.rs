@@ -196,8 +196,9 @@ pub unsafe extern "C" fn initialize_engine(
         None => parser_builder,
     };
 
-    let evaluator =
-        Evaluator::new_snapshot_evaluator(namespaces_vec, parser_builder.build()).unwrap();
+    let parser = parser_builder.build();
+
+    let evaluator = Evaluator::new_snapshot_evaluator(namespaces_vec, parser).unwrap();
 
     Box::into_raw(Box::new(Engine::new(evaluator, engine_opts))) as *mut c_void
 }

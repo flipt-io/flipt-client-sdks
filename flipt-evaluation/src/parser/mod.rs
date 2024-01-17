@@ -55,12 +55,15 @@ impl HTTPParser {
         match &self.reference {
             Some(reference) => {
                 format!(
-                    "{}/api/v1/evaluation/{}?reference={}",
+                    "{}/internal/v1/evaluation/snapshot/namespace/{}?reference={}",
                     self.http_url, namespace, reference,
                 )
             }
             None => {
-                format!("{}/api/v1/evaluation/{}", self.http_url, namespace)
+                format!(
+                    "{}/internal/v1/evaluation/snapshot/namespace/{}",
+                    self.http_url, namespace
+                )
             }
         }
     }
@@ -165,7 +168,7 @@ mod tests {
 
         assert_eq!(
             parser.url("default"),
-            "http://localhost:8080/api/v1/evaluation/default?reference=ref"
+            "http://localhost:8080/internal/v1/evaluation/snapshot/namespace/default?reference=ref"
         );
 
         let parser = HTTPParserBuilder::new("http://localhost:8080")
@@ -174,7 +177,7 @@ mod tests {
 
         assert_eq!(
             parser.url("default"),
-            "http://localhost:8080/api/v1/evaluation/default"
+            "http://localhost:8080/internal/v1/evaluation/snapshot/namespace/default"
         );
     }
 }
