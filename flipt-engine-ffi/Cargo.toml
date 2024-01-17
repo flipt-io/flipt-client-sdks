@@ -1,5 +1,5 @@
 [package]
-name = "flipt-client-engine"
+name = "flipt-engine-ffi"
 version = "0.0.4"
 edition = "2021"
 authors = ["Flipt Devs <dev@flipt.io>"]

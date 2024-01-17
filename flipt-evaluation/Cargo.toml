@@ -7,6 +7,10 @@ license = "MIT"
 description = "Flipt Evaluation Library"
 publish = false
 
+[lib]
+name = "fliptevaluation"
+path = "src/lib.rs"
+
 [dependencies]
 reqwest = { version = "0.11.22", features = ["json", "blocking"] }
 tokio = { version = "1.33.0", features = ["full"] }

@@ -113,7 +113,8 @@ func getTestDependencies(ctx context.Context, client *dagger.Client, hostDirecto
 	// Dynamic Library
 	rust := client.Container().From("rust:1.73.0-bookworm").
 		WithWorkdir("/src").
-		WithDirectory("/src/flipt-engine", hostDirectory.Directory("flipt-engine")).
+		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
+		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
 		WithExec([]string{"cargo", "build", "--release"})
 
