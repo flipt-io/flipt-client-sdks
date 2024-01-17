@@ -73,7 +73,7 @@ class TestFliptEvaluationClient(unittest.TestCase):
         boolean = self.flipt_client.evaluate_boolean("flag_boolean", "someentity")
         self.assertIsNone(boolean.error_message)
         self.assertEqual("success", boolean.status)
-        self.assertFalse(boolean.result.enabled)
+        self.assertTrue(boolean.result.enabled)
         self.assertEqual("flag_boolean", boolean.result.flag_key)
 
 
