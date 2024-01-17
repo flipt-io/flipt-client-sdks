@@ -73,7 +73,7 @@ func run() error {
 	defer client.Close()
 
 	dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
-		Exclude: []string{"diagrams/", "build/", "test/", ".git/"},
+		Exclude: []string{".github/", "build/", "test/", ".git/"},
 	})
 
 	var g errgroup.Group

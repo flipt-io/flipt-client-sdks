@@ -20,17 +20,17 @@ We use [release-please](https://github.com/googleapis/release-please>) to genera
 ### Engine
 
 <p align="center">
-    <img src=".github/images/release-engine.png" width=600 />
+    <img src=".github/images/release-engine-ffi.png" width=600 />
 </p>
 
-1. Create a new release in the [flipt-engine](./flipt-engine) by merging a change to the `main` branch that would trigger a release via conventional commits.
+1. Create a new release in the [flipt-engine-ffi](./flipt-engine-ffi) package by merging a change to the `main` branch that would trigger a release via conventional commits.
 2. Wait for the release-please workflow to complete. This will create a new release and tag for the engine.
 3. The `package-engine` workflow will run, building the engine for each supported platform and publishing the artifacts to the GitHub release.
 
 ### SDKs
 
 <p align="center">
-    <img src=".github/images/release-sdk.png" width=600 />
+    <img src=".github/images/release-engine-ffi-sdk.png" width=600 />
 </p>
 
 1. Update the SDK to the new version that you want to release (i.e. update the version in `package.json` for Node, `setup.py` for Python, `flipt_client.gemspec` for Ruby).

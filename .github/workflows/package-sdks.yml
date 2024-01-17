@@ -48,32 +48,32 @@ jobs:
         run: |
           if [ "${{ inputs.engine-tag }}" == "latest" ]; then
             echo "ENGINE_TAG=$(curl -s "https://api.github.com/repos/flipt-io/flipt-client-sdks/releases" | \
-            jq -r ".[] | select(.tag_name | startswith(\"flipt-engine-\")) | .tag_name" | \
-            sort -Vr | head -n 1 | sed "s/^flipt-engine-//")" >> $GITHUB_ENV
+            jq -r ".[] | select(.tag_name | startswith(\"flipt-engine-ffi-\")) | .tag_name" | \
+            sort -Vr | head -n 1 | sed "s/^flipt-engine-ffi-//")" >> $GITHUB_ENV
           fi
 
       - name: Download Mac ARM64 Engine
         run: |
           mkdir -p tmp/darwin_arm64 && \
-          wget "https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-${ENGINE_TAG}/flipt-engine-Darwin-arm64.tar.gz" -O /tmp/flipt-engine-Darwin-arm64.tar.gz && \
+          wget "https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-${ENGINE_TAG}/flipt-engine-ffi-Darwin-arm64.tar.gz" -O /tmp/flipt-engine-ffi-Darwin-arm64.tar.gz && \
           mkdir -p /tmp/darwin_arm64 && \
-          tar -xzf /tmp/flipt-engine-Darwin-arm64.tar.gz -C /tmp/darwin_arm64 && \
+          tar -xzf /tmp/flipt-engine-ffi-Darwin-arm64.tar.gz -C /tmp/darwin_arm64 && \
           mv /tmp/darwin_arm64/target/aarch64-apple-darwin/release/* tmp/darwin_arm64
 
       - name: Download Linux ARM64 Engine
         run: |
           mkdir -p tmp/linux_arm64 && \
-          wget "https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-${ENGINE_TAG}/flipt-engine-Linux-arm64.tar.gz" -O /tmp/flipt-engine-Linux-arm64.tar.gz && \
+          wget "https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-${ENGINE_TAG}/flipt-engine-ffi-Linux-arm64.tar.gz" -O /tmp/flipt-engine-ffi-Linux-arm64.tar.gz && \
           mkdir -p /tmp/linux_arm64 && \
-          tar -xzf /tmp/flipt-engine-Linux-arm64.tar.gz -C /tmp/linux_arm64 && \
+          tar -xzf /tmp/flipt-engine-ffi-Linux-arm64.tar.gz -C /tmp/linux_arm64 && \
           mv /tmp/linux_arm64/target/aarch64-unknown-linux-gnu/release/* tmp/linux_arm64
 
       - name: Download Linux x86_64 Engine
         run: |
           mkdir -p tmp/linux_x86_64 && \
-          wget "https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-${ENGINE_TAG}/flipt-engine-Linux-x86_64.tar.gz" -O /tmp/flipt-engine-Linux-x86_64.tar.gz && \
+          wget "https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-${ENGINE_TAG}/flipt-engine-ffi-Linux-x86_64.tar.gz" -O /tmp/flipt-engine-ffi-Linux-x86_64.tar.gz && \
           mkdir -p /tmp/linux_x86_64 && \
-          tar -xzf /tmp/flipt-engine-Linux-x86_64.tar.gz -C /tmp/linux_x86_64 && \
+          tar -xzf /tmp/flipt-engine-ffi-Linux-x86_64.tar.gz -C /tmp/linux_x86_64 && \
           mv /tmp/linux_x86_64/target/x86_64-unknown-linux-gnu/release/* tmp/linux_x86_64
 
       - name: Generate token

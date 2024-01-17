@@ -1,7 +1,7 @@
 name: Package Engine
 on:
   push:
-    tags: ["flipt-engine-v**"]
+    tags: ["flipt-engine-ffi-v**"]
   workflow_dispatch:
     inputs:
       tag:
@@ -66,7 +66,7 @@ jobs:
           strip -x target/${{ matrix.platform.target }}/release/libfliptengine.so
 
       - run: |
-          tar -czvf flipt-engine-${{ matrix.platform.name }}.tar.gz \
+          tar -czvf flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz \
             target/${{ matrix.platform.target }}/release/libfliptengine.* \
             target/${{ matrix.platform.target }}/release/flipt_engine.h \
             || true
@@ -77,12 +77,12 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: |
-            flipt-engine-${{ matrix.platform.name }}.tar.gz
+            flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
 
       - name: Upload Release Assets (Workflow Dispatch)
         uses: softprops/action-gh-release@v1
         if: github.event_name == 'workflow_dispatch'
         with:
-          tag_name: flipt-engine-${{ github.event.inputs.tag }}
+          tag_name: flipt-engine-ffi-${{ github.event.inputs.tag }}
           files: |
-            flipt-engine-${{ matrix.platform.name }}.tar.gz
+            flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz

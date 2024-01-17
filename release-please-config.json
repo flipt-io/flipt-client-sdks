@@ -6,8 +6,8 @@
   "prerelease": false,
   "last-release-sha": "79dffc96117d2da9881bb8ab653d93c607fbb212",
   "packages": {
-    "flipt-engine": {
-      "component": "flipt-engine",
+    "flipt-engine-ffi": {
+      "component": "flipt-engine-ffi",
       "release-type": "rust"
     }
   }

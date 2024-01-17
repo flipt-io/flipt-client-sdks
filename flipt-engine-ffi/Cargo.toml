@@ -1,9 +1,11 @@
 [package]
-name = "flipt-client-engine"
+name = "flipt-engine-ffi"
 version = "0.0.4"
 edition = "2021"
 authors = ["Flipt Devs <dev@flipt.io>"]
 license = "MIT"
+description = "Flipt FFI Client Engine"
+publish = false
 
 [dependencies]
 libc = "0.2.150"
@@ -11,7 +13,7 @@ serde = { version = "1.0.147", features = ["derive"] }
 serde_json = { version = "1.0.89", features = ["raw_value"] }
 
 [dependencies.flipt-evaluation]
-path = "./lib/evaluation"
+path = "../flipt-evaluation"
 
 [build-dependencies]
 cbindgen = "0.26.0"

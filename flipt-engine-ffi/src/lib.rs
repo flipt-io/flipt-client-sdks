@@ -1,7 +1,7 @@
-use flipt_evaluation::error::Error;
-use flipt_evaluation::parser::HTTPParser;
-use flipt_evaluation::store::Snapshot;
-use flipt_evaluation::{
+use fliptevaluation::error::Error;
+use fliptevaluation::parser::HTTPParser;
+use fliptevaluation::store::Snapshot;
+use fliptevaluation::{
     BooleanEvaluationResponse, EvaluationRequest, Evaluator, VariantEvaluationResponse,
 };
 use libc::c_void;
