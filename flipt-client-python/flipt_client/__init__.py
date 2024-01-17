@@ -25,7 +25,7 @@ class FliptEvaluationClient:
                 )
         elif platform.system() == "Linux":
             arch = platform.machine()
-            if arch == "x86":
+            if arch == "x86_64":
                 libfile = "linux_x86_64/libfliptengine.so"
             elif arch == "arm64" or arch == "aarch64":
                 libfile = "linux_arm64/libfliptengine.so"
