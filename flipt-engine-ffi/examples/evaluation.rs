@@ -1,14 +1,16 @@
 // cargo run --example evaluation
 
 use fliptengine::{self};
-use fliptevaluation::parser::HTTPParser;
+use fliptevaluation::parser::HTTPParserBuilder;
 use fliptevaluation::{EvaluationRequest, Evaluator};
 use std::collections::HashMap;
 
 fn main() {
     let evaluator = Evaluator::new_snapshot_evaluator(
         vec!["default".into()],
-        HTTPParser::new("http://localhost:8080", Some("secret")),
+        HTTPParserBuilder::new("http://localhost:8080")
+            .auth_token("secret")
+            .build(),
     )
     .unwrap();
 

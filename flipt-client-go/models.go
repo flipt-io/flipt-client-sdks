@@ -11,6 +11,7 @@ type EngineOpts struct {
 	URL            string `json:"url,omitempty"`
 	AuthToken      string `json:"auth_token,omitempty"`
 	UpdateInterval int    `json:"update_interval,omitempty"`
+	Reference      string `json:"reference,omitempty"`
 }
 
 type VariantEvaluationResponse struct {

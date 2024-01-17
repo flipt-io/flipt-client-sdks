@@ -1,5 +1,5 @@
 use fliptevaluation::error::Error;
-use fliptevaluation::parser::HTTPParser;
+use fliptevaluation::parser::{HTTPParser, HTTPParserBuilder};
 use fliptevaluation::store::Snapshot;
 use fliptevaluation::{
     BooleanEvaluationResponse, EvaluationRequest, Evaluator, VariantEvaluationResponse,
@@ -69,6 +69,7 @@ pub struct EngineOpts {
     url: Option<String>,
     auth_token: Option<String>,
     update_interval: Option<u64>,
+    reference: Option<String>,
 }
 
 impl Default for EngineOpts {
@@ -77,6 +78,7 @@ impl Default for EngineOpts {
             url: Some("http://localhost:8080".into()),
             auth_token: None,
             update_interval: Some(120),
+            reference: None,
         }
     }
 }
@@ -180,9 +182,22 @@ pub unsafe extern "C" fn initialize_engine(
         .unwrap_or("http://localhost:8080".into());
 
     let auth_token = engine_opts.auth_token.to_owned();
+    let reference = engine_opts.reference.to_owned();
 
-    let parser = HTTPParser::new(&http_url, auth_token.clone().as_deref());
-    let evaluator = Evaluator::new_snapshot_evaluator(namespaces_vec, parser).unwrap();
+    let mut parser_builder = HTTPParserBuilder::new(&http_url);
+
+    parser_builder = match auth_token {
+        Some(token) => parser_builder.auth_token(&token),
+        None => parser_builder,
+    };
+
+    parser_builder = match reference {
+        Some(reference) => parser_builder.reference(&reference),
+        None => parser_builder,
+    };
+
+    let evaluator =
+        Evaluator::new_snapshot_evaluator(namespaces_vec, parser_builder.build()).unwrap();
 
     Box::into_raw(Box::new(Engine::new(evaluator, engine_opts))) as *mut c_void
 }

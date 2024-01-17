@@ -9,21 +9,59 @@ pub struct HTTPParser {
     http_client: reqwest::blocking::Client,
     http_url: String,
     auth_token: Option<String>,
+    reference: Option<String>,
+}
+
+pub struct HTTPParserBuilder {
+    http_url: String,
+    auth_token: Option<String>,
+    reference: Option<String>,
+}
+
+impl HTTPParserBuilder {
+    pub fn new(http_url: &str) -> Self {
+        Self {
+            http_url: http_url.to_string(),
+            auth_token: None,
+            reference: None,
+        }
+    }
+
+    pub fn auth_token(mut self, auth_token: &str) -> Self {
+        self.auth_token = Some(auth_token.to_string());
+        self
+    }
+
+    pub fn reference(mut self, reference: &str) -> Self {
+        self.reference = Some(reference.to_string());
+        self
+    }
+
+    pub fn build(self) -> HTTPParser {
+        HTTPParser {
+            http_client: reqwest::blocking::Client::builder()
+                .timeout(std::time::Duration::from_secs(10))
+                .build()
+                .unwrap(),
+            http_url: self.http_url,
+            auth_token: self.auth_token,
+            reference: self.reference,
+        }
+    }
 }
 
 impl HTTPParser {
-    // TODO: potentially use builder pattern if we need to add more options
-    pub fn new(url: &str, auth_token: Option<&str>) -> Self {
-        // We will allow the following line to panic when an error is encountered.
-        let http_client = reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(10))
-            .build()
-            .unwrap();
-
-        Self {
-            http_client,
-            http_url: url.to_string(),
-            auth_token: auth_token.unwrap_or_default().to_string().into(),
+    fn url(&self, namespace: &str) -> String {
+        match &self.reference {
+            Some(reference) => {
+                format!(
+                    "{}/api/v1/evaluation/{}?reference={}",
+                    self.http_url, namespace, reference,
+                )
+            }
+            None => {
+                format!("{}/api/v1/evaluation/{}", self.http_url, namespace)
+            }
         }
     }
 }
@@ -49,10 +87,7 @@ impl Parser for HTTPParser {
 
         let response = match self
             .http_client
-            .get(format!(
-                "{}/internal/v1/evaluation/snapshot/namespace/{}",
-                self.http_url, namespace
-            ))
+            .get(self.url(namespace))
             .headers(headers)
             .send()
         {
@@ -114,5 +149,32 @@ impl Parser for TestParser {
         };
 
         Ok(document)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_http_parser_url() {
+        use super::HTTPParserBuilder;
+
+        let parser = HTTPParserBuilder::new("http://localhost:8080")
+            .auth_token("secret")
+            .reference("ref")
+            .build();
+
+        assert_eq!(
+            parser.url("default"),
+            "http://localhost:8080/api/v1/evaluation/default?reference=ref"
+        );
+
+        let parser = HTTPParserBuilder::new("http://localhost:8080")
+            .auth_token("secret")
+            .build();
+
+        assert_eq!(
+            parser.url("default"),
+            "http://localhost:8080/api/v1/evaluation/default"
+        );
     }
 }
