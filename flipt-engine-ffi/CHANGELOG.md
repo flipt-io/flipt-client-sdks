@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.4](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.0.4...flipt-engine-ffi-v0.0.4) (2024-01-17)
+
+
+### Miscellaneous Chores
+
+* release 0.0.3 ([cd97903](https://github.com/flipt-io/flipt-client-sdks/commit/cd979032e1844f162a0317f50e9bed0a5570bfcc))
+* release 0.0.4 ([73e760e](https://github.com/flipt-io/flipt-client-sdks/commit/73e760e1df5255f642e15865e3bf38f3b7af2d27))
+
 ## [0.0.4](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-v0.0.3...flipt-engine-v0.0.4) (2024-01-16)
 
 
