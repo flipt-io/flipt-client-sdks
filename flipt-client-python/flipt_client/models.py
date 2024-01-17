@@ -13,6 +13,7 @@ class EngineOpts(BaseModel):
     url: Optional[str] = None
     update_interval: Optional[int] = None
     auth_token: Optional[str] = None
+    reference: Optional[str] = None
 
 
 class VariantEvaluationResponse(BaseModel):
