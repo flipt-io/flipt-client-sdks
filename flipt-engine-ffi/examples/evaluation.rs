@@ -1,8 +1,8 @@
 // cargo run --example evaluation
 
-use flipt_evaluation::parser::HTTPParser;
-use flipt_evaluation::{EvaluationRequest, Evaluator};
 use fliptengine::{self};
+use fliptevaluation::parser::HTTPParser;
+use fliptevaluation::{EvaluationRequest, Evaluator};
 use std::collections::HashMap;
 
 fn main() {
