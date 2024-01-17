@@ -18,7 +18,7 @@ typescript: {
   icon: https://icon.icepanel.io/Technology/svg/TypeScript.svg
 }
 
-flipt-engine: {
+flipt-engine-ffi: {
   shape: square
   rust: {
     shape: image
@@ -34,12 +34,12 @@ flipt-service: {
   }
 }
 
-go <-> flipt-engine: FFI
-ruby <-> flipt-engine: FFI
-python <-> flipt-engine: FFI
-typescript <-> flipt-engine: FFI
+go <-> flipt-engine-ffi
+ruby <-> flipt-engine-ffi
+python <-> flipt-engine-ffi
+typescript <-> flipt-engine-ffi
 
-flipt-engine <-> flipt-service: Evaluation State Sync {
+flipt-engine-ffi <-> flipt-service: Evaluation State Sync {
   style: {
     opacity: 0.9
     stroke-dash: 3

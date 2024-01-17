@@ -15,7 +15,9 @@ Check out our introductory [blog post](https://www.flipt.io/blog/new-client-side
 
 The client SDKs are designed to be embedded in end-user applications.
 
-The evaluation logic is written in Rust and can be found in the [flipt-engine](./flipt-engine/) directory. The language clients that are used in end-user applications wrap the engine can be found in the `flipt-client-{language}` directories.
+The evaluation logic is written in Rust and can be found in the [flipt-evaluation](./flipt-evaluation/) directory.
+
+The language clients that are used in end-user applications wrap the engine can be found in the `flipt-client-{language}` directories.
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md).
 
@@ -66,7 +68,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ### Help Wanted
 
-We are not Rust experts and are constantly learning. If you see something that can be improved especially in the [flipt-engine](./flipt-engine/), please open an issue or a PR, we would love to learn from you. :heart:
+We are not Rust experts and are constantly learning. If you see something that can be improved, especially in the [flipt-engine-ffi](./flipt-engine-ffi/) and [flipt-evaluation](./flipt-evaluation/) directories, please open an issue or a PR, we would love to learn from you. :heart:
 
 ## License
 
