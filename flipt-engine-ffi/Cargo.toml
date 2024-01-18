@@ -1,6 +1,6 @@
 [package]
 name = "flipt-engine-ffi"
-version = "0.0.4"
+version = "0.0.5"
 edition = "2021"
 authors = ["Flipt Devs <dev@flipt.io>"]
 license = "MIT"
