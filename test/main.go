@@ -23,6 +23,7 @@ var (
 		"ruby":   rubyTests,
 	}
 	sema = make(chan struct{}, 5)
+	arch = "x86_64"
 )
 
 type testArgs struct {
@@ -40,6 +41,10 @@ func init() {
 
 func main() {
 	flag.Parse()
+
+	if strings.Contains(runtime.GOARCH, "arm64") || strings.Contains(runtime.GOARCH, "aarch64") {
+		arch = "arm64"
+	}
 
 	if err := run(); err != nil {
 		log.Fatal(err)
@@ -143,7 +148,7 @@ func getTestDependencies(ctx context.Context, client *dagger.Client, hostDirecto
 // pythonTests runs the python integration test suite against a container running Flipt.
 func pythonTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
 
-	_, err := client.Container().From("python:3.11-bookworm").
+	_, err := client.Pipeline("python").Container().From("python:3.11-bookworm").
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithWorkdir("/src").
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-python")).
@@ -160,7 +165,7 @@ func pythonTests(ctx context.Context, client *dagger.Client, flipt *dagger.Conta
 
 // goTests runs the golang integration test suite against a container running Flipt.
 func goTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
-	_, err := client.Container().From("golang:1.21.3-bookworm").
+	_, err := client.Pipeline("go").Container().From("golang:1.21.3-bookworm").
 		WithExec([]string{"apt-get", "update"}).
 		WithExec([]string{"apt-get", "-y", "install", "build-essential"}).
 		WithWorkdir("/src").
@@ -183,7 +188,7 @@ func goTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container
 
 // nodeTests runs the node integration test suite against a container running Flipt.
 func nodeTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
-	_, err := client.Container().From("node:21.2-bookworm").
+	_, err := client.Pipeline("node").Container().From("node:21.2-bookworm").
 		WithWorkdir("/src").
 		// The node_modules should never be version controlled, but we will exclude it here
 		// just to be safe.
@@ -203,15 +208,19 @@ func nodeTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 
 // rubyTests runs the ruby integration test suite against a container running Flipt.
 func rubyTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
-	_, err := client.Container().From("ruby:3.1-bookworm").
+	container := client.Pipeline("ruby").Container().From("ruby:3.1-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-ruby")).
 		WithFile(fmt.Sprintf("/src/lib/ext/linux_%s/libfliptengine.so", args.arch), args.libFile).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
-		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithExec([]string{"bundle", "config", "build.ffi", "--enable-libffi-alloc"}).
-		WithExec([]string{"bundle", "install"}).
+		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret")
+
+	if args.arch == "x86_64" {
+		container = container.WithExec([]string{"bundle", "config", "build.ffi", "--enable-libffi-alloc"})
+	}
+
+	_, err := container.WithExec([]string{"bundle", "install"}).
 		WithExec([]string{"bundle", "exec", "rspec"}).
 		Sync(ctx)
 
