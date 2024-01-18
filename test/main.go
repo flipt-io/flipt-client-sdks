@@ -23,7 +23,6 @@ var (
 		"ruby":   rubyTests,
 	}
 	sema = make(chan struct{}, 5)
-	arch = "x86_64"
 )
 
 type testArgs struct {
@@ -41,10 +40,6 @@ func init() {
 
 func main() {
 	flag.Parse()
-
-	if strings.Contains(runtime.GOARCH, "arm64") || strings.Contains(runtime.GOARCH, "aarch64") {
-		arch = "arm64"
-	}
 
 	if err := run(); err != nil {
 		log.Fatal(err)
@@ -208,19 +203,14 @@ func nodeTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 
 // rubyTests runs the ruby integration test suite against a container running Flipt.
 func rubyTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
-	container := client.Pipeline("ruby").Container().From("ruby:3.1-bookworm").
+	_, err := client.Pipeline("ruby").Container().From("ruby:3.1-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-ruby")).
 		WithFile(fmt.Sprintf("/src/lib/ext/linux_%s/libfliptengine.so", args.arch), args.libFile).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
-		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret")
-
-	if args.arch == "x86_64" {
-		container = container.WithExec([]string{"bundle", "config", "build.ffi", "--enable-libffi-alloc"})
-	}
-
-	_, err := container.WithExec([]string{"bundle", "install"}).
+		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
+		WithExec([]string{"bundle", "install"}).
 		WithExec([]string{"bundle", "exec", "rspec"}).
 		Sync(ctx)
 
