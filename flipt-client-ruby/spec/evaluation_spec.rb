@@ -3,13 +3,15 @@
 require_relative '../lib/flipt_client'
 
 RSpec.describe Flipt::EvaluationClient do
+  before(:all) do
+    url = ENV.fetch('FLIPT_URL', 'http://localhost:8080')
+    auth_token = ENV.fetch('FLIPT_AUTH_TOKEN', 'secret')
+    @client = Flipt::EvaluationClient.new('default', { url: url, auth_token: auth_token })
+  end
+
   describe '#evaluate_variant' do
     it 'returns a variant result' do
-      url = ENV.fetch('FLIPT_URL', 'http://localhost:8080')
-      auth_token = ENV.fetch('FLIPT_AUTH_TOKEN', 'secret')
-      client = Flipt::EvaluationClient.new('default', { url: url, auth_token: auth_token })
-
-      resp = client.evaluate_variant({ flag_key: 'flag1', entity_id: 'someentity', context: { "fizz": 'buzz' } })
+      resp = @client.evaluate_variant({ flag_key: 'flag1', entity_id: 'someentity', context: { "fizz": 'buzz' } })
 
       expect(resp).to_not be_nil
       expect(resp['status']).to eq('success')
@@ -24,11 +26,7 @@ RSpec.describe Flipt::EvaluationClient do
 
   describe '#evaluate_boolean' do
     it 'returns a boolean result' do
-      url = ENV.fetch('FLIPT_URL', 'http://localhost:8080')
-      auth_token = ENV.fetch('FLIPT_AUTH_TOKEN', 'secret')
-      client = Flipt::EvaluationClient.new('default', { url: url, auth_token: auth_token })
-
-      resp = client.evaluate_boolean({ flag_key: 'flag_boolean', entity_id: 'someentity', context: { "fizz": 'buzz' } })
+      resp = @client.evaluate_boolean({ flag_key: 'flag_boolean', entity_id: 'someentity', context: { "fizz": 'buzz' } })
 
       expect(resp).to_not be_nil
       expect(resp['status']).to eq('success')
@@ -41,11 +39,7 @@ RSpec.describe Flipt::EvaluationClient do
 
   describe '#evaluate_variant failure' do
     it 'gracefully handles failures for variant flag evaluation' do
-      url = ENV.fetch('FLIPT_URL', 'http://localhost:8080')
-      auth_token = ENV.fetch('FLIPT_AUTH_TOKEN', 'secret')
-      client = Flipt::EvaluationClient.new('default', { url: url, auth_token: auth_token })
-
-      resp = client.evaluate_variant({ flag_key: 'nonexistent', entity_id: 'someentity', context: { "fizz": 'buzz' } })
+      resp = @client.evaluate_variant({ flag_key: 'nonexistent', entity_id: 'someentity', context: { "fizz": 'buzz' } })
 
       expect(resp).to_not be_nil
       expect(resp['result']).to be_nil
@@ -56,11 +50,7 @@ RSpec.describe Flipt::EvaluationClient do
 
   describe '#evaluate_boolean failure' do
     it 'gracefully handles failures for boolean flag evaluation' do
-      url = ENV.fetch('FLIPT_URL', 'http://localhost:8080')
-      auth_token = ENV.fetch('FLIPT_AUTH_TOKEN', 'secret')
-      client = Flipt::EvaluationClient.new('default', { url: url, auth_token: auth_token })
-
-      resp = client.evaluate_boolean({ flag_key: 'nonexistent', entity_id: 'someentity', context: { "fizz": 'buzz' } })
+      resp = @client.evaluate_boolean({ flag_key: 'nonexistent', entity_id: 'someentity', context: { "fizz": 'buzz' } })
 
       expect(resp).to_not be_nil
       expect(resp['result']).to be_nil

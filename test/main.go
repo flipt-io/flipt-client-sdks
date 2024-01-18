@@ -143,7 +143,7 @@ func getTestDependencies(ctx context.Context, client *dagger.Client, hostDirecto
 // pythonTests runs the python integration test suite against a container running Flipt.
 func pythonTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
 
-	_, err := client.Container().From("python:3.11-bookworm").
+	_, err := client.Pipeline("python").Container().From("python:3.11-bookworm").
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithWorkdir("/src").
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-python")).
@@ -160,7 +160,7 @@ func pythonTests(ctx context.Context, client *dagger.Client, flipt *dagger.Conta
 
 // goTests runs the golang integration test suite against a container running Flipt.
 func goTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
-	_, err := client.Container().From("golang:1.21.3-bookworm").
+	_, err := client.Pipeline("go").Container().From("golang:1.21.3-bookworm").
 		WithExec([]string{"apt-get", "update"}).
 		WithExec([]string{"apt-get", "-y", "install", "build-essential"}).
 		WithWorkdir("/src").
@@ -183,7 +183,7 @@ func goTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container
 
 // nodeTests runs the node integration test suite against a container running Flipt.
 func nodeTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
-	_, err := client.Container().From("node:21.2-bookworm").
+	_, err := client.Pipeline("node").Container().From("node:21.2-bookworm").
 		WithWorkdir("/src").
 		// The node_modules should never be version controlled, but we will exclude it here
 		// just to be safe.
@@ -203,7 +203,7 @@ func nodeTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 
 // rubyTests runs the ruby integration test suite against a container running Flipt.
 func rubyTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
-	_, err := client.Container().From("ruby:3.1-bookworm").
+	_, err := client.Pipeline("ruby").Container().From("ruby:3.1-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-ruby")).
 		WithFile(fmt.Sprintf("/src/lib/ext/linux_%s/libfliptengine.so", args.arch), args.libFile).

@@ -10,6 +10,17 @@ The `flipt-client-ruby` directory contains the Ruby source code for the Flipt [c
 gem install flipt_client
 ```
 
+## Using System Libffi
+
+If you are experiencing segfaults when using this gem, you may need to configure `ffi` to use the system libffi instead of the bundled one.
+
+You can do this before installing the gem by running the following command:
+
+```bash
+gem install ffi -- --enable-system-libffi        # to install the gem manually
+bundle config build.ffi --enable-system-libffi   # for bundle install
+```
+
 ## Usage
 
 In your Ruby code you can import this client and use it as so:
