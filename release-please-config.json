@@ -4,7 +4,7 @@
   "bump-patch-for-minor-pre-major": true,
   "draft": false,
   "prerelease": false,
-  "last-release-sha": "79dffc96117d2da9881bb8ab653d93c607fbb212",
+  "last-release-sha": "efd24b4e366626cd8bec4e7088d5e21ced79287d",
   "packages": {
     "flipt-engine-ffi": {
       "component": "flipt-engine-ffi",
