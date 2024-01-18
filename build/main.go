@@ -242,7 +242,6 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		WithWorkdir("/src").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-ruby")).
 		WithDirectory("/src/lib/ext", hostDirectory.Directory("tmp")).
-		WithExec([]string{"bundle", "config", "build.ffi", "--enable-libffi-alloc"}).
 		WithExec([]string{"bundle", "install"}).
 		WithExec([]string{"bundle", "exec", "rake", "build"})
 
