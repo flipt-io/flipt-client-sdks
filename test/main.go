@@ -210,6 +210,7 @@ func rubyTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
+		WithExec([]string{"bundle", "config", "build.ffi", "--enable-libffi-alloc"}).
 		WithExec([]string{"bundle", "install"}).
 		WithExec([]string{"bundle", "exec", "rspec"}).
 		Sync(ctx)
