@@ -36,6 +36,14 @@ module Flipt
     # const char *evaluate_boolean(void *engine_ptr, const char *evaluation_request);
     attach_function :evaluate_boolean, %i[pointer string], :string
 
+    # Create a new Flipt client
+    #
+    # @param namespace [String] namespace
+    # @param opts [Hash] options
+    # @option opts [String] :url Flipt server url
+    # @option opts [String] :auth_token Flipt api key
+    # @option opts [Integer] :update_interval interval in seconds to update the cache
+    # @option opts [String] :reference reference to use for namespace data
     def initialize(namespace = 'default', opts = {})
       @namespace = namespace
       namespace_list = [namespace]
@@ -52,6 +60,12 @@ module Flipt
       proc { destroy_engine(engine) }
     end
 
+    # Evaluate a variant flag for a given request
+    #
+    # @param evaluation_request [Hash] evaluation request
+    # @option evaluation_request [String] :entity_id entity id
+    # @option evaluation_request [String] :flag_key flag key
+    # @option evaluation_request [String] :namespace_key override namespace key
     def evaluate_variant(evaluation_request = {})
       evaluation_request[:namespace_key] = @namespace
       validate_evaluation_request(evaluation_request)
@@ -59,6 +73,12 @@ module Flipt
       JSON.parse(resp)
     end
 
+    # Evaluate a boolean flag for a given request
+    #
+    # @param evaluation_request [Hash] evaluation request
+    # @option evaluation_request [String] :entity_id entity id
+    # @option evaluation_request [String] :flag_key flag key
+    # @option evaluation_request [String] :namespace_key override namespace key
     def evaluate_boolean(evaluation_request = {})
       evaluation_request[:namespace_key] = @namespace
       validate_evaluation_request(evaluation_request)

@@ -50,7 +50,8 @@ export class FliptEvaluationClient {
     engine_opts: EngineOpts = {
       url: 'http://localhost:8080',
       update_interval: 120,
-      auth_token: ''
+      auth_token: '',
+      reference: ''
     }
   ) {
     const buf = Buffer.concat([allocCString(namespace ?? 'default')]);

@@ -9,6 +9,7 @@ interface EngineOpts {
   url?: string;
   update_interval?: number;
   auth_token?: string;
+  reference?: string;
 }
 
 interface VariantEvaluationResponse {

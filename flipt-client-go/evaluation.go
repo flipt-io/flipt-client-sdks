@@ -21,6 +21,7 @@ type Client struct {
 	namespace      string
 	url            string
 	authToken      string
+	ref            string
 	updateInterval int
 }
 
@@ -38,6 +39,7 @@ func NewClient(opts ...clientOption) (*Client, error) {
 		URL:            client.url,
 		UpdateInterval: client.updateInterval,
 		AuthToken:      client.authToken,
+		Reference:      client.ref,
 	}
 
 	b, err := json.Marshal(engOpts)
@@ -91,6 +93,13 @@ func WithUpdateInterval(updateInterval int) clientOption {
 func WithAuthToken(authToken string) clientOption {
 	return func(c *Client) {
 		c.authToken = authToken
+	}
+}
+
+// WithReference allows for specifying a reference to fetch flag state data from.
+func WithReference(ref string) clientOption {
+	return func(c *Client) {
+		c.ref = ref
 	}
 }
 
