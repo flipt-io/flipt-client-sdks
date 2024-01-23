@@ -1,4 +1,4 @@
-use reqwest::header::HeaderMap;
+use reqwest::header::{self, HeaderMap};
 use serde::Deserialize;
 
 use crate::error::Error;
@@ -42,16 +42,33 @@ impl Authentication {
     }
 }
 
+impl From<Authentication> for HeaderMap {
+    fn from(value: Authentication) -> Self {
+        let mut header_map = HeaderMap::new();
+        match value.authenticate() {
+            Some(val) => {
+                header_map.insert(
+                    header::AUTHORIZATION,
+                    header::HeaderValue::from_str(&val).unwrap(),
+                );
+
+                header_map
+            }
+            None => header_map,
+        }
+    }
+}
+
 pub struct HTTPParser {
     http_client: reqwest::blocking::Client,
     http_url: String,
-    authentication: Option<String>,
+    authentication: HeaderMap,
     reference: Option<String>,
 }
 
 pub struct HTTPParserBuilder {
     http_url: String,
-    authentication: Option<String>,
+    authentication: HeaderMap,
     reference: Option<String>,
 }
 
@@ -59,13 +76,13 @@ impl HTTPParserBuilder {
     pub fn new(http_url: &str) -> Self {
         Self {
             http_url: http_url.to_string(),
-            authentication: None,
+            authentication: HeaderMap::new(),
             reference: None,
         }
     }
 
-    pub fn authentication(mut self, authentication: &Authentication) -> Self {
-        self.authentication = authentication.authenticate();
+    pub fn authentication(mut self, authentication: Authentication) -> Self {
+        self.authentication = HeaderMap::from(authentication);
         self
     }
 
@@ -118,11 +135,8 @@ impl Parser for HTTPParser {
             reqwest::header::HeaderValue::from_static("application/json"),
         );
 
-        if let Some(ref token) = self.authentication {
-            headers.insert(
-                reqwest::header::AUTHORIZATION,
-                reqwest::header::HeaderValue::from_str(token).unwrap(),
-            );
+        for (key, value) in self.authentication.iter() {
+            headers.insert(key, value.clone());
         }
 
         let response = match self
@@ -201,7 +215,7 @@ mod tests {
         use super::HTTPParserBuilder;
 
         let parser = HTTPParserBuilder::new("http://localhost:8080")
-            .authentication(&Authentication::with_client_token("secret".into()))
+            .authentication(Authentication::with_client_token("secret".into()))
             .reference("ref")
             .build();
 
@@ -211,7 +225,7 @@ mod tests {
         );
 
         let parser = HTTPParserBuilder::new("http://localhost:8080")
-            .authentication(&Authentication::with_client_token("secret".into()))
+            .authentication(Authentication::with_client_token("secret".into()))
             .build();
 
         assert_eq!(

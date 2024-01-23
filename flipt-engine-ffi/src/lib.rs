@@ -187,7 +187,7 @@ pub unsafe extern "C" fn initialize_engine(
     let mut parser_builder = HTTPParserBuilder::new(&http_url);
 
     parser_builder = match authentication {
-        Some(authentication) => parser_builder.authentication(&authentication),
+        Some(authentication) => parser_builder.authentication(authentication),
         None => parser_builder,
     };
 

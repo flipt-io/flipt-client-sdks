@@ -9,7 +9,7 @@ fn main() {
     let evaluator = Evaluator::new_snapshot_evaluator(
         vec!["default".into()],
         HTTPParserBuilder::new("http://localhost:8080")
-            .authentication(&Authentication::with_client_token("secret".into()))
+            .authentication(Authentication::with_client_token("secret".into()))
             .build(),
     )
     .unwrap();
