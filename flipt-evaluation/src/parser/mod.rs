@@ -8,37 +8,36 @@ pub trait Parser {
     fn parse(&self, namespace: &str) -> Result<source::Document, Error>;
 }
 
-#[derive(Deserialize, Clone)]
-pub struct Authentication {
-    client_token: Option<String>,
-    jwt_token: Option<String>,
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Authentication {
+    #[default]
+    None,
+    ClientToken(String),
+    JWTToken(String),
 }
 
 impl Authentication {
     pub fn with_client_token(token: String) -> Self {
-        Self {
-            client_token: Some(token),
-            jwt_token: None,
-        }
+        Authentication::ClientToken(token)
     }
 
     pub fn with_jwt_token(token: String) -> Self {
-        Self {
-            client_token: None,
-            jwt_token: Some(token),
-        }
+        Authentication::JWTToken(token)
     }
 
     pub fn authenticate(&self) -> Option<String> {
-        if let Some(token) = &self.client_token {
-            let header_format: String = format!("Bearer {}", token).parse().unwrap();
-            return Some(header_format);
-        } else if let Some(token) = &self.jwt_token {
-            let header_format: String = format!("JWT {}", token).parse().unwrap();
-            return Some(header_format);
+        match self {
+            Authentication::ClientToken(token) => {
+                let header_format: String = format!("Bearer {}", token).parse().unwrap();
+                Some(header_format)
+            }
+            Authentication::JWTToken(token) => {
+                let header_format: String = format!("JWT {}", token).parse().unwrap();
+                Some(header_format)
+            }
+            Authentication::None => None,
         }
-
-        None
     }
 }
 

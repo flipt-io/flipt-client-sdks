@@ -64,7 +64,9 @@ class FliptEvaluationClient:
         ns = (ctypes.c_char_p * len(namespace_list))()
         ns[:] = [s.encode("utf-8") for s in namespace_list]
 
-        engine_opts_serialized = engine_opts.model_dump_json().encode("utf-8")
+        engine_opts_serialized = engine_opts.model_dump_json(exclude_none=True).encode(
+            "utf-8"
+        )
 
         self.engine = self.ffi_core.initialize_engine(ns, engine_opts_serialized)
 
