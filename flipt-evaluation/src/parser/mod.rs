@@ -1,3 +1,6 @@
+use reqwest::header::HeaderMap;
+use serde::Deserialize;
+
 use crate::error::Error;
 use crate::models::source;
 
@@ -5,16 +8,50 @@ pub trait Parser {
     fn parse(&self, namespace: &str) -> Result<source::Document, Error>;
 }
 
+#[derive(Deserialize, Clone)]
+pub struct Authentication {
+    client_token: Option<String>,
+    jwt_token: Option<String>,
+}
+
+impl Authentication {
+    pub fn with_client_token(token: String) -> Self {
+        Self {
+            client_token: Some(token),
+            jwt_token: None,
+        }
+    }
+
+    pub fn with_jwt_token(token: String) -> Self {
+        Self {
+            client_token: None,
+            jwt_token: Some(token),
+        }
+    }
+
+    pub fn authenticate(&self) -> Option<String> {
+        if let Some(token) = &self.client_token {
+            let header_format: String = format!("Bearer {}", token).parse().unwrap();
+            return Some(header_format);
+        } else if let Some(token) = &self.jwt_token {
+            let header_format: String = format!("JWT {}", token).parse().unwrap();
+            return Some(header_format);
+        }
+
+        None
+    }
+}
+
 pub struct HTTPParser {
     http_client: reqwest::blocking::Client,
     http_url: String,
-    auth_token: Option<String>,
+    authentication: Option<String>,
     reference: Option<String>,
 }
 
 pub struct HTTPParserBuilder {
     http_url: String,
-    auth_token: Option<String>,
+    authentication: Option<String>,
     reference: Option<String>,
 }
 
@@ -22,13 +59,13 @@ impl HTTPParserBuilder {
     pub fn new(http_url: &str) -> Self {
         Self {
             http_url: http_url.to_string(),
-            auth_token: None,
+            authentication: None,
             reference: None,
         }
     }
 
-    pub fn auth_token(mut self, auth_token: &str) -> Self {
-        self.auth_token = Some(auth_token.to_string());
+    pub fn authentication(mut self, authentication: &Authentication) -> Self {
+        self.authentication = authentication.authenticate();
         self
     }
 
@@ -44,7 +81,7 @@ impl HTTPParserBuilder {
                 .build()
                 .unwrap(),
             http_url: self.http_url,
-            auth_token: self.auth_token,
+            authentication: self.authentication,
             reference: self.reference,
         }
     }
@@ -71,7 +108,7 @@ impl HTTPParser {
 
 impl Parser for HTTPParser {
     fn parse(&self, namespace: &str) -> Result<source::Document, Error> {
-        let mut headers = reqwest::header::HeaderMap::new();
+        let mut headers = HeaderMap::new();
         headers.insert(
             reqwest::header::CONTENT_TYPE,
             reqwest::header::HeaderValue::from_static("application/json"),
@@ -81,10 +118,10 @@ impl Parser for HTTPParser {
             reqwest::header::HeaderValue::from_static("application/json"),
         );
 
-        if let Some(ref token) = self.auth_token {
+        if let Some(ref token) = self.authentication {
             headers.insert(
                 reqwest::header::AUTHORIZATION,
-                reqwest::header::HeaderValue::from_str(&format!("Bearer {}", token)).unwrap(),
+                reqwest::header::HeaderValue::from_str(token).unwrap(),
             );
         }
 
@@ -157,12 +194,14 @@ impl Parser for TestParser {
 
 #[cfg(test)]
 mod tests {
+    use crate::parser::Authentication;
+
     #[test]
     fn test_http_parser_url() {
         use super::HTTPParserBuilder;
 
         let parser = HTTPParserBuilder::new("http://localhost:8080")
-            .auth_token("secret")
+            .authentication(&Authentication::with_client_token("secret".into()))
             .reference("ref")
             .build();
 
@@ -172,7 +211,7 @@ mod tests {
         );
 
         let parser = HTTPParserBuilder::new("http://localhost:8080")
-            .auth_token("secret")
+            .authentication(&Authentication::with_client_token("secret".into()))
             .build();
 
         assert_eq!(

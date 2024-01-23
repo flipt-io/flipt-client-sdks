@@ -5,10 +5,20 @@ interface EvaluationRequest {
   context: object;
 }
 
-interface EngineOpts {
+interface AuthenticationStrategy {}
+
+interface ClientTokenAuthentication extends AuthenticationStrategy {
+  client_token: string;
+}
+
+interface JWTAuthentication extends AuthenticationStrategy {
+  jwt_token: string;
+}
+
+interface EngineOpts<T> {
   url?: string;
   update_interval?: number;
-  auth_token?: string;
+  authentication?: T;
   reference?: string;
 }
 
@@ -43,4 +53,12 @@ interface BooleanResult {
   error_message: string;
 }
 
-export { BooleanResult, EngineOpts, EvaluationRequest, VariantResult };
+export {
+  AuthenticationStrategy,
+  BooleanResult,
+  ClientTokenAuthentication,
+  EngineOpts,
+  EvaluationRequest,
+  JWTAuthentication,
+  VariantResult
+};

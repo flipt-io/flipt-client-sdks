@@ -26,7 +26,9 @@ func init() {
 }
 
 func TestVariant(t *testing.T) {
-	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl), evaluation.WithAuthToken(authToken))
+	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl), evaluation.WithAuthentication(evaluation.ClientTokenAuthentication{
+		Token: authToken,
+	}))
 	require.NoError(t, err)
 
 	variant, err := evaluationClient.EvaluateVariant(context.TODO(), "flag1", "someentity", map[string]string{
@@ -43,7 +45,9 @@ func TestVariant(t *testing.T) {
 }
 
 func TestBoolean(t *testing.T) {
-	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl), evaluation.WithAuthToken(authToken))
+	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl), evaluation.WithAuthentication(evaluation.ClientTokenAuthentication{
+		Token: authToken,
+	}))
 	require.NoError(t, err)
 
 	boolean, err := evaluationClient.EvaluateBoolean(context.TODO(), "flag_boolean", "someentity", map[string]string{
@@ -59,7 +63,9 @@ func TestBoolean(t *testing.T) {
 }
 
 func TestVariantFailure(t *testing.T) {
-	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl), evaluation.WithAuthToken(authToken))
+	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl), evaluation.WithAuthentication(evaluation.ClientTokenAuthentication{
+		Token: authToken,
+	}))
 	require.NoError(t, err)
 
 	variant, err := evaluationClient.EvaluateVariant(context.TODO(), "nonexistent", "someentity", map[string]string{
@@ -73,7 +79,9 @@ func TestVariantFailure(t *testing.T) {
 }
 
 func TestBooleanFailure(t *testing.T) {
-	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl), evaluation.WithAuthToken(authToken))
+	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl), evaluation.WithAuthentication(evaluation.ClientTokenAuthentication{
+		Token: authToken,
+	}))
 	require.NoError(t, err)
 
 	boolean, err := evaluationClient.EvaluateBoolean(context.TODO(), "nonexistent", "someentity", map[string]string{

@@ -9,10 +9,23 @@ class EvaluationRequest(BaseModel):
     context: dict
 
 
+class AuthenticationStrategy(BaseModel):
+    client_token: Optional[str] = None
+    jwt_token: Optional[str] = None
+
+
+class ClientTokenAuthentication(AuthenticationStrategy):
+    client_token: str
+
+
+class JWTAuthentication(AuthenticationStrategy):
+    jwt_token: str
+
+
 class EngineOpts(BaseModel):
     url: Optional[str] = None
     update_interval: Optional[int] = None
-    auth_token: Optional[str] = None
+    authentication: Optional[AuthenticationStrategy] = None
     reference: Optional[str] = None
 
 
