@@ -6,7 +6,7 @@ RSpec.describe Flipt::EvaluationClient do
   before(:all) do
     url = ENV.fetch('FLIPT_URL', 'http://localhost:8080')
     auth_token = ENV.fetch('FLIPT_AUTH_TOKEN', 'secret')
-    @client = Flipt::EvaluationClient.new('default', { url: url, authentication: { client_token: auth_token } })
+    @client = Flipt::EvaluationClient.new('default', { url: url, authentication: Flipt::ClientTokenAuthentication.new(auth_token)} )
   end
 
   describe '#evaluate_variant' do

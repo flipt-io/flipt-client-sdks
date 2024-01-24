@@ -235,10 +235,19 @@ mod tests {
     }
 
     #[test]
+    fn test_deserialize_no_auth() {
+        let json = r#""#;
+
+        let unwrapped_string: Authentication = serde_json::from_str(&json).unwrap_or_default();
+
+        assert_eq!(unwrapped_string, Authentication::None);
+    }
+
+    #[test]
     fn test_deserialize_client_token() {
         let json = r#"{"client_token":"secret"}"#;
 
-        let unwrapped_string: Authentication = serde_json::from_str(&json).unwrap();
+        let unwrapped_string: Authentication = serde_json::from_str(&json).unwrap_or_default();
 
         assert_eq!(
             unwrapped_string,
@@ -250,7 +259,7 @@ mod tests {
     fn test_deserialize_jwt_token() {
         let json = r#"{"jwt_token":"secret"}"#;
 
-        let unwrapped_string: Authentication = serde_json::from_str(&json).unwrap();
+        let unwrapped_string: Authentication = serde_json::from_str(&json).unwrap_or_default();
 
         assert_eq!(unwrapped_string, Authentication::JwtToken("secret".into()));
     }

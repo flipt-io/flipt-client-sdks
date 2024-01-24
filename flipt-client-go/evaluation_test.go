@@ -7,11 +7,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	evaluation "go.flipt.io/flipt-client"
+	flipt "go.flipt.io/flipt-client"
 )
 
-var fliptUrl string
-var authToken string
+var (
+	fliptUrl  string
+	authToken string
+)
 
 func init() {
 	fliptUrl = os.Getenv("FLIPT_URL")
@@ -26,9 +28,7 @@ func init() {
 }
 
 func TestVariant(t *testing.T) {
-	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl), evaluation.WithAuthentication(evaluation.ClientTokenAuthentication{
-		Token: authToken,
-	}))
+	evaluationClient, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
 	require.NoError(t, err)
 
 	variant, err := evaluationClient.EvaluateVariant(context.TODO(), "flag1", "someentity", map[string]string{
@@ -45,9 +45,7 @@ func TestVariant(t *testing.T) {
 }
 
 func TestBoolean(t *testing.T) {
-	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl), evaluation.WithAuthentication(evaluation.ClientTokenAuthentication{
-		Token: authToken,
-	}))
+	evaluationClient, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
 	require.NoError(t, err)
 
 	boolean, err := evaluationClient.EvaluateBoolean(context.TODO(), "flag_boolean", "someentity", map[string]string{
@@ -63,9 +61,7 @@ func TestBoolean(t *testing.T) {
 }
 
 func TestVariantFailure(t *testing.T) {
-	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl), evaluation.WithAuthentication(evaluation.ClientTokenAuthentication{
-		Token: authToken,
-	}))
+	evaluationClient, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
 	require.NoError(t, err)
 
 	variant, err := evaluationClient.EvaluateVariant(context.TODO(), "nonexistent", "someentity", map[string]string{
@@ -79,9 +75,7 @@ func TestVariantFailure(t *testing.T) {
 }
 
 func TestBooleanFailure(t *testing.T) {
-	evaluationClient, err := evaluation.NewClient(evaluation.WithURL(fliptUrl), evaluation.WithAuthentication(evaluation.ClientTokenAuthentication{
-		Token: authToken,
-	}))
+	evaluationClient, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
 	require.NoError(t, err)
 
 	boolean, err := evaluationClient.EvaluateBoolean(context.TODO(), "nonexistent", "someentity", map[string]string{

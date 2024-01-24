@@ -89,17 +89,21 @@ func WithUpdateInterval(updateInterval int) clientOption {
 	}
 }
 
-// WithAuthentication allows for configuring an authentication method to communicate with a protected Flipt server.
-func WithAuthentication(authentication any) clientOption {
+// WithClientTokenAuthentication allows authenticating with Flipt using a static client token.
+func WithClientTokenAuthentication(token string) clientOption {
 	return func(c *Client) {
-		c.authentication = authentication
+		c.authentication = clientTokenAuthentication{
+			Token: token,
+		}
 	}
 }
 
-// WithReference allows for specifying a reference to fetch flag state data from.
-func WithReference(ref string) clientOption {
+// WithJWTAuthentication allows authenticating with Flipt using a JSON Web Token.
+func WithJWTAuthentication(token string) clientOption {
 	return func(c *Client) {
-		c.ref = ref
+		c.authentication = jwtAuthentication{
+			Token: token,
+		}
 	}
 }
 
