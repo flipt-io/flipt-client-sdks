@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'flipt_client/version'
+require 'flipt_client/models'
 require 'ffi'
 require 'json'
 
@@ -41,11 +42,18 @@ module Flipt
     # @param namespace [String] namespace
     # @param opts [Hash] options
     # @option opts [String] :url Flipt server url
-    # @option opts [String] :auth_token Flipt api key
+    # @option opts [AuthenticationStrategy] :authentication strategy to authenticate with Flipt
     # @option opts [Integer] :update_interval interval in seconds to update the cache
     # @option opts [String] :reference reference to use for namespace data
     def initialize(namespace = 'default', opts = {})
       @namespace = namespace
+
+      # set default no auth if not provided
+      authentication = opts.fetch(:authentication, Flipt::NoAuthentication.new)
+      raise ArgumentError, "invalid authentication strategy" unless authentication && authentication.is_a?(Flipt::AuthenticationStrategy)
+
+      opts[:authentication] = authentication.strategy
+
       namespace_list = [namespace]
       ns = FFI::MemoryPointer.new(:pointer, namespace_list.size)
       namespace_list.each_with_index do |namespace, i|

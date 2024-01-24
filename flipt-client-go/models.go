@@ -7,11 +7,11 @@ type evaluationRequest struct {
 	Context      map[string]string `json:"context"`
 }
 
-type ClientTokenAuthentication struct {
+type clientTokenAuthentication struct {
 	Token string `json:"client_token"`
 }
 
-type JWTAuthentication struct {
+type jwtAuthentication struct {
 	Token string `json:"jwt_token"`
 }
 
