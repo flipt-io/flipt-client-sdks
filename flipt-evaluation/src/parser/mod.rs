@@ -9,12 +9,13 @@ pub trait Parser {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+#[cfg_attr(test, derive(PartialEq))]
 #[serde(rename_all = "snake_case")]
 pub enum Authentication {
     #[default]
     None,
     ClientToken(String),
-    JWTToken(String),
+    JwtToken(String),
 }
 
 impl Authentication {
@@ -23,7 +24,7 @@ impl Authentication {
     }
 
     pub fn with_jwt_token(token: String) -> Self {
-        Authentication::JWTToken(token)
+        Authentication::JwtToken(token)
     }
 
     pub fn authenticate(&self) -> Option<String> {
@@ -32,7 +33,7 @@ impl Authentication {
                 let header_format: String = format!("Bearer {}", token).parse().unwrap();
                 Some(header_format)
             }
-            Authentication::JWTToken(token) => {
+            Authentication::JwtToken(token) => {
                 let header_format: String = format!("JWT {}", token).parse().unwrap();
                 Some(header_format)
             }
@@ -231,5 +232,26 @@ mod tests {
             parser.url("default"),
             "http://localhost:8080/internal/v1/evaluation/snapshot/namespace/default"
         );
+    }
+
+    #[test]
+    fn test_deserialize_client_token() {
+        let json = r#"{"client_token":"secret"}"#;
+
+        let unwrapped_string: Authentication = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(
+            unwrapped_string,
+            Authentication::ClientToken("secret".into())
+        );
+    }
+
+    #[test]
+    fn test_deserialize_jwt_token() {
+        let json = r#"{"jwt_token":"secret"}"#;
+
+        let unwrapped_string: Authentication = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(unwrapped_string, Authentication::JwtToken("secret".into()));
     }
 }
