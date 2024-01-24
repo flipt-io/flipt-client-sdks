@@ -89,7 +89,7 @@ func WithUpdateInterval(updateInterval int) clientOption {
 	}
 }
 
-// WithClientTokenAuthentication allows authenticationg with Flipt using a static client token.
+// WithClientTokenAuthentication allows authenticating with Flipt using a static client token.
 func WithClientTokenAuthentication(token string) clientOption {
 	return func(c *Client) {
 		c.authentication = clientTokenAuthentication{
@@ -98,7 +98,7 @@ func WithClientTokenAuthentication(token string) clientOption {
 	}
 }
 
-// WithJWTAuthentication allows authenticationg with Flipt using a JSON Web Token.
+// WithJWTAuthentication allows authenticating with Flipt using a JSON Web Token.
 func WithJWTAuthentication(token string) clientOption {
 	return func(c *Client) {
 		c.authentication = jwtAuthentication{
