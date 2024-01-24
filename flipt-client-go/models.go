@@ -7,9 +7,17 @@ type evaluationRequest struct {
 	Context      map[string]string `json:"context"`
 }
 
-type EngineOpts struct {
+type ClientTokenAuthentication struct {
+	Token string `json:"client_token"`
+}
+
+type JWTAuthentication struct {
+	Token string `json:"jwt_token"`
+}
+
+type EngineOpts[T any] struct {
 	URL            string `json:"url,omitempty"`
-	AuthToken      string `json:"auth_token,omitempty"`
+	Authentication *T     `json:"authentication,omitempty"`
 	UpdateInterval int    `json:"update_interval,omitempty"`
 	Reference      string `json:"reference,omitempty"`
 }

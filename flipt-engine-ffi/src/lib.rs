@@ -1,5 +1,5 @@
 use fliptevaluation::error::Error;
-use fliptevaluation::parser::{HTTPParser, HTTPParserBuilder};
+use fliptevaluation::parser::{Authentication, HTTPParser, HTTPParserBuilder};
 use fliptevaluation::store::Snapshot;
 use fliptevaluation::{
     BooleanEvaluationResponse, EvaluationRequest, Evaluator, VariantEvaluationResponse,
@@ -67,7 +67,7 @@ fn result_to_json_ptr<T: Serialize>(result: Result<T, Error>) -> *mut c_char {
 #[derive(Deserialize)]
 pub struct EngineOpts {
     url: Option<String>,
-    auth_token: Option<String>,
+    authentication: Option<Authentication>,
     update_interval: Option<u64>,
     reference: Option<String>,
 }
@@ -76,7 +76,7 @@ impl Default for EngineOpts {
     fn default() -> Self {
         Self {
             url: Some("http://localhost:8080".into()),
-            auth_token: None,
+            authentication: None,
             update_interval: Some(120),
             reference: None,
         }
@@ -181,13 +181,13 @@ pub unsafe extern "C" fn initialize_engine(
         .to_owned()
         .unwrap_or("http://localhost:8080".into());
 
-    let auth_token = engine_opts.auth_token.to_owned();
+    let authentication = engine_opts.authentication.to_owned();
     let reference = engine_opts.reference.to_owned();
 
     let mut parser_builder = HTTPParserBuilder::new(&http_url);
 
-    parser_builder = match auth_token {
-        Some(token) => parser_builder.auth_token(&token),
+    parser_builder = match authentication {
+        Some(authentication) => parser_builder.authentication(authentication),
         None => parser_builder,
     };
 

@@ -2,6 +2,7 @@ import * as ffi from 'ffi-napi';
 import { Pointer, alloc, allocCString } from 'ref-napi';
 import * as os from 'os';
 import {
+  AuthenticationStrategy,
   BooleanResult,
   EngineOpts,
   EvaluationRequest,
@@ -47,10 +48,9 @@ export class FliptEvaluationClient {
 
   public constructor(
     namespace?: string,
-    engine_opts: EngineOpts = {
+    engine_opts: EngineOpts<AuthenticationStrategy> = {
       url: 'http://localhost:8080',
       update_interval: 120,
-      auth_token: '',
       reference: ''
     }
   ) {

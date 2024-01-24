@@ -33,7 +33,9 @@ require 'flipt_client'
 # {
 #   "url": "http://localhost:8080",
 #   "update_interval": 120,
-#   "auth_token": "secret"
+#   "authentication": {
+#     "client_token": "secret" 
+#   }
 # }
 # 
 # You can replace the url with where your upstream Flipt instance points to, the update interval for how long you are willing

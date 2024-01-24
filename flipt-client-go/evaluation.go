@@ -20,7 +20,7 @@ type Client struct {
 	engine         unsafe.Pointer
 	namespace      string
 	url            string
-	authToken      string
+	authentication any
 	ref            string
 	updateInterval int
 }
@@ -35,10 +35,10 @@ func NewClient(opts ...clientOption) (*Client, error) {
 		opt(client)
 	}
 
-	engOpts := &EngineOpts{
+	engOpts := &EngineOpts[any]{
 		URL:            client.url,
 		UpdateInterval: client.updateInterval,
-		AuthToken:      client.authToken,
+		Authentication: &client.authentication,
 		Reference:      client.ref,
 	}
 
@@ -89,10 +89,10 @@ func WithUpdateInterval(updateInterval int) clientOption {
 	}
 }
 
-// WithAuthToken allows for configuring an auth token to communicate with a protected Flipt server.
-func WithAuthToken(authToken string) clientOption {
+// WithAuthentication allows for configuring an authentication method to communicate with a protected Flipt server.
+func WithAuthentication(authentication any) clientOption {
 	return func(c *Client) {
-		c.authToken = authToken
+		c.authentication = authentication
 	}
 }
 

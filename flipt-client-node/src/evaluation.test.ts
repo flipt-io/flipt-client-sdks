@@ -1,4 +1,5 @@
 import { FliptEvaluationClient } from '.';
+import { ClientTokenAuthentication } from './models';
 
 const fliptUrl = process.env['FLIPT_URL'];
 if (!fliptUrl) {
@@ -15,7 +16,9 @@ if (!authToken) {
 test('variant', () => {
   const client = new FliptEvaluationClient('default', {
     url: fliptUrl,
-    auth_token: authToken
+    authentication: {
+      client_token: authToken
+    }
   });
 
   try {
@@ -39,7 +42,9 @@ test('variant', () => {
 test('boolean', () => {
   const client = new FliptEvaluationClient('default', {
     url: fliptUrl,
-    auth_token: authToken
+    authentication: {
+      client_token: authToken
+    }
   });
 
   try {
@@ -61,7 +66,9 @@ test('boolean', () => {
 test('variant failure', () => {
   const client = new FliptEvaluationClient('default', {
     url: fliptUrl,
-    auth_token: authToken
+    authentication: {
+      client_token: authToken
+    }
   });
 
   try {
@@ -82,7 +89,9 @@ test('variant failure', () => {
 test('boolean failure', () => {
   const client = new FliptEvaluationClient('default', {
     url: fliptUrl,
-    auth_token: authToken
+    authentication: {
+      client_token: authToken
+    }
   });
 
   try {
