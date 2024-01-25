@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.0](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.0.5...flipt-engine-ffi-v0.1.0) (2024-01-25)
+
+
+### Features
+
+* **authentication:** add support for substitutable authentication methods ([c01cb48](https://github.com/flipt-io/flipt-client-sdks/commit/c01cb4859d4e51a7f04eaa46ca36256c81f69a3c))
+
+
+### Miscellaneous Chores
+
+* release 0.1.0 ([fb9053a](https://github.com/flipt-io/flipt-client-sdks/commit/fb9053aeb21538b8ccb85dd67518e07a45c2f1b6))
+
 ## [0.0.5](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.0.4...flipt-engine-ffi-v0.0.5) (2024-01-18)
 
 
