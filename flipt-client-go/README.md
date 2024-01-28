@@ -1,6 +1,7 @@
 # Flipt Client Go
 
 [![Client tag](https://img.shields.io/github/v/tag/flipt-io/flipt-client-go?label=latest)](https://github.com/flipt-io/flipt-client-go)
+[![Go Reference](https://pkg.go.dev/badge/go.flipt.io/flipt-client.svg)](https://pkg.go.dev/go.flipt.io/flipt-client)
 
 The `flipt-client-go` directory contains the Go source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client.
 
@@ -26,11 +27,6 @@ import (
 )
 
 func main() {
-  // The NewClient() accepts options which are the following:
-  // flipt.WithNamespace(string): configures which namespace you will be making evaluations on
-  // flipt.WithURL(string): configures which upstream Flipt data should be fetched from
-  // flipt.WithUpdateInterval(int): configures how often data should be fetched from the upstream
-  // flipt.WithAuthentication(any): configures an authentication method if your upstream Flipt instance requires it
   evaluationClient, err := flipt.NewClient()
   if err != nil {
     log.Fatal(err)
