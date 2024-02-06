@@ -37,6 +37,38 @@ RSpec.describe Flipt::EvaluationClient do
     end
   end
 
+  describe '#evaluate_batch' do
+    it 'returns a batch result' do
+      resp = @client.evaluate_batch([{ flag_key: 'flag1', entity_id: 'someentity', context: { "fizz": 'buzz' } }, { flag_key: 'flag_boolean', entity_id: 'someentity', context: { "fizz": 'buzz' } }, { flag_key: 'notfound', entity_id: 'someentity', context: { "fizz": 'buzz' } }])
+
+      expect(resp).to_not be_nil
+      expect(resp['status']).to eq('success')
+      expect(resp['error_message']).to be_nil
+
+      expect(resp['result']['responses'].length).to be == 3
+      
+      variant = resp['result']['responses'][0]
+      expect(variant['type']).to eq('VARIANT_EVALUATION_RESPONSE_TYPE')
+      expect(variant['variant_evaluation_response']['flag_key']).to eq('flag1')
+      expect(variant['variant_evaluation_response']['match']).to eq(true)
+      expect(variant['variant_evaluation_response']['reason']).to eq('MATCH_EVALUATION_REASON')
+      expect(variant['variant_evaluation_response']['variant_key']).to eq('variant1')
+      expect(variant['variant_evaluation_response']['segment_keys']).to eq(['segment1'])
+      
+      boolean = resp['result']['responses'][1]
+      expect(boolean['type']).to eq('BOOLEAN_EVALUATION_RESPONSE_TYPE')
+      expect(boolean['boolean_evaluation_response']['flag_key']).to eq('flag_boolean')
+      expect(boolean['boolean_evaluation_response']['enabled']).to eq(true)
+      expect(boolean['boolean_evaluation_response']['reason']).to eq('MATCH_EVALUATION_REASON')
+
+      error = resp['result']['responses'][2]
+      expect(error['type']).to eq('ERROR_EVALUATION_RESPONSE_TYPE')
+      expect(error['error_evaluation_response']['flag_key']).to eq('notfound')
+      expect(error['error_evaluation_response']['namespace_key']).to eq('default')
+      expect(error['error_evaluation_response']['reason']).to eq('NOT_FOUND_ERROR_EVALUATION_REASON')
+    end
+  end
+
   describe '#evaluate_variant failure' do
     it 'gracefully handles failures for variant flag evaluation' do
       resp = @client.evaluate_variant({ flag_key: 'nonexistent', entity_id: 'someentity', context: { "fizz": 'buzz' } })
