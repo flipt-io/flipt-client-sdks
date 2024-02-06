@@ -7,7 +7,7 @@ type evaluationRequest struct {
 	Context      map[string]string `json:"context"`
 }
 
-type InputEvaluationRequest struct {
+type EvaluationRequest struct {
 	FlagKey  string            `json:"flag_key"`
 	EntityId string            `json:"entity_id"`
 	Context  map[string]string `json:"context"`

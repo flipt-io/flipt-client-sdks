@@ -1,10 +1,3 @@
-interface EvaluationRequest {
-  namespace_key: string;
-  flag_key: string;
-  entity_id: string;
-  context: object;
-}
-
 interface AuthenticationStrategy {}
 
 interface ClientTokenAuthentication extends AuthenticationStrategy {
@@ -22,7 +15,7 @@ interface EngineOpts<T> {
   reference?: string;
 }
 
-interface InputEvaluationRequest {
+interface EvaluationRequest {
   flag_key: string;
   entity_id: string;
   context: object;
@@ -90,7 +83,6 @@ export {
   ClientTokenAuthentication,
   EngineOpts,
   EvaluationRequest,
-  InputEvaluationRequest,
   JWTAuthentication,
   VariantResult
 };

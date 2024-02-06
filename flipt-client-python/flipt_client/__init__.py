@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 import ctypes
 import os
 import platform
@@ -5,13 +6,19 @@ import platform
 from .models import (
     BatchResult,
     BooleanResult,
-    InputEvaluationRequest,
     EngineOpts,
     EvaluationRequest,
     VariantResult,
 )
 
 from typing import List
+
+
+class EvalRequest(BaseModel):
+    namespace_key: str
+    flag_key: str
+    entity_id: str
+    context: dict
 
 
 class FliptEvaluationClient:
@@ -113,12 +120,12 @@ class FliptEvaluationClient:
 
         return boolean_result
 
-    def evaluate_batch(self, requests: List[InputEvaluationRequest]) -> BatchResult:
+    def evaluate_batch(self, requests: List[EvaluationRequest]) -> BatchResult:
         evaluation_requests = []
 
         for r in requests:
             evaluation_requests.append(
-                EvaluationRequest(
+                EvalRequest(
                     namespace_key=self.namespace_key,
                     flag_key=r.flag_key,
                     entity_id=r.entity_id,
@@ -146,7 +153,7 @@ class FliptEvaluationClient:
 def serialize_evaluation_request(
     namespace_key: str, flag_key: str, entity_id: str, context: dict
 ) -> str:
-    evaluation_request = EvaluationRequest(
+    evaluation_request = EvalRequest(
         namespace_key=namespace_key,
         flag_key=flag_key,
         entity_id=entity_id,

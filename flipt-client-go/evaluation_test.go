@@ -64,7 +64,7 @@ func TestBatch(t *testing.T) {
 	evaluationClient, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
 	require.NoError(t, err)
 
-	batch, err := evaluationClient.EvaluateBatch(context.TODO(), []*flipt.InputEvaluationRequest{
+	batch, err := evaluationClient.EvaluateBatch(context.TODO(), []*flipt.EvaluationRequest{
 		{
 			FlagKey:  "flag1",
 			EntityId: "someentity",

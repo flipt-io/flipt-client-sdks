@@ -2,7 +2,8 @@ use fliptevaluation::error::Error;
 use fliptevaluation::parser::{Authentication, HTTPParser, HTTPParserBuilder};
 use fliptevaluation::store::Snapshot;
 use fliptevaluation::{
-    BooleanEvaluationResponse, EvaluationRequest, Evaluator, VariantEvaluationResponse, BatchEvaluationResponse,
+    BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest, Evaluator,
+    VariantEvaluationResponse,
 };
 use libc::c_void;
 use serde::{Deserialize, Serialize};
@@ -255,13 +256,16 @@ pub unsafe extern "C" fn evaluate_batch(
     result_to_json_ptr(e.batch(req))
 }
 
-unsafe fn get_batch_evaluation_request(batch_evaluation_request: *const c_char) -> Vec<EvaluationRequest> {
+unsafe fn get_batch_evaluation_request(
+    batch_evaluation_request: *const c_char,
+) -> Vec<EvaluationRequest> {
     let evaluation_request_bytes = CStr::from_ptr(batch_evaluation_request).to_bytes();
     let bytes_str_repr = std::str::from_utf8(evaluation_request_bytes).unwrap();
 
     let batch_eval_request: Vec<EvalRequest> = serde_json::from_str(bytes_str_repr).unwrap();
 
-    let mut evaluation_requests: Vec<EvaluationRequest> = Vec::with_capacity(batch_eval_request.len());
+    let mut evaluation_requests: Vec<EvaluationRequest> =
+        Vec::with_capacity(batch_eval_request.len());
     for req in batch_eval_request {
         let mut context_map: HashMap<String, String> = HashMap::new();
         if let Some(context_value) = req.context {

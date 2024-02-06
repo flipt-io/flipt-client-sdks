@@ -3,13 +3,6 @@ from typing import List, Optional
 
 
 class EvaluationRequest(BaseModel):
-    namespace_key: str
-    flag_key: str
-    entity_id: str
-    context: dict
-
-
-class InputEvaluationRequest(BaseModel):
     flag_key: str
     entity_id: str
     context: dict

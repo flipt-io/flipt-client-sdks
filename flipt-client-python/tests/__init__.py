@@ -4,7 +4,7 @@ from flipt_client import FliptEvaluationClient
 from flipt_client.models import (
     ClientTokenAuthentication,
     EngineOpts,
-    InputEvaluationRequest,
+    EvaluationRequest,
 )
 
 
@@ -50,17 +50,17 @@ class TestFliptEvaluationClient(unittest.TestCase):
     def test_batch(self):
         batch = self.flipt_client.evaluate_batch(
             [
-                InputEvaluationRequest(
+                EvaluationRequest(
                     flag_key="flag1",
                     entity_id="someentity",
                     context={"fizz": "buzz"},
                 ),
-                InputEvaluationRequest(
+                EvaluationRequest(
                     flag_key="flag_boolean",
                     entity_id="someentity",
                     context={"fizz": "buzz"},
                 ),
-                InputEvaluationRequest(
+                EvaluationRequest(
                     flag_key="notfound",
                     entity_id="someentity",
                     context={"fizz": "buzz"},
