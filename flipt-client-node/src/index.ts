@@ -4,6 +4,7 @@ import * as os from 'os';
 import {
   AuthenticationStrategy,
   BooleanResult,
+  BatchResult,
   EngineOpts,
   EvaluationRequest,
   VariantResult
@@ -11,6 +12,13 @@ import {
 import * as path from 'path';
 
 let libfile = '';
+
+interface EvalRequest {
+  namespace_key: string;
+  flag_key: string;
+  entity_id: string;
+  context: object;
+}
 
 // get absolute path to libfliptengine
 switch (os.platform()) {
@@ -39,6 +47,7 @@ const engineLib = ffi.Library(libfile, {
   initialize_engine: ['void *', ['char **', 'string']],
   evaluate_variant: ['string', ['void *', 'string']],
   evaluate_boolean: ['string', ['void *', 'string']],
+  evaluate_batch: ['string', ['void *', 'string']],
   destroy_engine: ['void', ['void *']]
 });
 
@@ -68,7 +77,7 @@ export class FliptEvaluationClient {
     entity_id: string,
     context: {}
   ): VariantResult {
-    const evaluation_request: EvaluationRequest = {
+    const evaluation_request: EvalRequest = {
       namespace_key: this.namespace,
       flag_key: flag_key,
       entity_id: entity_id,
@@ -92,7 +101,7 @@ export class FliptEvaluationClient {
     entity_id: string,
     context: {}
   ): BooleanResult {
-    const evaluation_request: EvaluationRequest = {
+    const evaluation_request: EvalRequest = {
       namespace_key: this.namespace,
       flag_key: flag_key,
       entity_id: entity_id,
@@ -106,6 +115,29 @@ export class FliptEvaluationClient {
 
     if (response === null) {
       throw new Error('Failed to evaluate boolean');
+    }
+
+    return JSON.parse(Buffer.from(response).toString('utf-8'));
+  }
+
+  public evaluateBatch(requests: EvaluationRequest[]): BatchResult {
+    const evaluationRequests: EvalRequest[] = [];
+    for (const request of requests) {
+      evaluationRequests.push({
+        namespace_key: this.namespace,
+        flag_key: request.flag_key,
+        entity_id: request.entity_id,
+        context: request.context
+      });
+    }
+
+    const response = engineLib.evaluate_batch(
+      this.engine,
+      allocCString(JSON.stringify(evaluationRequests))
+    );
+
+    if (response === null) {
+      throw new Error('Failed to evaluate batch');
     }
 
     return JSON.parse(Buffer.from(response).toString('utf-8'));

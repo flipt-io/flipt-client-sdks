@@ -3,7 +3,6 @@ from typing import List, Optional
 
 
 class EvaluationRequest(BaseModel):
-    namespace_key: str
     flag_key: str
     entity_id: str
     context: dict
@@ -48,6 +47,24 @@ class BooleanEvaluationResponse(BaseModel):
     timestamp: str
 
 
+class ErrorEvaluationResponse(BaseModel):
+    flag_key: str
+    namespace_key: str
+    reason: str
+
+
+class EvaluationResponse(BaseModel):
+    type: str
+    boolean_evaluation_response: Optional[BooleanEvaluationResponse] = None
+    variant_evaluation_response: Optional[VariantEvaluationResponse] = None
+    error_evaluation_response: Optional[ErrorEvaluationResponse] = None
+
+
+class BatchEvaluationResponse(BaseModel):
+    responses: List[EvaluationResponse]
+    request_duration_millis: float
+
+
 class VariantResult(BaseModel):
     status: str
     result: Optional[VariantEvaluationResponse] = None
@@ -57,4 +74,10 @@ class VariantResult(BaseModel):
 class BooleanResult(BaseModel):
     status: str
     result: Optional[BooleanEvaluationResponse] = None
+    error_message: Optional[str] = None
+
+
+class BatchResult(BaseModel):
+    status: str
+    result: Optional[BatchEvaluationResponse] = None
     error_message: Optional[str] = None

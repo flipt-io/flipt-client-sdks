@@ -2,7 +2,8 @@ use fliptevaluation::error::Error;
 use fliptevaluation::parser::{Authentication, HTTPParser, HTTPParserBuilder};
 use fliptevaluation::store::Snapshot;
 use fliptevaluation::{
-    BooleanEvaluationResponse, EvaluationRequest, Evaluator, VariantEvaluationResponse,
+    BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest, Evaluator,
+    VariantEvaluationResponse,
 };
 use libc::c_void;
 use serde::{Deserialize, Serialize};
@@ -130,6 +131,16 @@ impl Engine {
 
         lock.boolean(evaluation_request)
     }
+
+    pub fn batch(
+        &self,
+        batch_evaluation_request: Vec<EvaluationRequest>,
+    ) -> Result<BatchEvaluationResponse, Error> {
+        let binding = self.evaluator.clone();
+        let lock = binding.lock().unwrap();
+
+        lock.batch(batch_evaluation_request)
+    }
 }
 
 /// # Safety
@@ -229,6 +240,51 @@ pub unsafe extern "C" fn evaluate_boolean(
     let e_req = get_evaluation_request(evaluation_request);
 
     result_to_json_ptr(e.boolean(&e_req))
+}
+
+/// # Safety
+///
+/// This function will take in a pointer to the engine and return a batch evaluation response.
+#[no_mangle]
+pub unsafe extern "C" fn evaluate_batch(
+    engine_ptr: *mut c_void,
+    batch_evaluation_request: *const c_char,
+) -> *const c_char {
+    let e = get_engine(engine_ptr).unwrap();
+    let req = get_batch_evaluation_request(batch_evaluation_request);
+
+    result_to_json_ptr(e.batch(req))
+}
+
+unsafe fn get_batch_evaluation_request(
+    batch_evaluation_request: *const c_char,
+) -> Vec<EvaluationRequest> {
+    let evaluation_request_bytes = CStr::from_ptr(batch_evaluation_request).to_bytes();
+    let bytes_str_repr = std::str::from_utf8(evaluation_request_bytes).unwrap();
+
+    let batch_eval_request: Vec<EvalRequest> = serde_json::from_str(bytes_str_repr).unwrap();
+
+    let mut evaluation_requests: Vec<EvaluationRequest> =
+        Vec::with_capacity(batch_eval_request.len());
+    for req in batch_eval_request {
+        let mut context_map: HashMap<String, String> = HashMap::new();
+        if let Some(context_value) = req.context {
+            for (key, value) in context_value {
+                if let serde_json::Value::String(val) = value {
+                    context_map.insert(key, val);
+                }
+            }
+        }
+
+        evaluation_requests.push(EvaluationRequest {
+            namespace_key: req.namespace_key,
+            flag_key: req.flag_key,
+            entity_id: req.entity_id,
+            context: context_map,
+        });
+    }
+
+    evaluation_requests
 }
 
 unsafe fn get_evaluation_request(evaluation_request: *const c_char) -> EvaluationRequest {

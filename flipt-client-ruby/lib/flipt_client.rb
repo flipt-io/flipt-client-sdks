@@ -36,6 +36,8 @@ module Flipt
     attach_function :evaluate_variant, %i[pointer string], :string
     # const char *evaluate_boolean(void *engine_ptr, const char *evaluation_request);
     attach_function :evaluate_boolean, %i[pointer string], :string
+    # const char *evaluate_batch(void *engine_ptr, const char *batch_evaluation_request);
+    attach_function :evaluate_batch, %i[pointer string], :string
 
     # Create a new Flipt client
     #
@@ -91,6 +93,22 @@ module Flipt
       evaluation_request[:namespace_key] = @namespace
       validate_evaluation_request(evaluation_request)
       resp = self.class.evaluate_boolean(@engine, evaluation_request.to_json)
+      JSON.parse(resp)
+    end
+  
+    # Evaluate a batch of flags for a given request
+    #
+    # @param batch_evaluation_request [Array<Hash>] batch evaluation request
+    #   - :entity_id [String] entity id
+    #   - :flag_key [String] flag key
+    #   - :namespace_key [String] override namespace key
+    def evaluate_batch(batch_evaluation_request = [])
+      for request in batch_evaluation_request do
+        request[:namespace_key] = @namespace
+        validate_evaluation_request(request)
+      end
+
+      resp = self.class.evaluate_batch(@engine, batch_evaluation_request.to_json)
       JSON.parse(resp)
     end
 

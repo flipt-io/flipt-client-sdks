@@ -60,6 +60,60 @@ func TestBoolean(t *testing.T) {
 	assert.Equal(t, "MATCH_EVALUATION_REASON", boolean.Result.Reason)
 }
 
+func TestBatch(t *testing.T) {
+	evaluationClient, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
+	require.NoError(t, err)
+
+	batch, err := evaluationClient.EvaluateBatch(context.TODO(), []*flipt.EvaluationRequest{
+		{
+			FlagKey:  "flag1",
+			EntityId: "someentity",
+			Context: map[string]string{
+				"fizz": "buzz",
+			},
+		},
+		{
+			FlagKey:  "flag_boolean",
+			EntityId: "someentity",
+			Context: map[string]string{
+				"fizz": "buzz",
+			},
+		},
+		{
+			FlagKey:  "notfound",
+			EntityId: "someentity",
+			Context: map[string]string{
+				"fizz": "buzz",
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, "success", batch.Status)
+	assert.Empty(t, batch.ErrorMessage)
+
+	assert.Len(t, batch.Result.Responses, 3)
+
+	variant := batch.Result.Responses[0]
+	assert.Equal(t, "VARIANT_EVALUATION_RESPONSE_TYPE", variant.Type)
+	assert.True(t, variant.VariantEvaluationResponse.Match)
+	assert.Equal(t, "flag1", variant.VariantEvaluationResponse.FlagKey)
+	assert.Equal(t, "MATCH_EVALUATION_REASON", variant.VariantEvaluationResponse.Reason)
+	assert.Contains(t, variant.VariantEvaluationResponse.SegmentKeys, "segment1")
+
+	boolean := batch.Result.Responses[1]
+	assert.Equal(t, "BOOLEAN_EVALUATION_RESPONSE_TYPE", boolean.Type)
+	assert.Equal(t, "flag_boolean", boolean.BooleanEvaluationResponse.FlagKey)
+	assert.True(t, boolean.BooleanEvaluationResponse.Enabled)
+	assert.Equal(t, "MATCH_EVALUATION_REASON", boolean.BooleanEvaluationResponse.Reason)
+
+	errorResponse := batch.Result.Responses[2]
+	assert.Equal(t, "ERROR_EVALUATION_RESPONSE_TYPE", errorResponse.Type)
+	assert.Equal(t, "notfound", errorResponse.ErrorEvaluationResponse.FlagKey)
+	assert.Equal(t, "default", errorResponse.ErrorEvaluationResponse.NamespaceKey)
+	assert.Equal(t, "NOT_FOUND_ERROR_EVALUATION_REASON", errorResponse.ErrorEvaluationResponse.Reason)
+}
+
 func TestVariantFailure(t *testing.T) {
 	evaluationClient, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
 	require.NoError(t, err)

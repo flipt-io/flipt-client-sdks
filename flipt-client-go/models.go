@@ -7,6 +7,12 @@ type evaluationRequest struct {
 	Context      map[string]string `json:"context"`
 }
 
+type EvaluationRequest struct {
+	FlagKey  string            `json:"flag_key"`
+	EntityId string            `json:"entity_id"`
+	Context  map[string]string `json:"context"`
+}
+
 type clientTokenAuthentication struct {
 	Token string `json:"client_token"`
 }
@@ -41,6 +47,24 @@ type BooleanEvaluationResponse struct {
 	Timestamp             string  `json:"timestamp"`
 }
 
+type ErrorEvaluationResponse struct {
+	FlagKey      string `json:"flag_key"`
+	NamespaceKey string `json:"namespace_key"`
+	Reason       string `json:"reason"`
+}
+
+type BatchEvaluationResponse struct {
+	Responses             []*Response `json:"responses"`
+	RequestDurationMillis float64     `json:"request_duration_millis"`
+}
+
+type Response struct {
+	Type                      string                     `json:"type"`
+	VariantEvaluationResponse *VariantEvaluationResponse `json:"variant_evaluation_response,omitempty"`
+	BooleanEvaluationResponse *BooleanEvaluationResponse `json:"boolean_evaluation_response,omitempty"`
+	ErrorEvaluationResponse   *ErrorEvaluationResponse   `json:"error_evaluation_response,omitempty"`
+}
+
 type Result[R any] struct {
 	Status       string `json:"status"`
 	Result       *R     `json:"result,omitempty"`
@@ -50,3 +74,5 @@ type Result[R any] struct {
 type VariantResult Result[VariantEvaluationResponse]
 
 type BooleanResult Result[BooleanEvaluationResponse]
+
+type BatchResult Result[BatchEvaluationResponse]
