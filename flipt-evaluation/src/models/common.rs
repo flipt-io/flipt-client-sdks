@@ -66,10 +66,20 @@ pub enum EvaluationReason {
     Default,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum ErrorEvaluationReason {
     #[serde(rename = "UNKNOWN_ERROR_EVALUATION_REASON")]
     Unknown,
     #[serde(rename = "NOT_FOUND_ERROR_EVALUATION_REASON")]
     NotFound,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum ResponseType {
+    #[serde(rename = "VARIANT_EVALUATION_RESPONSE_TYPE")]
+    Variant,
+    #[serde(rename = "BOOLEAN_EVALUATION_RESPONSE_TYPE")]
+    Boolean,
+    #[serde(rename = "ERROR_EVALUATION_RESPONSE_TYPE")]
+    Error,
 }

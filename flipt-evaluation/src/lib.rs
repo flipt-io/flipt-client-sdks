@@ -59,16 +59,26 @@ pub struct BooleanEvaluationResponse {
     pub timestamp: DateTime<Utc>,
 }
 
+#[derive(Serialize)]
 pub struct ErrorEvaluationResponse {
     pub flag_key: String,
+    pub namespace_key: String,
     pub reason: common::ErrorEvaluationReason,
 }
 
-pub trait EvaluationResponse {}
+#[derive(Serialize)]
+pub struct BatchEvaluationResponse {
+    pub responses: Vec<EvaluationResponse>,
+    pub request_duration_millis: f64,
+}
 
-impl EvaluationResponse for VariantEvaluationResponse {}
-impl EvaluationResponse for BooleanEvaluationResponse {}
-impl EvaluationResponse for ErrorEvaluationResponse {}
+#[derive(Serialize)]
+pub struct EvaluationResponse {
+    pub r#type: common::ResponseType,
+    pub boolean_evaluation_response: Option<BooleanEvaluationResponse>,
+    pub variant_evaluation_response: Option<VariantEvaluationResponse>,
+    pub error_evaluation_response: Option<ErrorEvaluationResponse>,
+}
 
 impl Default for VariantEvaluationResponse {
     fn default() -> Self {
@@ -101,6 +111,7 @@ impl Default for ErrorEvaluationResponse {
     fn default() -> Self {
         Self {
             flag_key: String::from(""),
+            namespace_key: String::from(""),
             reason: common::ErrorEvaluationReason::Unknown,
         }
     }
@@ -211,9 +222,10 @@ where
     pub fn batch(
         &self,
         requests: Vec<EvaluationRequest>,
-    ) -> Result<Vec<Box<dyn EvaluationResponse>>, Error> {
-        let mut evaluation_responses: Vec<Box<dyn EvaluationResponse>> = Vec::new();
+    ) -> Result<BatchEvaluationResponse, Error> {
+        let now = SystemTime::now();
 
+        let mut evaluation_responses: Vec<EvaluationResponse> = Vec::new();
         for request in requests {
             let flag = match self
                 .store
@@ -221,39 +233,46 @@ where
             {
                 Some(f) => f,
                 None => {
-                    evaluation_responses.push(Box::new(ErrorEvaluationResponse {
-                        flag_key: request.flag_key.clone(),
-                        reason: common::ErrorEvaluationReason::NotFound,
-                    }));
+                    evaluation_responses.push(EvaluationResponse {
+                        r#type: common::ResponseType::Error,
+                        boolean_evaluation_response: None,
+                        variant_evaluation_response: None,
+                        error_evaluation_response: Some(ErrorEvaluationResponse {
+                            flag_key: request.flag_key,
+                            namespace_key: request.namespace_key,
+                            reason: common::ErrorEvaluationReason::NotFound,
+                        }),
+                    });
                     continue;
                 }
             };
 
             match flag.r#type {
                 common::FlagType::Boolean => {
-                    match self.boolean_evaluation(&flag, &request) {
-                        Ok(b) => {
-                            evaluation_responses.push(Box::new(b));
-                        }
-                        Err(e) => {
-                            return Err(e);
-                        }
-                    };
+                    let boolean_evaluation = self.boolean_evaluation(&flag, &request)?;
+                    evaluation_responses.push(EvaluationResponse {
+                        r#type: common::ResponseType::Boolean,
+                        boolean_evaluation_response: Some(boolean_evaluation),
+                        variant_evaluation_response: None,
+                        error_evaluation_response: None,
+                    });
                 }
                 common::FlagType::Variant => {
-                    match self.variant_evaluation(&flag, &request) {
-                        Ok(v) => {
-                            evaluation_responses.push(Box::new(v));
-                        }
-                        Err(e) => {
-                            return Err(e);
-                        }
-                    };
+                    let variant_evaluation = self.variant_evaluation(&flag, &request)?;
+                    evaluation_responses.push(EvaluationResponse {
+                        r#type: common::ResponseType::Variant,
+                        boolean_evaluation_response: None,
+                        variant_evaluation_response: Some(variant_evaluation),
+                        error_evaluation_response: None,
+                    });
                 }
             }
         }
 
-        Ok(evaluation_responses)
+        Ok(BatchEvaluationResponse {
+            responses: evaluation_responses,
+            request_duration_millis: get_duration_millis(now.elapsed())?,
+        })
     }
 
     fn variant_evaluation(

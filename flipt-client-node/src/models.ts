@@ -22,6 +22,12 @@ interface EngineOpts<T> {
   reference?: string;
 }
 
+interface InputEvaluationRequest {
+  flag_key: string;
+  entity_id: string;
+  context: object;
+}
+
 interface VariantEvaluationResponse {
   match: boolean;
   segment_keys: string[];
@@ -41,6 +47,24 @@ interface BooleanEvaluationResponse {
   timestamp: string;
 }
 
+interface ErrorEvaluationResponse {
+  flag_key: string;
+  namespace_key: string;
+  reason: string;
+}
+
+interface EvaluationResponse {
+  type: string;
+  boolean_evaluation_response?: BooleanEvaluationResponse;
+  variant_evaluation_response?: VariantEvaluationResponse;
+  error_evaluation_response?: ErrorEvaluationResponse;
+}
+
+interface BatchEvaluationResponse {
+  responses: EvaluationResponse[];
+  request_duration_millis: number;
+}
+
 interface VariantResult {
   status: string;
   result: VariantEvaluationResponse;
@@ -53,12 +77,20 @@ interface BooleanResult {
   error_message: string;
 }
 
+interface BatchResult {
+  status: string;
+  result?: BatchEvaluationResponse;
+  error_message: string;
+}
+
 export {
   AuthenticationStrategy,
   BooleanResult,
+  BatchResult,
   ClientTokenAuthentication,
   EngineOpts,
   EvaluationRequest,
+  InputEvaluationRequest,
   JWTAuthentication,
   VariantResult
 };

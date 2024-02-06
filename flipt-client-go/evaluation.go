@@ -159,6 +159,38 @@ func (e *Client) EvaluateBoolean(_ context.Context, flagKey, entityID string, ev
 	return br, nil
 }
 
+// EvaluateBatch makes an evaluation on a batch of flags.
+func (e *Client) EvaluateBatch(_ context.Context, inputEvaluationRequests []*InputEvaluationRequest) (*BatchResult, error) {
+	evaluationRequests := make([]*evaluationRequest, 0, len(inputEvaluationRequests))
+
+	for _, ir := range inputEvaluationRequests {
+		evaluationRequests = append(evaluationRequests, &evaluationRequest{
+			NamespaceKey: e.namespace,
+			FlagKey:      ir.FlagKey,
+			EntityId:     ir.EntityId,
+			Context:      ir.Context,
+		})
+	}
+
+	requestsBytes, err := json.Marshal(evaluationRequests)
+	if err != nil {
+		return nil, err
+	}
+
+	batch := C.evaluate_batch(e.engine, C.CString(string(requestsBytes)))
+	defer C.free(unsafe.Pointer(batch))
+
+	b := C.GoBytes(unsafe.Pointer(batch), (C.int)(C.strlen(batch)))
+
+	var br *BatchResult
+
+	if err := json.Unmarshal(b, &br); err != nil {
+		return nil, err
+	}
+
+	return br, nil
+}
+
 // Close cleans up the allocated engine as it was initialized in the constructor.
 func (e *Client) Close() error {
 	// Destroy the engine to clean up allocated memory on dynamic library side.

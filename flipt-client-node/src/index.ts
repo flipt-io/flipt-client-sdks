@@ -4,8 +4,10 @@ import * as os from 'os';
 import {
   AuthenticationStrategy,
   BooleanResult,
+  BatchResult,
   EngineOpts,
   EvaluationRequest,
+  InputEvaluationRequest,
   VariantResult
 } from './models';
 import * as path from 'path';
@@ -39,6 +41,7 @@ const engineLib = ffi.Library(libfile, {
   initialize_engine: ['void *', ['char **', 'string']],
   evaluate_variant: ['string', ['void *', 'string']],
   evaluate_boolean: ['string', ['void *', 'string']],
+  evaluate_batch: ['string', ['void *', 'string']],
   destroy_engine: ['void', ['void *']]
 });
 
@@ -106,6 +109,29 @@ export class FliptEvaluationClient {
 
     if (response === null) {
       throw new Error('Failed to evaluate boolean');
+    }
+
+    return JSON.parse(Buffer.from(response).toString('utf-8'));
+  }
+
+  public evaluateBatch(requests: InputEvaluationRequest[]): BatchResult {
+    const evaluationRequests: EvaluationRequest[] = [];
+    for (const request of requests) {
+      evaluationRequests.push({
+        namespace_key: this.namespace,
+        flag_key: request.flag_key,
+        entity_id: request.entity_id,
+        context: request.context
+      });
+    }
+
+    const response = engineLib.evaluate_batch(
+      this.engine,
+      allocCString(JSON.stringify(evaluationRequests))
+    );
+
+    if (response === null) {
+      throw new Error('Failed to evaluate batch');
     }
 
     return JSON.parse(Buffer.from(response).toString('utf-8'));

@@ -1,7 +1,11 @@
 import os
 import unittest
 from flipt_client import FliptEvaluationClient
-from flipt_client.models import ClientTokenAuthentication, EngineOpts
+from flipt_client.models import (
+    ClientTokenAuthentication,
+    EngineOpts,
+    InputEvaluationRequest,
+)
 
 
 class TestFliptEvaluationClient(unittest.TestCase):
@@ -42,6 +46,57 @@ class TestFliptEvaluationClient(unittest.TestCase):
         self.assertTrue(boolean.result.enabled)
         self.assertEqual("flag_boolean", boolean.result.flag_key)
         self.assertEqual("MATCH_EVALUATION_REASON", boolean.result.reason)
+
+    def test_batch(self):
+        batch = self.flipt_client.evaluate_batch(
+            [
+                InputEvaluationRequest(
+                    flag_key="flag1",
+                    entity_id="someentity",
+                    context={"fizz": "buzz"},
+                ),
+                InputEvaluationRequest(
+                    flag_key="flag_boolean",
+                    entity_id="someentity",
+                    context={"fizz": "buzz"},
+                ),
+                InputEvaluationRequest(
+                    flag_key="notfound",
+                    entity_id="someentity",
+                    context={"fizz": "buzz"},
+                ),
+            ]
+        )
+
+        self.assertIsNone(batch.error_message)
+        self.assertEqual("success", batch.status)
+        self.assertEqual(3, len(batch.result.responses))
+
+        variant = batch.result.responses[0]
+        self.assertEqual("VARIANT_EVALUATION_RESPONSE_TYPE", variant.type)
+        self.assertEqual("flag1", variant.variant_evaluation_response.flag_key)
+        self.assertTrue(variant.variant_evaluation_response.match)
+        self.assertEqual(
+            "MATCH_EVALUATION_REASON", variant.variant_evaluation_response.reason
+        )
+        self.assertEqual("variant1", variant.variant_evaluation_response.variant_key)
+        self.assertIn("segment1", variant.variant_evaluation_response.segment_keys)
+
+        boolean = batch.result.responses[1]
+        self.assertEqual("BOOLEAN_EVALUATION_RESPONSE_TYPE", boolean.type)
+        self.assertTrue(boolean.boolean_evaluation_response.enabled)
+        self.assertEqual("flag_boolean", boolean.boolean_evaluation_response.flag_key)
+        self.assertEqual(
+            "MATCH_EVALUATION_REASON", boolean.boolean_evaluation_response.reason
+        )
+
+        error = batch.result.responses[2]
+        self.assertEqual("ERROR_EVALUATION_RESPONSE_TYPE", error.type)
+        self.assertEqual("notfound", error.error_evaluation_response.flag_key)
+        self.assertEqual("default", error.error_evaluation_response.namespace_key)
+        self.assertEqual(
+            "NOT_FOUND_ERROR_EVALUATION_REASON", error.error_evaluation_response.reason
+        )
 
     def test_failure_variant(self):
         variant = self.flipt_client.evaluate_variant(

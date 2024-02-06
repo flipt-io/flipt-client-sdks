@@ -3,11 +3,15 @@ import os
 import platform
 
 from .models import (
+    BatchResult,
     BooleanResult,
+    InputEvaluationRequest,
     EngineOpts,
     EvaluationRequest,
     VariantResult,
 )
+
+from typing import List
 
 
 class FliptEvaluationClient:
@@ -59,6 +63,9 @@ class FliptEvaluationClient:
         self.ffi_core.evaluate_boolean.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
         self.ffi_core.evaluate_boolean.restype = ctypes.c_char_p
 
+        self.ffi_core.evaluate_batch.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+        self.ffi_core.evaluate_batch.restype = ctypes.c_char_p
+
         namespace_list = [namespace]
 
         ns = (ctypes.c_char_p * len(namespace_list))()
@@ -105,6 +112,35 @@ class FliptEvaluationClient:
         boolean_result = BooleanResult.model_validate_json(bytes_returned)
 
         return boolean_result
+
+    def evaluate_batch(self, requests: List[InputEvaluationRequest]) -> BatchResult:
+        evaluation_requests = []
+
+        for r in requests:
+            evaluation_requests.append(
+                EvaluationRequest(
+                    namespace_key=self.namespace_key,
+                    flag_key=r.flag_key,
+                    entity_id=r.entity_id,
+                    context=r.context,
+                )
+            )
+
+        json_list = [
+            evaluation_request.model_dump_json()
+            for evaluation_request in evaluation_requests
+        ]
+        json_string = "[" + ", ".join(json_list) + "]"
+
+        response = self.ffi_core.evaluate_batch(
+            self.engine, json_string.encode("utf-8")
+        )
+
+        bytes_returned = ctypes.c_char_p(response).value
+
+        batch_result = BatchResult.model_validate_json(bytes_returned)
+
+        return batch_result
 
 
 def serialize_evaluation_request(
