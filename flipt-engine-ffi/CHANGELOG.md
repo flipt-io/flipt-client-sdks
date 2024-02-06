@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.0...flipt-engine-ffi-v0.1.1) (2024-02-06)
+
+
+### Features
+
+* **client-sdks:** add batch evaluation to engine ([5dec28b](https://github.com/flipt-io/flipt-client-sdks/commit/5dec28bdd62d97080f53004e022dc196ae0959a3))
+
 ## [0.1.0](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.0.5...flipt-engine-ffi-v0.1.0) (2024-01-25)
 
 
