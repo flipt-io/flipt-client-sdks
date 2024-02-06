@@ -160,10 +160,10 @@ func (e *Client) EvaluateBoolean(_ context.Context, flagKey, entityID string, ev
 }
 
 // EvaluateBatch makes an evaluation on a batch of flags.
-func (e *Client) EvaluateBatch(_ context.Context, inputEvaluationRequests []*EvaluationRequest) (*BatchResult, error) {
-	evaluationRequests := make([]*evaluationRequest, 0, len(inputEvaluationRequests))
+func (e *Client) EvaluateBatch(_ context.Context, requests []*EvaluationRequest) (*BatchResult, error) {
+	evaluationRequests := make([]*evaluationRequest, 0, len(requests))
 
-	for _, ir := range inputEvaluationRequests {
+	for _, ir := range requests {
 		evaluationRequests = append(evaluationRequests, &evaluationRequest{
 			NamespaceKey: e.namespace,
 			FlagKey:      ir.FlagKey,
