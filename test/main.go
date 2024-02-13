@@ -21,6 +21,7 @@ var (
 		"go":     goTests,
 		"node":   nodeTests,
 		"ruby":   rubyTests,
+		"java":   javaTests,
 	}
 	sema = make(chan struct{}, 5)
 )
@@ -142,7 +143,6 @@ func getTestDependencies(ctx context.Context, client *dagger.Client, hostDirecto
 
 // pythonTests runs the python integration test suite against a container running Flipt.
 func pythonTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
-
 	_, err := client.Pipeline("python").Container().From("python:3.11-bookworm").
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithWorkdir("/src").
@@ -212,6 +212,21 @@ func rubyTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec([]string{"bundle", "install"}).
 		WithExec([]string{"bundle", "exec", "rspec"}).
+		Sync(ctx)
+
+	return err
+}
+
+// javaTests run the java integration tests suite against a container running Flipt.
+func javaTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
+	_, err := client.Pipeline("java").Container().From("gradle:8.5.0-jdk11").
+		WithWorkdir("/src").
+		WithDirectory("/src", args.hostDir.Directory("flipt-client-java")).
+		WithFile(fmt.Sprintf("/src/lib/ext/linux_%s/libfliptengine.so", args.arch), args.libFile).
+		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
+		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
+		WithExec([]string{"./gradlew", "test"}).
 		Sync(ctx)
 
 	return err

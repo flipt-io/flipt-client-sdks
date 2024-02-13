@@ -46,3 +46,23 @@ jobs:
         run: |
           npm ci
           npm run lint
+
+  lint-java:
+    name: Lint Java
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Install Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v3
+
+      - name: Lint Java code
+        working-directory: flipt-client-java
+        run: ./gradlew spotlessCheck

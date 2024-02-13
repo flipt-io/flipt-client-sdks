@@ -1,0 +1,86 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id "com.diffplug.spotless" version "6.25.0"
+}
+
+group = 'io.flipt'
+version = '1.0.0'
+description = 'Flipt Client SDK'
+
+
+java {
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+    withSourcesJar()
+    withJavadocJar()
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.16.1'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.16.1'
+    implementation 'net.java.dev.jna:jna-platform:5.14.0'
+    testImplementation platform('org.junit:junit-bom:5.9.1')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+spotless {
+    java {
+        importOrder()
+
+        removeUnusedImports()
+
+        cleanthat()
+
+        googleJavaFormat()
+
+        formatAnnotations()
+    }
+}
+
+test {
+    useJUnitPlatform()
+    String osName = System.getProperty("os.name").toLowerCase()
+
+    if (osName.contains("mac")) {
+        String archName = System.getProperty("os.arch").toLowerCase()
+        if (archName == "aarch64" || archName == "arm64") {
+            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"src"+File.separator+"lib"+File.separator+"ext"+File.separator+"darwin_arm64")
+        }
+    }
+
+    if (osName.contains("nix")) {
+        String archName = System.getProperty("os.arch").toLowerCase()
+        if (archName == "x86_64") {
+            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"src"+File.separator+"lib"+File.separator+"ext"+File.separator+"linux_x86_64")
+        }
+        else if (archName == "aarch64" || archName == "arm64") {
+            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"src"+File.separator+"lib"+File.separator+"ext"+File.separator+"linux_arm64")
+        }
+    }
+}
+
+tasks.withType(JavaExec) {
+    String osName = System.getProperty("os.name").toLowerCase()
+    
+    if (osName.contains("mac")) {
+        String archName = System.getProperty("os.arch").toLowerCase()
+        if (archName == "aarch64" || archName == "arm64") {
+            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"src"+File.separator+"lib"+File.separator+"ext"+File.separator+"darwin_arm64")
+        }
+    }
+
+    if (osName.contains("nix")) {
+        String archName = System.getProperty("os.arch").toLowerCase()
+        if (archName == "x86_64") {
+            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"src"+File.separator+"lib"+File.separator+"ext"+File.separator+"linux_x86_64")
+        }
+        else if (archName == "aarch64" || archName == "arm64") {
+            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"src"+File.separator+"lib"+File.separator+"ext"+File.separator+"linux_arm64")
+        }
+    }
+}
