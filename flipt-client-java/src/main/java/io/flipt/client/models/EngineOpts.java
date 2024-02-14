@@ -2,24 +2,31 @@ package io.flipt.client.models;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.time.Duration;
 import java.util.Optional;
 
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public class EngineOpts {
   private final Optional<String> url;
-  private final Optional<Integer> updateInterval;
+  private final Optional<Long> updateInterval;
   private final Optional<AuthenticationStrategy> authentication;
   private final Optional<String> reference;
 
   public EngineOpts(
       Optional<String> url,
-      Optional<Integer> updateInterval,
+      Optional<Duration> updateInterval,
       Optional<AuthenticationStrategy> authentication,
       Optional<String> reference) {
     this.url = url;
-    this.updateInterval = updateInterval;
     this.authentication = authentication;
     this.reference = reference;
+
+    Optional<Long> setUpdateInterval = Optional.empty();
+    if (updateInterval.isPresent()) {
+      setUpdateInterval = Optional.of(updateInterval.get().getSeconds());
+    }
+
+    this.updateInterval = setUpdateInterval;
   }
 
   @JsonProperty("url")
@@ -28,7 +35,7 @@ public class EngineOpts {
   }
 
   @JsonProperty("update_interval")
-  public Optional<Integer> getUpdateInterval() {
+  public Optional<Long> getUpdateInterval() {
     return updateInterval;
   }
 

@@ -1,3 +1,5 @@
+import java.nio.file.Files
+
 plugins {
     id 'java-library'
     id 'maven-publish'
@@ -5,7 +7,7 @@ plugins {
 }
 
 group = 'io.flipt'
-version = '1.0.0'
+version = '0.1.0'
 description = 'Flipt Client SDK'
 
 
@@ -84,3 +86,17 @@ tasks.withType(JavaExec) {
         }
     }
 }
+
+tasks.register('checkDirectoryExistence') {
+    doLast {
+        def directoryPath = System.getProperty("user.dir")+File.separator+"lib"+File.separator+"ext"
+
+        def directory = file(directoryPath)
+        assert directory.isDirectory(): "Directory '${directoryPath}' not found."
+
+        println "Directory '${directoryPath}' exists."
+    }
+}
+
+test.dependsOn checkDirectoryExistence
+assemble.dependsOn checkDirectoryExistence

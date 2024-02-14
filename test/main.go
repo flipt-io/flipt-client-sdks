@@ -228,7 +228,9 @@ func javaTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 		Platform: platform,
 	}).From("gradle:8.5.0-jdk11").
 		WithWorkdir("/src").
-		WithDirectory("/src", args.hostDir.Directory("flipt-client-java")).
+		WithDirectory("/src", args.hostDir.Directory("flipt-client-java"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"./.idea/"},
+		}).
 		WithFile(fmt.Sprintf("/src/lib/ext/linux_%s/libfliptengine.so", args.arch), args.libFile).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
