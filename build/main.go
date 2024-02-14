@@ -269,7 +269,7 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
 	container := client.Container().From("gradle:8.5.0-jdk11").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-java")).
-		WithDirectory("/src/lib/ext", hostDirectory.Directory("tmp")).
+		WithDirectory("/src/src/main/resources", hostDirectory.Directory("tmp")).
 		WithWorkdir("/src").
 		WithExec([]string{"gradle", "-x", "test", "build"})
 
