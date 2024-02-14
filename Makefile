@@ -2,7 +2,7 @@ LIB = libfliptengine
 HEADER = flipt_engine.h
 
 .DEFAULT_GOAL := help
-.PHONY: build go node python ruby help clean
+.PHONY: build go node python ruby java help clean
 
 # get os and arch
 OS := $(shell uname -s | tr A-Z a-z)
@@ -32,6 +32,11 @@ ruby: build ## Build the ruby client gem
 	cp target/release/$(LIB).* flipt-client-ruby/lib/ext/${OS}_${ARCH}/
 	cd flipt-client-ruby && rake install
 
+java: build ## Build the java client package
+	mkdir -p flipt-client-java/lib/ext/$(OS)_$(ARCH)
+	cp target/release/$(LIB).* flipt-client-java/lib/ext/$(OS)_$(ARCH)/
+	cd flipt-client-java && ./gradlew build -x test
+
 clean: ## Clean up build artifacts
 	rm -rf target
 	rm -rf flipt-client-go/ext/*
@@ -42,6 +47,7 @@ clean: ## Clean up build artifacts
 	rm -rf flipt-client-python/dist
 	rm -rf flipt-client-ruby/lib/ext/*
 	rm -rf flipt-client-ruby/pkg/
+	rm -rf flipt-client-java/lib
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk \
