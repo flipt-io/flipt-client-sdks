@@ -235,7 +235,7 @@ func javaTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithExec([]string{"./gradlew", "test"}).
+		WithExec([]string{"gradle", "test"}).
 		Sync(ctx)
 
 	return err
