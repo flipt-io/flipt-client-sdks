@@ -55,7 +55,7 @@ test {
 
     if (osName.contains("linux") || osName.contains("nix")) {
         String archName = System.getProperty("os.arch").toLowerCase()
-        if (archName == "x86_64") {
+        if (archName == "amd64" || archName == "x86_64") {
             systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"lib"+File.separator+"ext"+File.separator+"linux_x86_64")
         }
         else if (archName == "aarch64" || archName == "arm64") {
@@ -76,7 +76,7 @@ tasks.withType(JavaExec) {
 
     if (osName.contains("linux") || osName.contains("nix")) {
         String archName = System.getProperty("os.arch").toLowerCase()
-        if (archName == "x86_64") {
+        if (archName == "amd64" || archName == "x86_64") {
             systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"lib"+File.separator+"ext"+File.separator+"linux_x86_64")
         }
         else if (archName == "aarch64" || archName == "arm64") {
