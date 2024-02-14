@@ -1,0 +1,22 @@
+name: Package Java SDK
+on:
+  push:
+    tags: ["flipt-client-java-**"]
+
+permissions:
+  contents: write
+
+env:
+  MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+  MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+  MAVEN_PUBLISH_REGISTRY_URL: ${{ secrets.MAVEN_PUBLISH_REGISTRY_URL }}
+  PGP_PRIVATE_KEY: ${{ secrets.PGP_PRIVATE_KEY }}
+  PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
+
+jobs:
+  build:
+    uses: ./.github/workflows/package-sdks.yml
+    with:
+      sdk: java
+      engine-tag: "latest"
+    secrets: inherit

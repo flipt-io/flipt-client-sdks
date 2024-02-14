@@ -24,6 +24,7 @@ var (
 		"go":     goBuild,
 		"node":   nodeBuild,
 		"ruby":   rubyBuild,
+		"java":   javaBuild,
 	}
 	sema = make(chan struct{}, 5)
 )
@@ -204,7 +205,6 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 }
 
 func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
-
 	container := client.Container().From("node:21.2-bookworm").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./node_modules/"},
@@ -261,6 +261,55 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	_, err = container.
 		WithSecretVariable("GEM_HOST_API_KEY", gemHostAPIKeySecret).
 		WithExec([]string{"sh", "-c", "gem push pkg/flipt_client-*.gem"}).
+		Sync(ctx)
+
+	return err
+}
+
+func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
+	container := client.Container().From("gradle:8.5.0-jdk11").
+		WithDirectory("/src", hostDirectory.Directory("flipt-client-java")).
+		WithDirectory("/src/lib/ext", hostDirectory.Directory("tmp")).
+		WithWorkdir("/src").
+		WithExec([]string{"gradle", "-x", "test", "build"})
+
+	var err error
+
+	if !push {
+		_, err = container.Sync(ctx)
+		return err
+	}
+
+	if os.Getenv("MAVEN_USERNAME") == "" {
+		return fmt.Errorf("MAVEN_USERNAME is not set")
+	}
+	if os.Getenv("MAVEN_PASSWORD") == "" {
+		return fmt.Errorf("MAVEN_PASSWORD is not set")
+	}
+	if os.Getenv("MAVEN_PUBLISH_REGISTRY_URL") == "" {
+		return fmt.Errorf("MAVEN_PUBLISH_REGISTRY_URL is not set")
+	}
+	if os.Getenv("PGP_PRIVATE_KEY") == "" {
+		return fmt.Errorf("PGP_PRIVATE_KEY is not set")
+	}
+	if os.Getenv("PGP_PASSPHRASE") == "" {
+		return fmt.Errorf("PGP_PASSPHRASE is not set")
+	}
+
+	var (
+		mavenUsername    = client.SetSecret("maven-username", os.Getenv("MAVEN_USERNAME"))
+		mavenPassword    = client.SetSecret("maven-password", os.Getenv("MAVEN_PASSWORD"))
+		mavenRegistryUrl = client.SetSecret("maven-registry-url", os.Getenv("MAVEN_PUBLISH_REGISTRY_URL"))
+		pgpPrivateKey    = client.SetSecret("pgp-private-key", os.Getenv("PGP_PRIVATE_KEY"))
+		pgpPassphrase    = client.SetSecret("pgp-passphrase", os.Getenv("PGP_PASSPHRASE"))
+	)
+
+	_, err = container.WithSecretVariable("MAVEN_USERNAME", mavenUsername).
+		WithSecretVariable("MAVEN_PASSWORD", mavenPassword).
+		WithSecretVariable("MAVEN_PUBLISH_REGISTRY_URL", mavenRegistryUrl).
+		WithSecretVariable("PGP_PRIVATE_KEY", pgpPrivateKey).
+		WithSecretVariable("PGP_PASSPHRASE", pgpPassphrase).
+		WithExec([]string{"gradle", "publish"}).
 		Sync(ctx)
 
 	return err

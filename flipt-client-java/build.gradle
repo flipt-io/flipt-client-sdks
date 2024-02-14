@@ -1,0 +1,157 @@
+import java.nio.file.Files
+
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'signing'
+    id "com.diffplug.spotless" version "6.25.0"
+}
+
+group = 'io.flipt'
+version = '0.1.0'
+description = 'Flipt Client SDK'
+
+
+java {
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+    withSourcesJar()
+    withJavadocJar()
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.16.1'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.16.1'
+    implementation 'net.java.dev.jna:jna-platform:5.14.0'
+    testImplementation platform('org.junit:junit-bom:5.9.1')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+spotless {
+    java {
+        importOrder()
+
+        removeUnusedImports()
+
+        cleanthat()
+
+        googleJavaFormat()
+
+        formatAnnotations()
+    }
+}
+
+test {
+    useJUnitPlatform()
+    String osName = System.getProperty("os.name").toLowerCase()
+
+    if (osName.contains("mac")) {
+        String archName = System.getProperty("os.arch").toLowerCase()
+        if (archName == "aarch64" || archName == "arm64") {
+            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"lib"+File.separator+"ext"+File.separator+"darwin_arm64")
+        }
+    }
+
+    if (osName.contains("linux") || osName.contains("nix")) {
+        String archName = System.getProperty("os.arch").toLowerCase()
+        if (archName == "amd64" || archName == "x86_64") {
+            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"lib"+File.separator+"ext"+File.separator+"linux_x86_64")
+        }
+        else if (archName == "aarch64" || archName == "arm64") {
+            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"lib"+File.separator+"ext"+File.separator+"linux_arm64")
+        }
+    }
+}
+
+tasks.withType(JavaExec) {
+    String osName = System.getProperty("os.name").toLowerCase()
+
+    if (osName.contains("mac")) {
+        String archName = System.getProperty("os.arch").toLowerCase()
+        if (archName == "aarch64" || archName == "arm64") {
+            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"lib"+File.separator+"ext"+File.separator+"darwin_arm64")
+        }
+    }
+
+    if (osName.contains("linux") || osName.contains("nix")) {
+        String archName = System.getProperty("os.arch").toLowerCase()
+        if (archName == "amd64" || archName == "x86_64") {
+            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"lib"+File.separator+"ext"+File.separator+"linux_x86_64")
+        }
+        else if (archName == "aarch64" || archName == "arm64") {
+            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"lib"+File.separator+"ext"+File.separator+"linux_arm64")
+        }
+    }
+}
+
+tasks.register('checkDirectoryExistence') {
+    doLast {
+        def directoryPath = System.getProperty("user.dir")+File.separator+"lib"+File.separator+"ext"
+
+        def directory = file(directoryPath)
+        assert directory.isDirectory(): "Directory '${directoryPath}' not found."
+
+        println "Directory '${directoryPath}' exists."
+    }
+}
+
+test.dependsOn checkDirectoryExistence
+assemble.dependsOn checkDirectoryExistence
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            artifactId = 'flipt-client-java'
+            from components.java
+
+            pom {
+                name = 'Flipt Client Java SDK'
+                description = 'Flipt Client Java SDK'
+                url = 'https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-client-java'
+
+                licenses {
+                    license {
+                        name = 'MIT'
+                        url = 'https://opensource.org/license/mit/'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id = 'flipt-io'
+                        name = 'Flipt'
+                        email = 'devs@flipt.io'
+                    }
+                }
+
+                scm {
+                    connection = 'scm:git:git://github.com/flipt-io/flipt-client-sdks.git'
+                    developerConnection = 'scm:git:ssh://github.com/flipt-io/flipt-client-sdks.git'
+                    url = 'https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-client-java'
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+            def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+            credentials {
+                username "$System.env.MAVEN_USERNAME"
+                password "$System.env.MAVEN_PASSWORD"
+            }
+        }
+    }
+}
+
+signing {
+    def signingKey = System.getenv('PGP_PRIVATE_KEY')
+    def signingPassphrase = System.getenv('PGP_PASSPHRASE')
+    useInMemoryPgpKeys(signingKey, signingPassphrase)
+    sign publishing.publications.maven
+}

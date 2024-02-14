@@ -23,6 +23,11 @@ env:
   RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
   NPM_API_KEY: ${{ secrets.NPM_API_KEY }}
   PYPI_API_KEY: ${{ secrets.PYPI_API_KEY }}
+  MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+  MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+  MAVEN_PUBLISH_REGISTRY_URL: ${{ secrets.MAVEN_PUBLISH_REGISTRY_URL }}
+  PGP_PRIVATE_KEY: ${{ secrets.PGP_PRIVATE_KEY }}
+  PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
 
 jobs:
   build:
