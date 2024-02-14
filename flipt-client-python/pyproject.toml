@@ -1,7 +1,7 @@
 [tool.poetry]
 include = [{ path = "ext/**/*" }, { path = "README.md" }]
 name = "flipt-client"
-version = "0.1.0"
+version = "0.2.0"
 description = "Flipt Client Evaluation SDK"
 authors = ["Flipt Devs <dev@flipt.io>"]
 readme = "README.md"
