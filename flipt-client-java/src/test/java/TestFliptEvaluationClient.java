@@ -18,6 +18,7 @@ public class TestFliptEvaluationClient {
     assert clientToken != null && !clientToken.isEmpty();
     fliptClient =
         FliptEvaluationClient.builder()
+            .url(fliptURL)
             .authentication(new ClientTokenAuthentication(clientToken))
             .build();
   }
