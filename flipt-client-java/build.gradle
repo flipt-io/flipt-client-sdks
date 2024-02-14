@@ -49,38 +49,38 @@ test {
     if (osName.contains("mac")) {
         String archName = System.getProperty("os.arch").toLowerCase()
         if (archName == "aarch64" || archName == "arm64") {
-            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"src"+File.separator+"lib"+File.separator+"ext"+File.separator+"darwin_arm64")
+            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"lib"+File.separator+"ext"+File.separator+"darwin_arm64")
         }
     }
 
-    if (osName.contains("nix")) {
+    if (osName.contains("linux") || osName.contains("nix")) {
         String archName = System.getProperty("os.arch").toLowerCase()
         if (archName == "x86_64") {
-            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"src"+File.separator+"lib"+File.separator+"ext"+File.separator+"linux_x86_64")
+            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"lib"+File.separator+"ext"+File.separator+"linux_x86_64")
         }
         else if (archName == "aarch64" || archName == "arm64") {
-            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"src"+File.separator+"lib"+File.separator+"ext"+File.separator+"linux_arm64")
+            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"lib"+File.separator+"ext"+File.separator+"linux_arm64")
         }
     }
 }
 
 tasks.withType(JavaExec) {
     String osName = System.getProperty("os.name").toLowerCase()
-    
+
     if (osName.contains("mac")) {
         String archName = System.getProperty("os.arch").toLowerCase()
         if (archName == "aarch64" || archName == "arm64") {
-            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"src"+File.separator+"lib"+File.separator+"ext"+File.separator+"darwin_arm64")
+            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"lib"+File.separator+"ext"+File.separator+"darwin_arm64")
         }
     }
 
-    if (osName.contains("nix")) {
+    if (osName.contains("linux") || osName.contains("nix")) {
         String archName = System.getProperty("os.arch").toLowerCase()
         if (archName == "x86_64") {
-            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"src"+File.separator+"lib"+File.separator+"ext"+File.separator+"linux_x86_64")
+            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"lib"+File.separator+"ext"+File.separator+"linux_x86_64")
         }
         else if (archName == "aarch64" || archName == "arm64") {
-            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"src"+File.separator+"lib"+File.separator+"ext"+File.separator+"linux_arm64")
+            systemProperty("jna.library.path", System.getProperty("user.dir")+File.separator+"lib"+File.separator+"ext"+File.separator+"linux_arm64")
         }
     }
 }
