@@ -219,7 +219,14 @@ func rubyTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 
 // javaTests run the java integration tests suite against a container running Flipt.
 func javaTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
-	_, err := client.Pipeline("java").Container().From("gradle:8.5.0-jdk11").
+	var platform dagger.Platform = "linux/amd64"
+	if args.arch == "arm64" {
+		platform = "linux/arm64"
+	}
+
+	_, err := client.Pipeline("java").Container(dagger.ContainerOpts{
+		Platform: platform,
+	}).From("gradle:8.5.0-jdk11").
 		WithWorkdir("/src").
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-java")).
 		WithFile(fmt.Sprintf("/src/lib/ext/linux_%s/libfliptengine.so", args.arch), args.libFile).
