@@ -29,10 +29,10 @@ We are constantly growing our list of clients. Currently, we support the followi
 1. [Python](./flipt-client-python)
 1. [Ruby](./flipt-client-ruby)
 1. [NodeJS](./flipt-client-node)
+1. [Java](./flipt-client-java)
 
 Languages we are planning to support:
 
-1. Java
 1. Rust
 1. C#
 1. PHP
