@@ -47,47 +47,6 @@ spotless {
 
 test {
     useJUnitPlatform()
-    String osName = System.getProperty("os.name").toLowerCase()
-    String path = System.getProperty("user.dir")+File.separator+"src"+File.separator+"main"+File.separator+"resources"+File.separator
-
-    if (osName.contains("mac")) {
-        String archName = System.getProperty("os.arch").toLowerCase()
-        if (archName == "aarch64" || archName == "arm64") {
-            systemProperty("jna.library.path", path+"darwin_arm64")
-        }
-    }
-
-    if (osName.contains("linux") || osName.contains("nix")) {
-        String archName = System.getProperty("os.arch").toLowerCase()
-        if (archName == "amd64" || archName == "x86_64") {
-            systemProperty("jna.library.path", path+"linux_x86_64")
-        }
-        else if (archName == "aarch64" || archName == "arm64") {
-            systemProperty("jna.library.path", path+"linux_arm64")
-        }
-    }
-}
-
-tasks.withType(JavaExec) {
-    String osName = System.getProperty("os.name").toLowerCase()
-    String path = System.getProperty("user.dir")+File.separator+"src"+File.separator+"main"+File.separator+"resources"+File.separator
-
-    if (osName.contains("mac")) {
-        String archName = System.getProperty("os.arch").toLowerCase()
-        if (archName == "aarch64" || archName == "arm64") {
-            systemProperty("jna.library.path", path+"darwin_arm64")
-        }
-    }
-
-    if (osName.contains("linux") || osName.contains("nix")) {
-        String archName = System.getProperty("os.arch").toLowerCase()
-        if (archName == "amd64" || archName == "x86_64") {
-            systemProperty("jna.library.path", path+"linux_x86_64")
-        }
-        else if (archName == "aarch64" || archName == "arm64") {
-            systemProperty("jna.library.path", path+"linux_arm64")
-        }
-    }
 }
 
 publishing {
