@@ -7,8 +7,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
+import com.sun.jna.NativeLibrary;
 import com.sun.jna.Pointer;
 import io.flipt.client.models.*;
+import java.io.File;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
@@ -37,6 +39,39 @@ public class FliptEvaluationClient {
 
   private FliptEvaluationClient(String namespace, EngineOpts engineOpts)
       throws JsonProcessingException {
+
+    String osName = System.getProperty("os.name").toLowerCase();
+    String archName = System.getProperty("os.arch").toLowerCase();
+    String path =
+        System.getProperty("user.dir")
+            + File.separator
+            + "src"
+            + File.separator
+            + "main"
+            + File.separator
+            + "resources"
+            + File.separator;
+    String platformSpecificDirectory = "linux_x86_64";
+
+    if (osName.contains("mac")) {
+      if (archName.equals("aarch64") || archName.equals("arm64")) {
+        path += "darwin_arm64";
+        platformSpecificDirectory = "darwin_arm64";
+      }
+    }
+
+    if (osName.contains("linux") || osName.contains("nix")) {
+      if (archName.equals("amd64") || archName.equals("x86_64")) {
+        path += "linux_x86_64";
+      } else if (archName.equals("aarch64") || archName.equals("arm64")) {
+        path += "linux_arm64";
+        platformSpecificDirectory = "linux_arm64";
+      }
+    }
+
+    NativeLibrary.addSearchPath("fliptengine", path);
+    NativeLibrary.addSearchPath("fliptengine", File.separator + platformSpecificDirectory);
+
     String[] namespaces = {namespace};
 
     ObjectMapper objectMapper = new ObjectMapper();

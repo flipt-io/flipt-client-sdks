@@ -231,7 +231,7 @@ func javaTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-java"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./.idea/"},
 		}).
-		WithFile(fmt.Sprintf("/src/lib/ext/linux_%s/libfliptengine.so", args.arch), args.libFile).
+		WithFile(fmt.Sprintf("/src/src/main/resources/linux_%s/libfliptengine.so", args.arch), args.libFile).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").

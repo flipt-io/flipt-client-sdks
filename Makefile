@@ -33,8 +33,8 @@ ruby: build ## Build the ruby client gem
 	cd flipt-client-ruby && rake install
 
 java: build ## Build the java client package
-	mkdir -p flipt-client-java/lib/ext/$(OS)_$(ARCH)
-	cp target/release/$(LIB).* flipt-client-java/lib/ext/$(OS)_$(ARCH)/
+	mkdir -p flipt-client-java/src/main/resources/$(OS)_$(ARCH)
+	cp target/release/$(LIB).* flipt-client-java/src/main/resources/$(OS)_$(ARCH)/
 	cd flipt-client-java && ./gradlew build -x test
 
 clean: ## Clean up build artifacts
@@ -47,7 +47,7 @@ clean: ## Clean up build artifacts
 	rm -rf flipt-client-python/dist
 	rm -rf flipt-client-ruby/lib/ext/*
 	rm -rf flipt-client-ruby/pkg/
-	rm -rf flipt-client-java/lib
+	rm -rf flipt-client-java/src/main/resources/*
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk \
