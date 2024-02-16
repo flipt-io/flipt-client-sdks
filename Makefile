@@ -8,6 +8,14 @@ HEADER = flipt_engine.h
 OS := $(shell uname -s | tr A-Z a-z)
 ARCH := $(shell uname -m | tr A-Z a-z)
 
+# for java JNA
+JOS := $(subst _, -,$(OS))
+JARCH := $(subst _, -,$(ARCH))
+# set arm64 to aarch64
+ifeq ($(JARCH), arm64)
+	JARCH = aarch64
+endif
+
 build: ## Build the shared engine library
 	cargo build --release
 
@@ -33,8 +41,8 @@ ruby: build ## Build the ruby client gem
 	cd flipt-client-ruby && rake install
 
 java: build ## Build the java client package
-	mkdir -p flipt-client-java/src/main/resources/$(OS)_$(ARCH)
-	cp target/release/$(LIB).* flipt-client-java/src/main/resources/$(OS)_$(ARCH)/
+	mkdir -p flipt-client-java/src/main/resources/$(JOS)-$(JARCH)
+	cp target/release/$(LIB).* flipt-client-java/src/main/resources/$(JOS)-$(JARCH)/
 	cd flipt-client-java && ./gradlew build -x test
 
 clean: ## Clean up build artifacts
