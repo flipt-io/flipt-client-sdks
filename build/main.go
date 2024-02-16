@@ -274,7 +274,7 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 
 	// we need to convert it to the following structure:
 	// tmp/linux-x86-64/
-	// tmp/linux-aarch64/
+	// tmp/linux-arm/
 	// tmp/darwin-aarch64/
 
 	// this is because JNA expects the library to be in a specific directory structure based on host OS and architecture
@@ -285,7 +285,7 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		return err
 	}
 
-	if err := os.Rename("tmp/linux_arm64", "tmp/linux-aarch64"); err != nil {
+	if err := os.Rename("tmp/linux_arm64", "tmp/linux-arm"); err != nil {
 		return err
 	}
 
