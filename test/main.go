@@ -27,6 +27,7 @@ var (
 )
 
 type testArgs struct {
+	os         string
 	arch       string
 	libFile    *dagger.File
 	headerFile *dagger.File
@@ -220,8 +221,9 @@ func rubyTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 // javaTests run the java integration tests suite against a container running Flipt.
 func javaTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
 	path := "x86-64"
+
 	if args.arch == "arm64" {
-		path = "aarch64"
+		path = "arm"
 	}
 
 	_, err := client.Pipeline("java").Container().From("gradle:8.5.0-jdk11").
