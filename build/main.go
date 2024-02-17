@@ -267,6 +267,32 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 }
 
 func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
+	// the directory structure of the tmp directory is as follows:
+	// tmp/linux_x86_64/
+	// tmp/linux_arm64/
+	// tmp/darwin_arm64/
+
+	// we need to convert it to the following structure:
+	// tmp/linux-x86-64/
+	// tmp/linux-arm/
+	// tmp/darwin-aarch64/
+
+	// this is because JNA expects the library to be in a specific directory structure based on host OS and architecture
+	// see: https://github.com/java-native-access/jna/blob/master/test/com/sun/jna/PlatformTest.java
+	// we can do this on the host and then copy the files into the container
+
+	if err := os.Rename("tmp/linux_x86_64", "tmp/linux-x86-64"); err != nil {
+		return err
+	}
+
+	if err := os.Rename("tmp/linux_arm64", "tmp/linux-arm"); err != nil {
+		return err
+	}
+
+	if err := os.Rename("tmp/darwin_arm64", "tmp/darwin-aarch64"); err != nil {
+		return err
+	}
+
 	container := client.Container().From("gradle:8.5.0-jdk11").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-java")).
 		WithDirectory("/src/src/main/resources", hostDirectory.Directory("tmp")).
