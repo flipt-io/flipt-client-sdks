@@ -33,21 +33,27 @@ Add the dependency in your `pom.xml`:
 In your Java code you can import this client and use it as so:
 
 ```java
+package org.example;
+
+import java.util.HashMap;
+import java.util.Map;
 import io.flipt.client.FliptEvaluationClient;
 import io.flipt.client.models.*;
 
 public class Main {
     public static void main(String[] args) {
-        fliptClient = FliptEvaluationClient.builder()
-            .url("http://localhost:8080")
-            .authentication(new ClientTokenAuthentication("secret"))
-            .build();
+        try {
+            FliptEvaluationClient fliptClient = FliptEvaluationClient.builder()
+                    .url("http://localhost:8080")
+                    .authentication(new ClientTokenAuthentication("secret"))
+                    .build();
 
-        Map<String, String> context = new HashMap<>();
-        context.put("fizz", "buzz");
+            Map<String, String> context = new HashMap<>();
+            context.put("fizz", "buzz");
 
-        Result<VariantEvaluationResponse> result =
-          fliptClient.evaluateVariant("flag1", "entity", context);
+            Result<VariantEvaluationResponse> result =
+                    fliptClient.evaluateVariant("flag1", "entity", context);
+        } catch (Exception e) {}
     }
 }
 ```
