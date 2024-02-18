@@ -2,6 +2,7 @@ import io.flipt.client.FliptEvaluationClient;
 import io.flipt.client.models.*;
 import java.util.HashMap;
 import java.util.Map;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -102,5 +103,10 @@ public class TestFliptEvaluationClient {
     Assertions.assertEquals("notfound", errorResponse.getFlagKey());
     Assertions.assertEquals("default", errorResponse.getNamespaceKey());
     Assertions.assertEquals("NOT_FOUND_ERROR_EVALUATION_REASON", errorResponse.getReason());
+  }
+
+  @AfterAll
+  static void tearDownAll() throws Exception {
+    if (fliptClient != null) fliptClient.close();
   }
 }
