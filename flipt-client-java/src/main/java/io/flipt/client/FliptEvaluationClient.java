@@ -188,7 +188,7 @@ public class FliptEvaluationClient {
     return this.objectMapper.readValue(value, typeRef);
   }
 
-  public void shutdown() {
+  public void close() {
     CLibrary.INSTANCE.destroy_engine(this.engine);
   }
 }

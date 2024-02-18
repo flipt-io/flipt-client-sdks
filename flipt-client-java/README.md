@@ -53,7 +53,14 @@ public class Main {
 
             Result<VariantEvaluationResponse> result =
                     fliptClient.evaluateVariant("flag1", "entity", context);
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            // Important: always close the client to release resources
+            if (fliptClient != null) {
+                fliptClient.close();
+            }
+        }
     }
 }
 ```
