@@ -1,15 +1,18 @@
 # Flipt Client SDKs
 
-![Status: Experimental](https://img.shields.io/badge/status-experimental-yellow)
+![Status: Hardening](https://img.shields.io/badge/status-hardening-orange)
+[![GitHub license](https://img.shields.io/github/license/flipt-io/flipt-client-sdks)](https://github.com/flipt-io/flipt-client-sdks/blob/main/LICENSE)
 
 This repository centralizes the client-side SDKs for [Flipt](https://github.com/flipt-io/flipt).
 
 These client-side SDKs are responsible for evaluating context and returning the results of the evaluation. They enable developers to easily integrate Flipt into their applications without relying on server-side evaluation.
 
-> [!WARNING]
-> These SDKs are currently experimental. We are looking for feedback on the design and implementation. Please open an issue if you have any feedback or questions.
+> [!IMPORTANT]
+> These SDKs currently only work with OSes that use the `glibc` C library. We are working on adding support for other OSes that use `musl` such as Alpine Linux. See [this issue](https://github.com/flipt-io/flipt-client-sdks/issues/141) for more information.
 
-Check out our introductory [blog post](https://www.flipt.io/blog/new-client-side-evaluation) on these client-side SDKs.
+Overall documentation for the client SDKs can be found on our [website](https://www.flipt.io/docs/integration/client).
+
+Also check out our introductory [blog post](https://www.flipt.io/blog/new-client-side-evaluation) on these client-side SDKs.
 
 ## Architecture
 
@@ -38,6 +41,8 @@ Languages we are planning to support:
 1. PHP
 
 Want to see a client in a language we don't support? [Open an issue](https://github.com/flipt-io/flipt-client-sdks/issues/new?assignees=&labels=new-language&projects=&template=new_language.yml) and let us know!
+
+Documentation for each client can be found in the README of each client's directory.
 
 ## Installation
 
