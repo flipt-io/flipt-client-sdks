@@ -327,6 +327,7 @@ where
                     &evaluation_request.context,
                     &kv.1.constraints,
                     &kv.1.match_type,
+                    &evaluation_request.entity_id,
                 ) {
                     Ok(b) => b,
                     Err(err) => return Err(err),
@@ -489,6 +490,7 @@ where
                         &evaluation_request.context,
                         &s.1.constraints,
                         &s.1.match_type,
+                        &evaluation_request.entity_id,
                     ) {
                         Ok(v) => v,
                         Err(err) => return Err(err),
@@ -533,13 +535,21 @@ where
         eval_context: &HashMap<String, String>,
         constraints: &Vec<flipt::EvaluationConstraint>,
         segment_match_type: &common::SegmentMatchType,
+        entity_id: &str,
     ) -> Result<bool, Error> {
         let mut constraint_matches: usize = 0;
 
         for constraint in constraints {
             let value = match eval_context.get(&constraint.property) {
                 Some(v) => v,
-                None => continue,
+                None => {
+                    if constraint.r#type != common::ConstraintComparisonType::EntityId {
+                        continue;
+                    }
+
+                    // If we have an entityId return dummy value which is an empty string.
+                    ""
+                }
             };
 
             let matched = match constraint.r#type {
@@ -547,6 +557,7 @@ where
                 common::ConstraintComparisonType::Number => matches_number(constraint, value)?,
                 common::ConstraintComparisonType::Boolean => matches_boolean(constraint, value)?,
                 common::ConstraintComparisonType::DateTime => matches_datetime(constraint, value)?,
+                common::ConstraintComparisonType::EntityId => matches_string(constraint, entity_id),
                 _ => {
                     return Ok(false);
                 }
@@ -1006,6 +1017,75 @@ mod tests {
             result_two.err().unwrap().to_string(),
             "invalid request: error parsing time blah: input contains invalid characters"
         );
+    }
+
+    #[test]
+    fn test_entity_id_match() {
+        let test_parser = TestParser::new();
+        let mut mock_store = MockStore::new();
+
+        mock_store.expect_get_flag().returning(|_, _| {
+            Some(flipt::Flag {
+                key: String::from("foo"),
+                enabled: true,
+                r#type: common::FlagType::Variant,
+            })
+        });
+
+        let mut segments: HashMap<String, flipt::EvaluationSegment> = HashMap::new();
+        segments.insert(
+            String::from("segment1"),
+            flipt::EvaluationSegment {
+                segment_key: String::from("segment1"),
+                match_type: common::SegmentMatchType::All,
+                constraints: vec![flipt::EvaluationConstraint {
+                    r#type: common::ConstraintComparisonType::EntityId,
+                    property: String::from("entityId"),
+                    operator: String::from("eq"),
+                    value: String::from("user@flipt.io"),
+                }],
+            },
+        );
+
+        mock_store
+            .expect_get_evaluation_rules()
+            .returning(move |_, _| {
+                Some(vec![flipt::EvaluationRule {
+                    id: String::from("1"),
+                    flag_key: String::from("foo"),
+                    segments: segments.clone(),
+                    rank: 1,
+                    segment_operator: common::SegmentOperator::Or,
+                }])
+            });
+
+        mock_store
+            .expect_get_evaluation_distributions()
+            .returning(|_, _| Some(vec![]));
+
+        let evaluator = &Evaluator {
+            namespaces: vec!["default".into()],
+            parser: test_parser,
+            store: mock_store,
+            mtx: Arc::new(RwLock::new(0)),
+        };
+
+        let context: HashMap<String, String> = HashMap::new();
+
+        let variant = evaluator.variant(&EvaluationRequest {
+            namespace_key: String::from("default"),
+            flag_key: String::from("foo"),
+            entity_id: String::from("user@flipt.io"),
+            context,
+        });
+        assert!(variant.is_ok());
+
+        let v = variant.unwrap();
+
+        assert_eq!(v.flag_key, String::from("foo"));
+        assert!(v.r#match);
+        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
 
     // Segment Match Type ALL

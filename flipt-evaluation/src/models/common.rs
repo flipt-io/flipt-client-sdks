@@ -40,6 +40,8 @@ pub enum ConstraintComparisonType {
     Boolean,
     #[serde(rename = "DATETIME_CONSTRAINT_COMPARISON_TYPE")]
     DateTime,
+    #[serde(rename = "ENTITY_ID_CONSTRAINT_COMPARISON_TYPE")]
+    EntityId,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq)]
