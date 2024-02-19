@@ -226,7 +226,9 @@ func javaTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 		path = "arm"
 	}
 
-	_, err := client.Pipeline("java").Container().From("gradle:8.5.0-jdk11").
+	_, err := client.Pipeline("java").Container(dagger.ContainerOpts{
+		Platform: "linux/amd64",
+	}).From("gradle:8.6.0-jdk11-alpine").
 		WithWorkdir("/src").
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-java"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./.idea/"},
