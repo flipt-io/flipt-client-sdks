@@ -94,3 +94,18 @@ pub struct SegmentConstraint {
     pub operator: String,
     pub value: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::models::common::ConstraintComparisonType;
+
+    use super::SegmentConstraint;
+
+    #[test]
+    fn test_deserialize_constraint_comparison_type_other_value() {
+        let json = r#"{"type":"OTHER_CONSTRAINT_COMPARISON_TYPE","property":"this","operator":"eq","value":"something"}"#;
+        let constraint: SegmentConstraint = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(ConstraintComparisonType::Unknown, constraint.r#type);
+    }
+}
