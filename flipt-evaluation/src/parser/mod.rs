@@ -134,6 +134,11 @@ impl Parser for HTTPParser {
             reqwest::header::ACCEPT,
             reqwest::header::HeaderValue::from_static("application/json"),
         );
+        // minimum version required by the server
+        headers.insert(
+            "X-Flipt-Server-Version",
+            reqwest::header::HeaderValue::from_static("1.38.0"),
+        );
 
         for (key, value) in self.authentication.iter() {
             headers.insert(key, value.clone());
