@@ -134,6 +134,11 @@ impl Parser for HTTPParser {
             reqwest::header::ACCEPT,
             reqwest::header::HeaderValue::from_static("application/json"),
         );
+        // version (or higher) that we can accept from the server
+        headers.insert(
+            "X-Flipt-Accept-Server-Version",
+            reqwest::header::HeaderValue::from_static("1.38.0"),
+        );
 
         for (key, value) in self.authentication.iter() {
             headers.insert(key, value.clone());
