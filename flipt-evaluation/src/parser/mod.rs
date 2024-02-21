@@ -134,9 +134,9 @@ impl Parser for HTTPParser {
             reqwest::header::ACCEPT,
             reqwest::header::HeaderValue::from_static("application/json"),
         );
-        // minimum version required by the server
+        // version (or higher) that we can accept from the server
         headers.insert(
-            "X-Flipt-Server-Version",
+            "X-Flipt-Accept-Server-Version",
             reqwest::header::HeaderValue::from_static("1.38.0"),
         );
 
