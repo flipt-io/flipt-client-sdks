@@ -587,6 +587,13 @@ where
     }
 }
 
+fn contains_string(v: &str, values: &str) -> bool {
+    match serde_json::from_str::<Vec<&str>>(values) {
+        Ok(values) => values.contains(&v),
+        Err(_) => false,
+    }
+}
+
 fn matches_string(evaluation_constraint: &flipt::EvaluationConstraint, v: &str) -> bool {
     let operator = evaluation_constraint.operator.as_str();
 
@@ -610,7 +617,19 @@ fn matches_string(evaluation_constraint: &flipt::EvaluationConstraint, v: &str) 
         "neq" => v != value,
         "prefix" => v.starts_with(value),
         "suffix" => v.ends_with(value),
+        "isoneof" => contains_string(v, value),
+        "isnotoneof" => !contains_string(v, value),
         _ => false,
+    }
+}
+
+fn contains_number(v: i32, values: &str) -> Result<bool, Error> {
+    match serde_json::from_str::<Vec<i32>>(values) {
+        Ok(values) => Ok(values.contains(&v)),
+        Err(err) => Err(Error::InvalidRequest(format!(
+            "error parsing numbers {}: {}",
+            values, err
+        )))?,
     }
 }
 
@@ -641,6 +660,19 @@ fn matches_number(
             v, err
         )))?,
     };
+
+    match operator {
+        "isoneof" => {
+            return contains_number(v_number, &evaluation_constraint.value);
+        }
+        "isnotoneof" => {
+            return match contains_number(v_number, &evaluation_constraint.value) {
+                Ok(v) => Ok(!v),
+                Err(err) => Err(err),
+            }
+        }
+        _ => {}
+    }
 
     let value_number = match evaluation_constraint.value.parse::<i32>() {
         Ok(v) => v,
@@ -753,8 +785,6 @@ fn get_duration_millis(elapsed: Result<Duration, SystemTimeError>) -> Result<f64
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::common;
-    use crate::models::flipt;
     use crate::parser::TestParser;
     use crate::store::MockStore;
 
@@ -808,17 +838,41 @@ mod tests {
             value: String::from("number"),
         }, "num", true),
         string_prefix: (&flipt::EvaluationConstraint{
-                r#type: common::ConstraintComparisonType::String,
-                property: String::from("number"),
-                operator: String::from("prefix"),
-                value: String::from("num"),
-            }, "number", true),
+            r#type: common::ConstraintComparisonType::String,
+            property: String::from("number"),
+            operator: String::from("prefix"),
+            value: String::from("num"),
+        }, "number", true),
         string_suffix: (&flipt::EvaluationConstraint{
-                r#type: common::ConstraintComparisonType::String,
-                property: String::from("number"),
-                operator: String::from("suffix"),
-                value: String::from("ber"),
-            }, "number", true),
+            r#type: common::ConstraintComparisonType::String,
+            property: String::from("number"),
+            operator: String::from("suffix"),
+            value: String::from("ber"),
+        }, "number", true),
+        string_isoneof_exists: (&flipt::EvaluationConstraint{
+            r#type: common::ConstraintComparisonType::String,
+            property: String::from("number"),
+            operator: String::from("isoneof"),
+            value: String::from(r#"["1", "2"]"#),
+        }, "2", true),
+        string_isoneof_absent: (&flipt::EvaluationConstraint{
+            r#type: common::ConstraintComparisonType::String,
+            property: String::from("number"),
+            operator: String::from("isoneof"),
+            value: String::from(r#"["1", "2"]"#),
+        }, "3", false),
+        string_isnotoneof_exists: (&flipt::EvaluationConstraint{
+            r#type: common::ConstraintComparisonType::String,
+            property: String::from("number"),
+            operator: String::from("isnotoneof"),
+            value: String::from(r#"["1", "2"]"#),
+        }, "2", false),
+        string_isnotoneof_absent: (&flipt::EvaluationConstraint{
+            r#type: common::ConstraintComparisonType::String,
+            property: String::from("number"),
+            operator: String::from("isnotoneof"),
+            value: String::from(r#"["1", "2"]"#),
+        }, "3", true),
     }
 
     matches_datetime_tests! {
@@ -898,7 +952,30 @@ mod tests {
             operator: String::from("gte"),
             value: String::from("3"),
         }, "4", true),
-
+        number_isoneof_exists: (&flipt::EvaluationConstraint{
+            r#type: common::ConstraintComparisonType::Number,
+            property: String::from("number"),
+            operator: String::from("isoneof"),
+            value: String::from("[1, 2]"),
+        }, "2", true),
+        number_isoneof_absent: (&flipt::EvaluationConstraint{
+            r#type: common::ConstraintComparisonType::Number,
+            property: String::from("number"),
+            operator: String::from("isoneof"),
+            value: String::from("[1, 2]"),
+        }, "3", false),
+        number_isnotoneof_exists: (&flipt::EvaluationConstraint{
+            r#type: common::ConstraintComparisonType::Number,
+            property: String::from("number"),
+            operator: String::from("isnotoneof"),
+            value: String::from("[1, 2]"),
+        }, "2", false),
+        number_isnotoneof_absent: (&flipt::EvaluationConstraint{
+            r#type: common::ConstraintComparisonType::Number,
+            property: String::from("number"),
+            operator: String::from("isnotoneof"),
+            value: String::from("[1, 2]"),
+        }, "3", true),
     }
 
     #[test]
