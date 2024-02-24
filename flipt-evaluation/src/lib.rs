@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime, SystemTimeError};
@@ -31,6 +31,7 @@ where
 }
 
 #[repr(C)]
+#[derive(Serialize, Deserialize)]
 pub struct EvaluationRequest {
     pub namespace_key: String,
     pub flag_key: String,

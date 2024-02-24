@@ -1,14 +1,32 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
+pub mod parser;
+
+use crate::parser::wasm::WasmParser;
+use fliptevaluation::store::Snapshot;
+use fliptevaluation::{EvaluationRequest, Evaluator};
+use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen]
+pub struct Engine {
+    evaluator: Evaluator<WasmParser, Snapshot>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[wasm_bindgen]
+impl Engine {
+    #[wasm_bindgen(constructor)]
+    pub fn new(namespace: &str) -> Self {
+        let evaluator =
+            Evaluator::new_snapshot_evaluator(vec![namespace.to_string()], WasmParser::new())
+                .unwrap();
+        Engine { evaluator }
+    }
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+    pub fn boolean_evaluation(&self, evaluation_request: JsValue) -> Result<JsValue, JsValue> {
+        let request: EvaluationRequest = serde_wasm_bindgen::from_value(evaluation_request)
+            .map_err(|e| JsValue::from_str(&format!("{}", e)))?;
+
+        self.evaluator
+            .boolean(&request)
+            .map(|response| serde_wasm_bindgen::to_value(&response).unwrap())
+            .map_err(|e| JsValue::from_str(&format!("{}", e)))
     }
 }
