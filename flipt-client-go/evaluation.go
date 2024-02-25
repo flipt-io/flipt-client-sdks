@@ -47,19 +47,7 @@ func NewClient(opts ...clientOption) (*Client, error) {
 		return nil, err
 	}
 
-	ns := []*C.char{C.CString(client.namespace)}
-
-	// Free the memory of the C Strings that were created to initialize the engine.
-	defer func() {
-		for _, n := range ns {
-			C.free(unsafe.Pointer(n))
-		}
-	}()
-
-	nsPtr := (**C.char)(unsafe.Pointer(&ns[0]))
-
-	eng := C.initialize_engine(nsPtr, C.CString(string(b)))
-
+	eng := C.initialize_engine(C.CString(client.namespace), C.CString(string(b)))
 	client.engine = eng
 
 	return client, nil

@@ -1,3 +1,4 @@
+use fliptevaluation::models::flipt;
 use fliptevaluation::error::Error;
 use fliptevaluation::parser::{Authentication, HTTPParser, HTTPParserBuilder};
 use fliptevaluation::store::Snapshot;
@@ -141,6 +142,13 @@ impl Engine {
 
         lock.batch(batch_evaluation_request)
     }
+
+    pub fn list_flags(&self, namespace: &str) -> Result<Vec<flipt::Flag>, Error> {
+        let binding = self.evaluator.clone();
+        let lock = binding.lock().unwrap();
+
+        lock.list_flags(namespace)
+    }
 }
 
 /// # Safety
@@ -160,28 +168,11 @@ unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, Erro
 /// This function will initialize an Engine and return a pointer back to the caller.
 #[no_mangle]
 pub unsafe extern "C" fn initialize_engine(
-    namespaces: *const *const c_char,
+    namespace: *const c_char,
     opts: *const c_char,
 ) -> *mut c_void {
-    let mut index = 0;
-    let mut namespaces_vec = Vec::new();
 
-    while !(*namespaces.offset(index)).is_null() {
-        let c_str = CStr::from_ptr(*namespaces.offset(index));
-        if let Ok(rust_str) = c_str.to_str() {
-            namespaces_vec.push(rust_str.to_string());
-        }
-
-        index += 1;
-    }
-
-    // TODO(yquansah): There seems to be some issue across the FFI layer where the char** is picked up at this
-    // layer to have another "empty" string in its input. For now we will filter out the empty string, but
-    // should circle back to investigate what may be happening upstream.
-    let namespaces_vec: Vec<String> = namespaces_vec
-        .into_iter()
-        .filter(|namespace| !namespace.is_empty())
-        .collect();
+    let namespace = CStr::from_ptr(namespace).to_str().unwrap();
 
     let engine_opts_bytes = CStr::from_ptr(opts).to_bytes();
     let bytes_str_repr = std::str::from_utf8(engine_opts_bytes).unwrap();
@@ -208,8 +199,7 @@ pub unsafe extern "C" fn initialize_engine(
     };
 
     let parser = parser_builder.build();
-
-    let evaluator = Evaluator::new_snapshot_evaluator(namespaces_vec, parser).unwrap();
+    let evaluator = Evaluator::new_snapshot_evaluator(namespace.to_string(), parser).unwrap();
 
     Box::into_raw(Box::new(Engine::new(evaluator, engine_opts))) as *mut c_void
 }

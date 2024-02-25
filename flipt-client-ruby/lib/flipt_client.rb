@@ -28,7 +28,7 @@ module Flipt
 
     ffi_lib File.expand_path(libfile, __dir__)
 
-    # void *initialize_engine(const char *const *namespaces, const char *opts);
+    # void *initialize_engine(const char *namespace, const char *opts);
     attach_function :initialize_engine, %i[pointer string], :pointer
     # void destroy_engine(void *engine_ptr);
     attach_function :destroy_engine, [:pointer], :void
@@ -56,12 +56,7 @@ module Flipt
 
       opts[:authentication] = authentication.strategy
 
-      namespace_list = [namespace]
-      ns = FFI::MemoryPointer.new(:pointer, namespace_list.size)
-      namespace_list.each_with_index do |namespace, i|
-        ns[i].put_pointer(0, FFI::MemoryPointer.from_string(namespace))
-      end
-
+      ns = FFI::MemoryPointer.from_string(namespace)
       @engine = self.class.initialize_engine(ns, opts.to_json)
       ObjectSpace.define_finalizer(self, self.class.finalize(@engine))
     end

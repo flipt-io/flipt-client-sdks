@@ -73,10 +73,7 @@ class FliptEvaluationClient:
         self.ffi_core.evaluate_batch.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
         self.ffi_core.evaluate_batch.restype = ctypes.c_char_p
 
-        namespace_list = [namespace]
-
-        ns = (ctypes.c_char_p * len(namespace_list))()
-        ns[:] = [s.encode("utf-8") for s in namespace_list]
+        ns = namespace.encode("utf-8")
 
         engine_opts_serialized = engine_opts.model_dump_json(exclude_none=True).encode(
             "utf-8"

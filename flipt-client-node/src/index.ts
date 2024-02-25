@@ -1,5 +1,5 @@
 import * as ffi from 'ffi-napi';
-import { Pointer, alloc, allocCString } from 'ref-napi';
+import { Pointer, allocCString } from 'ref-napi';
 import * as os from 'os';
 import {
   AuthenticationStrategy,
@@ -63,9 +63,8 @@ export class FliptEvaluationClient {
       reference: ''
     }
   ) {
-    const buf = Buffer.concat([allocCString(namespace ?? 'default')]);
     const engine = engineLib.initialize_engine(
-      alloc('char *', buf as unknown as string),
+      allocCString(namespace ?? 'default'),
       allocCString(JSON.stringify(engine_opts))
     );
     this.namespace = namespace ?? 'default';

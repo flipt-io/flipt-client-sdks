@@ -9,26 +9,27 @@ use std::collections::HashMap;
 
 #[cfg_attr(test, automock)]
 pub trait Store {
+    fn list_flags(&self, namespace_key: &str) -> Option<Vec<flipt::Flag>>;
     fn get_flag(&self, namespace_key: &str, flag_key: &str) -> Option<flipt::Flag>;
     fn get_evaluation_rules(
         &self,
-        namespace_key: &str,
+namespace_key: &str,
         flag_key: &str,
     ) -> Option<Vec<flipt::EvaluationRule>>;
     fn get_evaluation_distributions(
         &self,
-        namespace_key: &str,
+namespace_key: &str,
         rule_id: &str,
     ) -> Option<Vec<flipt::EvaluationDistribution>>;
     fn get_evaluation_rollouts(
         &self,
-        namespace_key: &str,
+namespace_key: &str,
         flag_key: &str,
     ) -> Option<Vec<flipt::EvaluationRollout>>;
 }
 
 pub struct Snapshot {
-    namespaces: HashMap<String, Namespace>,
+    namespace: Namespace,
 }
 
 struct Namespace {
@@ -40,14 +41,12 @@ struct Namespace {
 }
 
 impl Snapshot {
-    pub fn build<P>(namespaces: &Vec<String>, parser: &P) -> Result<Snapshot, Error>
+    pub fn build<P>(namespace: &str, parser: &P) -> Result<Snapshot, Error>
     where
         P: Parser + Send,
     {
-        let mut ns: HashMap<String, Namespace> = HashMap::new();
 
-        for n in namespaces {
-            let doc = parser.parse(n)?;
+            let doc = parser.parse(&namespace)?;
 
             let mut flags: HashMap<String, flipt::Flag> = HashMap::new();
             let mut eval_rules: HashMap<String, Vec<flipt::EvaluationRule>> = HashMap::new();
@@ -193,29 +192,37 @@ impl Snapshot {
                 }
 
                 eval_rollouts.insert(flag.key.clone(), eval_rollout_collection);
-            }
+        }
 
-            ns.insert(
-                n.clone(),
-                Namespace {
-                    _key: n.clone(),
+            Ok(Self{
+                namespace: Namespace {
+                    _key: namespace.to_string(),
                     flags,
                     eval_rules,
                     eval_rollouts,
                     eval_distributions: eval_dists,
-                },
-            );
-        }
-
-        Ok(Self { namespaces: ns })
+                }
+            })
     }
 }
 
 impl Store for Snapshot {
-    fn get_flag(&self, namespace_key: &str, flag_key: &str) -> Option<flipt::Flag> {
-        let namespace = self.namespaces.get(namespace_key)?;
+    fn list_flags(&self, namespace_key: &str) -> Option<Vec<flipt::Flag>> {
+        if self.namespace._key != namespace_key{
+            return None;
+        }
 
-        let flag = namespace.flags.get(flag_key)?;
+        let flags = self.namespace.flags.values().cloned().collect();
+
+        Some(flags)
+    }
+    
+    fn get_flag(&self, namespace_key: &str,flag_key: &str) -> Option<flipt::Flag> {
+        if self.namespace._key != namespace_key{
+            return None;
+        }
+
+        let flag = self.namespace.flags.get(flag_key)?;
 
         Some(flag.clone())
     }
@@ -225,9 +232,11 @@ impl Store for Snapshot {
         namespace_key: &str,
         flag_key: &str,
     ) -> Option<Vec<flipt::EvaluationRule>> {
-        let namespace = self.namespaces.get(namespace_key)?;
+        if self.namespace._key != namespace_key{
+            return None;
+        }
 
-        let eval_rules = namespace.eval_rules.get(flag_key)?;
+        let eval_rules = self.namespace.eval_rules.get(flag_key)?;
 
         Some(eval_rules.to_vec())
     }
@@ -237,9 +246,11 @@ impl Store for Snapshot {
         namespace_key: &str,
         rule_id: &str,
     ) -> Option<Vec<flipt::EvaluationDistribution>> {
-        let namespace = self.namespaces.get(namespace_key)?;
+        if self.namespace._key != namespace_key{
+            return None;
+        }
 
-        let evaluation_distributions = namespace.eval_distributions.get(rule_id)?;
+        let evaluation_distributions = self.namespace.eval_distributions.get(rule_id)?;
 
         Some(evaluation_distributions.to_vec())
     }
@@ -249,9 +260,11 @@ impl Store for Snapshot {
         namespace_key: &str,
         flag_key: &str,
     ) -> Option<Vec<flipt::EvaluationRollout>> {
-        let namespace = self.namespaces.get(namespace_key)?;
+        if self.namespace._key != namespace_key{
+            return None;
+        }
 
-        let eval_rollouts = namespace.eval_rollouts.get(flag_key)?;
+        let eval_rollouts = self.namespace.eval_rollouts.get(flag_key)?;
 
         Some(eval_rollouts.to_vec())
     }
@@ -268,7 +281,7 @@ mod tests {
     fn test_snapshot() {
         let tp = TestParser::new();
 
-        let snapshot = Snapshot::build(&vec!["default".into()], &tp).unwrap();
+        let snapshot = Snapshot::build("default".into(), &tp).unwrap();
 
         let flag_variant = snapshot
             .get_flag("default", "flag1")
