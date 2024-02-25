@@ -1,5 +1,5 @@
 use fliptevaluation::error::Error;
-use fliptevaluation::models::flipt;
+use fliptevaluation::models::{common, flipt};
 use fliptevaluation::parser::{Authentication, HTTPParser, HTTPParserBuilder};
 use fliptevaluation::store::Snapshot;
 use fliptevaluation::{
@@ -15,7 +15,7 @@ use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
 
 #[derive(Deserialize)]
-struct EvalRequest {
+struct FFIEvaluationRequest {
     namespace_key: String,
     flag_key: String,
     entity_id: String,
@@ -23,13 +23,53 @@ struct EvalRequest {
 }
 
 #[derive(Serialize)]
-struct EvalResponse<T>
+struct FFIEvaluationResponse<T>
 where
     T: Serialize,
 {
     status: Status,
     result: Option<T>,
     error_message: Option<String>,
+}
+
+#[derive(Serialize)]
+struct FFIFlag {
+    key: String,
+    enabled: bool,
+    r#type: FFIFlagType,
+}
+
+#[derive(Default, Serialize)]
+pub enum FFIFlagType {
+    #[serde(rename = "BOOLEAN_FLAG_TYPE")]
+    Boolean,
+    #[default]
+    #[serde(other)]
+    #[serde(rename = "VARIANT_FLAG_TYPE")]
+    Variant,
+}
+
+impl From<flipt::Flag> for FFIFlag {
+    fn from(flag: flipt::Flag) -> Self {
+        FFIFlag {
+            key: flag.key,
+            enabled: flag.enabled,
+            r#type: match flag.r#type {
+                common::FlagType::Boolean => FFIFlagType::Boolean,
+                common::FlagType::Variant => FFIFlagType::Variant,
+            },
+        }
+    }
+}
+
+fn flags_response_to_json_ptr(flags: Result<Vec<flipt::Flag>, Error>) -> *mut c_char {
+    let ffi_flags: Vec<FFIFlag> = flags
+        .unwrap_or_default()
+        .into_iter()
+        .map(|f| f.into())
+        .collect();
+    let json_string = serde_json::to_string(&ffi_flags).unwrap();
+    CString::new(json_string).unwrap().into_raw()
 }
 
 #[derive(Serialize)]
@@ -40,18 +80,18 @@ enum Status {
     Failure,
 }
 
-impl<T> From<Result<T, Error>> for EvalResponse<T>
+impl<T> From<Result<T, Error>> for FFIEvaluationResponse<T>
 where
     T: Serialize,
 {
     fn from(value: Result<T, Error>) -> Self {
         match value {
-            Ok(result) => EvalResponse {
+            Ok(result) => FFIEvaluationResponse {
                 status: Status::Success,
                 result: Some(result),
                 error_message: None,
             },
-            Err(e) => EvalResponse {
+            Err(e) => FFIEvaluationResponse {
                 status: Status::Failure,
                 result: None,
                 error_message: Some(e.to_string()),
@@ -60,8 +100,8 @@ where
     }
 }
 
-fn result_to_json_ptr<T: Serialize>(result: Result<T, Error>) -> *mut c_char {
-    let ffi_response: EvalResponse<T> = result.into();
+fn evaluation_response_to_json_ptr<T: Serialize>(result: Result<T, Error>) -> *mut c_char {
+    let ffi_response: FFIEvaluationResponse<T> = result.into();
     let json_string = serde_json::to_string(&ffi_response).unwrap();
     CString::new(json_string).unwrap().into_raw()
 }
@@ -214,7 +254,7 @@ pub unsafe extern "C" fn evaluate_variant(
     let e = get_engine(engine_ptr).unwrap();
     let e_req = get_evaluation_request(evaluation_request);
 
-    result_to_json_ptr(e.variant(&e_req))
+    evaluation_response_to_json_ptr(e.variant(&e_req))
 }
 
 /// # Safety
@@ -228,7 +268,7 @@ pub unsafe extern "C" fn evaluate_boolean(
     let e = get_engine(engine_ptr).unwrap();
     let e_req = get_evaluation_request(evaluation_request);
 
-    result_to_json_ptr(e.boolean(&e_req))
+    evaluation_response_to_json_ptr(e.boolean(&e_req))
 }
 
 /// # Safety
@@ -242,7 +282,21 @@ pub unsafe extern "C" fn evaluate_batch(
     let e = get_engine(engine_ptr).unwrap();
     let req = get_batch_evaluation_request(batch_evaluation_request);
 
-    result_to_json_ptr(e.batch(req))
+    evaluation_response_to_json_ptr(e.batch(req))
+}
+
+/// # Safety
+///
+/// This function will take in a pointer to the engine and return a list of flags for the given namespace.
+pub unsafe extern "C" fn list_flags(
+    engine_ptr: *mut c_void,
+    namespace: *const c_char,
+) -> *const c_char {
+    let namespace_bytes = CStr::from_ptr(namespace).to_bytes();
+    let bytes_str_repr = std::str::from_utf8(namespace_bytes).unwrap();
+    let res = get_engine(engine_ptr).unwrap().list_flags(bytes_str_repr);
+
+    flags_response_to_json_ptr(res)
 }
 
 unsafe fn get_batch_evaluation_request(
@@ -251,7 +305,8 @@ unsafe fn get_batch_evaluation_request(
     let evaluation_request_bytes = CStr::from_ptr(batch_evaluation_request).to_bytes();
     let bytes_str_repr = std::str::from_utf8(evaluation_request_bytes).unwrap();
 
-    let batch_eval_request: Vec<EvalRequest> = serde_json::from_str(bytes_str_repr).unwrap();
+    let batch_eval_request: Vec<FFIEvaluationRequest> =
+        serde_json::from_str(bytes_str_repr).unwrap();
 
     let mut evaluation_requests: Vec<EvaluationRequest> =
         Vec::with_capacity(batch_eval_request.len());
@@ -279,7 +334,7 @@ unsafe fn get_batch_evaluation_request(
 unsafe fn get_evaluation_request(evaluation_request: *const c_char) -> EvaluationRequest {
     let evaluation_request_bytes = CStr::from_ptr(evaluation_request).to_bytes();
     let bytes_str_repr = std::str::from_utf8(evaluation_request_bytes).unwrap();
-    let client_eval_request: EvalRequest = serde_json::from_str(bytes_str_repr).unwrap();
+    let client_eval_request: FFIEvaluationRequest = serde_json::from_str(bytes_str_repr).unwrap();
 
     let mut context_map: HashMap<String, String> = HashMap::new();
     if let Some(context_value) = client_eval_request.context {

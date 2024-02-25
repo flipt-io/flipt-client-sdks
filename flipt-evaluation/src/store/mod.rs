@@ -45,7 +45,7 @@ impl Snapshot {
     where
         P: Parser + Send,
     {
-        let doc = parser.parse(&namespace)?;
+        let doc = parser.parse(namespace)?;
 
         let mut flags: HashMap<String, flipt::Flag> = HashMap::new();
         let mut eval_rules: HashMap<String, Vec<flipt::EvaluationRule>> = HashMap::new();

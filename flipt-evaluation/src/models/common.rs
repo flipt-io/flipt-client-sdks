@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub enum FlagType {
     #[serde(rename = "BOOLEAN_FLAG_TYPE")]
     Boolean,
@@ -10,7 +10,7 @@ pub enum FlagType {
     Variant,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub enum SegmentOperator {
     #[serde(rename = "AND_SEGMENT_OPERATOR")]
     And,
@@ -20,7 +20,7 @@ pub enum SegmentOperator {
     Or,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub enum SegmentMatchType {
     #[serde(rename = "ALL_SEGMENT_MATCH_TYPE")]
     All,
@@ -30,7 +30,7 @@ pub enum SegmentMatchType {
     Any,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub enum ConstraintComparisonType {
     #[serde(rename = "STRING_CONSTRAINT_COMPARISON_TYPE")]
     String,
@@ -48,7 +48,7 @@ pub enum ConstraintComparisonType {
     Unknown,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub enum RolloutType {
     #[serde(rename = "SEGMENT_ROLLOUT_TYPE")]
     Segment,
@@ -60,7 +60,7 @@ pub enum RolloutType {
     Unknown,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub enum EvaluationReason {
     #[serde(rename = "FLAG_DISABLED_EVALUATION_REASON")]
     FlagDisabled,
@@ -74,7 +74,7 @@ pub enum EvaluationReason {
     Unknown,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum ErrorEvaluationReason {
     #[serde(rename = "UNKNOWN_ERROR_EVALUATION_REASON")]
     Unknown,
@@ -82,7 +82,7 @@ pub enum ErrorEvaluationReason {
     NotFound,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum ResponseType {
     #[serde(rename = "VARIANT_EVALUATION_RESPONSE_TYPE")]
     Variant,
