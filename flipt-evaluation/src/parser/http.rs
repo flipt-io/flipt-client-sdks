@@ -1,4 +1,3 @@
-use reqwest::blocking::Client;
 use reqwest::header::{self, HeaderMap};
 use serde::Deserialize;
 
@@ -58,7 +57,7 @@ impl From<Authentication> for HeaderMap {
 }
 
 pub struct HTTPParser {
-    http_client: Client,
+    http_client: reqwest::blocking::Client,
     http_url: String,
     authentication: HeaderMap,
     reference: Option<String>,
@@ -91,7 +90,7 @@ impl HTTPParserBuilder {
 
     pub fn build(self) -> HTTPParser {
         HTTPParser {
-            http_client: Client::builder()
+            http_client: reqwest::blocking::Client::builder()
                 .timeout(std::time::Duration::from_secs(10))
                 .build()
                 .unwrap(),
