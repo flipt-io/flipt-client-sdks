@@ -1,21 +1,24 @@
-pub mod parser;
+mod utils;
 
-use crate::parser::wasm::WasmParser;
 use fliptevaluation::store::Snapshot;
+use fliptevaluation::parser::http::{HTTPParser,HTTPParserBuilder};
 use fliptevaluation::{EvaluationRequest, Evaluator};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct Engine {
-    evaluator: Evaluator<WasmParser, Snapshot>,
+    evaluator: Evaluator<HTTPParser, Snapshot>,
 }
 
 #[wasm_bindgen]
 impl Engine {
     #[wasm_bindgen(constructor)]
     pub fn new(namespace: &str) -> Self {
+        utils::set_panic_hook();
+
+        let parser_builder = HTTPParserBuilder::new("http://localhost:8080");
         let evaluator =
-            Evaluator::new_snapshot_evaluator(vec![namespace.to_string()], WasmParser::new())
+            Evaluator::new_snapshot_evaluator(vec![namespace.to_string()], parser_builder.build())
                 .unwrap();
         Engine { evaluator }
     }

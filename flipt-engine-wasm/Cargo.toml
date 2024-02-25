@@ -11,13 +11,16 @@ publish = false
 
 [dependencies]
 wasm-bindgen = "0.2.91"
-serde = { version = "1.0.147", features = ["derive"] }
-serde_json = { version = "1.0.89", features = ["raw_value"] }
 serde-wasm-bindgen = "0.4"
 getrandom = { version = "0.2", features = ["js"] }
+console_error_panic_hook = { version = "0.1.7", optional = true }
+reqwest = { version = "0.11.22", features = ["json", "blocking"] }
 
 [dependencies.flipt-evaluation]
 path = "../flipt-evaluation"
 
 [lib]
 crate-type = ["cdylib"]
+
+[features]
+default = ["console_error_panic_hook"]

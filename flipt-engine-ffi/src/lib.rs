@@ -1,6 +1,4 @@
-pub mod parser;
-
-use crate::parser::http::{Authentication, HTTPParser, HTTPParserBuilder};
+use fliptevaluation::parser::http::{Authentication, HTTPParser, HTTPParserBuilder};
 use fliptevaluation::error::Error;
 use fliptevaluation::store::Snapshot;
 use fliptevaluation::{

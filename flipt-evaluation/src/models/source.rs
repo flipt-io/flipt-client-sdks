@@ -1,7 +1,7 @@
 use crate::models::common;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Document {
     pub namespace: Namespace,
@@ -20,14 +20,14 @@ impl Default for Document {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Namespace {
     pub key: String,
     pub name: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Flag {
     pub key: String,
@@ -39,7 +39,7 @@ pub struct Flag {
     pub rollouts: Option<Vec<Rollout>>,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Rule {
     pub distributions: Vec<Distribution>,
@@ -47,7 +47,7 @@ pub struct Rule {
     pub segment_operator: common::SegmentOperator,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Distribution {
     pub variant_key: String,
@@ -55,7 +55,7 @@ pub struct Distribution {
     pub variant_attachment: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Rollout {
     pub description: Option<String>,
@@ -63,7 +63,7 @@ pub struct Rollout {
     pub threshold: Option<Threshold>,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SegmentRule {
     pub segment_operator: Option<common::SegmentOperator>,
@@ -71,14 +71,14 @@ pub struct SegmentRule {
     pub segments: Vec<Segment>,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Threshold {
     pub percentage: f32,
     pub value: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Segment {
     pub key: String,
@@ -86,7 +86,7 @@ pub struct Segment {
     pub constraints: Vec<SegmentConstraint>,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SegmentConstraint {
     pub r#type: common::ConstraintComparisonType,

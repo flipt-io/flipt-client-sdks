@@ -1,9 +1,10 @@
+use reqwest::blocking::Client;
 use reqwest::header::{self, HeaderMap};
 use serde::Deserialize;
 
-use fliptevaluation::error::Error;
-use fliptevaluation::models::source;
-use fliptevaluation::parser::Parser;
+use crate::error::Error;
+use crate::models::source;
+use crate::parser::Parser;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -57,7 +58,7 @@ impl From<Authentication> for HeaderMap {
 }
 
 pub struct HTTPParser {
-    http_client: reqwest::blocking::Client,
+    http_client: Client,
     http_url: String,
     authentication: HeaderMap,
     reference: Option<String>,
@@ -90,7 +91,7 @@ impl HTTPParserBuilder {
 
     pub fn build(self) -> HTTPParser {
         HTTPParser {
-            http_client: reqwest::blocking::Client::builder()
+            http_client: Client::builder()
                 .timeout(std::time::Duration::from_secs(10))
                 .build()
                 .unwrap(),

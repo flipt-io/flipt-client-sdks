@@ -1,5 +1,6 @@
 use crate::{error::Error, models::source};
 
+pub mod http;
 pub trait Parser {
     fn parse(&self, namespace: &str) -> Result<source::Document, Error>;
 }
