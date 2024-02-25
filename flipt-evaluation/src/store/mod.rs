@@ -367,5 +367,10 @@ mod tests {
                 }],
             }
         );
+
+        let flags = snapshot.list_flags("default").expect("flags should exist");
+        assert_eq!(flags.len(), 2);
+        assert_eq!(flags[0].key, "flag1");
+        assert_eq!(flags[1].key, "flag_boolean");
     }
 }
