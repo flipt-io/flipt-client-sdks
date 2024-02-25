@@ -1358,7 +1358,7 @@ mod tests {
         context.insert(String::from("bar"), String::from("boz"));
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key:String::from("default"),
+            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("entity"),
             context,
@@ -2277,7 +2277,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            namespace:"default".into(),
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),

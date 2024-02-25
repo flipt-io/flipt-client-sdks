@@ -1,5 +1,5 @@
-use fliptevaluation::models::flipt;
 use fliptevaluation::error::Error;
+use fliptevaluation::models::flipt;
 use fliptevaluation::parser::{Authentication, HTTPParser, HTTPParserBuilder};
 use fliptevaluation::store::Snapshot;
 use fliptevaluation::{
@@ -171,7 +171,6 @@ pub unsafe extern "C" fn initialize_engine(
     namespace: *const c_char,
     opts: *const c_char,
 ) -> *mut c_void {
-
     let namespace = CStr::from_ptr(namespace).to_str().unwrap();
 
     let engine_opts_bytes = CStr::from_ptr(opts).to_bytes();
