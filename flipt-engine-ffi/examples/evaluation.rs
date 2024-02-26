@@ -21,7 +21,6 @@ fn main() {
     let thread = std::thread::spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_millis(5000));
         let variant = eng.variant(&EvaluationRequest {
-            namespace_key: "default".into(),
             flag_key: "flag1".into(),
             entity_id: "entity".into(),
             context: context.clone(),

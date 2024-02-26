@@ -16,7 +16,6 @@ use std::sync::{Arc, Mutex};
 
 #[derive(Deserialize)]
 struct FFIEvaluationRequest {
-    namespace_key: String,
     flag_key: String,
     entity_id: String,
     context: Option<Map<String, Value>>,
@@ -183,11 +182,11 @@ impl Engine {
         lock.batch(batch_evaluation_request)
     }
 
-    pub fn list_flags(&self, namespace: &str) -> Result<Vec<flipt::Flag>, Error> {
+    pub fn list_flags(&self) -> Result<Vec<flipt::Flag>, Error> {
         let binding = self.evaluator.clone();
         let lock = binding.lock().unwrap();
 
-        lock.list_flags(namespace)
+        lock.list_flags()
     }
 }
 
@@ -288,13 +287,8 @@ pub unsafe extern "C" fn evaluate_batch(
 /// # Safety
 ///
 /// This function will take in a pointer to the engine and return a list of flags for the given namespace.
-pub unsafe extern "C" fn list_flags(
-    engine_ptr: *mut c_void,
-    namespace: *const c_char,
-) -> *const c_char {
-    let namespace_bytes = CStr::from_ptr(namespace).to_bytes();
-    let bytes_str_repr = std::str::from_utf8(namespace_bytes).unwrap();
-    let res = get_engine(engine_ptr).unwrap().list_flags(bytes_str_repr);
+pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> *const c_char {
+    let res = get_engine(engine_ptr).unwrap().list_flags();
 
     flags_response_to_json_ptr(res)
 }
@@ -321,7 +315,6 @@ unsafe fn get_batch_evaluation_request(
         }
 
         evaluation_requests.push(EvaluationRequest {
-            namespace_key: req.namespace_key,
             flag_key: req.flag_key,
             entity_id: req.entity_id,
             context: context_map,
@@ -346,7 +339,6 @@ unsafe fn get_evaluation_request(evaluation_request: *const c_char) -> Evaluatio
     }
 
     EvaluationRequest {
-        namespace_key: client_eval_request.namespace_key,
         flag_key: client_eval_request.flag_key,
         entity_id: client_eval_request.entity_id,
         context: context_map,
