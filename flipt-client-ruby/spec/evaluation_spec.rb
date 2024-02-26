@@ -98,7 +98,7 @@ RSpec.describe Flipt::EvaluationClient do
       expect(resp).to_not be_nil
       expect(resp['status']).to eq('success')
       expect(resp['error_message']).to be_nil
-      expect(resp['result']).to include('flags')
+      expect(resp['result']).to include({"enabled" => true, "key" => "flag_boolean", "type" => "BOOLEAN_FLAG_TYPE"})
     end
   end
 end
