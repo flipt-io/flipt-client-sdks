@@ -1,8 +1,8 @@
 use crate::models::common;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Flag {
     pub key: String,
     pub enabled: bool,

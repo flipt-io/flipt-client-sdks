@@ -38,6 +38,8 @@ module Flipt
     attach_function :evaluate_boolean, %i[pointer string], :string
     # const char *evaluate_batch(void *engine_ptr, const char *batch_evaluation_request);
     attach_function :evaluate_batch, %i[pointer string], :string
+    # const char *list_flags(void *engine_ptr);
+    attach_function :list_flags, [:pointer], :string
 
     # Create a new Flipt client
     #
@@ -98,6 +100,12 @@ module Flipt
       end
 
       resp = self.class.evaluate_batch(@engine, batch_evaluation_request.to_json)
+      JSON.parse(resp)
+    end
+
+    # List all flags in the namespace
+    def list_flags
+      resp = self.class.list_flags(@engine)
       JSON.parse(resp)
     end
 

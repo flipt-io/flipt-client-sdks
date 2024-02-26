@@ -1,5 +1,5 @@
 use fliptevaluation::error::Error;
-use fliptevaluation::models::{common, flipt};
+use fliptevaluation::models::flipt;
 use fliptevaluation::parser::{Authentication, HTTPParser, HTTPParserBuilder};
 use fliptevaluation::store::Snapshot;
 use fliptevaluation::{
@@ -22,53 +22,13 @@ struct FFIEvaluationRequest {
 }
 
 #[derive(Serialize)]
-struct FFIEvaluationResponse<T>
+struct FFIResponse<T>
 where
     T: Serialize,
 {
     status: Status,
     result: Option<T>,
     error_message: Option<String>,
-}
-
-#[derive(Serialize)]
-struct FFIFlag {
-    key: String,
-    enabled: bool,
-    r#type: FFIFlagType,
-}
-
-#[derive(Default, Serialize)]
-pub enum FFIFlagType {
-    #[serde(rename = "BOOLEAN_FLAG_TYPE")]
-    Boolean,
-    #[default]
-    #[serde(other)]
-    #[serde(rename = "VARIANT_FLAG_TYPE")]
-    Variant,
-}
-
-impl From<flipt::Flag> for FFIFlag {
-    fn from(flag: flipt::Flag) -> Self {
-        FFIFlag {
-            key: flag.key,
-            enabled: flag.enabled,
-            r#type: match flag.r#type {
-                common::FlagType::Boolean => FFIFlagType::Boolean,
-                common::FlagType::Variant => FFIFlagType::Variant,
-            },
-        }
-    }
-}
-
-fn flags_response_to_json_ptr(flags: Result<Vec<flipt::Flag>, Error>) -> *mut c_char {
-    let ffi_flags: Vec<FFIFlag> = flags
-        .unwrap_or_default()
-        .into_iter()
-        .map(|f| f.into())
-        .collect();
-    let json_string = serde_json::to_string(&ffi_flags).unwrap();
-    CString::new(json_string).unwrap().into_raw()
 }
 
 #[derive(Serialize)]
@@ -79,18 +39,18 @@ enum Status {
     Failure,
 }
 
-impl<T> From<Result<T, Error>> for FFIEvaluationResponse<T>
+impl<T> From<Result<T, Error>> for FFIResponse<T>
 where
     T: Serialize,
 {
     fn from(value: Result<T, Error>) -> Self {
         match value {
-            Ok(result) => FFIEvaluationResponse {
+            Ok(result) => FFIResponse {
                 status: Status::Success,
                 result: Some(result),
                 error_message: None,
             },
-            Err(e) => FFIEvaluationResponse {
+            Err(e) => FFIResponse {
                 status: Status::Failure,
                 result: None,
                 error_message: Some(e.to_string()),
@@ -99,8 +59,8 @@ where
     }
 }
 
-fn evaluation_response_to_json_ptr<T: Serialize>(result: Result<T, Error>) -> *mut c_char {
-    let ffi_response: FFIEvaluationResponse<T> = result.into();
+fn response_to_json_ptr<T: Serialize>(result: Result<T, Error>) -> *mut c_char {
+    let ffi_response: FFIResponse<T> = result.into();
     let json_string = serde_json::to_string(&ffi_response).unwrap();
     CString::new(json_string).unwrap().into_raw()
 }
@@ -253,7 +213,7 @@ pub unsafe extern "C" fn evaluate_variant(
     let e = get_engine(engine_ptr).unwrap();
     let e_req = get_evaluation_request(evaluation_request);
 
-    evaluation_response_to_json_ptr(e.variant(&e_req))
+    response_to_json_ptr(e.variant(&e_req))
 }
 
 /// # Safety
@@ -267,7 +227,7 @@ pub unsafe extern "C" fn evaluate_boolean(
     let e = get_engine(engine_ptr).unwrap();
     let e_req = get_evaluation_request(evaluation_request);
 
-    evaluation_response_to_json_ptr(e.boolean(&e_req))
+    response_to_json_ptr(e.boolean(&e_req))
 }
 
 /// # Safety
@@ -281,16 +241,17 @@ pub unsafe extern "C" fn evaluate_batch(
     let e = get_engine(engine_ptr).unwrap();
     let req = get_batch_evaluation_request(batch_evaluation_request);
 
-    evaluation_response_to_json_ptr(e.batch(req))
+    response_to_json_ptr(e.batch(req))
 }
 
 /// # Safety
 ///
 /// This function will take in a pointer to the engine and return a list of flags for the given namespace.
+#[no_mangle]
 pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> *const c_char {
     let res = get_engine(engine_ptr).unwrap().list_flags();
 
-    flags_response_to_json_ptr(res)
+    response_to_json_ptr(res)
 }
 
 unsafe fn get_batch_evaluation_request(
