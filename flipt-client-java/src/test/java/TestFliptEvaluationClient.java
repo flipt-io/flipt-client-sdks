@@ -1,5 +1,6 @@
 import io.flipt.client.FliptEvaluationClient;
 import io.flipt.client.models.*;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.AfterAll;
@@ -103,6 +104,18 @@ public class TestFliptEvaluationClient {
     Assertions.assertEquals("notfound", errorResponse.getFlagKey());
     Assertions.assertEquals("default", errorResponse.getNamespaceKey());
     Assertions.assertEquals("NOT_FOUND_ERROR_EVALUATION_REASON", errorResponse.getReason());
+  }
+
+  @Test
+  void testListFlags() throws Exception {
+    Result<ArrayList<Flag>> result = fliptClient.listFlags();
+
+    Assertions.assertEquals("success", result.getStatus());
+    Assertions.assertFalse(result.getErrorMessage().isPresent());
+    Assertions.assertTrue(result.getResult().isPresent());
+
+    ArrayList<Flag> flags = result.getResult().get();
+    Assertions.assertEquals(2, flags.size());
   }
 
   @AfterAll

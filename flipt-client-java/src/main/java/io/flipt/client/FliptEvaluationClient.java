@@ -63,8 +63,7 @@ public class FliptEvaluationClient {
     private String reference;
     private Duration updateInterval;
 
-    public FliptEvaluationClientBuilder() {
-    }
+    public FliptEvaluationClientBuilder() {}
 
     public FliptEvaluationClientBuilder url(String url) {
       this.url = url;
@@ -142,34 +141,35 @@ public class FliptEvaluationClient {
 
   public Result<VariantEvaluationResponse> evaluateVariant(
       String flagKey, String entityId, Map<String, String> context) throws JsonProcessingException {
-    InternalEvaluationRequest evaluationRequest = new InternalEvaluationRequest(this.namespace, flagKey, entityId,
-        context);
+    InternalEvaluationRequest evaluationRequest =
+        new InternalEvaluationRequest(this.namespace, flagKey, entityId, context);
 
     String evaluationRequestSerialized = this.objectMapper.writeValueAsString(evaluationRequest);
     String value = CLibrary.INSTANCE.evaluate_variant(this.engine, evaluationRequestSerialized);
 
-    TypeReference<Result<VariantEvaluationResponse>> typeRef = new TypeReference<Result<VariantEvaluationResponse>>() {
-    };
+    TypeReference<Result<VariantEvaluationResponse>> typeRef =
+        new TypeReference<Result<VariantEvaluationResponse>>() {};
 
     return this.objectMapper.readValue(value, typeRef);
   }
 
   public Result<BooleanEvaluationResponse> evaluateBoolean(
       String flagKey, String entityId, Map<String, String> context) throws JsonProcessingException {
-    InternalEvaluationRequest evaluationRequest = new InternalEvaluationRequest(this.namespace, flagKey, entityId,
-        context);
+    InternalEvaluationRequest evaluationRequest =
+        new InternalEvaluationRequest(this.namespace, flagKey, entityId, context);
 
     String evaluationRequestSerialized = this.objectMapper.writeValueAsString(evaluationRequest);
     String value = CLibrary.INSTANCE.evaluate_boolean(this.engine, evaluationRequestSerialized);
 
-    TypeReference<Result<BooleanEvaluationResponse>> typeRef = new TypeReference<Result<BooleanEvaluationResponse>>() {
-    };
+    TypeReference<Result<BooleanEvaluationResponse>> typeRef =
+        new TypeReference<Result<BooleanEvaluationResponse>>() {};
     return this.objectMapper.readValue(value, typeRef);
   }
 
   public Result<BatchEvaluationResponse> evaluateBatch(EvaluationRequest[] batchEvaluationRequests)
       throws JsonProcessingException {
-    ArrayList<InternalEvaluationRequest> evaluationRequests = new ArrayList<>(batchEvaluationRequests.length);
+    ArrayList<InternalEvaluationRequest> evaluationRequests =
+        new ArrayList<>(batchEvaluationRequests.length);
 
     for (int i = 0; i < batchEvaluationRequests.length; i++) {
       evaluationRequests.add(
@@ -181,11 +181,12 @@ public class FliptEvaluationClient {
               batchEvaluationRequests[i].getContext()));
     }
 
-    String batchEvaluationRequestSerialized = this.objectMapper.writeValueAsString(evaluationRequests.toArray());
+    String batchEvaluationRequestSerialized =
+        this.objectMapper.writeValueAsString(evaluationRequests.toArray());
     String value = CLibrary.INSTANCE.evaluate_batch(this.engine, batchEvaluationRequestSerialized);
 
-    TypeReference<Result<BatchEvaluationResponse>> typeRef = new TypeReference<Result<BatchEvaluationResponse>>() {
-    };
+    TypeReference<Result<BatchEvaluationResponse>> typeRef =
+        new TypeReference<Result<BatchEvaluationResponse>>() {};
 
     return this.objectMapper.readValue(value, typeRef);
   }
@@ -193,8 +194,8 @@ public class FliptEvaluationClient {
   public Result<ArrayList<Flag>> listFlags() throws JsonProcessingException {
     String value = CLibrary.INSTANCE.list_flags(this.engine);
 
-    TypeReference<Result<ArrayList<Flag>>> typeRef = new TypeReference<Result<ArrayList<Flag>>>() {
-    };
+    TypeReference<Result<ArrayList<Flag>>> typeRef =
+        new TypeReference<Result<ArrayList<Flag>>>() {};
 
     return this.objectMapper.readValue(value, typeRef);
   }
