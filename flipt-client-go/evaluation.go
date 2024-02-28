@@ -47,7 +47,12 @@ func NewClient(opts ...clientOption) (*Client, error) {
 		return nil, err
 	}
 
-	eng := C.initialize_engine(C.CString(client.namespace), C.CString(string(b)))
+	cn := C.CString(client.namespace)
+	defer C.free(unsafe.Pointer(cn))
+	co := C.CString(string(b))
+	defer C.free(unsafe.Pointer(co))
+
+	eng := C.initialize_engine(cn, co)
 	client.engine = eng
 
 	return client, nil
@@ -107,7 +112,10 @@ func (e *Client) EvaluateVariant(_ context.Context, flagKey, entityID string, ev
 		return nil, err
 	}
 
-	variant := C.evaluate_variant(e.engine, C.CString(string(ereq)))
+	cr := C.CString(string(ereq))
+	defer C.free(unsafe.Pointer(cr))
+
+	variant := C.evaluate_variant(e.engine, cr)
 	defer C.free(unsafe.Pointer(variant))
 
 	b := C.GoBytes(unsafe.Pointer(variant), (C.int)(C.strlen(variant)))
@@ -133,7 +141,10 @@ func (e *Client) EvaluateBoolean(_ context.Context, flagKey, entityID string, ev
 		return nil, err
 	}
 
-	boolean := C.evaluate_boolean(e.engine, C.CString(string(ereq)))
+	cr := C.CString(string(ereq))
+	defer C.free(unsafe.Pointer(cr))
+
+	boolean := C.evaluate_boolean(e.engine, cr)
 	defer C.free(unsafe.Pointer(boolean))
 
 	b := C.GoBytes(unsafe.Pointer(boolean), (C.int)(C.strlen(boolean)))
@@ -165,7 +176,10 @@ func (e *Client) EvaluateBatch(_ context.Context, requests []*EvaluationRequest)
 		return nil, err
 	}
 
-	batch := C.evaluate_batch(e.engine, C.CString(string(requestsBytes)))
+	cr := C.CString(string(requestsBytes))
+	defer C.free(unsafe.Pointer(cr))
+
+	batch := C.evaluate_batch(e.engine, cr)
 	defer C.free(unsafe.Pointer(batch))
 
 	b := C.GoBytes(unsafe.Pointer(batch), (C.int)(C.strlen(batch)))
