@@ -7,14 +7,15 @@ import {
   BatchResult,
   EngineOpts,
   EvaluationRequest,
-  VariantResult
+  VariantResult,
+  Flag,
+  Result
 } from './models';
 import * as path from 'path';
 
 let libfile = '';
 
-interface EvalRequest {
-  namespace_key: string;
+interface IEvaluationRequest {
   flag_key: string;
   entity_id: string;
   context: object;
@@ -48,11 +49,11 @@ const engineLib = ffi.Library(libfile, {
   evaluate_variant: ['string', ['void *', 'string']],
   evaluate_boolean: ['string', ['void *', 'string']],
   evaluate_batch: ['string', ['void *', 'string']],
+  list_flags: ['string', ['void *']],
   destroy_engine: ['void', ['void *']]
 });
 
 export class FliptEvaluationClient {
-  private namespace: string;
   private engine: Pointer<unknown>;
 
   public constructor(
@@ -67,7 +68,6 @@ export class FliptEvaluationClient {
       allocCString(namespace ?? 'default'),
       allocCString(JSON.stringify(engine_opts))
     );
-    this.namespace = namespace ?? 'default';
     this.engine = engine;
   }
 
@@ -76,8 +76,7 @@ export class FliptEvaluationClient {
     entity_id: string,
     context: {}
   ): VariantResult {
-    const evaluation_request: EvalRequest = {
-      namespace_key: this.namespace,
+    const evaluation_request: IEvaluationRequest = {
       flag_key: flag_key,
       entity_id: entity_id,
       context
@@ -100,8 +99,7 @@ export class FliptEvaluationClient {
     entity_id: string,
     context: {}
   ): BooleanResult {
-    const evaluation_request: EvalRequest = {
-      namespace_key: this.namespace,
+    const evaluation_request: IEvaluationRequest = {
       flag_key: flag_key,
       entity_id: entity_id,
       context
@@ -120,10 +118,9 @@ export class FliptEvaluationClient {
   }
 
   public evaluateBatch(requests: EvaluationRequest[]): BatchResult {
-    const evaluationRequests: EvalRequest[] = [];
+    const evaluationRequests: IEvaluationRequest[] = [];
     for (const request of requests) {
       evaluationRequests.push({
-        namespace_key: this.namespace,
         flag_key: request.flag_key,
         entity_id: request.entity_id,
         context: request.context
@@ -137,6 +134,15 @@ export class FliptEvaluationClient {
 
     if (response === null) {
       throw new Error('Failed to evaluate batch');
+    }
+
+    return JSON.parse(Buffer.from(response).toString('utf-8'));
+  }
+
+  public listFlags(): Result<Flag[]> {
+    const response = engineLib.list_flags(this.engine);
+    if (response === null) {
+      throw new Error('Failed to list flags');
     }
 
     return JSON.parse(Buffer.from(response).toString('utf-8'));
