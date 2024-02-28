@@ -8,11 +8,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class Flag {
   private final String key;
   private final boolean enabled;
+  private final String type;
 
   @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-  public Flag(@JsonProperty("key") String key, @JsonProperty("enabled") boolean enabled) {
+  public Flag(
+      @JsonProperty("key") String key,
+      @JsonProperty("enabled") boolean enabled,
+      @JsonProperty("type") String type) {
     this.key = key;
     this.enabled = enabled;
+    this.type = type;
   }
 
   public String getKey() {
@@ -21,5 +26,9 @@ public class Flag {
 
   public boolean isEnabled() {
     return enabled;
+  }
+
+  public String getType() {
+    return type;
   }
 }

@@ -24,6 +24,7 @@ export interface EvaluationRequest {
 export interface Flag {
   key: string;
   enabled: boolean;
+  type: string;
 }
 
 export interface VariantEvaluationResponse {
