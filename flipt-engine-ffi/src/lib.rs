@@ -59,7 +59,7 @@ where
     }
 }
 
-fn response_to_json_ptr<T: Serialize>(result: Result<T, Error>) -> *mut c_char {
+fn result_to_json_ptr<T: Serialize>(result: Result<T, Error>) -> *mut c_char {
     let ffi_response: FFIResponse<T> = result.into();
     let json_string = serde_json::to_string(&ffi_response).unwrap();
     CString::new(json_string).unwrap().into_raw()
@@ -213,7 +213,7 @@ pub unsafe extern "C" fn evaluate_variant(
     let e = get_engine(engine_ptr).unwrap();
     let e_req = get_evaluation_request(evaluation_request);
 
-    response_to_json_ptr(e.variant(&e_req))
+    result_to_json_ptr(e.variant(&e_req))
 }
 
 /// # Safety
@@ -227,7 +227,7 @@ pub unsafe extern "C" fn evaluate_boolean(
     let e = get_engine(engine_ptr).unwrap();
     let e_req = get_evaluation_request(evaluation_request);
 
-    response_to_json_ptr(e.boolean(&e_req))
+    result_to_json_ptr(e.boolean(&e_req))
 }
 
 /// # Safety
@@ -241,7 +241,7 @@ pub unsafe extern "C" fn evaluate_batch(
     let e = get_engine(engine_ptr).unwrap();
     let req = get_batch_evaluation_request(batch_evaluation_request);
 
-    response_to_json_ptr(e.batch(req))
+    result_to_json_ptr(e.batch(req))
 }
 
 /// # Safety
@@ -251,7 +251,7 @@ pub unsafe extern "C" fn evaluate_batch(
 pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> *const c_char {
     let res = get_engine(engine_ptr).unwrap().list_flags();
 
-    response_to_json_ptr(res)
+    result_to_json_ptr(res)
 }
 
 unsafe fn get_batch_evaluation_request(
