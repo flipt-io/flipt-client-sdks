@@ -8,7 +8,7 @@ from .models import (
     BooleanResult,
     EngineOpts,
     EvaluationRequest,
-    Flag,
+    ListFlagsResult,
     VariantResult,
 )
 
@@ -74,6 +74,9 @@ class FliptEvaluationClient:
         self.ffi_core.evaluate_batch.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
         self.ffi_core.evaluate_batch.restype = ctypes.c_char_p
 
+        self.ffi_core.list_flags.argtypes = [ctypes.c_void_p]
+        self.ffi_core.list_flags.restype = ctypes.c_char_p
+
         ns = namespace.encode("utf-8")
 
         engine_opts_serialized = engine_opts.model_dump_json(exclude_none=True).encode(
@@ -97,9 +100,7 @@ class FliptEvaluationClient:
         )
 
         bytes_returned = ctypes.c_char_p(response).value
-
         variant_result = VariantResult.model_validate_json(bytes_returned)
-
         return variant_result
 
     def evaluate_boolean(
@@ -113,9 +114,7 @@ class FliptEvaluationClient:
         )
 
         bytes_returned = ctypes.c_char_p(response).value
-
         boolean_result = BooleanResult.model_validate_json(bytes_returned)
-
         return boolean_result
 
     def evaluate_batch(self, requests: List[EvaluationRequest]) -> BatchResult:
@@ -142,17 +141,15 @@ class FliptEvaluationClient:
         )
 
         bytes_returned = ctypes.c_char_p(response).value
-
         batch_result = BatchResult.model_validate_json(bytes_returned)
-
         return batch_result
 
-    def list_flags(self) -> List[Flag]:
+    def list_flags(self) -> ListFlagsResult:
         response = self.ffi_core.list_flags(self.engine)
 
         bytes_returned = ctypes.c_char_p(response).value
-
-        flags = Flag.model_validate_json(bytes_returned)
+        result = ListFlagsResult.model_validate_json(bytes_returned)
+        return result
 
 
 def serialize_evaluation_request(

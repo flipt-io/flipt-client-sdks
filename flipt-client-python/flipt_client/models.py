@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 from typing import List, Optional
 
+import pydantic
+
 
 class EvaluationRequest(BaseModel):
     flag_key: str
@@ -87,3 +89,22 @@ class Flag(BaseModel):
     key: str
     enabled: bool
     type: str
+
+
+class FlagList(pydantic.RootModel):
+    root: List[Flag]
+
+    def __iter__(self):
+        return iter(self.root)
+
+    def __getitem__(self, item):
+        return self.root[item]
+
+    def __len__(self):
+        return len(self.root)
+
+
+class ListFlagsResult(BaseModel):
+    status: str
+    result: Optional[FlagList] = None
+    error_message: Optional[str] = None

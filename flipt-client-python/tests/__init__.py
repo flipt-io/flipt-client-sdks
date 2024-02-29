@@ -47,6 +47,12 @@ class TestFliptEvaluationClient(unittest.TestCase):
         self.assertEqual("flag_boolean", boolean.result.flag_key)
         self.assertEqual("MATCH_EVALUATION_REASON", boolean.result.reason)
 
+    def test_list_flags(self):
+        flags = self.flipt_client.list_flags()
+        self.assertIsNone(flags.error_message)
+        self.assertEqual("success", flags.status)
+        self.assertEqual(2, len(flags.result))
+
     def test_batch(self):
         batch = self.flipt_client.evaluate_batch(
             [
