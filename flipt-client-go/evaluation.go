@@ -100,7 +100,7 @@ func WithJWTAuthentication(token string) clientOption {
 	}
 }
 
-// EvaluateVariant makes an evaluation on a variant flag.
+// EvaluateVariant performs evaluation for a variant flag.
 func (e *Client) EvaluateVariant(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantResult, error) {
 	ereq, err := json.Marshal(evaluationRequest{
 		NamespaceKey: e.namespace,
@@ -129,7 +129,7 @@ func (e *Client) EvaluateVariant(_ context.Context, flagKey, entityID string, ev
 	return vr, nil
 }
 
-// EvaluateBoolean makes an evaluation on a boolean flag.
+// EvaluateBoolean performs evaluation for a boolean flag.
 func (e *Client) EvaluateBoolean(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanResult, error) {
 	ereq, err := json.Marshal(evaluationRequest{
 		NamespaceKey: e.namespace,
@@ -158,7 +158,7 @@ func (e *Client) EvaluateBoolean(_ context.Context, flagKey, entityID string, ev
 	return br, nil
 }
 
-// EvaluateBatch makes an evaluation on a batch of flags.
+// EvaluateBatch performs evaluation for a batch of flags.
 func (e *Client) EvaluateBatch(_ context.Context, requests []*EvaluationRequest) (*BatchResult, error) {
 	evaluationRequests := make([]*evaluationRequest, 0, len(requests))
 
@@ -191,6 +191,21 @@ func (e *Client) EvaluateBatch(_ context.Context, requests []*EvaluationRequest)
 	}
 
 	return br, nil
+}
+
+func (e *Client) ListFlags(_ context.Context) (*ListFlagsResult, error) {
+	flags := C.list_flags(e.engine)
+	defer C.free(unsafe.Pointer(flags))
+
+	b := C.GoBytes(unsafe.Pointer(flags), (C.int)(C.strlen(flags)))
+
+	var fl *ListFlagsResult
+
+	if err := json.Unmarshal(b, &fl); err != nil {
+		return nil, err
+	}
+
+	return fl, nil
 }
 
 // Close cleans up the allocated engine as it was initialized in the constructor.
