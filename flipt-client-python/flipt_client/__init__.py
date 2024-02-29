@@ -8,13 +8,14 @@ from .models import (
     BooleanResult,
     EngineOpts,
     EvaluationRequest,
+    Flag,
     VariantResult,
 )
 
 from typing import List
 
 
-class EvalRequest(BaseModel):
+class InternalEvaluationRequest(BaseModel):
     namespace_key: str
     flag_key: str
     entity_id: str
@@ -32,7 +33,7 @@ class FliptEvaluationClient:
                 libfile = "darwin_arm64/libfliptengine.dylib"
             else:
                 raise Exception(
-                    f"Unsupported processor: {platform.processor()}. Please use an M1 Mac."
+                    f"Unsupported processor: {platform.processor()}. Please use an arm64 Mac."
                 )
         elif platform.system() == "Linux":
             arch = platform.machine()
@@ -122,7 +123,7 @@ class FliptEvaluationClient:
 
         for r in requests:
             evaluation_requests.append(
-                EvalRequest(
+                InternalEvaluationRequest(
                     namespace_key=self.namespace_key,
                     flag_key=r.flag_key,
                     entity_id=r.entity_id,
@@ -146,11 +147,18 @@ class FliptEvaluationClient:
 
         return batch_result
 
+    def list_flags(self) -> List[Flag]:
+        response = self.ffi_core.list_flags(self.engine)
+
+        bytes_returned = ctypes.c_char_p(response).value
+
+        flags = Flag.model_validate_json(bytes_returned)
+
 
 def serialize_evaluation_request(
     namespace_key: str, flag_key: str, entity_id: str, context: dict
 ) -> str:
-    evaluation_request = EvalRequest(
+    evaluation_request = InternalEvaluationRequest(
         namespace_key=namespace_key,
         flag_key=flag_key,
         entity_id=entity_id,

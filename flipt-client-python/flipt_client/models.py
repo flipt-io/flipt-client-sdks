@@ -81,3 +81,9 @@ class BatchResult(BaseModel):
     status: str
     result: Optional[BatchEvaluationResponse] = None
     error_message: Optional[str] = None
+
+
+class Flag(BaseModel):
+    key: str
+    enabled: bool
+    type: str
