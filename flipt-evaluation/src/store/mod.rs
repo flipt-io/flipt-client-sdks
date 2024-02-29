@@ -370,7 +370,16 @@ mod tests {
 
         let flags = snapshot.list_flags("default").expect("flags should exist");
         assert_eq!(flags.len(), 2);
-        assert_eq!(flags[0].key, "flag1");
-        assert_eq!(flags[1].key, "flag_boolean");
+        let mut found = 0;
+        for flag in flags {
+            if flag.key == "flag1" {
+                assert_eq!(flag.r#type, common::FlagType::Variant);
+                found += 1;
+            } else if flag.key == "flag_boolean" {
+                assert_eq!(flag.r#type, common::FlagType::Boolean);
+                found += 1;
+            }
+        }
+        assert_eq!(found, 2);
     }
 }
