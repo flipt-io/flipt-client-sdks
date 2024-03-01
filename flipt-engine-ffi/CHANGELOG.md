@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.2...flipt-engine-ffi-v0.1.3) (2024-03-01)
+
+
+### Features
+
+* list flags + single namespace ([#151](https://github.com/flipt-io/flipt-client-sdks/issues/151)) ([cf09c85](https://github.com/flipt-io/flipt-client-sdks/commit/cf09c857a851c70aea97bccc9a159c4c7b5540a0))
+
 ## [0.1.2](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.1...flipt-engine-ffi-v0.1.2) (2024-02-24)
 
 
