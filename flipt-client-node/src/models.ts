@@ -1,27 +1,33 @@
-interface AuthenticationStrategy {}
+export interface AuthenticationStrategy {}
 
-interface ClientTokenAuthentication extends AuthenticationStrategy {
+export interface ClientTokenAuthentication extends AuthenticationStrategy {
   client_token: string;
 }
 
-interface JWTAuthentication extends AuthenticationStrategy {
+export interface JWTAuthentication extends AuthenticationStrategy {
   jwt_token: string;
 }
 
-interface EngineOpts<T> {
+export interface EngineOpts<T> {
   url?: string;
   update_interval?: number;
   authentication?: T;
   reference?: string;
 }
 
-interface EvaluationRequest {
+export interface EvaluationRequest {
   flag_key: string;
   entity_id: string;
   context: object;
 }
 
-interface VariantEvaluationResponse {
+export interface Flag {
+  key: string;
+  enabled: boolean;
+  type: string;
+}
+
+export interface VariantEvaluationResponse {
   match: boolean;
   segment_keys: string[];
   reason: string;
@@ -32,7 +38,7 @@ interface VariantEvaluationResponse {
   timestamp: string;
 }
 
-interface BooleanEvaluationResponse {
+export interface BooleanEvaluationResponse {
   enabled: boolean;
   flag_key: string;
   reason: string;
@@ -40,49 +46,32 @@ interface BooleanEvaluationResponse {
   timestamp: string;
 }
 
-interface ErrorEvaluationResponse {
+export interface ErrorEvaluationResponse {
   flag_key: string;
   namespace_key: string;
   reason: string;
 }
 
-interface EvaluationResponse {
+export interface EvaluationResponse {
   type: string;
   boolean_evaluation_response?: BooleanEvaluationResponse;
   variant_evaluation_response?: VariantEvaluationResponse;
   error_evaluation_response?: ErrorEvaluationResponse;
 }
 
-interface BatchEvaluationResponse {
+export interface BatchEvaluationResponse {
   responses: EvaluationResponse[];
   request_duration_millis: number;
 }
 
-interface VariantResult {
+export interface VariantResult extends Result<VariantEvaluationResponse> {}
+
+export interface BooleanResult extends Result<BooleanEvaluationResponse> {}
+
+export interface BatchResult extends Result<BatchEvaluationResponse> {}
+
+export interface Result<T> {
   status: string;
-  result: VariantEvaluationResponse;
+  result?: T;
   error_message: string;
 }
-
-interface BooleanResult {
-  status: string;
-  result: BooleanEvaluationResponse;
-  error_message: string;
-}
-
-interface BatchResult {
-  status: string;
-  result?: BatchEvaluationResponse;
-  error_message: string;
-}
-
-export {
-  AuthenticationStrategy,
-  BooleanResult,
-  BatchResult,
-  ClientTokenAuthentication,
-  EngineOpts,
-  EvaluationRequest,
-  JWTAuthentication,
-  VariantResult
-};

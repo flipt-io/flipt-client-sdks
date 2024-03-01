@@ -1,21 +1,21 @@
 use crate::models::common;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Flag {
     pub key: String,
     pub enabled: bool,
     pub r#type: common::FlagType,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Variant {
     pub key: String,
     pub attachment: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Constraint {
     pub segment_key: String,
     pub r#type: common::ConstraintComparisonType,

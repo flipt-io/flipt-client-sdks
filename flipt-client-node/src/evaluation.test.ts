@@ -29,11 +29,11 @@ test('variant', () => {
     expect(variant.error_message).toBeNull();
     expect(variant.status).toEqual('success');
     expect(variant.result).toBeDefined();
-    expect(variant.result.flag_key).toEqual('flag1');
-    expect(variant.result.match).toEqual(true);
-    expect(variant.result.reason).toEqual('MATCH_EVALUATION_REASON');
-    expect(variant.result.segment_keys).toContain('segment1');
-    expect(variant.result.variant_key).toContain('variant1');
+    expect(variant.result?.flag_key).toEqual('flag1');
+    expect(variant.result?.match).toEqual(true);
+    expect(variant.result?.reason).toEqual('MATCH_EVALUATION_REASON');
+    expect(variant.result?.segment_keys).toContain('segment1');
+    expect(variant.result?.variant_key).toContain('variant1');
   } finally {
     if (client) client.close();
   }
@@ -55,9 +55,9 @@ test('boolean', () => {
     expect(boolean.error_message).toBeNull();
     expect(boolean.status).toEqual('success');
     expect(boolean.result).toBeDefined();
-    expect(boolean.result.flag_key).toEqual('flag_boolean');
-    expect(boolean.result.enabled).toEqual(true);
-    expect(boolean.result.reason).toEqual('MATCH_EVALUATION_REASON');
+    expect(boolean.result?.flag_key).toEqual('flag_boolean');
+    expect(boolean.result?.enabled).toEqual(true);
+    expect(boolean.result?.reason).toEqual('MATCH_EVALUATION_REASON');
   } finally {
     if (client) client.close();
   }
@@ -178,6 +178,25 @@ test('boolean failure', () => {
     expect(boolean.error_message).toEqual(
       'invalid request: failed to get flag information default/nonexistent'
     );
+  } finally {
+    if (client) client.close();
+  }
+});
+
+test('list flags', () => {
+  const client = new FliptEvaluationClient('default', {
+    url: fliptUrl,
+    authentication: {
+      client_token: authToken
+    }
+  });
+
+  try {
+    const flags = client.listFlags();
+    expect(flags.error_message).toBeNull();
+    expect(flags.status).toEqual('success');
+    expect(flags.result).toBeDefined();
+    expect(flags.result?.length).toEqual(2);
   } finally {
     if (client) client.close();
   }
