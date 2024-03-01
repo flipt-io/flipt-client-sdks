@@ -1,7 +1,5 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel
 from typing import List, Optional
-
-import pydantic
 
 
 class EvaluationRequest(BaseModel):
@@ -91,7 +89,7 @@ class Flag(BaseModel):
     type: str
 
 
-class FlagList(pydantic.RootModel):
+class FlagList(RootModel):
     root: List[Flag]
 
     def __iter__(self):

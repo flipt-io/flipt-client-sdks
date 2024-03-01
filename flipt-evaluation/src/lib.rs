@@ -164,17 +164,13 @@ where
 
     pub fn list_flags(&self) -> ListFlagsResult {
         let _r_lock = self.mtx.read().unwrap();
-        let flags = match self.store.list_flags(&self.namespace) {
-            Some(f) => f,
-            None => {
-                return Err(Error::Unknown(format!(
-                    "failed to get flags for {}",
-                    self.namespace,
-                )));
-            }
-        };
-
-        Ok(flags)
+        match self.store.list_flags(&self.namespace) {
+            Some(f) => Ok(f),
+            None => Err(Error::Unknown(format!(
+                "failed to get flags for {}",
+                self.namespace,
+            ))),
+        }
     }
 
     pub fn variant(
