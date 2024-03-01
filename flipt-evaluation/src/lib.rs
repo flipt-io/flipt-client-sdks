@@ -24,7 +24,7 @@ where
     P: Parser + Send,
     S: Store + Send,
 {
-    namespaces: Vec<String>,
+    namespace: String,
     parser: P,
     store: S,
     mtx: Arc<RwLock<i32>>,
@@ -32,7 +32,6 @@ where
 
 #[repr(C)]
 pub struct EvaluationRequest {
-    pub namespace_key: String,
     pub flag_key: String,
     pub entity_id: String,
     pub context: HashMap<String, String>,
@@ -117,6 +116,8 @@ impl Default for ErrorEvaluationResponse {
     }
 }
 
+type ListFlagsResult = std::result::Result<Vec<flipt::Flag>, Error>;
+
 type VariantEvaluationResult<T> = std::result::Result<T, Error>;
 
 type BooleanEvaluationResult<T> = std::result::Result<T, Error>;
@@ -125,13 +126,13 @@ impl<P> Evaluator<P, Snapshot>
 where
     P: Parser + Send,
 {
-    pub fn new_snapshot_evaluator(namespaces: Vec<String>, parser: P) -> Result<Self, Error> {
-        let snap = Snapshot::build(&namespaces, &parser)?;
-        Ok(Evaluator::new(namespaces, parser, snap))
+    pub fn new_snapshot_evaluator(namespace: String, parser: P) -> Result<Self, Error> {
+        let snap = Snapshot::build(&namespace, &parser)?;
+        Ok(Evaluator::new(namespace, parser, snap))
     }
 
     pub fn replace_snapshot(&mut self) {
-        match Snapshot::build(&self.namespaces, &self.parser) {
+        match Snapshot::build(&self.namespace, &self.parser) {
             Ok(s) => {
                 self.replace_store(s);
             }
@@ -147,9 +148,9 @@ where
     P: Parser + Send,
     S: Store + Send,
 {
-    pub fn new(namespaces: Vec<String>, parser: P, store_impl: S) -> Self {
+    pub fn new(namespace: String, parser: P, store_impl: S) -> Self {
         Self {
-            namespaces,
+            namespace,
             parser,
             store: store_impl,
             mtx: Arc::new(RwLock::new(0)),
@@ -161,15 +162,26 @@ where
         self.store = store_impl;
     }
 
+    pub fn list_flags(&self) -> ListFlagsResult {
+        let _r_lock = self.mtx.read().unwrap();
+        match self.store.list_flags(&self.namespace) {
+            Some(f) => Ok(f),
+            None => Err(Error::Unknown(format!(
+                "failed to get flags for {}",
+                self.namespace,
+            ))),
+        }
+    }
+
     pub fn variant(
         &self,
         evaluation_request: &EvaluationRequest,
     ) -> VariantEvaluationResult<VariantEvaluationResponse> {
         let _r_lock = self.mtx.read().unwrap();
-        let flag = match self.store.get_flag(
-            &evaluation_request.namespace_key,
-            &evaluation_request.flag_key,
-        ) {
+        let flag = match self
+            .store
+            .get_flag(&self.namespace, &evaluation_request.flag_key)
+        {
             Some(f) => {
                 if f.r#type != common::FlagType::Variant {
                     return Err(Error::InvalidRequest(format!(
@@ -182,7 +194,7 @@ where
             None => {
                 return Err(Error::InvalidRequest(format!(
                     "failed to get flag information {}/{}",
-                    &evaluation_request.namespace_key, &evaluation_request.flag_key,
+                    &self.namespace, &evaluation_request.flag_key,
                 )));
             }
         };
@@ -195,10 +207,10 @@ where
         evaluation_request: &EvaluationRequest,
     ) -> BooleanEvaluationResult<BooleanEvaluationResponse> {
         let _r_lock = self.mtx.read().unwrap();
-        let flag = match self.store.get_flag(
-            &evaluation_request.namespace_key,
-            &evaluation_request.flag_key,
-        ) {
+        let flag = match self
+            .store
+            .get_flag(&self.namespace, &evaluation_request.flag_key)
+        {
             Some(f) => {
                 if f.r#type != common::FlagType::Boolean {
                     return Err(Error::InvalidRequest(format!(
@@ -211,7 +223,7 @@ where
             None => {
                 return Err(Error::InvalidRequest(format!(
                     "failed to get flag information {}/{}",
-                    &evaluation_request.namespace_key, &evaluation_request.flag_key,
+                    &self.namespace, &evaluation_request.flag_key,
                 )));
             }
         };
@@ -227,10 +239,7 @@ where
 
         let mut evaluation_responses: Vec<EvaluationResponse> = Vec::new();
         for request in requests {
-            let flag = match self
-                .store
-                .get_flag(&request.namespace_key, &request.flag_key)
-            {
+            let flag = match self.store.get_flag(&self.namespace, &request.flag_key) {
                 Some(f) => f,
                 None => {
                     evaluation_responses.push(EvaluationResponse {
@@ -239,7 +248,7 @@ where
                         variant_evaluation_response: None,
                         error_evaluation_response: Some(ErrorEvaluationResponse {
                             flag_key: request.flag_key,
-                            namespace_key: request.namespace_key,
+                            namespace_key: self.namespace.clone(),
                             reason: common::ErrorEvaluationReason::NotFound,
                         }),
                     });
@@ -295,15 +304,15 @@ where
             return Ok(variant_evaluation_response);
         }
 
-        let evaluation_rules = match self.store.get_evaluation_rules(
-            &evaluation_request.namespace_key,
-            &evaluation_request.flag_key,
-        ) {
+        let evaluation_rules = match self
+            .store
+            .get_evaluation_rules(&self.namespace, &evaluation_request.flag_key)
+        {
             Some(rules) => rules,
             None => {
                 return Err(Error::Unknown(format!(
                     "error getting evaluation rules for namespace {} and flag {}",
-                    evaluation_request.namespace_key.clone(),
+                    self.namespace.clone(),
                     evaluation_request.flag_key.clone()
                 )));
             }
@@ -353,13 +362,13 @@ where
 
             let distributions = match self
                 .store
-                .get_evaluation_distributions(&evaluation_request.namespace_key, &rule.id)
+                .get_evaluation_distributions(&self.namespace, &rule.id)
             {
                 Some(evaluation_distributions) => evaluation_distributions,
                 None => {
                     return Err(Error::Unknown(format!(
                         "error getting evaluation distributions for namespace {} and rule {}",
-                        evaluation_request.namespace_key.clone(),
+                        self.namespace.clone(),
                         rule.id.clone()
                     )))
                 }
@@ -436,15 +445,15 @@ where
         let now = SystemTime::now();
         let mut last_rank = 0;
 
-        let evaluation_rollouts = match self.store.get_evaluation_rollouts(
-            &evaluation_request.namespace_key,
-            &evaluation_request.flag_key,
-        ) {
+        let evaluation_rollouts = match self
+            .store
+            .get_evaluation_rollouts(&self.namespace, &evaluation_request.flag_key)
+        {
             Some(rollouts) => rollouts,
             None => {
                 return Err(Error::Unknown(format!(
                     "error getting evaluation rollouts for namespace {} and flag {}",
-                    evaluation_request.namespace_key.clone(),
+                    self.namespace.clone(),
                     evaluation_request.flag_key.clone()
                 )));
             }
@@ -1141,7 +1150,7 @@ mod tests {
             .returning(|_, _| Some(vec![]));
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
@@ -1150,7 +1159,6 @@ mod tests {
         let context: HashMap<String, String> = HashMap::new();
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("user@flipt.io"),
             context,
@@ -1219,7 +1227,7 @@ mod tests {
             .returning(|_, _| Some(vec![]));
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
@@ -1230,7 +1238,6 @@ mod tests {
         context.insert(String::from("foo"), String::from("bar"));
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("entity"),
             context,
@@ -1311,7 +1318,7 @@ mod tests {
             .returning(|_, _| Some(vec![]));
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
@@ -1323,7 +1330,6 @@ mod tests {
         context.insert(String::from("company"), String::from("flipt"));
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("entity"),
             context,
@@ -1341,7 +1347,6 @@ mod tests {
         context.insert(String::from("bar"), String::from("boz"));
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("entity"),
             context,
@@ -1430,7 +1435,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
@@ -1443,7 +1448,6 @@ mod tests {
         context.insert(String::from("admin"), String::from("true"));
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("123"),
             context,
@@ -1531,7 +1535,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
@@ -1544,7 +1548,6 @@ mod tests {
         context.insert(String::from("admin"), String::from("true"));
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("123"),
             context,
@@ -1637,7 +1640,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
@@ -1649,7 +1652,6 @@ mod tests {
         context.insert(String::from("foo"), String::from("bar"));
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("1"),
             context: context.clone(),
@@ -1666,7 +1668,6 @@ mod tests {
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("2"),
             context,
@@ -1770,7 +1771,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
@@ -1782,7 +1783,6 @@ mod tests {
         context.insert(String::from("foo"), String::from("bar"));
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("1"),
             context: context.clone(),
@@ -1854,7 +1854,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
@@ -1863,7 +1863,6 @@ mod tests {
         let context: HashMap<String, String> = HashMap::new();
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("10"),
             context: context.clone(),
@@ -1880,7 +1879,6 @@ mod tests {
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("01"),
             context,
@@ -1951,7 +1949,7 @@ mod tests {
             .returning(|_, _| Some(vec![]));
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
@@ -1961,7 +1959,6 @@ mod tests {
         context.insert(String::from("bar"), String::from("baz"));
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("entity"),
             context,
@@ -2042,7 +2039,7 @@ mod tests {
             .returning(|_, _| Some(vec![]));
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
@@ -2053,7 +2050,6 @@ mod tests {
         context.insert(String::from("company"), String::from("flipt"));
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("entity"),
             context,
@@ -2071,7 +2067,6 @@ mod tests {
         context.insert(String::from("bar"), String::from("boz"));
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("entity"),
             context,
@@ -2160,7 +2155,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
@@ -2172,7 +2167,6 @@ mod tests {
         context.insert(String::from("admin"), String::from("true"));
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("123"),
             context,
@@ -2260,7 +2254,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
@@ -2272,7 +2266,6 @@ mod tests {
         context.insert(String::from("admin"), String::from("true"));
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("123"),
             context,
@@ -2357,7 +2350,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
@@ -2368,7 +2361,6 @@ mod tests {
         context.insert(String::from("bar"), String::from("baz"));
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("1"),
             context: context.clone(),
@@ -2385,7 +2377,6 @@ mod tests {
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("2"),
             context,
@@ -2489,7 +2480,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
@@ -2500,7 +2491,6 @@ mod tests {
         context.insert(String::from("premium_user"), String::from("true"));
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("1"),
             context: context.clone(),
@@ -2572,7 +2562,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
@@ -2581,7 +2571,6 @@ mod tests {
         let mut context: HashMap<String, String> = HashMap::new();
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("10"),
             context: context.clone(),
@@ -2598,7 +2587,6 @@ mod tests {
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("01"),
             context: context.clone(),
@@ -2616,7 +2604,6 @@ mod tests {
 
         context.insert(String::from("foo"), String::from("bar"));
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("01"),
             context,
@@ -2694,7 +2681,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
@@ -2705,7 +2692,6 @@ mod tests {
         context.insert(String::from("bar"), String::from("baz"));
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("1"),
             context: context.clone(),
@@ -2806,7 +2792,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
@@ -2817,7 +2803,6 @@ mod tests {
         context.insert(String::from("bar"), String::from("baz"));
 
         let variant = evaluator.variant(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("1"),
             context: context.clone(),

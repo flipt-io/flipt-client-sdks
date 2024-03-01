@@ -90,4 +90,15 @@ RSpec.describe Flipt::EvaluationClient do
       expect(resp['error_message']).to eq('invalid request: failed to get flag information default/nonexistent')
     end
   end
+
+  describe '#list_flags' do
+    it 'returns a list of flags' do
+      resp = @client.list_flags
+
+      expect(resp).to_not be_nil
+      expect(resp['status']).to eq('success')
+      expect(resp['error_message']).to be_nil
+      expect(resp['result']).to include({"enabled" => true, "key" => "flag_boolean", "type" => "BOOLEAN_FLAG_TYPE"})
+    end
+  end
 end

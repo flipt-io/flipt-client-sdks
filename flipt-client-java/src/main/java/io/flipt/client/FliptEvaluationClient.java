@@ -17,14 +17,12 @@ import java.util.Optional;
 public class FliptEvaluationClient {
   private final Pointer engine;
 
-  private final String namespace;
-
   private final ObjectMapper objectMapper;
 
   public interface CLibrary extends Library {
     CLibrary INSTANCE = (CLibrary) Native.load("fliptengine", CLibrary.class);
 
-    Pointer initialize_engine(String[] namespaces, String opts);
+    Pointer initialize_engine(String namespace, String opts);
 
     String evaluate_boolean(Pointer engine, String evaluation_request);
 
@@ -32,24 +30,23 @@ public class FliptEvaluationClient {
 
     String evaluate_batch(Pointer engine, String batch_evaluation_request);
 
+    String list_flags(Pointer engine);
+
     void destroy_engine(Pointer engine);
   }
 
   private FliptEvaluationClient(String namespace, EngineOpts engineOpts)
       throws JsonProcessingException {
 
-    String[] namespaces = {namespace};
-
     ObjectMapper objectMapper = new ObjectMapper();
     objectMapper.registerModule(new Jdk8Module());
 
     String engineOptions = objectMapper.writeValueAsString(engineOpts);
 
-    Pointer engine = CLibrary.INSTANCE.initialize_engine(namespaces, engineOptions);
+    Pointer engine = CLibrary.INSTANCE.initialize_engine(namespace, engineOptions);
 
     this.objectMapper = objectMapper;
     this.engine = engine;
-    this.namespace = namespace;
   }
 
   public static FliptEvaluationClientBuilder builder() {
@@ -101,8 +98,7 @@ public class FliptEvaluationClient {
     }
   }
 
-  private static class EvalRequest {
-    private final String namespaceKey;
+  private static class InternalEvaluationRequest {
 
     private final String flagKey;
 
@@ -110,17 +106,10 @@ public class FliptEvaluationClient {
 
     private final Map<String, String> context;
 
-    public EvalRequest(
-        String namespaceKey, String flagKey, String entityId, Map<String, String> context) {
-      this.namespaceKey = namespaceKey;
+    public InternalEvaluationRequest(String flagKey, String entityId, Map<String, String> context) {
       this.flagKey = flagKey;
       this.entityId = entityId;
       this.context = context;
-    }
-
-    @JsonProperty("namespace_key")
-    public String getNamespaceKey() {
-      return namespaceKey;
     }
 
     @JsonProperty("flag_key")
@@ -141,7 +130,8 @@ public class FliptEvaluationClient {
 
   public Result<VariantEvaluationResponse> evaluateVariant(
       String flagKey, String entityId, Map<String, String> context) throws JsonProcessingException {
-    EvalRequest evaluationRequest = new EvalRequest(this.namespace, flagKey, entityId, context);
+    InternalEvaluationRequest evaluationRequest =
+        new InternalEvaluationRequest(flagKey, entityId, context);
 
     String evaluationRequestSerialized = this.objectMapper.writeValueAsString(evaluationRequest);
     String value = CLibrary.INSTANCE.evaluate_variant(this.engine, evaluationRequestSerialized);
@@ -154,7 +144,8 @@ public class FliptEvaluationClient {
 
   public Result<BooleanEvaluationResponse> evaluateBoolean(
       String flagKey, String entityId, Map<String, String> context) throws JsonProcessingException {
-    EvalRequest evaluationRequest = new EvalRequest(this.namespace, flagKey, entityId, context);
+    InternalEvaluationRequest evaluationRequest =
+        new InternalEvaluationRequest(flagKey, entityId, context);
 
     String evaluationRequestSerialized = this.objectMapper.writeValueAsString(evaluationRequest);
     String value = CLibrary.INSTANCE.evaluate_boolean(this.engine, evaluationRequestSerialized);
@@ -166,13 +157,13 @@ public class FliptEvaluationClient {
 
   public Result<BatchEvaluationResponse> evaluateBatch(EvaluationRequest[] batchEvaluationRequests)
       throws JsonProcessingException {
-    ArrayList<EvalRequest> evaluationRequests = new ArrayList<>(batchEvaluationRequests.length);
+    ArrayList<InternalEvaluationRequest> evaluationRequests =
+        new ArrayList<>(batchEvaluationRequests.length);
 
     for (int i = 0; i < batchEvaluationRequests.length; i++) {
       evaluationRequests.add(
           i,
-          new EvalRequest(
-              this.namespace,
+          new InternalEvaluationRequest(
               batchEvaluationRequests[i].getFlagKey(),
               batchEvaluationRequests[i].getEntityId(),
               batchEvaluationRequests[i].getContext()));
@@ -184,6 +175,15 @@ public class FliptEvaluationClient {
 
     TypeReference<Result<BatchEvaluationResponse>> typeRef =
         new TypeReference<Result<BatchEvaluationResponse>>() {};
+
+    return this.objectMapper.readValue(value, typeRef);
+  }
+
+  public Result<ArrayList<Flag>> listFlags() throws JsonProcessingException {
+    String value = CLibrary.INSTANCE.list_flags(this.engine);
+
+    TypeReference<Result<ArrayList<Flag>>> typeRef =
+        new TypeReference<Result<ArrayList<Flag>>>() {};
 
     return this.objectMapper.readValue(value, typeRef);
   }
