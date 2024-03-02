@@ -38,3 +38,11 @@ We use [release-please](https://github.com/googleapis/release-please>) to genera
 1. Push the tag to `origin`. This will trigger the appropriate GitHub Action to build, package, and publish the SDK.
 
 Note: In the future we can potentially automate the tagging/pushing of the SDKs via a GitHub Action or script.
+
+#### Checklist
+
+- [ ] Update the `flipt-client-node` version in `flipt-client-node/package.json` and run `npm install`
+- [ ] Update the `flipt-client-python` version in `flipt-client-python/pyproject.toml`
+- [ ] Update the `flipt-client-ruby` version in `flipt-client-ruby/lib/flipt_client/version.rb`
+- [ ] Update the `flipt-client-java` version in `flipt-client-java/build.gradle`
+- [ ] Tag each SDK with the new version and push the tags to `origin`
