@@ -33,6 +33,8 @@ public class FliptEvaluationClient {
     String list_flags(Pointer engine);
 
     void destroy_engine(Pointer engine);
+
+    void destroy_string(String str);
   }
 
   private FliptEvaluationClient(String namespace, EngineOpts engineOpts)

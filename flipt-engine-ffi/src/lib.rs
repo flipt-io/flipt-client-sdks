@@ -323,6 +323,6 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
 /// This function will take in a pointer to the string and free the memory.
 /// See Rust the safety section in CString::from_raw.
 #[no_mangle]
-pub unsafe extern "C" fn destroy_string(ptr: *const c_char) {
+pub unsafe extern "C" fn destroy_string(ptr: *mut c_char) {
     let _ = CString::from_raw(ptr);
 }

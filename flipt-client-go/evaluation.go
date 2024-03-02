@@ -116,7 +116,7 @@ func (e *Client) EvaluateVariant(_ context.Context, flagKey, entityID string, ev
 	defer C.free(unsafe.Pointer(cr))
 
 	variant := C.evaluate_variant(e.engine, cr)
-	defer C.free(unsafe.Pointer(variant))
+	defer C.destroy_string(variant)
 
 	b := C.GoBytes(unsafe.Pointer(variant), (C.int)(C.strlen(variant)))
 
@@ -145,7 +145,7 @@ func (e *Client) EvaluateBoolean(_ context.Context, flagKey, entityID string, ev
 	defer C.free(unsafe.Pointer(cr))
 
 	boolean := C.evaluate_boolean(e.engine, cr)
-	defer C.free(unsafe.Pointer(boolean))
+	defer C.destroy_string(boolean)
 
 	b := C.GoBytes(unsafe.Pointer(boolean), (C.int)(C.strlen(boolean)))
 
@@ -180,7 +180,7 @@ func (e *Client) EvaluateBatch(_ context.Context, requests []*EvaluationRequest)
 	defer C.free(unsafe.Pointer(cr))
 
 	batch := C.evaluate_batch(e.engine, cr)
-	defer C.free(unsafe.Pointer(batch))
+	defer C.destroy_string(batch)
 
 	b := C.GoBytes(unsafe.Pointer(batch), (C.int)(C.strlen(batch)))
 
@@ -195,7 +195,7 @@ func (e *Client) EvaluateBatch(_ context.Context, requests []*EvaluationRequest)
 
 func (e *Client) ListFlags(_ context.Context) (*ListFlagsResult, error) {
 	flags := C.list_flags(e.engine)
-	defer C.free(unsafe.Pointer(flags))
+	defer C.destroy_string(flags)
 
 	b := C.GoBytes(unsafe.Pointer(flags), (C.int)(C.strlen(flags)))
 

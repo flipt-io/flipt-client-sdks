@@ -33,13 +33,15 @@ module Flipt
     # void destroy_engine(void *engine_ptr);
     attach_function :destroy_engine, [:pointer], :void
     # const char *evaluate_variant(void *engine_ptr, const char *evaluation_request);
-    attach_function :evaluate_variant, %i[pointer string], :string
+    attach_function :evaluate_variant, %i[pointer string], :strptr
     # const char *evaluate_boolean(void *engine_ptr, const char *evaluation_request);
-    attach_function :evaluate_boolean, %i[pointer string], :string
+    attach_function :evaluate_boolean, %i[pointer string], :strptr
     # const char *evaluate_batch(void *engine_ptr, const char *batch_evaluation_request);
-    attach_function :evaluate_batch, %i[pointer string], :string
+    attach_function :evaluate_batch, %i[pointer string], :strptr
     # const char *list_flags(void *engine_ptr);
-    attach_function :list_flags, [:pointer], :string
+    attach_function :list_flags, [:pointer], :strptr
+    # void destroy_string(const char *ptr);
+    attach_function :destroy_string, [:pointer], :void
 
     # Create a new Flipt client
     #
@@ -73,7 +75,8 @@ module Flipt
     # @option evaluation_request [String] :flag_key flag key
     def evaluate_variant(evaluation_request = {})
       validate_evaluation_request(evaluation_request)
-      resp = self.class.evaluate_variant(@engine, evaluation_request.to_json)
+      resp, ptr = self.class.evaluate_variant(@engine, evaluation_request.to_json)
+      ptr = FFI::AutoPointer.new(ptr, EvaluationClient.method(:destroy_string))
       JSON.parse(resp)
     end
 
@@ -84,10 +87,11 @@ module Flipt
     # @option evaluation_request [String] :flag_key flag key
     def evaluate_boolean(evaluation_request = {})
       validate_evaluation_request(evaluation_request)
-      resp = self.class.evaluate_boolean(@engine, evaluation_request.to_json)
+      resp, ptr = self.class.evaluate_boolean(@engine, evaluation_request.to_json)
+      ptr = FFI::AutoPointer.new(ptr, EvaluationClient.method(:destroy_string))
       JSON.parse(resp)
     end
-  
+
     # Evaluate a batch of flags for a given request
     #
     # @param batch_evaluation_request [Array<Hash>] batch evaluation request
@@ -98,13 +102,15 @@ module Flipt
         validate_evaluation_request(request)
       end
 
-      resp = self.class.evaluate_batch(@engine, batch_evaluation_request.to_json)
+      resp, ptr = self.class.evaluate_batch(@engine, batch_evaluation_request.to_json)
+      ptr = FFI::AutoPointer.new(ptr, EvaluationClient.method(:destroy_string))
       JSON.parse(resp)
     end
 
     # List all flags in the namespace
     def list_flags
-      resp = self.class.list_flags(@engine)
+      resp, ptr = self.class.list_flags(@engine)
+      ptr = FFI::AutoPointer.new(ptr, EvaluationClient.method(:destroy_string))
       JSON.parse(resp)
     end
 
