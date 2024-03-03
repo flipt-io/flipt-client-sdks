@@ -195,11 +195,11 @@ public class FliptEvaluationClient {
   }
 
   private <T> T readValue(Pointer ptr, TypeReference<T> typeRef) throws JsonProcessingException {
-      try {
-        String value = ptr.getString(0, "UTF-8"); 
-        return this.objectMapper.readValue(value, typeRef);
-      } finally {
-          CLibrary.INSTANCE.destroy_string(ptr);
-      }
+    try {
+      String value = ptr.getString(0, "UTF-8");
+      return this.objectMapper.readValue(value, typeRef);
+    } finally {
+      CLibrary.INSTANCE.destroy_string(ptr);
+    }
   }
 }
