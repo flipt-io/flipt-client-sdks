@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.3...flipt-engine-ffi-v0.1.4) (2024-03-05)
+
+
+### Bug Fixes
+
+* **engine-ffi:** prevent memory leaks ([#157](https://github.com/flipt-io/flipt-client-sdks/issues/157)) ([60b4ec9](https://github.com/flipt-io/flipt-client-sdks/commit/60b4ec9c51204c29d1eae403ea1612c8f6a5faab))
+
 ## [0.1.3](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.2...flipt-engine-ffi-v0.1.3) (2024-03-01)
 
 
