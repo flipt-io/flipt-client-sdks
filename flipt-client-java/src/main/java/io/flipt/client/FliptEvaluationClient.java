@@ -24,15 +24,17 @@ public class FliptEvaluationClient {
 
     Pointer initialize_engine(String namespace, String opts);
 
-    String evaluate_boolean(Pointer engine, String evaluation_request);
+    Pointer evaluate_boolean(Pointer engine, String evaluation_request);
 
-    String evaluate_variant(Pointer engine, String evaluation_request);
+    Pointer evaluate_variant(Pointer engine, String evaluation_request);
 
-    String evaluate_batch(Pointer engine, String batch_evaluation_request);
+    Pointer evaluate_batch(Pointer engine, String batch_evaluation_request);
 
-    String list_flags(Pointer engine);
+    Pointer list_flags(Pointer engine);
 
     void destroy_engine(Pointer engine);
+
+    void destroy_string(Pointer str);
   }
 
   private FliptEvaluationClient(String namespace, EngineOpts engineOpts)
@@ -134,12 +136,12 @@ public class FliptEvaluationClient {
         new InternalEvaluationRequest(flagKey, entityId, context);
 
     String evaluationRequestSerialized = this.objectMapper.writeValueAsString(evaluationRequest);
-    String value = CLibrary.INSTANCE.evaluate_variant(this.engine, evaluationRequestSerialized);
+    Pointer value = CLibrary.INSTANCE.evaluate_variant(this.engine, evaluationRequestSerialized);
 
     TypeReference<Result<VariantEvaluationResponse>> typeRef =
         new TypeReference<Result<VariantEvaluationResponse>>() {};
 
-    return this.objectMapper.readValue(value, typeRef);
+    return this.readValue(value, typeRef);
   }
 
   public Result<BooleanEvaluationResponse> evaluateBoolean(
@@ -148,11 +150,11 @@ public class FliptEvaluationClient {
         new InternalEvaluationRequest(flagKey, entityId, context);
 
     String evaluationRequestSerialized = this.objectMapper.writeValueAsString(evaluationRequest);
-    String value = CLibrary.INSTANCE.evaluate_boolean(this.engine, evaluationRequestSerialized);
+    Pointer value = CLibrary.INSTANCE.evaluate_boolean(this.engine, evaluationRequestSerialized);
 
     TypeReference<Result<BooleanEvaluationResponse>> typeRef =
         new TypeReference<Result<BooleanEvaluationResponse>>() {};
-    return this.objectMapper.readValue(value, typeRef);
+    return this.readValue(value, typeRef);
   }
 
   public Result<BatchEvaluationResponse> evaluateBatch(EvaluationRequest[] batchEvaluationRequests)
@@ -171,24 +173,33 @@ public class FliptEvaluationClient {
 
     String batchEvaluationRequestSerialized =
         this.objectMapper.writeValueAsString(evaluationRequests.toArray());
-    String value = CLibrary.INSTANCE.evaluate_batch(this.engine, batchEvaluationRequestSerialized);
+    Pointer value = CLibrary.INSTANCE.evaluate_batch(this.engine, batchEvaluationRequestSerialized);
 
     TypeReference<Result<BatchEvaluationResponse>> typeRef =
         new TypeReference<Result<BatchEvaluationResponse>>() {};
 
-    return this.objectMapper.readValue(value, typeRef);
+    return this.readValue(value, typeRef);
   }
 
   public Result<ArrayList<Flag>> listFlags() throws JsonProcessingException {
-    String value = CLibrary.INSTANCE.list_flags(this.engine);
+    Pointer value = CLibrary.INSTANCE.list_flags(this.engine);
 
     TypeReference<Result<ArrayList<Flag>>> typeRef =
         new TypeReference<Result<ArrayList<Flag>>>() {};
 
-    return this.objectMapper.readValue(value, typeRef);
+    return this.readValue(value, typeRef);
   }
 
   public void close() {
     CLibrary.INSTANCE.destroy_engine(this.engine);
+  }
+
+  private <T> T readValue(Pointer ptr, TypeReference<T> typeRef) throws JsonProcessingException {
+    try {
+      String value = ptr.getString(0, "UTF-8");
+      return this.objectMapper.readValue(value, typeRef);
+    } finally {
+      CLibrary.INSTANCE.destroy_string(ptr);
+    }
   }
 }
