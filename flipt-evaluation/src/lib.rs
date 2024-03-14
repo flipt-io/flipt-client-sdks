@@ -2860,14 +2860,13 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
         };
 
         let boolean = evaluator.boolean(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("1"),
             context: HashMap::new(),
@@ -2926,7 +2925,7 @@ mod tests {
             });
 
         let evaluator = &Evaluator {
-            namespaces: vec!["default".into()],
+            namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
             mtx: Arc::new(RwLock::new(0)),
@@ -2937,7 +2936,6 @@ mod tests {
         context.insert(String::from("some"), String::from("baz"));
 
         let boolean = evaluator.boolean(&EvaluationRequest {
-            namespace_key: String::from("default"),
             flag_key: String::from("foo"),
             entity_id: String::from("1"),
             context: context,
