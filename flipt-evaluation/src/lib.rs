@@ -543,10 +543,6 @@ where
             let value = match eval_context.get(&constraint.property) {
                 Some(v) => v,
                 None => {
-                    if constraint.r#type != common::ConstraintComparisonType::EntityId {
-                        continue;
-                    }
-
                     // If we have an entityId return dummy value which is an empty string.
                     ""
                 }
@@ -785,6 +781,7 @@ fn get_duration_millis(elapsed: Result<Duration, SystemTimeError>) -> Result<f64
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::flipt::RolloutSegment;
     use crate::parser::TestParser;
     use crate::store::MockStore;
 
@@ -2832,5 +2829,141 @@ mod tests {
         assert_eq!(v.reason, common::EvaluationReason::Match);
         assert_eq!(v.variant_key, String::from("variant3"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
+    }
+
+    #[test]
+    fn test_boolean_notpresent() {
+        let test_parser = TestParser::new();
+        let mut mock_store = MockStore::new();
+
+        mock_store.expect_get_flag().returning(|_, _| {
+            Some(flipt::Flag {
+                key: String::from("foo"),
+                enabled: false,
+                r#type: common::FlagType::Boolean,
+            })
+        });
+
+        let mut segments: HashMap<String, flipt::EvaluationSegment> = HashMap::new();
+        segments.insert(
+            String::from("segment1"),
+            flipt::EvaluationSegment {
+                segment_key: String::from("segment1"),
+                match_type: common::SegmentMatchType::Any,
+                constraints: vec![flipt::EvaluationConstraint {
+                    r#type: common::ConstraintComparisonType::Boolean,
+                    property: String::from("some"),
+                    operator: String::from("notpresent"),
+                    value: String::from(""),
+                }],
+            },
+        );
+
+        mock_store
+            .expect_get_evaluation_rollouts()
+            .returning(move |_, _| {
+                Some(vec![flipt::EvaluationRollout {
+                    rollout_type: common::RolloutType::Segment,
+                    rank: 1,
+                    segment: Some(RolloutSegment {
+                        value: true,
+                        segment_operator: common::SegmentOperator::Or,
+                        segments: segments.clone(),
+                    }),
+                    threshold: None,
+                }])
+            });
+
+        let evaluator = &Evaluator {
+            namespaces: vec!["default".into()],
+            parser: test_parser,
+            store: mock_store,
+            mtx: Arc::new(RwLock::new(0)),
+        };
+
+        let boolean = evaluator.boolean(&EvaluationRequest {
+            namespace_key: String::from("default"),
+            flag_key: String::from("foo"),
+            entity_id: String::from("1"),
+            context: HashMap::new(),
+        });
+
+        assert!(boolean.is_ok());
+
+        let b = boolean.unwrap();
+
+        assert_eq!(b.flag_key, String::from("foo"));
+        assert!(b.enabled);
+        assert_eq!(b.reason, common::EvaluationReason::Match);
+    }
+
+    #[test]
+    fn test_boolean_present() {
+        let test_parser = TestParser::new();
+        let mut mock_store = MockStore::new();
+
+        mock_store.expect_get_flag().returning(|_, _| {
+            Some(flipt::Flag {
+                key: String::from("foo"),
+                enabled: false,
+                r#type: common::FlagType::Boolean,
+            })
+        });
+
+        let mut segments: HashMap<String, flipt::EvaluationSegment> = HashMap::new();
+        segments.insert(
+            String::from("segment1"),
+            flipt::EvaluationSegment {
+                segment_key: String::from("segment1"),
+                match_type: common::SegmentMatchType::Any,
+                constraints: vec![flipt::EvaluationConstraint {
+                    r#type: common::ConstraintComparisonType::Boolean,
+                    property: String::from("some"),
+                    operator: String::from("present"),
+                    value: String::from(""),
+                }],
+            },
+        );
+
+        mock_store
+            .expect_get_evaluation_rollouts()
+            .returning(move |_, _| {
+                Some(vec![flipt::EvaluationRollout {
+                    rollout_type: common::RolloutType::Segment,
+                    rank: 1,
+                    segment: Some(RolloutSegment {
+                        value: true,
+                        segment_operator: common::SegmentOperator::Or,
+                        segments: segments.clone(),
+                    }),
+                    threshold: None,
+                }])
+            });
+
+        let evaluator = &Evaluator {
+            namespaces: vec!["default".into()],
+            parser: test_parser,
+            store: mock_store,
+            mtx: Arc::new(RwLock::new(0)),
+        };
+
+        let mut context: HashMap<String, String> = HashMap::new();
+
+        context.insert(String::from("some"), String::from("baz"));
+
+        let boolean = evaluator.boolean(&EvaluationRequest {
+            namespace_key: String::from("default"),
+            flag_key: String::from("foo"),
+            entity_id: String::from("1"),
+            context: context,
+        });
+
+        assert!(boolean.is_ok());
+
+        let b = boolean.unwrap();
+
+        assert_eq!(b.flag_key, String::from("foo"));
+        assert!(b.enabled);
+        assert_eq!(b.reason, common::EvaluationReason::Match);
     }
 }
