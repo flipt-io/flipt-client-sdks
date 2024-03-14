@@ -114,6 +114,18 @@ func TestBatch(t *testing.T) {
 	assert.Equal(t, "NOT_FOUND_ERROR_EVALUATION_REASON", errorResponse.ErrorEvaluationResponse.Reason)
 }
 
+func TestListFlags(t *testing.T) {
+	evaluationClient, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
+	require.NoError(t, err)
+
+	response, err := evaluationClient.ListFlags(context.TODO())
+	require.NoError(t, err)
+
+	assert.NotEmpty(t, response)
+	assert.Equal(t, "success", response.Status)
+	assert.Equal(t, 2, len(*response.Result))
+}
+
 func TestVariantFailure(t *testing.T) {
 	evaluationClient, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
 	require.NoError(t, err)

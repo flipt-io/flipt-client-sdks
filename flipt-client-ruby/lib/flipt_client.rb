@@ -28,16 +28,20 @@ module Flipt
 
     ffi_lib File.expand_path(libfile, __dir__)
 
-    # void *initialize_engine(const char *const *namespaces, const char *opts);
-    attach_function :initialize_engine, %i[pointer string], :pointer
+    # void *initialize_engine(const char *namespace, const char *opts);
+    attach_function :initialize_engine, %i[string string], :pointer
     # void destroy_engine(void *engine_ptr);
     attach_function :destroy_engine, [:pointer], :void
     # const char *evaluate_variant(void *engine_ptr, const char *evaluation_request);
-    attach_function :evaluate_variant, %i[pointer string], :string
+    attach_function :evaluate_variant, %i[pointer string], :strptr
     # const char *evaluate_boolean(void *engine_ptr, const char *evaluation_request);
-    attach_function :evaluate_boolean, %i[pointer string], :string
+    attach_function :evaluate_boolean, %i[pointer string], :strptr
     # const char *evaluate_batch(void *engine_ptr, const char *batch_evaluation_request);
-    attach_function :evaluate_batch, %i[pointer string], :string
+    attach_function :evaluate_batch, %i[pointer string], :strptr
+    # const char *list_flags(void *engine_ptr);
+    attach_function :list_flags, [:pointer], :strptr
+    # void destroy_string(const char *ptr);
+    attach_function :destroy_string, [:pointer], :void
 
     # Create a new Flipt client
     #
@@ -56,13 +60,7 @@ module Flipt
 
       opts[:authentication] = authentication.strategy
 
-      namespace_list = [namespace]
-      ns = FFI::MemoryPointer.new(:pointer, namespace_list.size)
-      namespace_list.each_with_index do |namespace, i|
-        ns[i].put_pointer(0, FFI::MemoryPointer.from_string(namespace))
-      end
-
-      @engine = self.class.initialize_engine(ns, opts.to_json)
+      @engine = self.class.initialize_engine(namespace, opts.to_json)
       ObjectSpace.define_finalizer(self, self.class.finalize(@engine))
     end
 
@@ -75,11 +73,10 @@ module Flipt
     # @param evaluation_request [Hash] evaluation request
     # @option evaluation_request [String] :entity_id entity id
     # @option evaluation_request [String] :flag_key flag key
-    # @option evaluation_request [String] :namespace_key override namespace key
     def evaluate_variant(evaluation_request = {})
-      evaluation_request[:namespace_key] = @namespace
       validate_evaluation_request(evaluation_request)
-      resp = self.class.evaluate_variant(@engine, evaluation_request.to_json)
+      resp, ptr = self.class.evaluate_variant(@engine, evaluation_request.to_json)
+      ptr = FFI::AutoPointer.new(ptr, EvaluationClient.method(:destroy_string))
       JSON.parse(resp)
     end
 
@@ -88,27 +85,32 @@ module Flipt
     # @param evaluation_request [Hash] evaluation request
     # @option evaluation_request [String] :entity_id entity id
     # @option evaluation_request [String] :flag_key flag key
-    # @option evaluation_request [String] :namespace_key override namespace key
     def evaluate_boolean(evaluation_request = {})
-      evaluation_request[:namespace_key] = @namespace
       validate_evaluation_request(evaluation_request)
-      resp = self.class.evaluate_boolean(@engine, evaluation_request.to_json)
+      resp, ptr = self.class.evaluate_boolean(@engine, evaluation_request.to_json)
+      ptr = FFI::AutoPointer.new(ptr, EvaluationClient.method(:destroy_string))
       JSON.parse(resp)
     end
-  
+
     # Evaluate a batch of flags for a given request
     #
     # @param batch_evaluation_request [Array<Hash>] batch evaluation request
     #   - :entity_id [String] entity id
     #   - :flag_key [String] flag key
-    #   - :namespace_key [String] override namespace key
     def evaluate_batch(batch_evaluation_request = [])
       for request in batch_evaluation_request do
-        request[:namespace_key] = @namespace
         validate_evaluation_request(request)
       end
 
-      resp = self.class.evaluate_batch(@engine, batch_evaluation_request.to_json)
+      resp, ptr = self.class.evaluate_batch(@engine, batch_evaluation_request.to_json)
+      ptr = FFI::AutoPointer.new(ptr, EvaluationClient.method(:destroy_string))
+      JSON.parse(resp)
+    end
+
+    # List all flags in the namespace
+    def list_flags
+      resp, ptr = self.class.list_flags(@engine)
+      ptr = FFI::AutoPointer.new(ptr, EvaluationClient.method(:destroy_string))
       JSON.parse(resp)
     end
 
@@ -116,8 +118,6 @@ module Flipt
     def validate_evaluation_request(evaluation_request)
       if evaluation_request[:entity_id].nil? || evaluation_request[:entity_id].empty?
         raise ArgumentError, 'entity_id is required'
-      elsif evaluation_request[:namespace_key].nil? || evaluation_request[:namespace_key].empty?
-        raise ArgumentError, 'namespace_key is required'
       elsif evaluation_request[:flag_key].nil? || evaluation_request[:flag_key].empty?
         raise ArgumentError, 'flag_key is required'
       end

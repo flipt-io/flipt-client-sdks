@@ -8,13 +8,14 @@ from .models import (
     BooleanResult,
     EngineOpts,
     EvaluationRequest,
+    ListFlagsResult,
     VariantResult,
 )
 
 from typing import List
 
 
-class EvalRequest(BaseModel):
+class InternalEvaluationRequest(BaseModel):
     namespace_key: str
     flag_key: str
     entity_id: str
@@ -32,7 +33,7 @@ class FliptEvaluationClient:
                 libfile = "darwin_arm64/libfliptengine.dylib"
             else:
                 raise Exception(
-                    f"Unsupported processor: {platform.processor()}. Please use an M1 Mac."
+                    f"Unsupported processor: {platform.processor()}. Please use an arm64 Mac."
                 )
         elif platform.system() == "Linux":
             arch = platform.machine()
@@ -65,18 +66,21 @@ class FliptEvaluationClient:
         self.ffi_core.destroy_engine.argtypes = [ctypes.c_void_p]
 
         self.ffi_core.evaluate_variant.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
-        self.ffi_core.evaluate_variant.restype = ctypes.c_char_p
+        self.ffi_core.evaluate_variant.restype = ctypes.POINTER(ctypes.c_char_p)
 
         self.ffi_core.evaluate_boolean.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
-        self.ffi_core.evaluate_boolean.restype = ctypes.c_char_p
+        self.ffi_core.evaluate_boolean.restype = ctypes.POINTER(ctypes.c_char_p)
 
         self.ffi_core.evaluate_batch.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
-        self.ffi_core.evaluate_batch.restype = ctypes.c_char_p
+        self.ffi_core.evaluate_batch.restype = ctypes.POINTER(ctypes.c_char_p)
 
-        namespace_list = [namespace]
+        self.ffi_core.list_flags.argtypes = [ctypes.c_void_p]
+        self.ffi_core.list_flags.restype = ctypes.POINTER(ctypes.c_char_p)
 
-        ns = (ctypes.c_char_p * len(namespace_list))()
-        ns[:] = [s.encode("utf-8") for s in namespace_list]
+        self.ffi_core.destroy_string.argtypes = [ctypes.POINTER(ctypes.c_char_p)]
+        self.ffi_core.destroy_string.restype = ctypes.c_void_p
+
+        ns = namespace.encode("utf-8")
 
         engine_opts_serialized = engine_opts.model_dump_json(exclude_none=True).encode(
             "utf-8"
@@ -98,10 +102,9 @@ class FliptEvaluationClient:
             ),
         )
 
-        bytes_returned = ctypes.c_char_p(response).value
-
+        bytes_returned = ctypes.cast(response, ctypes.c_char_p).value
         variant_result = VariantResult.model_validate_json(bytes_returned)
-
+        self.ffi_core.destroy_string(response)
         return variant_result
 
     def evaluate_boolean(
@@ -114,10 +117,9 @@ class FliptEvaluationClient:
             ),
         )
 
-        bytes_returned = ctypes.c_char_p(response).value
-
+        bytes_returned = ctypes.cast(response, ctypes.c_char_p).value
         boolean_result = BooleanResult.model_validate_json(bytes_returned)
-
+        self.ffi_core.destroy_string(response)
         return boolean_result
 
     def evaluate_batch(self, requests: List[EvaluationRequest]) -> BatchResult:
@@ -125,7 +127,7 @@ class FliptEvaluationClient:
 
         for r in requests:
             evaluation_requests.append(
-                EvalRequest(
+                InternalEvaluationRequest(
                     namespace_key=self.namespace_key,
                     flag_key=r.flag_key,
                     entity_id=r.entity_id,
@@ -143,17 +145,24 @@ class FliptEvaluationClient:
             self.engine, json_string.encode("utf-8")
         )
 
-        bytes_returned = ctypes.c_char_p(response).value
-
+        bytes_returned = ctypes.cast(response, ctypes.c_char_p).value
         batch_result = BatchResult.model_validate_json(bytes_returned)
-
+        self.ffi_core.destroy_string(response)
         return batch_result
+
+    def list_flags(self) -> ListFlagsResult:
+        response = self.ffi_core.list_flags(self.engine)
+
+        bytes_returned = ctypes.cast(response, ctypes.c_char_p).value
+        result = ListFlagsResult.model_validate_json(bytes_returned)
+        self.ffi_core.destroy_string(response)
+        return result
 
 
 def serialize_evaluation_request(
     namespace_key: str, flag_key: str, entity_id: str, context: dict
 ) -> str:
-    evaluation_request = EvalRequest(
+    evaluation_request = InternalEvaluationRequest(
         namespace_key=namespace_key,
         flag_key=flag_key,
         entity_id=entity_id,

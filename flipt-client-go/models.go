@@ -28,6 +28,12 @@ type EngineOpts[T any] struct {
 	Reference      string `json:"reference,omitempty"`
 }
 
+type Flag struct {
+	Key     string `json:"key"`
+	Enabled bool   `json:"enabled"`
+	Type    string `json:"type"`
+}
+
 type VariantEvaluationResponse struct {
 	Match                 bool     `json:"match"`
 	SegmentKeys           []string `json:"segment_keys"`
@@ -76,3 +82,5 @@ type VariantResult Result[VariantEvaluationResponse]
 type BooleanResult Result[BooleanEvaluationResponse]
 
 type BatchResult Result[BatchEvaluationResponse]
+
+type ListFlagsResult Result[[]Flag]

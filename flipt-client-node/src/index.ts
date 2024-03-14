@@ -1,5 +1,5 @@
 import * as ffi from 'ffi-napi';
-import { Pointer, alloc, allocCString } from 'ref-napi';
+import { Pointer, allocCString } from 'ref-napi';
 import * as os from 'os';
 import {
   AuthenticationStrategy,
@@ -7,14 +7,15 @@ import {
   BatchResult,
   EngineOpts,
   EvaluationRequest,
-  VariantResult
+  VariantResult,
+  Flag,
+  Result
 } from './models';
 import * as path from 'path';
 
 let libfile = '';
 
-interface EvalRequest {
-  namespace_key: string;
+interface IEvaluationRequest {
   flag_key: string;
   entity_id: string;
   context: object;
@@ -45,14 +46,15 @@ libfile = path.join(__dirname, '..', 'ext', libfile);
 
 const engineLib = ffi.Library(libfile, {
   initialize_engine: ['void *', ['char **', 'string']],
-  evaluate_variant: ['string', ['void *', 'string']],
-  evaluate_boolean: ['string', ['void *', 'string']],
-  evaluate_batch: ['string', ['void *', 'string']],
-  destroy_engine: ['void', ['void *']]
+  evaluate_variant: ['char **', ['void *', 'string']],
+  evaluate_boolean: ['char **', ['void *', 'string']],
+  evaluate_batch: ['char **', ['void *', 'string']],
+  list_flags: ['char **', ['void *']],
+  destroy_engine: ['void', ['void *']],
+  destroy_string: ['void', ['char **']]
 });
 
 export class FliptEvaluationClient {
-  private namespace: string;
   private engine: Pointer<unknown>;
 
   public constructor(
@@ -63,12 +65,10 @@ export class FliptEvaluationClient {
       reference: ''
     }
   ) {
-    const buf = Buffer.concat([allocCString(namespace ?? 'default')]);
     const engine = engineLib.initialize_engine(
-      alloc('char *', buf as unknown as string),
+      allocCString(namespace ?? 'default'),
       allocCString(JSON.stringify(engine_opts))
     );
-    this.namespace = namespace ?? 'default';
     this.engine = engine;
   }
 
@@ -77,8 +77,7 @@ export class FliptEvaluationClient {
     entity_id: string,
     context: {}
   ): VariantResult {
-    const evaluation_request: EvalRequest = {
-      namespace_key: this.namespace,
+    const evaluation_request: IEvaluationRequest = {
       flag_key: flag_key,
       entity_id: entity_id,
       context
@@ -93,7 +92,7 @@ export class FliptEvaluationClient {
       throw new Error('Failed to evaluate variant');
     }
 
-    return JSON.parse(Buffer.from(response).toString('utf-8'));
+    return JSON.parse(this.stringify(response));
   }
 
   public evaluateBoolean(
@@ -101,8 +100,7 @@ export class FliptEvaluationClient {
     entity_id: string,
     context: {}
   ): BooleanResult {
-    const evaluation_request: EvalRequest = {
-      namespace_key: this.namespace,
+    const evaluation_request: IEvaluationRequest = {
       flag_key: flag_key,
       entity_id: entity_id,
       context
@@ -117,14 +115,13 @@ export class FliptEvaluationClient {
       throw new Error('Failed to evaluate boolean');
     }
 
-    return JSON.parse(Buffer.from(response).toString('utf-8'));
+    return JSON.parse(this.stringify(response));
   }
 
   public evaluateBatch(requests: EvaluationRequest[]): BatchResult {
-    const evaluationRequests: EvalRequest[] = [];
+    const evaluationRequests: IEvaluationRequest[] = [];
     for (const request of requests) {
       evaluationRequests.push({
-        namespace_key: this.namespace,
         flag_key: request.flag_key,
         entity_id: request.entity_id,
         context: request.context
@@ -140,10 +137,26 @@ export class FliptEvaluationClient {
       throw new Error('Failed to evaluate batch');
     }
 
-    return JSON.parse(Buffer.from(response).toString('utf-8'));
+    return JSON.parse(this.stringify(response));
+  }
+
+  public listFlags(): Result<Flag[]> {
+    const response = engineLib.list_flags(this.engine);
+    if (response === null) {
+      throw new Error('Failed to list flags');
+    }
+
+    return JSON.parse(this.stringify(response));
   }
 
   public close() {
     engineLib.destroy_engine(this.engine);
+  }
+
+  // get the string from ffi pointer and deallocate the data
+  private stringify(response: Pointer<string>): string {
+    const value = Buffer.from(response.readCString()).toString('utf-8');
+    engineLib.destroy_string(response);
+    return value;
   }
 }

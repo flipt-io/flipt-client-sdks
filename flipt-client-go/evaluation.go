@@ -47,19 +47,12 @@ func NewClient(opts ...clientOption) (*Client, error) {
 		return nil, err
 	}
 
-	ns := []*C.char{C.CString(client.namespace)}
+	cn := C.CString(client.namespace)
+	defer C.free(unsafe.Pointer(cn))
+	co := C.CString(string(b))
+	defer C.free(unsafe.Pointer(co))
 
-	// Free the memory of the C Strings that were created to initialize the engine.
-	defer func() {
-		for _, n := range ns {
-			C.free(unsafe.Pointer(n))
-		}
-	}()
-
-	nsPtr := (**C.char)(unsafe.Pointer(&ns[0]))
-
-	eng := C.initialize_engine(nsPtr, C.CString(string(b)))
-
+	eng := C.initialize_engine(cn, co)
 	client.engine = eng
 
 	return client, nil
@@ -107,7 +100,7 @@ func WithJWTAuthentication(token string) clientOption {
 	}
 }
 
-// EvaluateVariant makes an evaluation on a variant flag.
+// EvaluateVariant performs evaluation for a variant flag.
 func (e *Client) EvaluateVariant(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantResult, error) {
 	ereq, err := json.Marshal(evaluationRequest{
 		NamespaceKey: e.namespace,
@@ -119,8 +112,11 @@ func (e *Client) EvaluateVariant(_ context.Context, flagKey, entityID string, ev
 		return nil, err
 	}
 
-	variant := C.evaluate_variant(e.engine, C.CString(string(ereq)))
-	defer C.free(unsafe.Pointer(variant))
+	cr := C.CString(string(ereq))
+	defer C.free(unsafe.Pointer(cr))
+
+	variant := C.evaluate_variant(e.engine, cr)
+	defer C.destroy_string(variant)
 
 	b := C.GoBytes(unsafe.Pointer(variant), (C.int)(C.strlen(variant)))
 
@@ -133,7 +129,7 @@ func (e *Client) EvaluateVariant(_ context.Context, flagKey, entityID string, ev
 	return vr, nil
 }
 
-// EvaluateBoolean makes an evaluation on a boolean flag.
+// EvaluateBoolean performs evaluation for a boolean flag.
 func (e *Client) EvaluateBoolean(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanResult, error) {
 	ereq, err := json.Marshal(evaluationRequest{
 		NamespaceKey: e.namespace,
@@ -145,8 +141,11 @@ func (e *Client) EvaluateBoolean(_ context.Context, flagKey, entityID string, ev
 		return nil, err
 	}
 
-	boolean := C.evaluate_boolean(e.engine, C.CString(string(ereq)))
-	defer C.free(unsafe.Pointer(boolean))
+	cr := C.CString(string(ereq))
+	defer C.free(unsafe.Pointer(cr))
+
+	boolean := C.evaluate_boolean(e.engine, cr)
+	defer C.destroy_string(boolean)
 
 	b := C.GoBytes(unsafe.Pointer(boolean), (C.int)(C.strlen(boolean)))
 
@@ -159,7 +158,7 @@ func (e *Client) EvaluateBoolean(_ context.Context, flagKey, entityID string, ev
 	return br, nil
 }
 
-// EvaluateBatch makes an evaluation on a batch of flags.
+// EvaluateBatch performs evaluation for a batch of flags.
 func (e *Client) EvaluateBatch(_ context.Context, requests []*EvaluationRequest) (*BatchResult, error) {
 	evaluationRequests := make([]*evaluationRequest, 0, len(requests))
 
@@ -177,8 +176,11 @@ func (e *Client) EvaluateBatch(_ context.Context, requests []*EvaluationRequest)
 		return nil, err
 	}
 
-	batch := C.evaluate_batch(e.engine, C.CString(string(requestsBytes)))
-	defer C.free(unsafe.Pointer(batch))
+	cr := C.CString(string(requestsBytes))
+	defer C.free(unsafe.Pointer(cr))
+
+	batch := C.evaluate_batch(e.engine, cr)
+	defer C.destroy_string(batch)
 
 	b := C.GoBytes(unsafe.Pointer(batch), (C.int)(C.strlen(batch)))
 
@@ -189,6 +191,21 @@ func (e *Client) EvaluateBatch(_ context.Context, requests []*EvaluationRequest)
 	}
 
 	return br, nil
+}
+
+func (e *Client) ListFlags(_ context.Context) (*ListFlagsResult, error) {
+	flags := C.list_flags(e.engine)
+	defer C.destroy_string(flags)
+
+	b := C.GoBytes(unsafe.Pointer(flags), (C.int)(C.strlen(flags)))
+
+	var fl *ListFlagsResult
+
+	if err := json.Unmarshal(b, &fl); err != nil {
+		return nil, err
+	}
+
+	return fl, nil
 }
 
 // Close cleans up the allocated engine as it was initialized in the constructor.

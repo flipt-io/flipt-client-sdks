@@ -72,7 +72,7 @@ jobs:
             || true
 
       - name: Upload Release Assets (Tag)
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: github.event_name == 'push'
         with:
           tag_name: ${{ github.ref_name }}
@@ -80,7 +80,7 @@ jobs:
             flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
 
       - name: Upload Release Assets (Workflow Dispatch)
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: github.event_name == 'workflow_dispatch'
         with:
           tag_name: flipt-engine-ffi-${{ github.event.inputs.tag }}
