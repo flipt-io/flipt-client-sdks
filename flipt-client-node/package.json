@@ -14,7 +14,7 @@
   "scripts": {
     "fmt": "prettier --config .prettierrc 'src/**/*.ts' --write",
     "lint": "prettier --check src/**/*.ts",
-    "test": "jest",
+    "test": "jest --verbose",
     "build": "tsc"
   },
   "dependencies": {
