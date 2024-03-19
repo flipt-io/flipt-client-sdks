@@ -19,17 +19,6 @@ const DEFAULT_PERCENT: f32 = 100.0;
 const DEFAULT_TOTAL_BUCKET_NUMBER: u32 = 1000;
 const DEFAULT_PERCENT_MULTIPIER: f32 = DEFAULT_TOTAL_BUCKET_NUMBER as f32 / DEFAULT_PERCENT;
 
-pub struct Evaluator<P, S>
-where
-    P: Parser + Send,
-    S: Store + Send,
-{
-    namespace: String,
-    parser: P,
-    store: S,
-    mtx: Arc<RwLock<i32>>,
-}
-
 #[repr(C)]
 pub struct EvaluationRequest {
     pub flag_key: String,
@@ -122,474 +111,301 @@ type VariantEvaluationResult<T> = std::result::Result<T, Error>;
 
 type BooleanEvaluationResult<T> = std::result::Result<T, Error>;
 
-impl<P> Evaluator<P, Snapshot>
-where
-    P: Parser + Send,
-{
-    pub fn new_snapshot_evaluator(namespace: String, parser: P) -> Result<Self, Error> {
-        let snap = Snapshot::build(&namespace, &parser)?;
-        Ok(Evaluator::new(namespace, parser, snap))
+pub fn variant_evaluation(
+    namespace: &str,
+    evaluation_request: &EvaluationRequest,
+    store: &dyn Store,
+) -> VariantEvaluationResult<VariantEvaluationResponse> {
+    let now = SystemTime::now();
+    let mut last_rank = 0;
+
+    let mut variant_evaluation_response = VariantEvaluationResponse {
+        flag_key: flag.key.clone(),
+        ..Default::default()
+    };
+
+    if !flag.enabled {
+        variant_evaluation_response.reason = common::EvaluationReason::FlagDisabled;
+        variant_evaluation_response.request_duration_millis = get_duration_millis(now.elapsed())?;
+        return Ok(variant_evaluation_response);
     }
 
-    pub fn replace_snapshot(&mut self) {
-        match Snapshot::build(&self.namespace, &self.parser) {
-            Ok(s) => {
-                self.replace_store(s);
-            }
-            Err(_) => {
-                // TODO: log::error!("error building snapshot: {}", e);
-            }
-        };
-    }
-}
-
-impl<P, S> Evaluator<P, S>
-where
-    P: Parser + Send,
-    S: Store + Send,
-{
-    pub fn new(namespace: String, parser: P, store_impl: S) -> Self {
-        Self {
-            namespace,
-            parser,
-            store: store_impl,
-            mtx: Arc::new(RwLock::new(0)),
+    let evaluation_rules = match store.get_evaluation_rules(namespace, &evaluation_request.flag_key)
+    {
+        Some(rules) => rules,
+        None => {
+            return Err(Error::Unknown(format!(
+                "error getting evaluation rules for namespace {} and flag {}",
+                namespace,
+                evaluation_request.flag_key.clone()
+            )));
         }
-    }
+    };
 
-    pub fn replace_store(&mut self, store_impl: S) {
-        let _w_lock = self.mtx.write().unwrap();
-        self.store = store_impl;
-    }
-
-    pub fn list_flags(&self) -> ListFlagsResult {
-        let _r_lock = self.mtx.read().unwrap();
-        match self.store.list_flags(&self.namespace) {
-            Some(f) => Ok(f),
-            None => Err(Error::Unknown(format!(
-                "failed to get flags for {}",
-                self.namespace,
-            ))),
+    for rule in evaluation_rules {
+        if rule.rank < last_rank {
+            return Err(Error::InvalidRequest(format!(
+                "rule rank: {} detected out of order",
+                rule.rank
+            )));
         }
-    }
 
-    pub fn variant(
-        &self,
-        evaluation_request: &EvaluationRequest,
-    ) -> VariantEvaluationResult<VariantEvaluationResponse> {
-        let _r_lock = self.mtx.read().unwrap();
-        let flag = match self
-            .store
-            .get_flag(&self.namespace, &evaluation_request.flag_key)
-        {
-            Some(f) => {
-                if f.r#type != common::FlagType::Variant {
-                    return Err(Error::InvalidRequest(format!(
-                        "{} is not a variant flag",
-                        &evaluation_request.flag_key,
-                    )));
-                }
-                f
-            }
-            None => {
-                return Err(Error::InvalidRequest(format!(
-                    "failed to get flag information {}/{}",
-                    &self.namespace, &evaluation_request.flag_key,
-                )));
-            }
-        };
+        last_rank = rule.rank;
 
-        self.variant_evaluation(&flag, evaluation_request)
-    }
+        let mut segment_keys: Vec<String> = Vec::new();
+        let mut segment_matches = 0;
 
-    pub fn boolean(
-        &self,
-        evaluation_request: &EvaluationRequest,
-    ) -> BooleanEvaluationResult<BooleanEvaluationResponse> {
-        let _r_lock = self.mtx.read().unwrap();
-        let flag = match self
-            .store
-            .get_flag(&self.namespace, &evaluation_request.flag_key)
-        {
-            Some(f) => {
-                if f.r#type != common::FlagType::Boolean {
-                    return Err(Error::InvalidRequest(format!(
-                        "{} is not a boolean flag",
-                        &evaluation_request.flag_key,
-                    )));
-                }
-                f
-            }
-            None => {
-                return Err(Error::InvalidRequest(format!(
-                    "failed to get flag information {}/{}",
-                    &self.namespace, &evaluation_request.flag_key,
-                )));
-            }
-        };
-
-        self.boolean_evaluation(&flag, evaluation_request)
-    }
-
-    pub fn batch(
-        &self,
-        requests: Vec<EvaluationRequest>,
-    ) -> Result<BatchEvaluationResponse, Error> {
-        let now = SystemTime::now();
-
-        let mut evaluation_responses: Vec<EvaluationResponse> = Vec::new();
-        for request in requests {
-            let flag = match self.store.get_flag(&self.namespace, &request.flag_key) {
-                Some(f) => f,
-                None => {
-                    evaluation_responses.push(EvaluationResponse {
-                        r#type: common::ResponseType::Error,
-                        boolean_evaluation_response: None,
-                        variant_evaluation_response: None,
-                        error_evaluation_response: Some(ErrorEvaluationResponse {
-                            flag_key: request.flag_key,
-                            namespace_key: self.namespace.clone(),
-                            reason: common::ErrorEvaluationReason::NotFound,
-                        }),
-                    });
-                    continue;
-                }
+        for kv in &rule.segments {
+            let matched = match matches_constraints(
+                &evaluation_request.context,
+                &kv.1.constraints,
+                &kv.1.match_type,
+                &evaluation_request.entity_id,
+            ) {
+                Ok(b) => b,
+                Err(err) => return Err(err),
             };
 
-            match flag.r#type {
-                common::FlagType::Boolean => {
-                    let boolean_evaluation = self.boolean_evaluation(&flag, &request)?;
-                    evaluation_responses.push(EvaluationResponse {
-                        r#type: common::ResponseType::Boolean,
-                        boolean_evaluation_response: Some(boolean_evaluation),
-                        variant_evaluation_response: None,
-                        error_evaluation_response: None,
-                    });
-                }
-                common::FlagType::Variant => {
-                    let variant_evaluation = self.variant_evaluation(&flag, &request)?;
-                    evaluation_responses.push(EvaluationResponse {
-                        r#type: common::ResponseType::Variant,
-                        boolean_evaluation_response: None,
-                        variant_evaluation_response: Some(variant_evaluation),
-                        error_evaluation_response: None,
-                    });
-                }
+            if matched {
+                segment_keys.push(kv.0.into());
+                segment_matches += 1;
             }
         }
 
-        Ok(BatchEvaluationResponse {
-            responses: evaluation_responses,
-            request_duration_millis: get_duration_millis(now.elapsed())?,
-        })
-    }
-
-    fn variant_evaluation(
-        &self,
-        flag: &flipt::Flag,
-        evaluation_request: &EvaluationRequest,
-    ) -> VariantEvaluationResult<VariantEvaluationResponse> {
-        let now = SystemTime::now();
-        let mut last_rank = 0;
-
-        let mut variant_evaluation_response = VariantEvaluationResponse {
-            flag_key: flag.key.clone(),
-            ..Default::default()
-        };
-
-        if !flag.enabled {
-            variant_evaluation_response.reason = common::EvaluationReason::FlagDisabled;
-            variant_evaluation_response.request_duration_millis =
-                get_duration_millis(now.elapsed())?;
-            return Ok(variant_evaluation_response);
-        }
-
-        let evaluation_rules = match self
-            .store
-            .get_evaluation_rules(&self.namespace, &evaluation_request.flag_key)
-        {
-            Some(rules) => rules,
-            None => {
-                return Err(Error::Unknown(format!(
-                    "error getting evaluation rules for namespace {} and flag {}",
-                    self.namespace.clone(),
-                    evaluation_request.flag_key.clone()
-                )));
-            }
-        };
-
-        for rule in evaluation_rules {
-            if rule.rank < last_rank {
-                return Err(Error::InvalidRequest(format!(
-                    "rule rank: {} detected out of order",
-                    rule.rank
-                )));
-            }
-
-            last_rank = rule.rank;
-
-            let mut segment_keys: Vec<String> = Vec::new();
-            let mut segment_matches = 0;
-
-            for kv in &rule.segments {
-                let matched = match self.matches_constraints(
-                    &evaluation_request.context,
-                    &kv.1.constraints,
-                    &kv.1.match_type,
-                    &evaluation_request.entity_id,
-                ) {
-                    Ok(b) => b,
-                    Err(err) => return Err(err),
-                };
-
-                if matched {
-                    segment_keys.push(kv.0.into());
-                    segment_matches += 1;
-                }
-            }
-
-            if rule.segment_operator == common::SegmentOperator::Or {
-                if segment_matches < 1 {
-                    continue;
-                }
-            } else if rule.segment_operator == common::SegmentOperator::And
-                && rule.segments.len() != segment_matches
-            {
+        if rule.segment_operator == common::SegmentOperator::Or {
+            if segment_matches < 1 {
                 continue;
             }
+        } else if rule.segment_operator == common::SegmentOperator::And
+            && rule.segments.len() != segment_matches
+        {
+            continue;
+        }
 
-            variant_evaluation_response.segment_keys = segment_keys;
+        variant_evaluation_response.segment_keys = segment_keys;
 
-            let distributions = match self
-                .store
-                .get_evaluation_distributions(&self.namespace, &rule.id)
-            {
-                Some(evaluation_distributions) => evaluation_distributions,
-                None => {
-                    return Err(Error::Unknown(format!(
-                        "error getting evaluation distributions for namespace {} and rule {}",
-                        self.namespace.clone(),
-                        rule.id.clone()
-                    )))
+        let distributions = match store.get_evaluation_distributions(namespace, &rule.id) {
+            Some(evaluation_distributions) => evaluation_distributions,
+            None => {
+                return Err(Error::Unknown(format!(
+                    "error getting evaluation distributions for namespace {} and rule {}",
+                    namespace.clone(),
+                    rule.id.clone()
+                )))
+            }
+        };
+
+        let mut valid_distributions: Vec<flipt::EvaluationDistribution> = Vec::new();
+        let mut buckets: Vec<i32> = Vec::new();
+
+        for distribution in distributions {
+            if distribution.rollout > 0.0 {
+                valid_distributions.push(distribution.clone());
+
+                if buckets.is_empty() {
+                    let bucket = (distribution.rollout * DEFAULT_PERCENT_MULTIPIER) as i32;
+                    buckets.push(bucket);
+                } else {
+                    let bucket = buckets[buckets.len() - 1]
+                        + (distribution.rollout * DEFAULT_PERCENT_MULTIPIER) as i32;
+                    buckets.push(bucket);
                 }
-            };
-
-            let mut valid_distributions: Vec<flipt::EvaluationDistribution> = Vec::new();
-            let mut buckets: Vec<i32> = Vec::new();
-
-            for distribution in distributions {
-                if distribution.rollout > 0.0 {
-                    valid_distributions.push(distribution.clone());
-
-                    if buckets.is_empty() {
-                        let bucket = (distribution.rollout * DEFAULT_PERCENT_MULTIPIER) as i32;
-                        buckets.push(bucket);
-                    } else {
-                        let bucket = buckets[buckets.len() - 1]
-                            + (distribution.rollout * DEFAULT_PERCENT_MULTIPIER) as i32;
-                        buckets.push(bucket);
-                    }
-                }
             }
+        }
 
-            // no distributions for the rule
-            if valid_distributions.is_empty() {
-                variant_evaluation_response.r#match = true;
-                variant_evaluation_response.reason = common::EvaluationReason::Match;
-                variant_evaluation_response.request_duration_millis =
-                    get_duration_millis(now.elapsed())?;
-                return Ok(variant_evaluation_response);
-            }
-
-            let bucket = crc32fast::hash(
-                format!(
-                    "{}{}",
-                    evaluation_request.flag_key, evaluation_request.entity_id
-                )
-                .as_bytes(),
-            ) % DEFAULT_TOTAL_BUCKET_NUMBER;
-
-            buckets.sort();
-
-            let index = match buckets.binary_search(&(bucket as i32)) {
-                Ok(idx) => idx,
-                Err(idx) => idx,
-            };
-
-            if index == valid_distributions.len() {
-                variant_evaluation_response.r#match = false;
-                variant_evaluation_response.request_duration_millis =
-                    get_duration_millis(now.elapsed())?;
-                return Ok(variant_evaluation_response);
-            }
-
-            let d = &valid_distributions[index];
-
+        // no distributions for the rule
+        if valid_distributions.is_empty() {
             variant_evaluation_response.r#match = true;
-            variant_evaluation_response.variant_key = d.variant_key.clone();
-            variant_evaluation_response.variant_attachment = d.variant_attachment.clone();
             variant_evaluation_response.reason = common::EvaluationReason::Match;
             variant_evaluation_response.request_duration_millis =
                 get_duration_millis(now.elapsed())?;
             return Ok(variant_evaluation_response);
         }
 
-        Ok(variant_evaluation_response)
+        let bucket = crc32fast::hash(
+            format!(
+                "{}{}",
+                evaluation_request.flag_key, evaluation_request.entity_id
+            )
+            .as_bytes(),
+        ) % DEFAULT_TOTAL_BUCKET_NUMBER;
+
+        buckets.sort();
+
+        let index = match buckets.binary_search(&(bucket as i32)) {
+            Ok(idx) => idx,
+            Err(idx) => idx,
+        };
+
+        if index == valid_distributions.len() {
+            variant_evaluation_response.r#match = false;
+            variant_evaluation_response.request_duration_millis =
+                get_duration_millis(now.elapsed())?;
+            return Ok(variant_evaluation_response);
+        }
+
+        let d = &valid_distributions[index];
+
+        variant_evaluation_response.r#match = true;
+        variant_evaluation_response.variant_key = d.variant_key.clone();
+        variant_evaluation_response.variant_attachment = d.variant_attachment.clone();
+        variant_evaluation_response.reason = common::EvaluationReason::Match;
+        variant_evaluation_response.request_duration_millis = get_duration_millis(now.elapsed())?;
+        return Ok(variant_evaluation_response);
     }
 
-    fn boolean_evaluation(
-        &self,
-        flag: &flipt::Flag,
-        evaluation_request: &EvaluationRequest,
-    ) -> BooleanEvaluationResult<BooleanEvaluationResponse> {
-        let now = SystemTime::now();
-        let mut last_rank = 0;
+    Ok(variant_evaluation_response)
+}
 
-        let evaluation_rollouts = match self
-            .store
-            .get_evaluation_rollouts(&self.namespace, &evaluation_request.flag_key)
-        {
+pub fn boolean_evaluation(
+    namespace: &str,
+    evaluation_request: &EvaluationRequest,
+    store: &dyn Store,
+) -> BooleanEvaluationResult<BooleanEvaluationResponse> {
+    let now = SystemTime::now();
+    let mut last_rank = 0;
+
+    let evaluation_rollouts =
+        match store.get_evaluation_rollouts(namespace, &evaluation_request.flag_key) {
             Some(rollouts) => rollouts,
             None => {
                 return Err(Error::Unknown(format!(
                     "error getting evaluation rollouts for namespace {} and flag {}",
-                    self.namespace.clone(),
+                    namespace,
                     evaluation_request.flag_key.clone()
                 )));
             }
         };
 
-        for rollout in evaluation_rollouts {
-            if rollout.rank < last_rank {
-                return Err(Error::InvalidRequest(format!(
-                    "rollout rank: {} detected out of order",
-                    rollout.rank
-                )));
-            }
+    for rollout in evaluation_rollouts {
+        if rollout.rank < last_rank {
+            return Err(Error::InvalidRequest(format!(
+                "rollout rank: {} detected out of order",
+                rollout.rank
+            )));
+        }
 
-            last_rank = rollout.rank;
+        last_rank = rollout.rank;
 
-            if rollout.threshold.is_some() {
-                let threshold = rollout.threshold.unwrap();
+        if rollout.threshold.is_some() {
+            let threshold = rollout.threshold.unwrap();
 
-                let normalized_value = (crc32fast::hash(
-                    format!(
-                        "{}{}",
-                        evaluation_request.entity_id, evaluation_request.flag_key
-                    )
-                    .as_bytes(),
-                ) as i32
-                    % 100) as f32;
+            let normalized_value = (crc32fast::hash(
+                format!(
+                    "{}{}",
+                    evaluation_request.entity_id, evaluation_request.flag_key
+                )
+                .as_bytes(),
+            ) as i32
+                % 100) as f32;
 
-                if normalized_value < threshold.percentage {
-                    return Ok(BooleanEvaluationResponse {
-                        enabled: threshold.value,
-                        flag_key: flag.key.clone(),
-                        reason: common::EvaluationReason::Match,
-                        request_duration_millis: get_duration_millis(now.elapsed())?,
-                        timestamp: chrono::offset::Utc::now(),
-                    });
-                }
-            } else if rollout.segment.is_some() {
-                let segment = rollout.segment.unwrap();
-                let mut segment_matches = 0;
-
-                for s in &segment.segments {
-                    let matched = match self.matches_constraints(
-                        &evaluation_request.context,
-                        &s.1.constraints,
-                        &s.1.match_type,
-                        &evaluation_request.entity_id,
-                    ) {
-                        Ok(v) => v,
-                        Err(err) => return Err(err),
-                    };
-
-                    if matched {
-                        segment_matches += 1;
-                    }
-                }
-
-                if segment.segment_operator == common::SegmentOperator::Or {
-                    if segment_matches < 1 {
-                        continue;
-                    }
-                } else if segment.segment_operator == common::SegmentOperator::And
-                    && segment.segments.len() != segment_matches
-                {
-                    continue;
-                }
-
+            if normalized_value < threshold.percentage {
                 return Ok(BooleanEvaluationResponse {
-                    enabled: segment.value,
+                    enabled: threshold.value,
                     flag_key: flag.key.clone(),
                     reason: common::EvaluationReason::Match,
                     request_duration_millis: get_duration_millis(now.elapsed())?,
                     timestamp: chrono::offset::Utc::now(),
                 });
             }
-        }
+        } else if rollout.segment.is_some() {
+            let segment = rollout.segment.unwrap();
+            let mut segment_matches = 0;
 
-        Ok(BooleanEvaluationResponse {
-            enabled: flag.enabled,
-            flag_key: flag.key.clone(),
-            reason: common::EvaluationReason::Default,
-            request_duration_millis: get_duration_millis(now.elapsed())?,
-            timestamp: chrono::offset::Utc::now(),
-        })
-    }
+            for s in &segment.segments {
+                let matched = match matches_constraints(
+                    &evaluation_request.context,
+                    &s.1.constraints,
+                    &s.1.match_type,
+                    &evaluation_request.entity_id,
+                ) {
+                    Ok(v) => v,
+                    Err(err) => return Err(err),
+                };
 
-    fn matches_constraints(
-        &self,
-        eval_context: &HashMap<String, String>,
-        constraints: &Vec<flipt::EvaluationConstraint>,
-        segment_match_type: &common::SegmentMatchType,
-        entity_id: &str,
-    ) -> Result<bool, Error> {
-        let mut constraint_matches: usize = 0;
-
-        for constraint in constraints {
-            let value = match eval_context.get(&constraint.property) {
-                Some(v) => v,
-                None => {
-                    // If we have an entityId return dummy value which is an empty string.
-                    ""
+                if matched {
+                    segment_matches += 1;
                 }
-            };
+            }
 
-            let matched = match constraint.r#type {
-                common::ConstraintComparisonType::String => matches_string(constraint, value),
-                common::ConstraintComparisonType::Number => matches_number(constraint, value)?,
-                common::ConstraintComparisonType::Boolean => matches_boolean(constraint, value)?,
-                common::ConstraintComparisonType::DateTime => matches_datetime(constraint, value)?,
-                common::ConstraintComparisonType::EntityId => matches_string(constraint, entity_id),
-                _ => {
-                    return Ok(false);
-                }
-            };
-
-            if matched {
-                constraint_matches += 1;
-
-                if segment_match_type == &common::SegmentMatchType::Any {
-                    break;
-                } else {
+            if segment.segment_operator == common::SegmentOperator::Or {
+                if segment_matches < 1 {
                     continue;
                 }
-            } else if segment_match_type == &common::SegmentMatchType::All {
+            } else if segment.segment_operator == common::SegmentOperator::And
+                && segment.segments.len() != segment_matches
+            {
+                continue;
+            }
+
+            return Ok(BooleanEvaluationResponse {
+                enabled: segment.value,
+                flag_key: flag.key.clone(),
+                reason: common::EvaluationReason::Match,
+                request_duration_millis: get_duration_millis(now.elapsed())?,
+                timestamp: chrono::offset::Utc::now(),
+            });
+        }
+    }
+
+    Ok(BooleanEvaluationResponse {
+        enabled: flag.enabled,
+        flag_key: flag.key.clone(),
+        reason: common::EvaluationReason::Default,
+        request_duration_millis: get_duration_millis(now.elapsed())?,
+        timestamp: chrono::offset::Utc::now(),
+    })
+}
+
+fn matches_constraints(
+    eval_context: &HashMap<String, String>,
+    constraints: &Vec<flipt::EvaluationConstraint>,
+    segment_match_type: &common::SegmentMatchType,
+    entity_id: &str,
+) -> Result<bool, Error> {
+    let mut constraint_matches: usize = 0;
+
+    for constraint in constraints {
+        let value = match eval_context.get(&constraint.property) {
+            Some(v) => v,
+            None => {
+                // If we have an entityId return dummy value which is an empty string.
+                ""
+            }
+        };
+
+        let matched = match constraint.r#type {
+            common::ConstraintComparisonType::String => matches_string(constraint, value),
+            common::ConstraintComparisonType::Number => matches_number(constraint, value)?,
+            common::ConstraintComparisonType::Boolean => matches_boolean(constraint, value)?,
+            common::ConstraintComparisonType::DateTime => matches_datetime(constraint, value)?,
+            common::ConstraintComparisonType::EntityId => matches_string(constraint, entity_id),
+            _ => {
+                return Ok(false);
+            }
+        };
+
+        if matched {
+            constraint_matches += 1;
+
+            if segment_match_type == &common::SegmentMatchType::Any {
                 break;
             } else {
                 continue;
             }
+        } else if segment_match_type == &common::SegmentMatchType::All {
+            break;
+        } else {
+            continue;
         }
-
-        let is_match = match segment_match_type {
-            common::SegmentMatchType::All => constraints.len() == constraint_matches,
-            common::SegmentMatchType::Any => constraints.is_empty() || constraint_matches != 0,
-        };
-
-        Ok(is_match)
     }
+
+    let is_match = match segment_match_type {
+        common::SegmentMatchType::All => constraints.len() == constraint_matches,
+        common::SegmentMatchType::Any => constraints.is_empty() || constraint_matches != 0,
+    };
+
+    Ok(is_match)
 }
 
 fn contains_string(v: &str, values: &str) -> bool {
@@ -1150,16 +966,18 @@ mod tests {
             namespace: "default".into(),
             parser: test_parser,
             store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
         };
 
         let context: HashMap<String, String> = HashMap::new();
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("user@flipt.io"),
-            context,
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("user@flipt.io"),
+                context,
+            },
+        );
         assert!(variant.is_ok());
 
         let v = variant.unwrap();
