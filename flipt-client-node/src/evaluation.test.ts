@@ -1,30 +1,46 @@
 import { FliptEvaluationClient } from '.';
-import { ClientTokenAuthentication } from './models';
+import { v4 as uuidv4 } from 'uuid';
+import { BooleanResult } from './models';
 
-const fliptUrl = process.env['FLIPT_URL'];
-if (!fliptUrl) {
-  console.error('please set the FLIPT_URL environment variable');
-  process.exit(1);
-}
+describe('evaluation', () => {
+  // const fliptUrl = process.env['FLIPT_URL'];
+  // if (!fliptUrl) {
+  //   console.error('please set the FLIPT_URL environment variable');
+  //   process.exit(1);
+  // }
 
-const authToken = process.env['FLIPT_AUTH_TOKEN'];
-if (!authToken) {
-  console.error('please set the FLIPT_AUTH_TOKEN environment variable');
-  process.exit(1);
-}
+  // const authToken = process.env['FLIPT_AUTH_TOKEN'];
+  // if (!authToken) {
+  //   console.error('please set the FLIPT_AUTH_TOKEN environment variable');
+  //   process.exit(1);
+  // }
 
-test('variant', () => {
-  const client = new FliptEvaluationClient('default', {
-    url: fliptUrl,
-    authentication: {
-      client_token: authToken
-    }
+  let client: FliptEvaluationClient;
+  let entityId: string;
+  let context: Record<string, any>;
+
+  beforeAll(() => {
+    client = new FliptEvaluationClient('default', {
+      url: 'http://localhost:8080'
+      // authentication: {
+      //   client_token: authToken
+      // }
+    });
   });
 
-  try {
-    const variant = client.evaluateVariant('flag1', 'someentity', {
+  afterAll(() => {
+    if (client) client.close();
+  });
+
+  beforeEach(() => {
+    entityId = uuidv4();
+    context = {
       fizz: 'buzz'
-    });
+    };
+  });
+
+  test('variant', () => {
+    const variant = client.evaluateVariant('flag1', 'someentity', context);
 
     expect(variant.error_message).toBeNull();
     expect(variant.status).toEqual('success');
@@ -34,23 +50,14 @@ test('variant', () => {
     expect(variant.result?.reason).toEqual('MATCH_EVALUATION_REASON');
     expect(variant.result?.segment_keys).toContain('segment1');
     expect(variant.result?.variant_key).toContain('variant1');
-  } finally {
-    if (client) client.close();
-  }
-});
-
-test('boolean', () => {
-  const client = new FliptEvaluationClient('default', {
-    url: fliptUrl,
-    authentication: {
-      client_token: authToken
-    }
   });
 
-  try {
-    const boolean = client.evaluateBoolean('flag_boolean', 'someentity', {
-      fizz: 'buzz'
-    });
+  test('boolean', () => {
+    const boolean = client.evaluateBoolean(
+      'flag_boolean',
+      'someentity',
+      context
+    );
 
     expect(boolean.error_message).toBeNull();
     expect(boolean.status).toEqual('success');
@@ -58,41 +65,24 @@ test('boolean', () => {
     expect(boolean.result?.flag_key).toEqual('flag_boolean');
     expect(boolean.result?.enabled).toEqual(true);
     expect(boolean.result?.reason).toEqual('MATCH_EVALUATION_REASON');
-  } finally {
-    if (client) client.close();
-  }
-});
-
-test('batch', () => {
-  const client = new FliptEvaluationClient('default', {
-    url: fliptUrl,
-    authentication: {
-      client_token: authToken
-    }
   });
 
-  try {
+  test('batch', () => {
     const batch = client.evaluateBatch([
       {
         flag_key: 'flag1',
         entity_id: 'someentity',
-        context: {
-          fizz: 'buzz'
-        }
+        context
       },
       {
         flag_key: 'flag_boolean',
         entity_id: 'someentity',
-        context: {
-          fizz: 'buzz'
-        }
+        context
       },
       {
         flag_key: 'notfound',
         entity_id: 'someentity',
-        context: {
-          fizz: 'buzz'
-        }
+        context
       }
     ]);
 
@@ -132,72 +122,61 @@ test('batch', () => {
     expect(error?.error_evaluation_response?.reason).toEqual(
       'NOT_FOUND_ERROR_EVALUATION_REASON'
     );
-  } finally {
-    if (client) client.close();
-  }
-});
-
-test('variant failure', () => {
-  const client = new FliptEvaluationClient('default', {
-    url: fliptUrl,
-    authentication: {
-      client_token: authToken
-    }
   });
 
-  try {
-    const variant = client.evaluateVariant('nonexistent', 'someentity', {
-      fizz: 'buzz'
-    });
+  test('variant failure', () => {
+    const variant = client.evaluateVariant(
+      'nonexistent',
+      'someentity',
+      context
+    );
 
     expect(variant.result).toBeNull();
     expect(variant.status).toEqual('failure');
     expect(variant.error_message).toEqual(
       'invalid request: failed to get flag information default/nonexistent'
     );
-  } finally {
-    if (client) client.close();
-  }
-});
-
-test('boolean failure', () => {
-  const client = new FliptEvaluationClient('default', {
-    url: fliptUrl,
-    authentication: {
-      client_token: authToken
-    }
   });
 
-  try {
-    const boolean = client.evaluateVariant('nonexistent', 'someentity', {
-      fizz: 'buzz'
-    });
+  test('boolean failure', () => {
+    const boolean = client.evaluateVariant(
+      'nonexistent',
+      'someentity',
+      context
+    );
 
     expect(boolean.result).toBeNull();
     expect(boolean.status).toEqual('failure');
     expect(boolean.error_message).toEqual(
       'invalid request: failed to get flag information default/nonexistent'
     );
-  } finally {
-    if (client) client.close();
-  }
-});
-
-test('list flags', () => {
-  const client = new FliptEvaluationClient('default', {
-    url: fliptUrl,
-    authentication: {
-      client_token: authToken
-    }
   });
 
-  try {
+  test('list flags', () => {
     const flags = client.listFlags();
     expect(flags.error_message).toBeNull();
     expect(flags.status).toEqual('success');
     expect(flags.result).toBeDefined();
-    expect(flags.result?.length).toEqual(2);
-  } finally {
-    if (client) client.close();
-  }
+    expect(flags.result?.length).toEqual(3);
+  });
+
+  describe('boolean-flag', () => {
+    describe('simple', () => {
+      describe('disabled', () => {
+        const flagKey = 'prd0002-disabled';
+        let observed: BooleanResult;
+
+        beforeEach(() => {
+          observed = client.evaluateBoolean(flagKey, entityId, context);
+        });
+
+        it('should return false', () => {
+          expect(observed.status).toEqual('success');
+          expect(observed.error_message).toBeNull();
+          expect(observed.result!.enabled).toBe(false);
+          expect(observed.result!.reason).toBe('MATCH_EVALUATION_REASON');
+        });
+      });
+    });
+  });
 });
