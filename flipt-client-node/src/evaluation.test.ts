@@ -3,17 +3,17 @@ import { v4 as uuidv4 } from 'uuid';
 import { BooleanResult } from './models';
 
 describe('evaluation', () => {
-  // const fliptUrl = process.env['FLIPT_URL'];
-  // if (!fliptUrl) {
-  //   console.error('please set the FLIPT_URL environment variable');
-  //   process.exit(1);
-  // }
+  const fliptUrl = process.env['FLIPT_URL'];
+  if (!fliptUrl) {
+    console.error('please set the FLIPT_URL environment variable');
+    process.exit(1);
+  }
 
-  // const authToken = process.env['FLIPT_AUTH_TOKEN'];
-  // if (!authToken) {
-  //   console.error('please set the FLIPT_AUTH_TOKEN environment variable');
-  //   process.exit(1);
-  // }
+  const authToken = process.env['FLIPT_AUTH_TOKEN'];
+  if (!authToken) {
+    console.error('please set the FLIPT_AUTH_TOKEN environment variable');
+    process.exit(1);
+  }
 
   let client: FliptEvaluationClient;
   let entityId: string;
@@ -21,10 +21,10 @@ describe('evaluation', () => {
 
   beforeAll(() => {
     client = new FliptEvaluationClient('default', {
-      url: 'http://localhost:8080'
-      // authentication: {
-      //   client_token: authToken
-      // }
+      url: fliptUrl,
+      authentication: {
+        client_token: authToken
+      }
     });
   });
 
