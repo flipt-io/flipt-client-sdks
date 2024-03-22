@@ -1,17 +1,13 @@
-use std::{
-    sync::{Arc, RwLock},
-    time::SystemTime,
-};
+use std::sync::{Arc, RwLock};
 
 use fliptevaluation::{
-    boolean_evaluation,
+    batch_evalution, boolean_evaluation,
     error::Error,
-    get_duration_millis,
-    models::{common, flipt, source::Document},
+    models::{flipt, source::Document},
     parser::Parser,
     store::{Snapshot, Store},
-    variant_evaluation, BatchEvaluationResponse, BooleanEvaluationResponse,
-    ErrorEvaluationResponse, EvaluationRequest, EvaluationResponse, VariantEvaluationResponse,
+    variant_evaluation, BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
+    VariantEvaluationResponse,
 };
 
 pub struct Evaluator<P, S>
@@ -90,7 +86,7 @@ where
         evaluation_request: &EvaluationRequest,
     ) -> Result<VariantEvaluationResponse, Error> {
         let _r_lock = self.mtx.read().unwrap();
-        variant_evaluation(&self.namespace, evaluation_request, &self.store)
+        variant_evaluation(&self.store, &self.namespace, evaluation_request)
     }
 
     pub fn boolean(
@@ -98,61 +94,14 @@ where
         evaluation_request: &EvaluationRequest,
     ) -> Result<BooleanEvaluationResponse, Error> {
         let _r_lock = self.mtx.read().unwrap();
-        boolean_evaluation(&self.namespace, evaluation_request, &self.store)
+        boolean_evaluation(&self.store, &self.namespace, evaluation_request)
     }
 
     pub fn batch(
         &self,
         requests: Vec<EvaluationRequest>,
     ) -> Result<BatchEvaluationResponse, Error> {
-        let now = SystemTime::now();
-
-        let mut evaluation_responses: Vec<EvaluationResponse> = Vec::new();
-        for request in requests {
-            let flag = match self.store.get_flag(&self.namespace, &request.flag_key) {
-                Some(f) => f,
-                None => {
-                    evaluation_responses.push(EvaluationResponse {
-                        r#type: common::ResponseType::Error,
-                        boolean_evaluation_response: None,
-                        variant_evaluation_response: None,
-                        error_evaluation_response: Some(ErrorEvaluationResponse {
-                            flag_key: request.flag_key,
-                            namespace_key: self.namespace.clone(),
-                            reason: common::ErrorEvaluationReason::NotFound,
-                        }),
-                    });
-                    continue;
-                }
-            };
-
-            match flag.r#type {
-                common::FlagType::Boolean => {
-                    let boolean_evaluation =
-                        boolean_evaluation(&self.namespace, &request, &self.store)?;
-                    evaluation_responses.push(EvaluationResponse {
-                        r#type: common::ResponseType::Boolean,
-                        boolean_evaluation_response: Some(boolean_evaluation),
-                        variant_evaluation_response: None,
-                        error_evaluation_response: None,
-                    });
-                }
-                common::FlagType::Variant => {
-                    let variant_evaluation =
-                        variant_evaluation(&self.namespace, &request, &self.store)?;
-                    evaluation_responses.push(EvaluationResponse {
-                        r#type: common::ResponseType::Variant,
-                        boolean_evaluation_response: None,
-                        variant_evaluation_response: Some(variant_evaluation),
-                        error_evaluation_response: None,
-                    });
-                }
-            }
-        }
-
-        Ok(BatchEvaluationResponse {
-            responses: evaluation_responses,
-            request_duration_millis: get_duration_millis(now.elapsed())?,
-        })
+        let _r_lock = self.mtx.read().unwrap();
+        batch_evalution(&self.store, &self.namespace, requests)
     }
 }

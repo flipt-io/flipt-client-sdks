@@ -104,19 +104,19 @@ impl Default for ErrorEvaluationResponse {
 }
 
 pub fn variant_evaluation(
-    namespace: &str,
-    evaluation_request: &EvaluationRequest,
     store: &dyn Store,
+    namespace: &str,
+    request: &EvaluationRequest,
 ) -> Result<VariantEvaluationResponse, Error> {
     let now = SystemTime::now();
     let mut last_rank = 0;
 
-    let flag = match store.get_flag(namespace, &evaluation_request.flag_key) {
+    let flag = match store.get_flag(namespace, &request.flag_key) {
         Some(f) => {
             if f.r#type != common::FlagType::Variant {
                 return Err(Error::InvalidRequest(format!(
                     "{} is not a variant flag",
-                    &evaluation_request.flag_key,
+                    &request.flag_key,
                 )));
             }
             f
@@ -124,7 +124,7 @@ pub fn variant_evaluation(
         None => {
             return Err(Error::InvalidRequest(format!(
                 "failed to get flag information {}/{}",
-                namespace, &evaluation_request.flag_key,
+                namespace, &request.flag_key,
             )));
         }
     };
@@ -140,14 +140,13 @@ pub fn variant_evaluation(
         return Ok(variant_evaluation_response);
     }
 
-    let evaluation_rules = match store.get_evaluation_rules(namespace, &evaluation_request.flag_key)
-    {
+    let evaluation_rules = match store.get_evaluation_rules(namespace, &request.flag_key) {
         Some(rules) => rules,
         None => {
             return Err(Error::Unknown(format!(
                 "error getting evaluation rules for namespace {} and flag {}",
                 namespace,
-                evaluation_request.flag_key.clone()
+                request.flag_key.clone()
             )));
         }
     };
@@ -167,10 +166,10 @@ pub fn variant_evaluation(
 
         for kv in &rule.segments {
             let matched = match matches_constraints(
-                &evaluation_request.context,
+                &request.context,
                 &kv.1.constraints,
                 &kv.1.match_type,
-                &evaluation_request.entity_id,
+                &request.entity_id,
             ) {
                 Ok(b) => b,
                 Err(err) => return Err(err),
@@ -232,13 +231,9 @@ pub fn variant_evaluation(
             return Ok(variant_evaluation_response);
         }
 
-        let bucket = crc32fast::hash(
-            format!(
-                "{}{}",
-                evaluation_request.flag_key, evaluation_request.entity_id
-            )
-            .as_bytes(),
-        ) % DEFAULT_TOTAL_BUCKET_NUMBER;
+        let bucket =
+            crc32fast::hash(format!("{}{}", request.flag_key, request.entity_id).as_bytes())
+                % DEFAULT_TOTAL_BUCKET_NUMBER;
 
         buckets.sort();
 
@@ -268,19 +263,19 @@ pub fn variant_evaluation(
 }
 
 pub fn boolean_evaluation(
-    namespace: &str,
-    evaluation_request: &EvaluationRequest,
     store: &dyn Store,
+    namespace: &str,
+    request: &EvaluationRequest,
 ) -> Result<BooleanEvaluationResponse, Error> {
     let now = SystemTime::now();
     let mut last_rank = 0;
 
-    let flag = match store.get_flag(namespace, &evaluation_request.flag_key) {
+    let flag = match store.get_flag(namespace, &request.flag_key) {
         Some(f) => {
             if f.r#type != common::FlagType::Boolean {
                 return Err(Error::InvalidRequest(format!(
                     "{} is not a boolean flag",
-                    &evaluation_request.flag_key,
+                    &request.flag_key,
                 )));
             }
             f
@@ -288,22 +283,21 @@ pub fn boolean_evaluation(
         None => {
             return Err(Error::InvalidRequest(format!(
                 "failed to get flag information {}/{}",
-                namespace, &evaluation_request.flag_key,
+                namespace, &request.flag_key,
             )));
         }
     };
 
-    let evaluation_rollouts =
-        match store.get_evaluation_rollouts(namespace, &evaluation_request.flag_key) {
-            Some(rollouts) => rollouts,
-            None => {
-                return Err(Error::Unknown(format!(
-                    "error getting evaluation rollouts for namespace {} and flag {}",
-                    namespace,
-                    evaluation_request.flag_key.clone()
-                )));
-            }
-        };
+    let evaluation_rollouts = match store.get_evaluation_rollouts(namespace, &request.flag_key) {
+        Some(rollouts) => rollouts,
+        None => {
+            return Err(Error::Unknown(format!(
+                "error getting evaluation rollouts for namespace {} and flag {}",
+                namespace,
+                request.flag_key.clone()
+            )));
+        }
+    };
 
     for rollout in evaluation_rollouts {
         if rollout.rank < last_rank {
@@ -318,14 +312,10 @@ pub fn boolean_evaluation(
         if rollout.threshold.is_some() {
             let threshold = rollout.threshold.unwrap();
 
-            let normalized_value = (crc32fast::hash(
-                format!(
-                    "{}{}",
-                    evaluation_request.entity_id, evaluation_request.flag_key
-                )
-                .as_bytes(),
-            ) as i32
-                % 100) as f32;
+            let normalized_value =
+                (crc32fast::hash(format!("{}{}", request.entity_id, request.flag_key).as_bytes())
+                    as i32
+                    % 100) as f32;
 
             if normalized_value < threshold.percentage {
                 return Ok(BooleanEvaluationResponse {
@@ -342,10 +332,10 @@ pub fn boolean_evaluation(
 
             for s in &segment.segments {
                 let matched = match matches_constraints(
-                    &evaluation_request.context,
+                    &request.context,
                     &s.1.constraints,
                     &s.1.match_type,
-                    &evaluation_request.entity_id,
+                    &request.entity_id,
                 ) {
                     Ok(v) => v,
                     Err(err) => return Err(err),
@@ -385,7 +375,61 @@ pub fn boolean_evaluation(
     })
 }
 
-pub fn get_duration_millis(elapsed: Result<Duration, SystemTimeError>) -> Result<f64, Error> {
+pub fn batch_evalution(
+    store: &dyn Store,
+    namespace: &str,
+    requests: Vec<EvaluationRequest>,
+) -> Result<BatchEvaluationResponse, Error> {
+    let now = SystemTime::now();
+
+    let mut evaluation_responses: Vec<EvaluationResponse> = Vec::new();
+    for request in requests {
+        let flag = match store.get_flag(namespace, &request.flag_key) {
+            Some(f) => f,
+            None => {
+                evaluation_responses.push(EvaluationResponse {
+                    r#type: common::ResponseType::Error,
+                    boolean_evaluation_response: None,
+                    variant_evaluation_response: None,
+                    error_evaluation_response: Some(ErrorEvaluationResponse {
+                        flag_key: request.flag_key,
+                        namespace_key: namespace.to_string(),
+                        reason: common::ErrorEvaluationReason::NotFound,
+                    }),
+                });
+                continue;
+            }
+        };
+
+        match flag.r#type {
+            common::FlagType::Boolean => {
+                let boolean_evaluation = boolean_evaluation(store, namespace, &request)?;
+                evaluation_responses.push(EvaluationResponse {
+                    r#type: common::ResponseType::Boolean,
+                    boolean_evaluation_response: Some(boolean_evaluation),
+                    variant_evaluation_response: None,
+                    error_evaluation_response: None,
+                });
+            }
+            common::FlagType::Variant => {
+                let variant_evaluation = variant_evaluation(store, namespace, &request)?;
+                evaluation_responses.push(EvaluationResponse {
+                    r#type: common::ResponseType::Variant,
+                    boolean_evaluation_response: None,
+                    variant_evaluation_response: Some(variant_evaluation),
+                    error_evaluation_response: None,
+                });
+            }
+        }
+    }
+
+    Ok(BatchEvaluationResponse {
+        responses: evaluation_responses,
+        request_duration_millis: get_duration_millis(now.elapsed())?,
+    })
+}
+
+fn get_duration_millis(elapsed: Result<Duration, SystemTimeError>) -> Result<f64, Error> {
     match elapsed {
         Ok(elapsed) => Ok(elapsed.as_secs_f64() * 1000.0),
         Err(e) => Err(Error::Unknown(format!("error getting duration {}", e))),
@@ -991,13 +1035,13 @@ mod tests {
         let context: HashMap<String, String> = HashMap::new();
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("user@flipt.io"),
                 context,
             },
-            &mock_store,
         );
         assert!(variant.is_ok());
 
@@ -1066,13 +1110,13 @@ mod tests {
         context.insert(String::from("foo"), String::from("bar"));
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("entity"),
                 context,
             },
-            &mock_store,
         );
         assert!(variant.is_ok());
 
@@ -1155,13 +1199,13 @@ mod tests {
         context.insert(String::from("company"), String::from("flipt"));
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("entity"),
                 context,
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -1176,13 +1220,13 @@ mod tests {
         context.insert(String::from("bar"), String::from("boz"));
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("entity"),
                 context,
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -1272,13 +1316,13 @@ mod tests {
         context.insert(String::from("admin"), String::from("true"));
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("123"),
                 context,
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -1367,13 +1411,13 @@ mod tests {
         context.insert(String::from("admin"), String::from("true"));
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("123"),
                 context,
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -1466,13 +1510,13 @@ mod tests {
         context.insert(String::from("foo"), String::from("bar"));
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("1"),
                 context: context.clone(),
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -1486,13 +1530,13 @@ mod tests {
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("2"),
                 context,
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -1596,13 +1640,13 @@ mod tests {
         context.insert(String::from("foo"), String::from("bar"));
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("1"),
                 context: context.clone(),
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -1672,13 +1716,13 @@ mod tests {
         let context: HashMap<String, String> = HashMap::new();
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("10"),
                 context: context.clone(),
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -1692,13 +1736,13 @@ mod tests {
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("01"),
                 context,
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -1768,13 +1812,13 @@ mod tests {
         context.insert(String::from("bar"), String::from("baz"));
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("entity"),
                 context,
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -1856,13 +1900,13 @@ mod tests {
         context.insert(String::from("company"), String::from("flipt"));
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("entity"),
                 context,
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -1877,13 +1921,13 @@ mod tests {
         context.insert(String::from("bar"), String::from("boz"));
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("entity"),
                 context,
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -1972,13 +2016,13 @@ mod tests {
         context.insert(String::from("admin"), String::from("true"));
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("123"),
                 context,
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -2066,13 +2110,13 @@ mod tests {
         context.insert(String::from("admin"), String::from("true"));
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("123"),
                 context,
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -2156,13 +2200,13 @@ mod tests {
         context.insert(String::from("bar"), String::from("baz"));
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("1"),
                 context: context.clone(),
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -2176,13 +2220,13 @@ mod tests {
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("2"),
                 context,
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -2285,13 +2329,13 @@ mod tests {
         context.insert(String::from("premium_user"), String::from("true"));
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("1"),
                 context: context.clone(),
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -2361,13 +2405,13 @@ mod tests {
         let mut context: HashMap<String, String> = HashMap::new();
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("10"),
                 context: context.clone(),
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -2381,13 +2425,13 @@ mod tests {
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("01"),
                 context: context.clone(),
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -2403,13 +2447,13 @@ mod tests {
         context.insert(String::from("foo"), String::from("bar"));
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("01"),
                 context,
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -2486,13 +2530,13 @@ mod tests {
         context.insert(String::from("bar"), String::from("baz"));
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("1"),
                 context: context.clone(),
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -2592,13 +2636,13 @@ mod tests {
         context.insert(String::from("bar"), String::from("baz"));
 
         let variant = variant_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("1"),
                 context: context.clone(),
             },
-            &mock_store,
         );
 
         assert!(variant.is_ok());
@@ -2655,13 +2699,13 @@ mod tests {
             });
 
         let boolean = boolean_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("1"),
                 context: HashMap::new(),
             },
-            &mock_store,
         );
 
         assert!(boolean.is_ok());
@@ -2719,13 +2763,13 @@ mod tests {
         context.insert(String::from("some"), String::from("baz"));
 
         let boolean = boolean_evaluation(
+            &mock_store,
             "default".into(),
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("1"),
                 context: context,
             },
-            &mock_store,
         );
 
         assert!(boolean.is_ok());
