@@ -69,9 +69,9 @@ where
         }
     }
 
-    pub fn replace_store(&mut self, store_impl: S) {
+    pub fn replace_store(&mut self, store: S) {
         let _w_lock = self.mtx.write().unwrap();
-        self.store = store_impl;
+        self.store = store;
     }
 
     pub fn list_flags(&self) -> Result<Vec<flipt::Flag>, Error> {
