@@ -30,7 +30,7 @@ where
     P: Parser + Send,
 {
     pub fn new_snapshot_evaluator(namespace: &str, parser: P) -> Result<Self, Error> {
-        let doc = parser.parse(namespace).unwrap();
+        let doc = parser.parse(namespace)?;
         let snap = Snapshot::build(namespace, doc)?;
         Ok(Evaluator::new(namespace, parser, snap))
     }
@@ -38,7 +38,10 @@ where
     pub fn replace_snapshot(&mut self) {
         let doc = match self.parser.parse(&self.namespace) {
             Ok(d) => d,
-            Err(_) => Document::default(),
+            Err(_) => {
+                // TODO: log::error!("error parsing document: {}"", e);
+                Document::default()
+            }
         };
 
         match Snapshot::build(&self.namespace, doc) {
@@ -57,11 +60,11 @@ where
     P: Parser + Send,
     S: Store + Send,
 {
-    pub fn new(namespace: &str, parser: P, store_impl: S) -> Self {
+    pub fn new(namespace: &str, parser: P, store: S) -> Self {
         Self {
             namespace: namespace.to_string(),
             parser,
-            store: store_impl,
+            store,
             mtx: Arc::new(RwLock::new(0)),
         }
     }

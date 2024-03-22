@@ -275,18 +275,6 @@ pub fn boolean_evaluation(
     let now = SystemTime::now();
     let mut last_rank = 0;
 
-    let evaluation_rollouts =
-        match store.get_evaluation_rollouts(namespace, &evaluation_request.flag_key) {
-            Some(rollouts) => rollouts,
-            None => {
-                return Err(Error::Unknown(format!(
-                    "error getting evaluation rollouts for namespace {} and flag {}",
-                    namespace,
-                    evaluation_request.flag_key.clone()
-                )));
-            }
-        };
-
     let flag = match store.get_flag(namespace, &evaluation_request.flag_key) {
         Some(f) => {
             if f.r#type != common::FlagType::Boolean {
@@ -304,6 +292,18 @@ pub fn boolean_evaluation(
             )));
         }
     };
+
+    let evaluation_rollouts =
+        match store.get_evaluation_rollouts(namespace, &evaluation_request.flag_key) {
+            Some(rollouts) => rollouts,
+            None => {
+                return Err(Error::Unknown(format!(
+                    "error getting evaluation rollouts for namespace {} and flag {}",
+                    namespace,
+                    evaluation_request.flag_key.clone()
+                )));
+            }
+        };
 
     for rollout in evaluation_rollouts {
         if rollout.rank < last_rank {
