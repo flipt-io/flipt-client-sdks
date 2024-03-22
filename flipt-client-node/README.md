@@ -47,3 +47,15 @@ Make sure to call the `close` method on the `FliptEvaluationClient` class once y
 ```typescript
 fliptEvaluationClient.close();
 ```
+
+## Potential Issues
+
+### Vitest
+
+If you are using this library in combination with [vitest](https://github.com/vitest-dev/vitest), you may run into segmentation fault issues. This is due to the fact that `vitest` does not work nicely with `ffi-napi` by default.
+
+See the following issue for more information: [vitest #2091: vitest will crash when using ffi-napi](https://github.com/vitest-dev/vitest/issues/2091).
+
+To work around this issue, it is recommended to run your tests with the `--pool=forks` flag.
+
+See [#169](https://github.com/flipt-io/flipt-client-sdks/issues/169) for more information.
