@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime, SystemTimeError};
 
 pub mod error;
@@ -12,8 +11,7 @@ pub mod store;
 use crate::error::Error;
 use crate::models::common;
 use crate::models::flipt;
-use crate::parser::Parser;
-use crate::store::{Snapshot, Store};
+use crate::store::Store;
 
 const DEFAULT_PERCENT: f32 = 100.0;
 const DEFAULT_TOTAL_BUCKET_NUMBER: u32 = 1000;
@@ -105,19 +103,31 @@ impl Default for ErrorEvaluationResponse {
     }
 }
 
-type ListFlagsResult = std::result::Result<Vec<flipt::Flag>, Error>;
-
-type VariantEvaluationResult<T> = std::result::Result<T, Error>;
-
-type BooleanEvaluationResult<T> = std::result::Result<T, Error>;
-
 pub fn variant_evaluation(
     namespace: &str,
     evaluation_request: &EvaluationRequest,
     store: &dyn Store,
-) -> VariantEvaluationResult<VariantEvaluationResponse> {
+) -> Result<VariantEvaluationResponse, Error> {
     let now = SystemTime::now();
     let mut last_rank = 0;
+
+    let flag = match store.get_flag(namespace, &evaluation_request.flag_key) {
+        Some(f) => {
+            if f.r#type != common::FlagType::Variant {
+                return Err(Error::InvalidRequest(format!(
+                    "{} is not a variant flag",
+                    &evaluation_request.flag_key,
+                )));
+            }
+            f
+        }
+        None => {
+            return Err(Error::InvalidRequest(format!(
+                "failed to get flag information {}/{}",
+                namespace, &evaluation_request.flag_key,
+            )));
+        }
+    };
 
     let mut variant_evaluation_response = VariantEvaluationResponse {
         flag_key: flag.key.clone(),
@@ -189,7 +199,7 @@ pub fn variant_evaluation(
             None => {
                 return Err(Error::Unknown(format!(
                     "error getting evaluation distributions for namespace {} and rule {}",
-                    namespace.clone(),
+                    namespace,
                     rule.id.clone()
                 )))
             }
@@ -261,7 +271,7 @@ pub fn boolean_evaluation(
     namespace: &str,
     evaluation_request: &EvaluationRequest,
     store: &dyn Store,
-) -> BooleanEvaluationResult<BooleanEvaluationResponse> {
+) -> Result<BooleanEvaluationResponse, Error> {
     let now = SystemTime::now();
     let mut last_rank = 0;
 
@@ -276,6 +286,24 @@ pub fn boolean_evaluation(
                 )));
             }
         };
+
+    let flag = match store.get_flag(namespace, &evaluation_request.flag_key) {
+        Some(f) => {
+            if f.r#type != common::FlagType::Boolean {
+                return Err(Error::InvalidRequest(format!(
+                    "{} is not a boolean flag",
+                    &evaluation_request.flag_key,
+                )));
+            }
+            f
+        }
+        None => {
+            return Err(Error::InvalidRequest(format!(
+                "failed to get flag information {}/{}",
+                namespace, &evaluation_request.flag_key,
+            )));
+        }
+    };
 
     for rollout in evaluation_rollouts {
         if rollout.rank < last_rank {
@@ -355,6 +383,13 @@ pub fn boolean_evaluation(
         request_duration_millis: get_duration_millis(now.elapsed())?,
         timestamp: chrono::offset::Utc::now(),
     })
+}
+
+pub fn get_duration_millis(elapsed: Result<Duration, SystemTimeError>) -> Result<f64, Error> {
+    match elapsed {
+        Ok(elapsed) => Ok(elapsed.as_secs_f64() * 1000.0),
+        Err(e) => Err(Error::Unknown(format!("error getting duration {}", e))),
+    }
 }
 
 fn matches_constraints(
@@ -596,18 +631,10 @@ fn matches_datetime(
     }
 }
 
-fn get_duration_millis(elapsed: Result<Duration, SystemTimeError>) -> Result<f64, Error> {
-    match elapsed {
-        Ok(elapsed) => Ok(elapsed.as_secs_f64() * 1000.0),
-        Err(e) => Err(Error::Unknown(format!("error getting duration {}", e))),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::models::flipt::RolloutSegment;
-    use crate::parser::TestParser;
     use crate::store::MockStore;
 
     macro_rules! matches_string_tests {
@@ -920,7 +947,6 @@ mod tests {
 
     #[test]
     fn test_entity_id_match() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -962,12 +988,6 @@ mod tests {
             .expect_get_evaluation_distributions()
             .returning(|_, _| Some(vec![]));
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-        };
-
         let context: HashMap<String, String> = HashMap::new();
 
         let variant = variant_evaluation(
@@ -977,6 +997,7 @@ mod tests {
                 entity_id: String::from("user@flipt.io"),
                 context,
             },
+            &mock_store,
         );
         assert!(variant.is_ok());
 
@@ -991,7 +1012,6 @@ mod tests {
     // Segment Match Type ALL
     #[test]
     fn test_evaluator_match_all_no_variants_no_distributions() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1041,22 +1061,19 @@ mod tests {
             .expect_get_evaluation_distributions()
             .returning(|_, _| Some(vec![]));
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
-        };
-
         let mut context: HashMap<String, String> = HashMap::new();
         context.insert(String::from("bar"), String::from("baz"));
         context.insert(String::from("foo"), String::from("bar"));
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("entity"),
-            context,
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("entity"),
+                context,
+            },
+            &mock_store,
+        );
         assert!(variant.is_ok());
 
         let v = variant.unwrap();
@@ -1069,7 +1086,6 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_all_multiple_segments() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1102,6 +1118,7 @@ mod tests {
                 ],
             },
         );
+
         segments.insert(
             String::from("segment2"),
             flipt::EvaluationSegment {
@@ -1132,23 +1149,20 @@ mod tests {
             .expect_get_evaluation_distributions()
             .returning(|_, _| Some(vec![]));
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
-        };
-
         let mut context: HashMap<String, String> = HashMap::new();
         context.insert(String::from("bar"), String::from("baz"));
         context.insert(String::from("foo"), String::from("bar"));
         context.insert(String::from("company"), String::from("flipt"));
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("entity"),
-            context,
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("entity"),
+                context,
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -1161,11 +1175,15 @@ mod tests {
         let mut context: HashMap<String, String> = HashMap::new();
         context.insert(String::from("bar"), String::from("boz"));
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("entity"),
-            context,
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("entity"),
+                context,
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -1179,7 +1197,6 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_all_distribution_not_matched() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1249,24 +1266,20 @@ mod tests {
                 }])
             });
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
-        };
-
         let mut context: HashMap<String, String> = HashMap::new();
-
         context.insert(String::from("bar"), String::from("baz"));
         context.insert(String::from("foo"), String::from("bar"));
         context.insert(String::from("admin"), String::from("true"));
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("123"),
-            context,
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("123"),
+                context,
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -1279,7 +1292,6 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_all_single_variant_distribution() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1349,24 +1361,20 @@ mod tests {
                 }])
             });
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
-        };
-
         let mut context: HashMap<String, String> = HashMap::new();
-
         context.insert(String::from("bar"), String::from("baz"));
         context.insert(String::from("foo"), String::from("bar"));
         context.insert(String::from("admin"), String::from("true"));
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("123"),
-            context,
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("123"),
+                context,
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -1389,7 +1397,6 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_all_rollout_distribution() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1454,23 +1461,19 @@ mod tests {
                 ])
             });
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
-        };
-
         let mut context: HashMap<String, String> = HashMap::new();
-
         context.insert(String::from("bar"), String::from("baz"));
         context.insert(String::from("foo"), String::from("bar"));
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("1"),
-            context: context.clone(),
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("1"),
+                context: context.clone(),
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -1482,11 +1485,15 @@ mod tests {
         assert_eq!(v.variant_key, String::from("variant1"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("2"),
-            context,
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("2"),
+                context,
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -1501,7 +1508,6 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_all_rollout_distribution_multi_rule() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1585,23 +1591,19 @@ mod tests {
                 ])
             });
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
-        };
-
         let mut context: HashMap<String, String> = HashMap::new();
-
         context.insert(String::from("premium_user"), String::from("true"));
         context.insert(String::from("foo"), String::from("bar"));
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("1"),
-            context: context.clone(),
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("1"),
+                context: context.clone(),
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -1616,7 +1618,6 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_all_no_constraints() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1668,20 +1669,17 @@ mod tests {
                 ])
             });
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
-        };
-
         let context: HashMap<String, String> = HashMap::new();
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("10"),
-            context: context.clone(),
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("10"),
+                context: context.clone(),
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -1693,11 +1691,15 @@ mod tests {
         assert_eq!(v.variant_key, String::from("variant1"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("01"),
-            context,
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("01"),
+                context,
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -1713,7 +1715,6 @@ mod tests {
     // Segment Match Type ANY
     #[test]
     fn test_evaluator_match_any_no_variants_no_distributions() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1763,21 +1764,19 @@ mod tests {
             .expect_get_evaluation_distributions()
             .returning(|_, _| Some(vec![]));
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
-        };
-
         let mut context: HashMap<String, String> = HashMap::new();
         context.insert(String::from("bar"), String::from("baz"));
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("entity"),
-            context,
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("entity"),
+                context,
+            },
+            &mock_store,
+        );
+
         assert!(variant.is_ok());
 
         let v = variant.unwrap();
@@ -1790,7 +1789,6 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_any_multiple_segments() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1853,22 +1851,19 @@ mod tests {
             .expect_get_evaluation_distributions()
             .returning(|_, _| Some(vec![]));
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
-        };
-
         let mut context: HashMap<String, String> = HashMap::new();
         context.insert(String::from("bar"), String::from("baz"));
         context.insert(String::from("company"), String::from("flipt"));
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("entity"),
-            context,
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("entity"),
+                context,
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -1881,11 +1876,15 @@ mod tests {
         let mut context: HashMap<String, String> = HashMap::new();
         context.insert(String::from("bar"), String::from("boz"));
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("entity"),
-            context,
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("entity"),
+                context,
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -1899,7 +1898,6 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_any_distribution_not_matched() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -1969,23 +1967,19 @@ mod tests {
                 }])
             });
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
-        };
-
         let mut context: HashMap<String, String> = HashMap::new();
-
         context.insert(String::from("bar"), String::from("baz"));
         context.insert(String::from("admin"), String::from("true"));
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("123"),
-            context,
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("123"),
+                context,
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -1998,7 +1992,6 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_any_single_variant_distribution() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -2068,23 +2061,19 @@ mod tests {
                 }])
             });
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
-        };
-
         let mut context: HashMap<String, String> = HashMap::new();
-
         context.insert(String::from("bar"), String::from("baz"));
         context.insert(String::from("admin"), String::from("true"));
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("123"),
-            context,
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("123"),
+                context,
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -2099,7 +2088,6 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_any_rollout_distribution() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -2164,22 +2152,18 @@ mod tests {
                 ])
             });
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
-        };
-
         let mut context: HashMap<String, String> = HashMap::new();
-
         context.insert(String::from("bar"), String::from("baz"));
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("1"),
-            context: context.clone(),
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("1"),
+                context: context.clone(),
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -2191,11 +2175,15 @@ mod tests {
         assert_eq!(v.variant_key, String::from("variant1"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("2"),
-            context,
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("2"),
+                context,
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -2210,7 +2198,6 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_any_rollout_distribution_multi_rule() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -2294,22 +2281,18 @@ mod tests {
                 ])
             });
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
-        };
-
         let mut context: HashMap<String, String> = HashMap::new();
-
         context.insert(String::from("premium_user"), String::from("true"));
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("1"),
-            context: context.clone(),
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("1"),
+                context: context.clone(),
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -2324,7 +2307,6 @@ mod tests {
 
     #[test]
     fn test_evaluator_match_any_no_constraints() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -2376,20 +2358,17 @@ mod tests {
                 ])
             });
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
-        };
-
         let mut context: HashMap<String, String> = HashMap::new();
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("10"),
-            context: context.clone(),
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("10"),
+                context: context.clone(),
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -2401,11 +2380,15 @@ mod tests {
         assert_eq!(v.variant_key, String::from("variant1"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("01"),
-            context: context.clone(),
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("01"),
+                context: context.clone(),
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -2418,11 +2401,16 @@ mod tests {
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
         context.insert(String::from("foo"), String::from("bar"));
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("01"),
-            context,
-        });
+
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("01"),
+                context,
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -2438,7 +2426,6 @@ mod tests {
     // Test cases where rollouts have a zero value
     #[test]
     fn test_evaluator_first_rollout_rule_zero() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -2495,22 +2482,18 @@ mod tests {
                 ])
             });
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
-        };
-
         let mut context: HashMap<String, String> = HashMap::new();
-
         context.insert(String::from("bar"), String::from("baz"));
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("1"),
-            context: context.clone(),
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("1"),
+                context: context.clone(),
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -2525,7 +2508,6 @@ mod tests {
 
     #[test]
     fn test_evaluator_multiple_zero_rollout_distributions() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -2606,22 +2588,18 @@ mod tests {
                 ])
             });
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
-        };
-
         let mut context: HashMap<String, String> = HashMap::new();
-
         context.insert(String::from("bar"), String::from("baz"));
 
-        let variant = evaluator.variant(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("1"),
-            context: context.clone(),
-        });
+        let variant = variant_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("1"),
+                context: context.clone(),
+            },
+            &mock_store,
+        );
 
         assert!(variant.is_ok());
 
@@ -2636,7 +2614,6 @@ mod tests {
 
     #[test]
     fn test_boolean_notpresent() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -2677,18 +2654,15 @@ mod tests {
                 }])
             });
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
-        };
-
-        let boolean = evaluator.boolean(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("1"),
-            context: HashMap::new(),
-        });
+        let boolean = boolean_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("1"),
+                context: HashMap::new(),
+            },
+            &mock_store,
+        );
 
         assert!(boolean.is_ok());
 
@@ -2701,7 +2675,6 @@ mod tests {
 
     #[test]
     fn test_boolean_present() {
-        let test_parser = TestParser::new();
         let mut mock_store = MockStore::new();
 
         mock_store.expect_get_flag().returning(|_, _| {
@@ -2742,22 +2715,18 @@ mod tests {
                 }])
             });
 
-        let evaluator = &Evaluator {
-            namespace: "default".into(),
-            parser: test_parser,
-            store: mock_store,
-            mtx: Arc::new(RwLock::new(0)),
-        };
-
         let mut context: HashMap<String, String> = HashMap::new();
-
         context.insert(String::from("some"), String::from("baz"));
 
-        let boolean = evaluator.boolean(&EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("1"),
-            context: context,
-        });
+        let boolean = boolean_evaluation(
+            "default".into(),
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("1"),
+                context: context,
+            },
+            &mock_store,
+        );
 
         assert!(boolean.is_ok());
 

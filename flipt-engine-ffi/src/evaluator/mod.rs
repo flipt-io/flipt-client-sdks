@@ -1,3 +1,19 @@
+use std::{
+    sync::{Arc, RwLock},
+    time::SystemTime,
+};
+
+use fliptevaluation::{
+    boolean_evaluation,
+    error::Error,
+    get_duration_millis,
+    models::{common, flipt, source::Document},
+    parser::Parser,
+    store::{Snapshot, Store},
+    variant_evaluation, BatchEvaluationResponse, BooleanEvaluationResponse,
+    ErrorEvaluationResponse, EvaluationRequest, EvaluationResponse, VariantEvaluationResponse,
+};
+
 pub struct Evaluator<P, S>
 where
     P: Parser + Send,
@@ -13,13 +29,19 @@ impl<P> Evaluator<P, Snapshot>
 where
     P: Parser + Send,
 {
-    pub fn new_snapshot_evaluator(namespace: String, parser: P) -> Result<Self, Error> {
-        let snap = Snapshot::build(&namespace, &parser)?;
+    pub fn new_snapshot_evaluator(namespace: &str, parser: P) -> Result<Self, Error> {
+        let doc = parser.parse(namespace).unwrap();
+        let snap = Snapshot::build(namespace, doc)?;
         Ok(Evaluator::new(namespace, parser, snap))
     }
 
     pub fn replace_snapshot(&mut self) {
-        match Snapshot::build(&self.namespace, &self.parser) {
+        let doc = match self.parser.parse(&self.namespace) {
+            Ok(d) => d,
+            Err(_) => Document::default(),
+        };
+
+        match Snapshot::build(&self.namespace, doc) {
             Ok(s) => {
                 self.replace_store(s);
             }
@@ -35,9 +57,9 @@ where
     P: Parser + Send,
     S: Store + Send,
 {
-    pub fn new(namespace: String, parser: P, store_impl: S) -> Self {
+    pub fn new(namespace: &str, parser: P, store_impl: S) -> Self {
         Self {
-            namespace,
+            namespace: namespace.to_string(),
             parser,
             store: store_impl,
             mtx: Arc::new(RwLock::new(0)),
@@ -49,7 +71,7 @@ where
         self.store = store_impl;
     }
 
-    pub fn list_flags(&self) -> ListFlagsResult {
+    pub fn list_flags(&self) -> Result<Vec<flipt::Flag>, Error> {
         let _r_lock = self.mtx.read().unwrap();
         match self.store.list_flags(&self.namespace) {
             Some(f) => Ok(f),
@@ -63,59 +85,17 @@ where
     pub fn variant(
         &self,
         evaluation_request: &EvaluationRequest,
-    ) -> VariantEvaluationResult<VariantEvaluationResponse> {
+    ) -> Result<VariantEvaluationResponse, Error> {
         let _r_lock = self.mtx.read().unwrap();
-        let flag = match self
-            .store
-            .get_flag(&self.namespace, &evaluation_request.flag_key)
-        {
-            Some(f) => {
-                if f.r#type != common::FlagType::Variant {
-                    return Err(Error::InvalidRequest(format!(
-                        "{} is not a variant flag",
-                        &evaluation_request.flag_key,
-                    )));
-                }
-                f
-            }
-            None => {
-                return Err(Error::InvalidRequest(format!(
-                    "failed to get flag information {}/{}",
-                    &self.namespace, &evaluation_request.flag_key,
-                )));
-            }
-        };
-
-        self.variant_evaluation(&flag, evaluation_request)
+        variant_evaluation(&self.namespace, evaluation_request, &self.store)
     }
 
     pub fn boolean(
         &self,
         evaluation_request: &EvaluationRequest,
-    ) -> BooleanEvaluationResult<BooleanEvaluationResponse> {
+    ) -> Result<BooleanEvaluationResponse, Error> {
         let _r_lock = self.mtx.read().unwrap();
-        let flag = match self
-            .store
-            .get_flag(&self.namespace, &evaluation_request.flag_key)
-        {
-            Some(f) => {
-                if f.r#type != common::FlagType::Boolean {
-                    return Err(Error::InvalidRequest(format!(
-                        "{} is not a boolean flag",
-                        &evaluation_request.flag_key,
-                    )));
-                }
-                f
-            }
-            None => {
-                return Err(Error::InvalidRequest(format!(
-                    "failed to get flag information {}/{}",
-                    &self.namespace, &evaluation_request.flag_key,
-                )));
-            }
-        };
-
-        self.boolean_evaluation(&flag, evaluation_request)
+        boolean_evaluation(&self.namespace, evaluation_request, &self.store)
     }
 
     pub fn batch(
@@ -145,7 +125,8 @@ where
 
             match flag.r#type {
                 common::FlagType::Boolean => {
-                    let boolean_evaluation = self.boolean_evaluation(&flag, &request)?;
+                    let boolean_evaluation =
+                        boolean_evaluation(&self.namespace, &request, &self.store)?;
                     evaluation_responses.push(EvaluationResponse {
                         r#type: common::ResponseType::Boolean,
                         boolean_evaluation_response: Some(boolean_evaluation),
@@ -154,7 +135,8 @@ where
                     });
                 }
                 common::FlagType::Variant => {
-                    let variant_evaluation = self.variant_evaluation(&flag, &request)?;
+                    let variant_evaluation =
+                        variant_evaluation(&self.namespace, &request, &self.store)?;
                     evaluation_responses.push(EvaluationResponse {
                         r#type: common::ResponseType::Variant,
                         boolean_evaluation_response: None,
