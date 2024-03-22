@@ -1036,7 +1036,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("user@flipt.io"),
@@ -1111,7 +1111,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("entity"),
@@ -1200,7 +1200,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("entity"),
@@ -1221,7 +1221,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("entity"),
@@ -1317,7 +1317,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("123"),
@@ -1412,7 +1412,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("123"),
@@ -1511,7 +1511,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("1"),
@@ -1531,7 +1531,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("2"),
@@ -1641,7 +1641,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("1"),
@@ -1717,7 +1717,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("10"),
@@ -1737,7 +1737,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("01"),
@@ -1813,7 +1813,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("entity"),
@@ -1901,7 +1901,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("entity"),
@@ -1922,7 +1922,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("entity"),
@@ -2017,7 +2017,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("123"),
@@ -2111,7 +2111,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("123"),
@@ -2201,7 +2201,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("1"),
@@ -2221,7 +2221,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("2"),
@@ -2330,7 +2330,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("1"),
@@ -2406,7 +2406,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("10"),
@@ -2426,7 +2426,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("01"),
@@ -2448,7 +2448,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("01"),
@@ -2531,7 +2531,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("1"),
@@ -2637,7 +2637,7 @@ mod tests {
 
         let variant = variant_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("1"),
@@ -2700,7 +2700,7 @@ mod tests {
 
         let boolean = boolean_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("1"),
@@ -2764,11 +2764,11 @@ mod tests {
 
         let boolean = boolean_evaluation(
             &mock_store,
-            "default".into(),
+            "default",
             &EvaluationRequest {
                 flag_key: String::from("foo"),
                 entity_id: String::from("1"),
-                context: context,
+                context,
             },
         );
 
