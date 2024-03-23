@@ -411,7 +411,7 @@ where
 
             buckets.sort();
 
-            let index = match buckets.binary_search(&(bucket+1 as i32)) {
+            let index = match buckets.binary_search(&(bucket as i32 + 1)) {
                 Ok(idx) => idx,
                 Err(idx) => idx,
             };
