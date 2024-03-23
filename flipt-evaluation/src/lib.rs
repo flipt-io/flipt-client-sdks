@@ -237,7 +237,7 @@ pub fn variant_evaluation(
 
         buckets.sort();
 
-        let index = match buckets.binary_search(&(bucket as i32)) {
+        let index = match buckets.binary_search(&(bucket as i32 + 1)) {
             Ok(idx) => idx,
             Err(idx) => idx,
         };
@@ -314,7 +314,6 @@ pub fn boolean_evaluation(
 
             let normalized_value =
                 (crc32fast::hash(format!("{}{}", request.entity_id, request.flag_key).as_bytes())
-                    as i32
                     % 100) as f32;
 
             if normalized_value < threshold.percentage {
