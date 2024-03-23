@@ -478,8 +478,7 @@ where
                         evaluation_request.entity_id, evaluation_request.flag_key
                     )
                     .as_bytes(),
-                ) as i32
-                    % 100) as f32;
+                ) % 100) as f32;
 
                 if normalized_value < threshold.percentage {
                     return Ok(BooleanEvaluationResponse {
