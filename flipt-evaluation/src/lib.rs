@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, SystemTimeError};
 
@@ -18,6 +18,7 @@ const DEFAULT_TOTAL_BUCKET_NUMBER: u32 = 1000;
 const DEFAULT_PERCENT_MULTIPIER: f32 = DEFAULT_TOTAL_BUCKET_NUMBER as f32 / DEFAULT_PERCENT;
 
 #[repr(C)]
+#[derive(Serialize, Deserialize)]
 pub struct EvaluationRequest {
     pub flag_key: String,
     pub entity_id: String,

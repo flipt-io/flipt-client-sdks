@@ -1,5 +1,5 @@
-import { FliptEvaluationClient } from '.';
-import { ClientTokenAuthentication } from './models';
+import { FliptEvaluationClient } from '..';
+import { ClientTokenAuthentication } from '../models';
 
 const fliptUrl = process.env['FLIPT_URL'];
 if (!fliptUrl) {
