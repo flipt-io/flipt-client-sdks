@@ -184,7 +184,7 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").
 		WithExec([]string{"git", "filter-branch", "-f", "--prune-empty",
 			"--subdirectory-filter", "flipt-client-go",
-			"--index-filter", "cp -r /tmp/ext .",
+			"--tree-filter", "cp -r /tmp/ext .",
 			"--", tag})
 
 	_, err := filtered.Sync(ctx)
