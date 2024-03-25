@@ -1,9 +1,14 @@
+pub mod evaluator;
+pub mod parser;
+
+use evaluator::Evaluator;
+use parser::http::{Authentication, HTTPParser, HTTPParserBuilder};
+
 use fliptevaluation::error::Error;
 use fliptevaluation::models::flipt;
-use fliptevaluation::parser::{Authentication, HTTPParser, HTTPParserBuilder};
 use fliptevaluation::store::Snapshot;
 use fliptevaluation::{
-    BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest, Evaluator,
+    BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
     VariantEvaluationResponse,
 };
 use libc::c_void;
@@ -197,7 +202,7 @@ pub unsafe extern "C" fn initialize_engine(
     };
 
     let parser = parser_builder.build();
-    let evaluator = Evaluator::new_snapshot_evaluator(namespace.to_string(), parser).unwrap();
+    let evaluator = Evaluator::new_snapshot_evaluator(namespace, parser).unwrap();
 
     Box::into_raw(Box::new(Engine::new(evaluator, engine_opts))) as *mut c_void
 }

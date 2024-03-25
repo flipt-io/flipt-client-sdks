@@ -1,7 +1,7 @@
 use crate::error::Error;
 use crate::models::common;
 use crate::models::flipt;
-use crate::parser::Parser;
+use crate::models::source;
 
 #[cfg(test)]
 use mockall::automock;
@@ -41,12 +41,7 @@ struct Namespace {
 }
 
 impl Snapshot {
-    pub fn build<P>(namespace: &str, parser: &P) -> Result<Snapshot, Error>
-    where
-        P: Parser + Send,
-    {
-        let doc = parser.parse(namespace)?;
-
+    pub fn build(namespace: &str, doc: source::Document) -> Result<Snapshot, Error> {
         let mut flags: HashMap<String, flipt::Flag> = HashMap::new();
         let mut eval_rules: HashMap<String, Vec<flipt::EvaluationRule>> = HashMap::new();
         let mut eval_rollouts: HashMap<String, Vec<flipt::EvaluationRollout>> = HashMap::new();
@@ -269,13 +264,15 @@ mod tests {
     use super::{Snapshot, Store};
     use crate::models::common;
     use crate::models::flipt;
+    use crate::parser::Parser;
     use crate::parser::TestParser;
 
     #[test]
     fn test_snapshot() {
         let tp = TestParser::new();
+        let doc = tp.parse("default").unwrap();
 
-        let snapshot = Snapshot::build("default".into(), &tp).unwrap();
+        let snapshot = Snapshot::build("default", doc).unwrap();
 
         let flag_variant = snapshot
             .get_flag("default", "flag1")
