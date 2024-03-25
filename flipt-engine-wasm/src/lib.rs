@@ -1,3 +1,4 @@
+extern crate console_error_panic_hook;
 use wasm_bindgen::prelude::*;
 
 use fliptevaluation::{boolean_evaluation, error::Error, models::source, store::Snapshot};
@@ -51,6 +52,7 @@ where
 impl Engine {
     #[wasm_bindgen(constructor)]
     pub fn new(namespace: &str, data: JsValue) -> Self {
+        console_error_panic_hook::set_once();
         let doc: source::Document = match serde_wasm_bindgen::from_value(data) {
             Ok(document) => document,
             Err(e) => {
