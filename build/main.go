@@ -187,13 +187,13 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 			"--index-filter", "cp -r /tmp/ext .",
 			"--", tag})
 
+	_, err := filtered.Sync(ctx)
 	if !push {
-		_, err := filtered.Sync(ctx)
 		return err
 	}
 
 	// push to target repo/tag
-	_, err := filtered.WithExec([]string{
+	_, err = filtered.WithExec([]string{
 		"git",
 		"push",
 		"-f",
