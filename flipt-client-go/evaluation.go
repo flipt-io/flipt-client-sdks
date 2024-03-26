@@ -1,9 +1,9 @@
 package evaluation
 
 /*
-#cgo darwin,arm64 LDFLAGS: -L${SRCDIR}/ext/darwin_arm64/. -lfliptengine
-#cgo linux,arm64 LDFLAGS: -L${SRCDIR}/ext/linux_arm64/. -lfliptengine
-#cgo linux,amd64 LDFLAGS: -L${SRCDIR}/ext/linux_x86_64/. -lfliptengine
+#cgo darwin,arm64 LDFLAGS: -L./ext/darwin_arm64 -lfliptengine -Wl,-rpath -Wl,./ext/darwin_arm64
+#cgo linux,arm64 LDFLAGS: -L./ext/linux_arm64 -lfliptengine -Wl,-rpath -Wl,./ext/linux_arm64
+#cgo linux,amd64 LDFLAGS: -L./ext/linux_x86_64 -lfliptengine -Wl,-rpath -Wl,./ext/linux_x86_64
 #include <string.h>
 #include <stdlib.h>
 #include "./ext/flipt_engine.h"
