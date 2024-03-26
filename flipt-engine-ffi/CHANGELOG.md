@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.6](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.5...flipt-engine-ffi-v0.1.6) (2024-03-26)
+## [0.1.7](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.6...flipt-engine-ffi-v0.1.7) (2024-03-26)
 
 ### Bug Fixes
 
@@ -8,7 +8,7 @@
 
 ### Miscellaneous Chores
 
-* release 0.1.6 ([395b785](https://github.com/flipt-io/flipt-client-sdks/commit/395b785961b44d2d49a36b242e6bf9b1ff1c2c70))
+* release 0.1.7 ([1d00bd6](https://github.com/flipt-io/flipt-client-sdks/commit/1d00bd6114ebe0844d6744898253aca9540a7053))
 
 ## [0.1.6](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.5...flipt-engine-ffi-v0.1.6) (2024-03-23)
 
