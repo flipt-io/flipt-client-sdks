@@ -137,7 +137,7 @@ func getTestDependencies(ctx context.Context, client *dagger.Client, hostDirecto
 	return flipt, testArgs{
 		arch:       arch,
 		libFile:    rust.File("/src/target/release/libfliptengine.so"),
-		headerFile: rust.File("/src/target/release/flipt_engine.h"),
+		headerFile: rust.File("/src/flipt-engine-ffi/include/flipt_engine.h"),
 		hostDir:    hostDirectory,
 	}
 }
