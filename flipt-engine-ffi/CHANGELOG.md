@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.7](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.6...flipt-engine-ffi-v0.1.7) (2024-03-26)
+
+
+### Bug Fixes
+
+* use committed c-header file and copy to correct place expected by Go SDK ([#190](https://github.com/flipt-io/flipt-client-sdks/issues/190)) ([183dffd](https://github.com/flipt-io/flipt-client-sdks/commit/183dffdf8481410e2aa50c10ae040219f0098694))
+
+
+### Miscellaneous Chores
+
+* release 0.1.6 ([27e7265](https://github.com/flipt-io/flipt-client-sdks/commit/27e72652da9b0f665877a8858b66effc66d4c400))
+* release 0.1.7 ([1d00bd6](https://github.com/flipt-io/flipt-client-sdks/commit/1d00bd6114ebe0844d6744898253aca9540a7053))
+
 ## [0.1.6](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.5...flipt-engine-ffi-v0.1.6) (2024-03-26)
 
 ### Bug Fixes
