@@ -1,6 +1,19 @@
 # Changelog
 
+## [0.1.6](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.5...flipt-engine-ffi-v0.1.6) (2024-03-26)
+
+
+### Bug Fixes
+
+* use committed c-header file and copy to correct place expected by Go SDK ([#190](https://github.com/flipt-io/flipt-client-sdks/issues/190)) ([183dffd](https://github.com/flipt-io/flipt-client-sdks/commit/183dffdf8481410e2aa50c10ae040219f0098694))
+
+
+### Miscellaneous Chores
+
+* release 0.1.6 ([395b785](https://github.com/flipt-io/flipt-client-sdks/commit/395b785961b44d2d49a36b242e6bf9b1ff1c2c70))
+
 ## [0.1.6](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.5...flipt-engine-ffi-v0.1.6) (2024-03-23)
+
 
 ### Miscellaneous Chores
 
@@ -8,11 +21,13 @@
 
 ## [0.1.5](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.4...flipt-engine-ffi-v0.1.5) (2024-03-14)
 
+
 ### Miscellaneous Chores
 
 * release 0.1.5 ([ebe9788](https://github.com/flipt-io/flipt-client-sdks/commit/ebe9788ff57c0230bb6b66f692dc44e7bbdbf14b))
 
 ## [0.1.4](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.3...flipt-engine-ffi-v0.1.4) (2024-03-05)
+
 
 ### Bug Fixes
 
@@ -20,11 +35,13 @@
 
 ## [0.1.3](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.2...flipt-engine-ffi-v0.1.3) (2024-03-01)
 
+
 ### Features
 
 * list flags + single namespace ([#151](https://github.com/flipt-io/flipt-client-sdks/issues/151)) ([cf09c85](https://github.com/flipt-io/flipt-client-sdks/commit/cf09c857a851c70aea97bccc9a159c4c7b5540a0))
 
 ## [0.1.2](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.1...flipt-engine-ffi-v0.1.2) (2024-02-24)
+
 
 ### Miscellaneous Chores
 
@@ -32,15 +49,18 @@
 
 ## [0.1.1](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.0...flipt-engine-ffi-v0.1.1) (2024-02-06)
 
+
 ### Features
 
 * **client-sdks:** add batch evaluation to engine ([5dec28b](https://github.com/flipt-io/flipt-client-sdks/commit/5dec28bdd62d97080f53004e022dc196ae0959a3))
 
 ## [0.1.0](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.0.5...flipt-engine-ffi-v0.1.0) (2024-01-25)
 
+
 ### Features
 
 * **authentication:** add support for substitutable authentication methods ([c01cb48](https://github.com/flipt-io/flipt-client-sdks/commit/c01cb4859d4e51a7f04eaa46ca36256c81f69a3c))
+
 
 ### Miscellaneous Chores
 
@@ -48,17 +68,20 @@
 
 ## [0.0.5](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.0.4...flipt-engine-ffi-v0.0.5) (2024-01-18)
 
+
 ### Features
 
 * Client refs ([#104](https://github.com/flipt-io/flipt-client-sdks/issues/104)) ([de4fc26](https://github.com/flipt-io/flipt-client-sdks/commit/de4fc265872fb8e6b20a39ef026324501763341d))
 
 ## [0.0.4](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-v0.0.3...flipt-engine-v0.0.4) (2024-01-16)
 
+
 ### Bug Fixes
 
 * **cargo:** move workspace reference up to root toml ([9bdb2b5](https://github.com/flipt-io/flipt-client-sdks/commit/9bdb2b5ae1745cb2d3a171ec5ff9313ef10b254b))
 * dont wipe out snapshot if error in parser ([#96](https://github.com/flipt-io/flipt-client-sdks/issues/96)) ([75850ab](https://github.com/flipt-io/flipt-client-sdks/commit/75850ab0bcaf61185a7523efa7201ce67d673174))
 * **examples:** rewire the use statements ([f3457a0](https://github.com/flipt-io/flipt-client-sdks/commit/f3457a0033473908864f1aa1485c5c4e3fb7edce))
+
 
 ### Miscellaneous Chores
 
@@ -67,12 +90,14 @@
 
 ## [0.0.3](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-v0.0.2...flipt-engine-v0.0.3) (2024-01-03)
 
+
 ### Bug Fixes
 
 * instead of using empty dictionary use actual EngineOpts instance ([#62](https://github.com/flipt-io/flipt-client-sdks/issues/62)) ([9aae5e9](https://github.com/flipt-io/flipt-client-sdks/commit/9aae5e91216a0c101551340567a251e9aa6a240b))
 * return error on http status &gt;= 400 ([#65](https://github.com/flipt-io/flipt-client-sdks/issues/65)) ([100c7d2](https://github.com/flipt-io/flipt-client-sdks/commit/100c7d2f7417b3bee6fa5f5fb55fd4cd27a682c2))
 
 ## [0.0.2](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-v0.0.1...flipt-engine-v0.0.2) (2023-12-27)
+
 
 ### Miscellaneous Chores
 
