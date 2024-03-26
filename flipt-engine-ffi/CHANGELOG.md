@@ -2,7 +2,6 @@
 
 ## [0.1.8](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.7...flipt-engine-ffi-v0.1.8) (2024-03-26)
 
-
 ### Bug Fixes
 
 * strip release libraries for real ([#196](https://github.com/flipt-io/flipt-client-sdks/issues/196)) ([38a8d1f](https://github.com/flipt-io/flipt-client-sdks/commit/38a8d1fe0cc0e24e2bb8e4f8f05942731b0b1bb7))
