@@ -19,9 +19,6 @@ openssl = { version = "0.10", features = ["vendored"] }
 [dependencies.flipt-evaluation]
 path = "../flipt-evaluation"
 
-[build-dependencies]
-cbindgen = "0.26.0"
-
 [dev-dependencies]
 mockall = "0.12.1"
 

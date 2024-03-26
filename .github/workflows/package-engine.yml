@@ -68,7 +68,6 @@ jobs:
       - run: |
           tar -czvf flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz \
             target/${{ matrix.platform.target }}/release/libfliptengine.* \
-            target/${{ matrix.platform.target }}/release/flipt_engine.h \
             || true
 
       - name: Upload Release Assets (Tag)

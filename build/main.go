@@ -105,6 +105,7 @@ func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagg
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-python")).
 		WithDirectory("/src/ext", hostDirectory.Directory("tmp")).
+		WithFile("/src/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithWorkdir("/src").
 		WithExec([]string{"poetry", "install", "--without=dev", "-v"}).
 		WithExec([]string{"poetry", "build", "-v"})
@@ -178,13 +179,14 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 	repository := git.
 		WithExec([]string{"git", "clone", "https://github.com/flipt-io/flipt-client-sdks.git", "/src"}).
 		WithWorkdir("/src").
-		WithDirectory("/tmp/ext", hostDirectory.Directory("tmp"))
+		WithDirectory("/tmp/ext", hostDirectory.Directory("tmp")).
+		WithFile("/tmp/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h"))
 
 	filtered := repository.
 		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").
 		WithExec([]string{"git", "filter-branch", "-f", "--prune-empty",
 			"--subdirectory-filter", "flipt-client-go",
-			"--index-filter", "cp -r /tmp/ext .",
+			"--tree-filter", "cp -r /tmp/ext .",
 			"--", tag})
 
 	_, err := filtered.Sync(ctx)
@@ -210,6 +212,7 @@ func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 			Exclude: []string{"./node_modules/"},
 		}).
 		WithDirectory("/src/ext", hostDirectory.Directory("tmp")).
+		WithFile("/src/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithWorkdir("/src").
 		WithExec([]string{"npm", "install"}).
 		WithExec([]string{"npm", "run", "build"}).
@@ -242,6 +245,7 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		WithWorkdir("/src").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-ruby")).
 		WithDirectory("/src/lib/ext", hostDirectory.Directory("tmp")).
+		WithFile("/src/lib/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithExec([]string{"bundle", "install"}).
 		WithExec([]string{"bundle", "exec", "rake", "build"})
 
@@ -296,6 +300,7 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	container := client.Container().From("gradle:8.5.0-jdk11").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-java")).
 		WithDirectory("/src/src/main/resources", hostDirectory.Directory("tmp")).
+		WithFile("/src/main/resources/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithWorkdir("/src").
 		WithExec([]string{"gradle", "-x", "test", "build"})
 
