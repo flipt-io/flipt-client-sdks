@@ -25,6 +25,3 @@ mockall = "0.12.1"
 [lib]
 name = "fliptengine"
 crate-type = ["rlib", "dylib"]
-
-[profile.release]
-strip = true
