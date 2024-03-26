@@ -1,6 +1,6 @@
 [package]
 name = "flipt-engine-ffi"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2021"
 authors = ["Flipt Devs <dev@flipt.io>"]
 license = "MIT"
@@ -25,6 +25,3 @@ mockall = "0.12.1"
 [lib]
 name = "fliptengine"
 crate-type = ["rlib", "dylib"]
-
-[profile.release]
-strip = true

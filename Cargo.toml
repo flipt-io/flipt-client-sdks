@@ -1,3 +1,6 @@
 [workspace]
 resolver = "2"
 members = ["./flipt-engine-ffi", "./flipt-evaluation"]
+
+[profile.release]
+strip = true
