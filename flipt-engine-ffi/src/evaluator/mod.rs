@@ -26,9 +26,10 @@ where
     P: Parser + Send,
 {
     pub fn new_snapshot_evaluator(namespace: &str, parser: P) -> Result<Self, Error> {
-        let doc = parser.parse(namespace)?;
-        let snap = Snapshot::build(namespace, doc)?;
-        Ok(Evaluator::new(namespace, parser, snap))
+        let snap = Snapshot::build(namespace, Document::default())?;
+        let mut e = Evaluator::new(namespace, parser, snap);
+        e.replace_snapshot();
+        Ok(e)
     }
 
     pub fn replace_snapshot(&mut self) {
