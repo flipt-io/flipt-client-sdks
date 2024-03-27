@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.9](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.8...flipt-engine-ffi-v0.1.9) (2024-03-27)
+
+
+### Bug Fixes
+
+* **ffi:** prevent fatal error if there is the connection error during ([#204](https://github.com/flipt-io/flipt-client-sdks/issues/204)) ([e2c3e05](https://github.com/flipt-io/flipt-client-sdks/commit/e2c3e05dbd9a712d685c50ab0500f89e72ecffb0))
+
 ## [0.1.8](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.7...flipt-engine-ffi-v0.1.8) (2024-03-26)
 
 ### Bug Fixes
