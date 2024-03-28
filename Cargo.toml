@@ -4,3 +4,4 @@ members = ["./flipt-engine-ffi", "./flipt-evaluation"]
 
 [profile.release]
 strip = true
+rpath = true
