@@ -8,10 +8,6 @@
     "flipt-engine-ffi": {
       "component": "flipt-engine-ffi",
       "release-type": "rust"
-    },
-    "flipt-evaluation": {
-      "release-type": "rust",
-      "skip-github-release": true
     }
   }
 }
