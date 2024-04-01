@@ -24,4 +24,4 @@ mockall = "0.12.1"
 
 [lib]
 name = "fliptengine"
-crate-type = ["dylib", "rlib"]
+crate-type = ["rlib", "dylib"]

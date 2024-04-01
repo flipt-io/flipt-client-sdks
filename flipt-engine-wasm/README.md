@@ -23,7 +23,7 @@ wasm-pack build --target nodejs
 ### Test
 
 ```bash
-cd tests
+cd integration
 npm install
 npm test
 ```
