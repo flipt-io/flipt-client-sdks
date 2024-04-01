@@ -455,9 +455,15 @@ fn matches_constraints(
 
         let matched = match constraint.r#type {
             common::ConstraintComparisonType::String => matches_string(constraint, value),
-            common::ConstraintComparisonType::Number => matches_number(constraint, value)?,
-            common::ConstraintComparisonType::Boolean => matches_boolean(constraint, value)?,
-            common::ConstraintComparisonType::DateTime => matches_datetime(constraint, value)?,
+            common::ConstraintComparisonType::Number => {
+                matches_number(constraint, value).unwrap_or(false)
+            }
+            common::ConstraintComparisonType::Boolean => {
+                matches_boolean(constraint, value).unwrap_or(false)
+            }
+            common::ConstraintComparisonType::DateTime => {
+                matches_datetime(constraint, value).unwrap_or(false)
+            }
             common::ConstraintComparisonType::EntityId => matches_string(constraint, entity_id),
             _ => {
                 return Ok(false);
@@ -2779,5 +2785,33 @@ mod tests {
         assert_eq!(b.flag_key, String::from("foo"));
         assert!(b.enabled);
         assert_eq!(b.reason, common::EvaluationReason::Match);
+    }
+
+    #[test]
+    fn test_evaluator_matches_contrains_with_mixed_types() {
+        let eval_context: HashMap<String, String> =
+            HashMap::from([("fruit".into(), "apple".into())]);
+        let constrains = vec![
+            flipt::EvaluationConstraint {
+                r#type: common::ConstraintComparisonType::Boolean,
+                property: String::from("fruit"),
+                operator: String::from("true"),
+                value: String::from(""),
+            },
+            flipt::EvaluationConstraint {
+                r#type: common::ConstraintComparisonType::String,
+                property: String::from("fruit"),
+                operator: String::from("eq"),
+                value: String::from("apple"),
+            },
+        ];
+        let result = matches_constraints(
+            &eval_context,
+            &constrains,
+            &common::SegmentMatchType::Any,
+            "",
+        );
+        assert!(result.is_ok());
+        assert!(result.unwrap());
     }
 }
