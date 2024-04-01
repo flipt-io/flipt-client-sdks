@@ -106,7 +106,7 @@ func take(fn func() error) func() error {
 
 // getTestDependencies builds the dynamic library for the Rust core, and the Flipt container for the client libraries to run
 // their tests against.
-func getTestDependencies(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) (*dagger.Container, testArgs) {
+func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) (*dagger.Container, testArgs) {
 	arch := "x86_64"
 	if strings.Contains(runtime.GOARCH, "arm64") || strings.Contains(runtime.GOARCH, "aarch64") {
 		arch = "arm64"
@@ -116,6 +116,7 @@ func getTestDependencies(ctx context.Context, client *dagger.Client, hostDirecto
 	rust := client.Container().From("rust:1.73.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
+		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm")).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
 		WithExec([]string{"cargo", "build", "--release"})
