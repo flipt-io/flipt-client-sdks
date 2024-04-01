@@ -1,7 +1,10 @@
 [workspace]
 resolver = "2"
-members = ["./flipt-engine-ffi", "./flipt-evaluation"]
+members = ["./flipt-engine-ffi", "./flipt-engine-wasm", "./flipt-evaluation"]
 
 [profile.release]
 strip = true
 rpath = true
+
+[profile.release.package.flipt-engine-wasm]
+opt-level = "s"
