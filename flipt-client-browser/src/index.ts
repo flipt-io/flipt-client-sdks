@@ -1,5 +1,5 @@
-import { Engine } from "flipt-engine-wasm";
-import { EngineOpts } from "./models";
+import { Engine } from 'flipt-engine-wasm';
+import { BooleanResult, EngineOpts, VariantResult } from './models';
 
 interface IEvaluationRequest {
   flag_key: string;
@@ -15,31 +15,36 @@ export class FliptEvaluationClient {
   }
 
   static async init(
-    namespace: string = "default",
+    namespace: string = 'default',
     engine_opts: EngineOpts = {
-      url: "http://localhost:8080",
-      update_interval: 120,
-      reference: "",
+      url: 'http://localhost:8080',
+      reference: ''
     }
   ) {
-    let url = engine_opts.url ?? "http://localhost:8080";
+    let url = engine_opts.url ?? 'http://localhost:8080';
+    // trim trailing slash
+    url = url.replace(/\/$/, '');
     url = `${url}/internal/v1/evaluation/snapshot/namespace/${namespace}`;
 
+    if (engine_opts.reference) {
+      url = `${url}?ref=${engine_opts.reference}`;
+    }
+
     const headers = new Headers();
-    headers.append("Accept", "application/json");
-    headers.append("Content-Type", "application/json");
+    headers.append('Accept', 'application/json');
+    headers.append('Content-Type', 'application/json');
 
     if (engine_opts.authentication) {
-      headers.append("Authorization", engine_opts.authentication);
+      headers.append('Authorization', engine_opts.authentication);
     }
 
     const resp = await fetch(url, {
-      method: "GET",
-      headers,
+      method: 'GET',
+      headers
     });
 
     if (!resp.ok) {
-      throw new Error("Failed to fetch data");
+      throw new Error('Failed to fetch data');
     }
 
     const data = await resp.json();
@@ -51,19 +56,19 @@ export class FliptEvaluationClient {
     const evaluation_request: IEvaluationRequest = {
       flag_key,
       entity_id,
-      context,
+      context
     };
 
-    return this.engine.evaluate_variant(evaluation_request);
+    return this.engine.evaluate_variant(evaluation_request) as VariantResult;
   }
 
   public evaluateBoolean(flag_key: string, entity_id: string, context: {}) {
     const evaluation_request: IEvaluationRequest = {
       flag_key,
       entity_id,
-      context,
+      context
     };
 
-    return this.engine.evaluate_boolean(evaluation_request);
+    return this.engine.evaluate_boolean(evaluation_request) as BooleanResult;
   }
 }

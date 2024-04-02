@@ -10,7 +10,6 @@ export function WithJWTAuthentication(jwt_token: string) {
 
 export interface EngineOpts {
   url?: string;
-  update_interval?: number;
   authentication?: Authentication;
   reference?: string;
 }
