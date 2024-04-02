@@ -1,5 +1,5 @@
 import { Engine } from "flipt-engine-wasm";
-import { AuthenticationStrategy, EngineOpts } from "./models";
+import { EngineOpts } from "./models";
 
 interface IEvaluationRequest {
   flag_key: string;
@@ -16,7 +16,7 @@ export class FliptEvaluationClient {
 
   static async init(
     namespace: string = "default",
-    engine_opts: EngineOpts<AuthenticationStrategy> = {
+    engine_opts: EngineOpts = {
       url: "http://localhost:8080",
       update_interval: 120,
       reference: "",
@@ -30,10 +30,7 @@ export class FliptEvaluationClient {
     headers.append("Content-Type", "application/json");
 
     if (engine_opts.authentication) {
-      headers.append(
-        engine_opts.authentication.name,
-        engine_opts.authentication.value
-      );
+      headers.append("Authorization", engine_opts.authentication);
     }
 
     const resp = await fetch(url, {

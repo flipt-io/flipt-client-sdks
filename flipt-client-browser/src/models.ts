@@ -1,17 +1,17 @@
-export type AuthenticationStrategy = { name: string; value: string };
+export type Authentication = string;
 
 export function WithClientTokenAuthentication(client_token: string) {
-  return { name: "Authorization", value: `Bearer ${client_token}` };
+  return `Bearer ${client_token}`;
 }
 
 export function WithJWTAuthentication(jwt_token: string) {
-  return { name: "Authorization", value: `JWT ${jwt_token}` };
+  return `JWT ${jwt_token}`;
 }
 
-export interface EngineOpts<T> {
+export interface EngineOpts {
   url?: string;
   update_interval?: number;
-  authentication?: T;
+  authentication?: Authentication;
   reference?: string;
 }
 
