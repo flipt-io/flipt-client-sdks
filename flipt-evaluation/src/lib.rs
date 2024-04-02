@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
-use instant::SystemTime;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use web_time::SystemTime;
 
 pub mod error;
 pub mod models;

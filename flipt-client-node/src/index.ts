@@ -78,8 +78,8 @@ export class FliptEvaluationClient {
     context: {}
   ): VariantResult {
     const evaluation_request: IEvaluationRequest = {
-      flag_key: flag_key,
-      entity_id: entity_id,
+      flag_key,
+      entity_id,
       context
     };
 
@@ -101,8 +101,8 @@ export class FliptEvaluationClient {
     context: {}
   ): BooleanResult {
     const evaluation_request: IEvaluationRequest = {
-      flag_key: flag_key,
-      entity_id: entity_id,
+      flag_key,
+      entity_id,
       context
     };
 
