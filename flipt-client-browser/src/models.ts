@@ -1,29 +1,11 @@
-export interface AuthenticationStrategy {
-  apply: (headers: Headers) => void;
+export type AuthenticationStrategy = { name: string; value: string };
+
+export function WithClientTokenAuthentication(client_token: string) {
+  return { name: "Authorization", value: `Bearer ${client_token}` };
 }
 
-export class ClientTokenAuthentication implements AuthenticationStrategy {
-  private client_token: string;
-
-  constructor(client_token: string) {
-    this.client_token = client_token;
-  }
-
-  apply(headers: Headers) {
-    headers.append("Authorization", `Bearer ${this.client_token}`);
-  }
-}
-
-export class JWTAuthentication implements AuthenticationStrategy {
-  private jwt_token: string;
-
-  constructor(jwt_token: string) {
-    this.jwt_token = jwt_token;
-  }
-
-  apply(headers: Headers) {
-    headers.append("Authorization", `JWT ${this.jwt_token}`);
-  }
+export function WithJWTAuthentication(jwt_token: string) {
+  return { name: "Authorization", value: `JWT ${jwt_token}` };
 }
 
 export interface EngineOpts<T> {

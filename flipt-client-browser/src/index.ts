@@ -30,7 +30,10 @@ export class FliptEvaluationClient {
     headers.append("Content-Type", "application/json");
 
     if (engine_opts.authentication) {
-      engine_opts.authentication.apply(headers);
+      headers.append(
+        engine_opts.authentication.name,
+        engine_opts.authentication.value
+      );
     }
 
     const resp = await fetch(url, {

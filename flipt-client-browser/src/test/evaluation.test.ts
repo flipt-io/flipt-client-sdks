@@ -1,5 +1,5 @@
 import { FliptEvaluationClient } from "..";
-import { ClientTokenAuthentication } from "../models";
+import { WithClientTokenAuthentication } from "../models";
 
 describe("FliptEvaluationClient", () => {
   let fliptUrl: string | undefined;
@@ -22,7 +22,7 @@ describe("FliptEvaluationClient", () => {
   beforeEach(async () => {
     client = await FliptEvaluationClient.init("default", {
       url: fliptUrl,
-      authentication: new ClientTokenAuthentication(authToken as string),
+      authentication: WithClientTokenAuthentication(authToken as string),
     });
   });
 
@@ -31,7 +31,7 @@ describe("FliptEvaluationClient", () => {
       fizz: "buzz",
     });
 
-    expect(variant.error_message).toBeNull();
+    expect(variant.error_message).toBeUndefined();
     expect(variant.status).toEqual("success");
     expect(variant.result).toBeDefined();
     expect(variant.result?.flag_key).toEqual("flag1");
@@ -59,7 +59,7 @@ describe("FliptEvaluationClient", () => {
       fizz: "buzz",
     });
 
-    expect(variant.result).toBeNull();
+    expect(variant.result).toBeUndefined();
     expect(variant.status).toEqual("failure");
     expect(variant.error_message).toEqual(
       "invalid request: failed to get flag information default/nonexistent"
@@ -71,7 +71,7 @@ describe("FliptEvaluationClient", () => {
       fizz: "buzz",
     });
 
-    expect(boolean.result).toBeNull();
+    expect(boolean.result).toBeUndefined();
     expect(boolean.status).toEqual("failure");
     expect(boolean.error_message).toEqual(
       "invalid request: failed to get flag information default/nonexistent"
