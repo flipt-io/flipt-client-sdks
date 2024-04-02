@@ -9,9 +9,11 @@ interface IEvaluationRequest {
 
 export class FliptEvaluationClient {
   private engine: Engine;
+  private fetcher: () => Promise<Response>;
 
-  private constructor(engine: Engine) {
+  private constructor(engine: Engine, fetcher: () => Promise<Response>) {
     this.engine = engine;
+    this.fetcher = fetcher;
   }
 
   static async init(
@@ -38,18 +40,30 @@ export class FliptEvaluationClient {
       headers.append('Authorization', engine_opts.authentication);
     }
 
-    const resp = await fetch(url, {
-      method: 'GET',
-      headers
-    });
+    const fetcher = async () => {
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers
+      });
 
-    if (!resp.ok) {
-      throw new Error('Failed to fetch data');
-    }
+      if (!resp.ok) {
+        throw new Error('Failed to fetch data');
+      }
 
+      return resp;
+    };
+
+    const resp = await fetcher();
     const data = await resp.json();
 
-    return new FliptEvaluationClient(new Engine(namespace, data));
+    return new FliptEvaluationClient(new Engine(namespace, data), fetcher);
+  }
+
+  public async refresh() {
+    const resp = await this.fetcher();
+    const data = await resp.json();
+
+    this.engine.snapshot(data);
   }
 
   public evaluateVariant(flag_key: string, entity_id: string, context: {}) {

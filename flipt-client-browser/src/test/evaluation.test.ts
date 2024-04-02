@@ -77,4 +77,21 @@ describe('FliptEvaluationClient', () => {
       'invalid request: failed to get flag information default/nonexistent'
     );
   });
+
+  test('refresh', async () => {
+    await client.refresh();
+
+    const variant = client.evaluateVariant('flag1', 'someentity', {
+      fizz: 'buzz'
+    });
+
+    expect(variant.error_message).toBeUndefined();
+    expect(variant.status).toEqual('success');
+    expect(variant.result).toBeDefined();
+    expect(variant.result?.flag_key).toEqual('flag1');
+    expect(variant.result?.match).toEqual(true);
+    expect(variant.result?.reason).toEqual('MATCH_EVALUATION_REASON');
+    expect(variant.result?.segment_keys).toContain('segment1');
+    expect(variant.result?.variant_key).toContain('variant1');
+  });
 });

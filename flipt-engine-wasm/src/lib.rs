@@ -75,6 +75,24 @@ impl Engine {
         }
     }
 
+    pub fn snapshot(&mut self, data: JsValue) {
+        let doc: source::Document = match serde_wasm_bindgen::from_value(data) {
+            Ok(document) => document,
+            Err(e) => {
+                panic!("Invalid JSON: {}", e);
+            }
+        };
+
+        let store = match Snapshot::build(&self.namespace, doc) {
+            Ok(s) => s,
+            Err(e) => {
+                panic!("Error building snapshot: {}", e);
+            }
+        };
+
+        self.store = store;
+    }
+
     pub fn evaluate_boolean(&self, request: JsValue) -> Result<JsValue, JsValue> {
         let req: fliptevaluation::EvaluationRequest = match serde_wasm_bindgen::from_value(request)
         {
