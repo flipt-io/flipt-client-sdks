@@ -1,4 +1,4 @@
-import { Engine } from 'flipt-engine-wasm';
+import { Engine } from '@flipt-io/flipt-engine-wasm';
 import { BooleanResult, EngineOpts, VariantResult } from './models';
 
 interface IEvaluationRequest {

@@ -32,7 +32,6 @@ type testArgs struct {
 	arch       string
 	libFile    *dagger.File
 	headerFile *dagger.File
-	wasmDir    *dagger.Directory
 	hostDir    *dagger.Directory
 }
 
@@ -151,7 +150,6 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 		arch:       arch,
 		libFile:    rust.File("/src/target/release/libfliptengine.so"),
 		headerFile: rust.File("/src/flipt-engine-ffi/include/flipt_engine.h"),
-		wasmDir:    rust.Directory("/src/flipt-engine-wasm/pkg"),
 		hostDir:    hostDirectory,
 	}
 }
@@ -257,7 +255,6 @@ func javaTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 
 func browserTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
 	_, err := client.Pipeline("browser").Container().From("node:21.2-bookworm").
-		WithDirectory("/flipt-engine-wasm/pkg", args.wasmDir).
 		WithWorkdir("/src").
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-browser")).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).

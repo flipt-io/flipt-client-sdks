@@ -1,6 +1,6 @@
 {
   "name": "@flipt-io/flipt-client-browser",
-  "version": "0.5.0",
+  "version": "0.0.1",
   "description": "Flipt Client Evaluation Browser SDK",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -23,6 +23,6 @@
     "typescript": "^5.4.3"
   },
   "dependencies": {
-    "flipt-engine-wasm": "file:../flipt-engine-wasm/pkg"
+    "@flipt-io/flipt-engine-wasm": "^0.0.1"
   }
 }
