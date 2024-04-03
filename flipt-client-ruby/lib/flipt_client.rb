@@ -8,6 +8,7 @@ require 'json'
 module Flipt
   class Error < StandardError; end
 
+  # EvaluationClient is a Ruby Client Side Evaluation Library for Flipt
   class EvaluationClient
     extend FFI::Library
 
