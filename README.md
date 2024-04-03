@@ -17,7 +17,7 @@ There are two versions of the client SDKs:
 
 ### FFI
 
-The [Foreign Function Interface (FFI)](https://en.wikipedia.org/wiki/Foreign_function_interface) versions of the client SDKs is currently available. This version allows you to evaluate flags in-process using the Flipt engine.
+The [Foreign Function Interface (FFI)](https://en.wikipedia.org/wiki/Foreign_function_interface) versions of the client SDKs are currently available.
 
 > [!IMPORTANT]
 > Our FFI SDKs currently only work with OSes that use the `glibc` C library. We are working on adding support for other OSes that use `musl` such as Alpine Linux. See [this issue](https://github.com/flipt-io/flipt-client-sdks/issues/141) for more information.

@@ -1,6 +1,7 @@
 # Flipt Engine WASM
 
 ![Status: Beta](https://img.shields.io/badge/status-beta-yellow)
+[![npm](https://img.shields.io/npm/v/@flipt-io/flipt-engine-wasm?label=%40flipt-io%2Fflipt-engine-wasm)](https://www.npmjs.com/package/@flipt-io/flipt-engine-wasm)
 
 This is the WebAssembly layer for the Flipt client-side SDKs. It is written in Rust and exposes a JavaScript API for the SDKs to use.
 
