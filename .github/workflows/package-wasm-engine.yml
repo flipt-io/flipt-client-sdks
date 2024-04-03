@@ -11,6 +11,9 @@ on:
 permissions:
   contents: write
 
+env:
+  NPM_API_KEY: ${{ secrets.NPM_API_KEY }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
