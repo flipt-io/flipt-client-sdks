@@ -1,7 +1,8 @@
-go 1.21.3
+go 1.22.1
 
 use (
+	./build/ffi
+	./build/wasm
 	./flipt-client-go
 	./test
-	./build
 )

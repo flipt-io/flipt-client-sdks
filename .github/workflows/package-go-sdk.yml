@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   build:
-    uses: ./.github/workflows/package-sdks.yml
+    uses: ./.github/workflows/package-ffi-sdks.yml
     with:
       sdk: go
       engine-tag: "latest"

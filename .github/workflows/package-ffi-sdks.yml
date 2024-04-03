@@ -1,4 +1,4 @@
-name: Package SDKs
+name: Package FFI SDKs
 on:
   workflow_call:
     inputs:
@@ -47,7 +47,7 @@ jobs:
       - name: Install Dagger
         run: |
           cd /usr/local
-          curl -L https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=0.9.3 sh
+          curl -L https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=$DAGGER_VERSION sh
 
       - name: Get Latest Engine Version
         run: |
@@ -93,4 +93,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
-          dagger run go run ./build --languages=${{ inputs.sdk }} --push=true --tag=${{ inputs.tag }}
+          dagger run go run ./build/sdks --sdks=${{ inputs.sdk }} --push=true --tag=${{ inputs.tag }}

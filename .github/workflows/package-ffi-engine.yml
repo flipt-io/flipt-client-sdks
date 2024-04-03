@@ -1,4 +1,4 @@
-name: Package Engine
+name: Package FFI Engine
 on:
   push:
     tags: ["flipt-engine-ffi-v**"]

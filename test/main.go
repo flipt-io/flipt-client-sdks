@@ -113,7 +113,7 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 		arch = "arm64"
 	}
 
-	// Dynamic Library
+	// Engines
 	rust := client.Container().From("rust:1.74.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
@@ -122,15 +122,15 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
 		WithExec([]string{"cargo", "build", "--release"}) // Build the dynamic library
 
-	// if arch == "arm64" {
-	// 	rust = rust.WithExec([]string{"apt-get", "update"}).
-	// 		WithExec([]string{"apt-get", "-y", "install", "binaryen"})
-	// }
+	if arch == "arm64" {
+		rust = rust.WithExec([]string{"apt-get", "update"}).
+			WithExec([]string{"apt-get", "-y", "install", "binaryen"})
+	}
 
-	// rust = rust.
-	// 	WithExec([]string{"cargo", "install", "wasm-pack"}). // Install wasm-pack
-	// 	WithWorkdir("/src/flipt-engine-wasm").
-	// 	WithExec([]string{"wasm-pack", "build", "--target", "nodejs"}) // Build the wasm package
+	rust = rust.
+		WithExec([]string{"cargo", "install", "wasm-pack"}). // Install wasm-pack
+		WithWorkdir("/src/flipt-engine-wasm").
+		WithExec([]string{"wasm-pack", "build", "--target", "nodejs"}) // Build the wasm package
 
 	// Flipt
 	flipt := client.Container().From("flipt/flipt:latest").
