@@ -34,9 +34,9 @@ jobs:
       - name: Build WASM Engine (Tag)
         if: github.event_name == 'push'
         run: |
-          dagger run go run ./build/wasm --push=true --tag=${{ github.ref_name }}
+          dagger run go run ./build/wasm --engine --push=true --tag=${{ github.ref_name }}
 
       - name: Build WASM Engine (Workflow Dispatch)
         if: github.event_name == 'workflow_dispatch'
         run: |
-          dagger run go run ./build/wasm --push=true --tag=${{ github.event.inputs.tag }}
+          dagger run go run ./build/wasm --engine --push=true --tag=${{ github.event.inputs.tag }}

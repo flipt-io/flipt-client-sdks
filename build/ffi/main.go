@@ -240,7 +240,6 @@ func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 }
 
 func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
-
 	container := client.Container().From("ruby:3.1-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-ruby")).
