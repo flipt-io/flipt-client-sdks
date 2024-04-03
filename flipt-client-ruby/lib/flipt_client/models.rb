@@ -18,7 +18,6 @@ module Flipt
   # ClientTokenAuthentication is a strategy that uses a client token for authentication
   class ClientTokenAuthentication < AuthenticationStrategy
     def initialize(token)
-      super
       @token = token
     end
 
@@ -32,7 +31,6 @@ module Flipt
   # JWTAuthentication is a strategy that uses a JWT token for authentication
   class JWTAuthentication < AuthenticationStrategy
     def initialize(token)
-      super
       @token = token
     end
 

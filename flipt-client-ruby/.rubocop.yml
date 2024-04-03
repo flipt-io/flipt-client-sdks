@@ -1,5 +1,8 @@
 inherit_from: .rubocop_todo.yml
 
+Lint/MissingSuper:
+  Enabled: false
+
 Lint/UselessAssignment:
   Enabled: false
 
