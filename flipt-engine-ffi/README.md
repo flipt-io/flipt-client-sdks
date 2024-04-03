@@ -2,7 +2,7 @@
 
 This is the FFI layer for the Flipt client-side SDKs. It is written in Rust and exposes a C API for the SDKs to use.
 
-It leverages the [flipt-evaluation](../flipt-evaluation) library to perform the actual evaluation and polling for evaluation state from the Flipt server.
+It leverages the [flipt-evaluation](../flipt-evaluation) library to perform the actual evaluation.
 
 ## Architecture
 
@@ -20,8 +20,6 @@ cargo build --release
 ```
 
 There are some language SDKs that might require a C file header which has the definitions of the functions accessible through the FFI layer.
-
-The `cargo build` command will use a build script to generate this header file by way of the [cbindgen](https://github.com/mozilla/cbindgen) tool.
 
 ### Test
 

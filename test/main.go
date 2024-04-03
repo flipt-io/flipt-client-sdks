@@ -17,11 +17,12 @@ import (
 var (
 	languages    string
 	languageToFn = map[string]integrationTestFn{
-		"python": pythonTests,
-		"go":     goTests,
-		"node":   nodeTests,
-		"ruby":   rubyTests,
-		"java":   javaTests,
+		"python":  pythonTests,
+		"go":      goTests,
+		"node":    nodeTests,
+		"ruby":    rubyTests,
+		"java":    javaTests,
+		"browser": browserTests,
 	}
 	sema = make(chan struct{}, 5)
 )
@@ -106,19 +107,30 @@ func take(fn func() error) func() error {
 
 // getTestDependencies builds the dynamic library for the Rust core, and the Flipt container for the client libraries to run
 // their tests against.
-func getTestDependencies(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) (*dagger.Container, testArgs) {
+func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) (*dagger.Container, testArgs) {
 	arch := "x86_64"
 	if strings.Contains(runtime.GOARCH, "arm64") || strings.Contains(runtime.GOARCH, "aarch64") {
 		arch = "arm64"
 	}
 
 	// Dynamic Library
-	rust := client.Container().From("rust:1.73.0-bookworm").
+	rust := client.Container().From("rust:1.74.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
+		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm")).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
-		WithExec([]string{"cargo", "build", "--release"})
+		WithExec([]string{"cargo", "build", "--release"}) // Build the dynamic library
+
+	// if arch == "arm64" {
+	// 	rust = rust.WithExec([]string{"apt-get", "update"}).
+	// 		WithExec([]string{"apt-get", "-y", "install", "binaryen"})
+	// }
+
+	// rust = rust.
+	// 	WithExec([]string{"cargo", "install", "wasm-pack"}). // Install wasm-pack
+	// 	WithWorkdir("/src/flipt-engine-wasm").
+	// 	WithExec([]string{"wasm-pack", "build", "--target", "nodejs"}) // Build the wasm package
 
 	// Flipt
 	flipt := client.Container().From("flipt/flipt:latest").
@@ -236,6 +248,20 @@ func javaTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec([]string{"gradle", "test"}).
+		Sync(ctx)
+
+	return err
+}
+
+func browserTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
+	_, err := client.Pipeline("browser").Container().From("node:21.2-bookworm").
+		WithWorkdir("/src").
+		WithDirectory("/src", args.hostDir.Directory("flipt-client-browser")).
+		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
+		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
+		WithExec([]string{"npm", "install"}).
+		WithExec([]string{"npm", "test"}).
 		Sync(ctx)
 
 	return err

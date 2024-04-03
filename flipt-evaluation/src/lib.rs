@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::{Duration, SystemTime, SystemTimeError};
+use web_time::SystemTime;
 
 pub mod error;
 pub mod models;
@@ -18,6 +18,7 @@ const DEFAULT_TOTAL_BUCKET_NUMBER: u32 = 1000;
 const DEFAULT_PERCENT_MULTIPIER: f32 = DEFAULT_TOTAL_BUCKET_NUMBER as f32 / DEFAULT_PERCENT;
 
 #[repr(C)]
+#[derive(Deserialize)]
 pub struct EvaluationRequest {
     pub flag_key: String,
     pub entity_id: String,
@@ -136,7 +137,7 @@ pub fn variant_evaluation(
 
     if !flag.enabled {
         variant_evaluation_response.reason = common::EvaluationReason::FlagDisabled;
-        variant_evaluation_response.request_duration_millis = get_duration_millis(now.elapsed())?;
+        variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
         return Ok(variant_evaluation_response);
     }
 
@@ -226,8 +227,7 @@ pub fn variant_evaluation(
         if valid_distributions.is_empty() {
             variant_evaluation_response.r#match = true;
             variant_evaluation_response.reason = common::EvaluationReason::Match;
-            variant_evaluation_response.request_duration_millis =
-                get_duration_millis(now.elapsed())?;
+            variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
             return Ok(variant_evaluation_response);
         }
 
@@ -244,8 +244,7 @@ pub fn variant_evaluation(
 
         if index == valid_distributions.len() {
             variant_evaluation_response.r#match = false;
-            variant_evaluation_response.request_duration_millis =
-                get_duration_millis(now.elapsed())?;
+            variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
             return Ok(variant_evaluation_response);
         }
 
@@ -255,7 +254,7 @@ pub fn variant_evaluation(
         variant_evaluation_response.variant_key = d.variant_key.clone();
         variant_evaluation_response.variant_attachment = d.variant_attachment.clone();
         variant_evaluation_response.reason = common::EvaluationReason::Match;
-        variant_evaluation_response.request_duration_millis = get_duration_millis(now.elapsed())?;
+        variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
         return Ok(variant_evaluation_response);
     }
 
@@ -321,7 +320,7 @@ pub fn boolean_evaluation(
                     enabled: threshold.value,
                     flag_key: flag.key.clone(),
                     reason: common::EvaluationReason::Match,
-                    request_duration_millis: get_duration_millis(now.elapsed())?,
+                    request_duration_millis: get_duration_millis(now)?,
                     timestamp: chrono::offset::Utc::now(),
                 });
             }
@@ -359,7 +358,7 @@ pub fn boolean_evaluation(
                 enabled: segment.value,
                 flag_key: flag.key.clone(),
                 reason: common::EvaluationReason::Match,
-                request_duration_millis: get_duration_millis(now.elapsed())?,
+                request_duration_millis: get_duration_millis(now)?,
                 timestamp: chrono::offset::Utc::now(),
             });
         }
@@ -369,7 +368,7 @@ pub fn boolean_evaluation(
         enabled: flag.enabled,
         flag_key: flag.key.clone(),
         reason: common::EvaluationReason::Default,
-        request_duration_millis: get_duration_millis(now.elapsed())?,
+        request_duration_millis: get_duration_millis(now)?,
         timestamp: chrono::offset::Utc::now(),
     })
 }
@@ -424,14 +423,14 @@ pub fn batch_evalution(
 
     Ok(BatchEvaluationResponse {
         responses: evaluation_responses,
-        request_duration_millis: get_duration_millis(now.elapsed())?,
+        request_duration_millis: get_duration_millis(now)?,
     })
 }
 
-fn get_duration_millis(elapsed: Result<Duration, SystemTimeError>) -> Result<f64, Error> {
-    match elapsed {
+fn get_duration_millis(now: SystemTime) -> Result<f64, Error> {
+    match now.elapsed() {
         Ok(elapsed) => Ok(elapsed.as_secs_f64() * 1000.0),
-        Err(e) => Err(Error::Unknown(format!("error getting duration {}", e))),
+        Err(_) => Err(Error::Unknown("error getting duration".to_string())),
     }
 }
 

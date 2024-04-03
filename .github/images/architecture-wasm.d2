@@ -1,0 +1,30 @@
+javascript: {
+  shape: image
+  icon: https://icon.icepanel.io/Technology/svg/JavaScript.svg
+}
+
+flipt-engine-wasm: {
+  shape: square
+  WebAssembly: {
+    shape: image
+    icon: https://icon.icepanel.io/Technology/svg/WebAssembly.svg
+  }
+}
+
+flipt-service: {
+  shape: square
+  flipt: {
+    shape: image
+    icon: ./flipt.svg
+  }
+}
+
+javascript <-> flipt-service: Evaluation State Sync {
+  style: {
+    opacity: 0.9
+    stroke-dash: 3
+    shadow: true
+  }
+}
+
+javascript <-> flipt-engine-wasm

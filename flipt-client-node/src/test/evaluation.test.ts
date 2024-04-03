@@ -1,27 +1,38 @@
-import { FliptEvaluationClient } from '.';
-import { ClientTokenAuthentication } from './models';
+import { FliptEvaluationClient } from '..';
 
-const fliptUrl = process.env['FLIPT_URL'];
-if (!fliptUrl) {
-  console.error('please set the FLIPT_URL environment variable');
-  process.exit(1);
-}
+describe('FliptEvaluationClient', () => {
+  let fliptUrl: string | undefined;
+  let authToken: string | undefined;
+  let client: FliptEvaluationClient;
 
-const authToken = process.env['FLIPT_AUTH_TOKEN'];
-if (!authToken) {
-  console.error('please set the FLIPT_AUTH_TOKEN environment variable');
-  process.exit(1);
-}
+  beforeAll(() => {
+    fliptUrl = process.env['FLIPT_URL'];
+    if (!fliptUrl) {
+      console.error('please set the FLIPT_URL environment variable');
+      process.exit(1);
+    }
 
-test('variant', () => {
-  const client = new FliptEvaluationClient('default', {
-    url: fliptUrl,
-    authentication: {
-      client_token: authToken
+    authToken = process.env['FLIPT_AUTH_TOKEN'];
+    if (!authToken) {
+      console.error('please set the FLIPT_AUTH_TOKEN environment variable');
+      process.exit(1);
     }
   });
 
-  try {
+  beforeEach(() => {
+    client = new FliptEvaluationClient('default', {
+      url: fliptUrl,
+      authentication: {
+        client_token: authToken
+      }
+    });
+  });
+
+  afterEach(() => {
+    if (client) client.close();
+  });
+
+  test('variant', () => {
     const variant = client.evaluateVariant('flag1', 'someentity', {
       fizz: 'buzz'
     });
@@ -34,20 +45,9 @@ test('variant', () => {
     expect(variant.result?.reason).toEqual('MATCH_EVALUATION_REASON');
     expect(variant.result?.segment_keys).toContain('segment1');
     expect(variant.result?.variant_key).toContain('variant1');
-  } finally {
-    if (client) client.close();
-  }
-});
-
-test('boolean', () => {
-  const client = new FliptEvaluationClient('default', {
-    url: fliptUrl,
-    authentication: {
-      client_token: authToken
-    }
   });
 
-  try {
+  test('boolean', () => {
     const boolean = client.evaluateBoolean('flag_boolean', 'someentity', {
       fizz: 'buzz'
     });
@@ -58,20 +58,9 @@ test('boolean', () => {
     expect(boolean.result?.flag_key).toEqual('flag_boolean');
     expect(boolean.result?.enabled).toEqual(true);
     expect(boolean.result?.reason).toEqual('MATCH_EVALUATION_REASON');
-  } finally {
-    if (client) client.close();
-  }
-});
-
-test('batch', () => {
-  const client = new FliptEvaluationClient('default', {
-    url: fliptUrl,
-    authentication: {
-      client_token: authToken
-    }
   });
 
-  try {
+  test('batch', () => {
     const batch = client.evaluateBatch([
       {
         flag_key: 'flag1',
@@ -132,20 +121,9 @@ test('batch', () => {
     expect(error?.error_evaluation_response?.reason).toEqual(
       'NOT_FOUND_ERROR_EVALUATION_REASON'
     );
-  } finally {
-    if (client) client.close();
-  }
-});
-
-test('variant failure', () => {
-  const client = new FliptEvaluationClient('default', {
-    url: fliptUrl,
-    authentication: {
-      client_token: authToken
-    }
   });
 
-  try {
+  test('variant failure', () => {
     const variant = client.evaluateVariant('nonexistent', 'someentity', {
       fizz: 'buzz'
     });
@@ -155,20 +133,9 @@ test('variant failure', () => {
     expect(variant.error_message).toEqual(
       'invalid request: failed to get flag information default/nonexistent'
     );
-  } finally {
-    if (client) client.close();
-  }
-});
-
-test('boolean failure', () => {
-  const client = new FliptEvaluationClient('default', {
-    url: fliptUrl,
-    authentication: {
-      client_token: authToken
-    }
   });
 
-  try {
+  test('boolean failure', () => {
     const boolean = client.evaluateVariant('nonexistent', 'someentity', {
       fizz: 'buzz'
     });
@@ -178,26 +145,13 @@ test('boolean failure', () => {
     expect(boolean.error_message).toEqual(
       'invalid request: failed to get flag information default/nonexistent'
     );
-  } finally {
-    if (client) client.close();
-  }
-});
-
-test('list flags', () => {
-  const client = new FliptEvaluationClient('default', {
-    url: fliptUrl,
-    authentication: {
-      client_token: authToken
-    }
   });
 
-  try {
+  test('list flags', () => {
     const flags = client.listFlags();
     expect(flags.error_message).toBeNull();
     expect(flags.status).toEqual('success');
     expect(flags.result).toBeDefined();
     expect(flags.result?.length).toEqual(2);
-  } finally {
-    if (client) client.close();
-  }
+  });
 });
