@@ -56,7 +56,10 @@ module Flipt
 
       # set default no auth if not provided
       authentication = opts.fetch(:authentication, Flipt::NoAuthentication.new)
-      raise ArgumentError, "invalid authentication strategy" unless authentication && authentication.is_a?(Flipt::AuthenticationStrategy)
+      unless authentication.is_a?(Flipt::AuthenticationStrategy)
+        raise ArgumentError,
+              'invalid authentication strategy'
+      end
 
       opts[:authentication] = authentication.strategy
 
@@ -98,7 +101,7 @@ module Flipt
     #   - :entity_id [String] entity id
     #   - :flag_key [String] flag key
     def evaluate_batch(batch_evaluation_request = [])
-      for request in batch_evaluation_request do
+      batch_evaluation_request.each do |request|
         validate_evaluation_request(request)
       end
 
@@ -115,6 +118,7 @@ module Flipt
     end
 
     private
+
     def validate_evaluation_request(evaluation_request)
       if evaluation_request[:entity_id].nil? || evaluation_request[:entity_id].empty?
         raise ArgumentError, 'entity_id is required'

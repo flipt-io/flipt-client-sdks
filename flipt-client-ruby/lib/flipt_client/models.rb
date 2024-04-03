@@ -3,7 +3,7 @@
 module Flipt
   class AuthenticationStrategy
     def strategy
-        raise NotImplementedError
+      raise NotImplementedError
     end
   end
 
@@ -15,7 +15,7 @@ module Flipt
 
   class ClientTokenAuthentication < AuthenticationStrategy
     def initialize(token)
-        @token = token
+      @token = token
     end
 
     def strategy
