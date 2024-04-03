@@ -1,5 +1,4 @@
 import { FliptEvaluationClient } from '..';
-import { WithClientTokenAuthentication } from '../models';
 
 describe('FliptEvaluationClient', () => {
   let fliptUrl: string | undefined;
@@ -22,7 +21,9 @@ describe('FliptEvaluationClient', () => {
   beforeEach(async () => {
     client = await FliptEvaluationClient.init('default', {
       url: fliptUrl,
-      authentication: WithClientTokenAuthentication(authToken as string)
+      authentication: {
+        client_token: authToken
+      }
     });
   });
 

@@ -37,7 +37,17 @@ export class FliptEvaluationClient {
     headers.append('Content-Type', 'application/json');
 
     if (engine_opts.authentication) {
-      headers.append('Authorization', engine_opts.authentication);
+      if ('client_token' in engine_opts.authentication) {
+        headers.append(
+          'Authorization',
+          `Bearer ${engine_opts.authentication.client_token}`
+        );
+      } else if ('jwt_token' in engine_opts.authentication) {
+        headers.append(
+          'Authorization',
+          `JWT ${engine_opts.authentication.jwt_token}`
+        );
+      }
     }
 
     const fetcher = async () => {
