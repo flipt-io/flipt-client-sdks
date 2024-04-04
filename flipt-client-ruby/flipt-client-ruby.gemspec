@@ -16,7 +16,7 @@ Gem::Specification.new do |spec|
   # spec.metadata['allowed_push_host'] = "TODO: Set to 'http://mygemserver.com'"
 
   spec.metadata['homepage_uri'] = spec.homepage
-  spec.metadata["source_code_uri"] =  "https://github.com/flipt-io/flipt-client-sdks"
+  spec.metadata['source_code_uri'] = 'https://github.com/flipt-io/flipt-client-sdks'
 
   spec.files = Dir.glob('{lib}/**/*') + ['README.md', 'flipt-client-ruby.gemspec']
   spec.bindir        = 'exe'

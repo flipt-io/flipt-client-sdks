@@ -1,1 +1,23 @@
 inherit_from: .rubocop_todo.yml
+
+Lint/MissingSuper:
+  Enabled: false
+
+Lint/UselessAssignment:
+  Enabled: false
+
+Metrics/BlockLength:
+  Max: 35
+  Exclude:
+    - "spec/**/*"
+    - "test/**/*"
+
+Layout/LineLength:
+  Exclude:
+    - "spec/**/*"
+    - "test/**/*"
+
+Style/Documentation:
+  Exclude:
+    - "spec/**/*"
+    - "test/**/*"
