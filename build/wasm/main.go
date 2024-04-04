@@ -5,24 +5,18 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"maps"
 	"os"
 	"runtime"
 	"strings"
 
 	"dagger.io/dagger"
-	"golang.org/x/sync/errgroup"
 )
 
 var (
-	sdks     string
-	push     bool
-	tag      string
-	engine   bool
-	sdksToFn = map[string]buildFn{
-		"browser": browserBuild,
-	}
-	sema = make(chan struct{}, 5)
+	sdks   string
+	push   bool
+	tag    string
+	engine bool
 )
 
 func init() {
@@ -43,24 +37,12 @@ func main() {
 type buildFn func(context.Context, *dagger.Client, *dagger.Directory) error
 
 func run() error {
-	var builds = make(map[string]buildFn, len(sdksToFn))
-
-	maps.Copy(builds, sdksToFn)
+	var build buildFn
 
 	if engine {
-		builds["wasm"] = wasmBuild
-	} else if sdks != "" {
-		l := strings.Split(sdks, ",")
-		subset := make(map[string]buildFn, len(l))
-		for _, sdk := range l {
-			testFn, ok := sdksToFn[sdk]
-			if !ok {
-				return fmt.Errorf("sdk %s is not supported", sdk)
-			}
-			subset[sdk] = testFn
-		}
-
-		builds = subset
+		build = wasmBuild
+	} else if sdks == "browser" {
+		build = browserBuild
 	} else {
 		return fmt.Errorf("no builds specified")
 	}
@@ -78,27 +60,7 @@ func run() error {
 		Exclude: []string{".github/", "build/", "test/", ".git/"},
 	})
 
-	var g errgroup.Group
-
-	for _, fn := range builds {
-		fn := fn
-		g.Go(take(func() error {
-			return fn(ctx, client, dir)
-		}))
-	}
-
-	return g.Wait()
-}
-
-func take(fn func() error) func() error {
-	return func() error {
-		// insert into semaphore channel to maintain
-		// a max concurrency
-		sema <- struct{}{}
-		defer func() { <-sema }()
-
-		return fn()
-	}
+	return build(ctx, client, dir)
 }
 
 func wasmBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
@@ -122,7 +84,7 @@ func wasmBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	rust = rust.
 		WithExec([]string{"cargo", "install", "wasm-pack"}). // Install wasm-pack
 		WithWorkdir("/src/flipt-engine-wasm").
-		WithExec([]string{"wasm-pack", "build", "--type", "bundler", "--scope", "flipt-io"}) // Build the wasm package
+		WithExec([]string{"wasm-pack", "build", "--scope", "flipt-io"}) // Build the wasm package
 
 	var err error
 
