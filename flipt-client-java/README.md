@@ -2,7 +2,7 @@
 
 [![Maven Central](https://img.shields.io/maven-central/v/io.flipt/flipt-client-java)](https://central.sonatype.com/artifact/io.flipt/flipt-client-java)
 
-The `flipt-client-java` directory contains the Java source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client.
+The `flipt-client-java` library contains the Java source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client.
 
 ## Installation
 

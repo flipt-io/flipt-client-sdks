@@ -4,11 +4,11 @@
 
 Let us know how we can help!
 
-* Use a **clear and descriptive title** for the issue to identify the problem.
-* Describe the **exact steps** which reproduce the problem in as many details as possible.
-* Include the language client you are using and the version.
-* Include any **stack traces** with your error
-* List versions you are using: Flipt, OS, etc.
+- Use a **clear and descriptive title** for the issue to identify the problem.
+- Describe the **exact steps** which reproduce the problem in as many details as possible.
+- Include the language client you are using and the version.
+- Include any **stack traces** with your error
+- List versions you are using: Flipt, OS, etc.
 
 ## Code
 
@@ -45,11 +45,12 @@ The structure of the client folder should be as follows:
 The client shape should be as follows:
 
 1. **Constructor**: Should take in an optional namespace and engine options. Engine options should be a map or similar idiomatic data structure with the following keys:
-    1. `url`: The URL of the Flipt server to connect to.
-    2. `update_interval`: The interval in seconds to wait for updated flag state.
-    3. `auth_token`: The auth token to use when connecting to the Flipt server.
 
-    Note: If no namespace is specified, the client should default to the `default` namespace.
+   1. `url`: The URL of the Flipt server to connect to.
+   2. `update_interval`: The interval in seconds to wait for updated flag state.
+   3. `auth_token`: The auth token to use when connecting to the Flipt server.
+
+   Note: If no namespace is specified, the client should default to the `default` namespace.
 
 2. **Evaluate_Variant** method: Should take in a flag key, entity ID, and context. Should return a variant result. Follow language conventions for naming.
 3. **Evaluate_Boolean** method: Should take in a flag key, entity ID, and context. Should return a boolean result. Follow language conventions for naming.
