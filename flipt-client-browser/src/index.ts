@@ -1,4 +1,4 @@
-import * as flipt from '@flipt-io/flipt-engine-wasm';
+import { Engine } from '@flipt-io/flipt-engine-wasm';
 import { BooleanResult, EngineOpts, VariantResult } from './models';
 
 interface IEvaluationRequest {
@@ -8,10 +8,10 @@ interface IEvaluationRequest {
 }
 
 export class FliptEvaluationClient {
-  private engine: flipt.Engine;
+  private engine: Engine;
   private fetcher: () => Promise<Response>;
 
-  private constructor(engine: flipt.Engine, fetcher: () => Promise<Response>) {
+  private constructor(engine: Engine, fetcher: () => Promise<Response>) {
     this.engine = engine;
     this.fetcher = fetcher;
   }
@@ -66,10 +66,8 @@ export class FliptEvaluationClient {
     const resp = await fetcher();
     const data = await resp.json();
 
-    return new FliptEvaluationClient(
-      new flipt.Engine(namespace, data),
-      fetcher
-    );
+    const engine = new Engine(namespace, data);
+    return new FliptEvaluationClient(engine, fetcher);
   }
 
   public async refresh() {
