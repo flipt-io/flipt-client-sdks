@@ -98,7 +98,7 @@ func wasmBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 			Exclude: []string{"./node_modules/"},
 		}).
 		WithWorkdir("/src").
-		WithExec([]string{"npm", "version", tag}) // Update the version
+		WithExec([]string{"npm", "version", "--allow-same-version", tag}) // Update the version
 
 	if os.Getenv("NPM_API_KEY") == "" {
 		return fmt.Errorf("NPM_API_KEY is not set")
