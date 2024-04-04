@@ -1,5 +1,5 @@
-import { Engine } from '@flipt-io/flipt-engine-wasm';
-import { BooleanResult, EngineOpts, VariantResult } from './models';
+import init, { Engine } from '../pkg';
+import { BooleanResult, EngineOpts, VariantResult } from './models.js';
 
 interface IEvaluationRequest {
   flag_key: string;
@@ -23,6 +23,7 @@ export class FliptEvaluationClient {
       reference: ''
     }
   ) {
+    await init();
     let url = engine_opts.url ?? 'http://localhost:8080';
     // trim trailing slash
     url = url.replace(/\/$/, '');

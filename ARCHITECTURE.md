@@ -52,7 +52,7 @@ The client SDKs are responsible for the following:
 
 ## WebAssembly
 
-[`flipt-engine-wasm`](./flipt-engine-wasm/) is a Rust library that compiles to [WebAssembly](https://webassembly.org/) and is designed to be embedded in the client-side SDKs that run in the browser.
+[`flipt-engine-wasm`](./flipt-client-browser/src/) is a Rust library that compiles to [WebAssembly](https://webassembly.org/) and is designed to be embedded in the client-side SDKs that run in the browser.
 
 The client-side SDKs send context to the client engine via the WebAssembly interface and receive the results of the evaluation from the engine.
 
@@ -68,9 +68,9 @@ You can refer to the architecture diagram below:
 
 #### WASM Engine
 
-[`flipt-engine-wasm`](./flipt-engine-wasm) is a Rust library that compiles to WebAssembly and is designed to be embedded in the client-side SDKs that run in the browser.
+[`flipt-engine-wasm`](./flipt-client-browser/src/) is a Rust library that compiles to WebAssembly and is designed to be embedded in the client-side SDKs that run in the browser.
 
-The [`flipt-engine-wasm`](./flipt-engine-wasm) library is responsible for the following:
+The [`flipt-engine-wasm`](./flipt-client-browser/src/) library is responsible for the following:
 
 - Deserializing the evaluation state from JSON to memory.
 - Calling the evaluation logic from the [`flipt-evaluation`](./flipt-evaluation) library to evaluate context against the evaluation state and returning the evaluation results.
@@ -78,7 +78,7 @@ The [`flipt-engine-wasm`](./flipt-engine-wasm) library is responsible for the fo
 
 #### Evaluation Library
 
-The [`flipt-evaluation`](../flipt-evaluation) library is a Rust library responsible for the following:
+The [`flipt-evaluation`](./flipt-evaluation) library is a Rust library responsible for the following:
 
 - Evaluating context against the evaluation state and returning the evaluation results.
 

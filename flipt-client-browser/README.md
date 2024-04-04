@@ -53,3 +53,32 @@ fliptEvaluationClient.refresh();
 ```
 
 This allows you to update the flag state in a controlled manner, such as in a polling loop or when a user interacts with your application.
+
+## Development
+
+### WASM
+
+This library uses a WebAssembly (WASM) layer to interact with the Flipt server. It is written in Rust and exposes a JavaScript API using the `wasm-bindgen` and `wasm-pack` tools. We wrap the built WASM layer in a JavaScript API to make it easier to use in a browser environment.
+
+## Architecture
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md).
+
+### Prerequisites
+
+- [Rust](https://www.rust-lang.org/tools/install)
+- [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/)
+- [wasm-bindgen](https://rustwasm.github.io/wasm-bindgen/)
+
+### Build
+
+```bash
+npm run build
+```
+
+### Test
+
+```bash
+npm install
+npm test
+```
