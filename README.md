@@ -7,12 +7,24 @@ This repository centralizes the client-side SDKs for [Flipt](https://github.com/
 
 These client-side SDKs are responsible for evaluating context and returning the results of the evaluation. They enable developers to easily integrate Flipt into their applications without relying on server-side evaluation.
 
-> [!IMPORTANT]
-> These SDKs currently only work with OSes that use the `glibc` C library. We are working on adding support for other OSes that use `musl` such as Alpine Linux. See [this issue](https://github.com/flipt-io/flipt-client-sdks/issues/141) for more information.
-
 Overall documentation for the client SDKs can be found on our [website](https://www.flipt.io/docs/integration/client).
 
 Also check out our introductory [blog post](https://www.flipt.io/blog/new-client-side-evaluation) on these client-side SDKs.
+
+## Versions
+
+There are two versions of the client SDKs:
+
+### FFI
+
+The [Foreign Function Interface (FFI)](https://en.wikipedia.org/wiki/Foreign_function_interface) versions of the client SDKs are currently available.
+
+> [!IMPORTANT]
+> Our FFI SDKs currently only work with OSes that use the `glibc` C library. We are working on adding support for other OSes that use `musl` such as Alpine Linux. See [this issue](https://github.com/flipt-io/flipt-client-sdks/issues/141) for more information.
+
+### WASM
+
+The WebAssembly (WASM) version of the client SDKs is currently in beta. This version allows you to evaluate flags in the browser using WebAssembly which is OS and architecture agnostic.
 
 ## Architecture
 
@@ -26,13 +38,14 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## Language Support
 
-We are constantly growing our list of clients. Currently, we support the following languages:
+We are constantly growing our list of clients. Currently, we support the following languages/platforms:
 
-1. [Go](./flipt-client-go)
-1. [Python](./flipt-client-python)
-1. [Ruby](./flipt-client-ruby)
-1. [NodeJS](./flipt-client-node)
-1. [Java](./flipt-client-java)
+1. [Go](./flipt-client-go) (FFI)
+1. [Python](./flipt-client-python) (FFI)
+1. [Ruby](./flipt-client-ruby) (FFI)
+1. [NodeJS](./flipt-client-node) (FFI)
+1. [Java](./flipt-client-java) (FFI)
+1. [JavaScript/Typescript](./flipt-client-browser) (WASM)
 
 Languages we are planning to support:
 

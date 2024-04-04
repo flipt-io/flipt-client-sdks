@@ -1,14 +1,16 @@
-name: Test SDKs
+name: Package Browser SDK
 on:
   push:
-    branches:
-      - main
-  pull_request:
-  workflow_dispatch:
+    tags: ["flipt-client-browser-**"]
+
+permissions:
+  contents: write
+
+env:
+  NPM_API_KEY: ${{ secrets.NPM_API_KEY }}
 
 jobs:
-  test:
-    name: Integration Tests
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
@@ -25,6 +27,6 @@ jobs:
           cd /usr/local
           curl -L https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=$DAGGER_VERSION sh
 
-      - name: Run Integration Tests
+      - name: Build Individual SDK(s)
         run: |
-          dagger run go run ./test
+          dagger run go run ./build/wasm --sdks=browser --push=true

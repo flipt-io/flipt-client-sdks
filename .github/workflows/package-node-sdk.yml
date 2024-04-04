@@ -11,7 +11,7 @@ env:
 
 jobs:
   build:
-    uses: ./.github/workflows/package-sdks.yml
+    uses: ./.github/workflows/package-ffi-sdks.yml
     with:
       sdk: node
       engine-tag: "latest"
