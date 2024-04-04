@@ -27,7 +27,7 @@ import { FliptEvaluationClient } from '@flipt-io/flipt-client-browser';
 //  }
 // }
 //
-const fliptEvaluationClient = FliptEvaluationClient.init('default', {
+const fliptEvaluationClient = await FliptEvaluationClient.init('default', {
   url: 'http://localhost:8080',
   authentication: {
     client_token
