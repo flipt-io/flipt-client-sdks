@@ -27,7 +27,12 @@ import { FliptEvaluationClient } from '@flipt-io/flipt-client-browser';
 //  }
 // }
 //
-const fliptEvaluationClient = new FliptEvaluationClient();
+const fliptEvaluationClient = FliptEvaluationClient.init('default', {
+  url: 'http://localhost:8080',
+  authentication: {
+    client_token
+  }
+});
 
 const variant = fliptEvaluationClient.evaluateVariant('flag1', 'someentity', {
   fizz: 'buzz'
