@@ -68,8 +68,6 @@ You can refer to the architecture diagram below:
 
 #### WASM Engine
 
-[`flipt-engine-wasm`](./flipt-client-browser/src/) is a Rust library that compiles to WebAssembly and is designed to be embedded in the client-side SDKs that run in the browser.
-
 The [`flipt-engine-wasm`](./flipt-client-browser/src/) library is responsible for the following:
 
 - Deserializing the evaluation state from JSON to memory.
@@ -84,9 +82,9 @@ The [`flipt-evaluation`](./flipt-evaluation) library is a Rust library responsib
 
 The evaluation logic is extracted into a separate library to allow for the evaluation logic to be reused by both the FFI and WASM engines and eventually by Flipt itself.
 
-#### Client SDKs
+#### Browser SDK
 
-The client SDKs are responsible for the following:
+The browser SDK is responsible for the following:
 
 - Fetching the evaluation state from the Flipt server.
 - Marshalling context to JSON.
