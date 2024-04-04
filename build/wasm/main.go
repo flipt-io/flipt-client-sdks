@@ -122,7 +122,7 @@ func wasmBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	rust = rust.
 		WithExec([]string{"cargo", "install", "wasm-pack"}). // Install wasm-pack
 		WithWorkdir("/src/flipt-engine-wasm").
-		WithExec([]string{"wasm-pack", "build", "--scope", "flipt-io", "--target", "nodejs"}) // Build the wasm package
+		WithExec([]string{"wasm-pack", "build", "--scope", "flipt-io"}) // Build the wasm package
 
 	var err error
 
