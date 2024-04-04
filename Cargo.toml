@@ -1,6 +1,6 @@
 [workspace]
-members = ["./flipt-engine-ffi", "./flipt-client-browser", "./flipt-evaluation"]
 resolver = "2"
+members = ["./flipt-engine-ffi", "./flipt-client-browser", "./flipt-evaluation"]
 
 [profile.release]
 strip = true
