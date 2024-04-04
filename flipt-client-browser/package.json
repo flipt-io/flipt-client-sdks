@@ -18,7 +18,7 @@
     "fmt": "prettier --config .prettierrc 'lib/**/*.ts' --write",
     "lint": "prettier --check lib/**/*.ts",
     "test": "jasmine",
-    "build:typescript": "tsc -b",
+    "build:typescript": "tsc",
     "build:wasm": "wasm-pack build --target web --out-dir ./pkg",
     "build": "npm run build:wasm && npm run build:typescript"
   },
