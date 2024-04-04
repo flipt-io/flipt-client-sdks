@@ -3,7 +3,7 @@
 [![Client tag](https://img.shields.io/github/v/tag/flipt-io/flipt-client-go?label=latest)](https://github.com/flipt-io/flipt-client-go)
 [![Go Reference](https://pkg.go.dev/badge/go.flipt.io/flipt-client.svg)](https://pkg.go.dev/go.flipt.io/flipt-client)
 
-The `flipt-client-go` directory contains the Go source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client.
+The `flipt-client-go` library contains the Go source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client.
 
 ## Installation
 

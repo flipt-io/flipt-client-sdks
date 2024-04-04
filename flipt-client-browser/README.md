@@ -1,6 +1,9 @@
 # Flipt Client Browser
 
-The `flipt-client-browser` directory contains the JavaScript/TypeScript source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client for the browser.
+![Status: Beta](https://img.shields.io/badge/status-beta-yellow)
+[![npm](https://img.shields.io/npm/v/@flipt-io/flipt-client-browser?label=%40flipt-io%2Fflipt-client-browser)](https://www.npmjs.com/package/@flipt-io/flipt-client-browser)
+
+The `flipt-client-browser` library contains the JavaScript/TypeScript source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client for the browser.
 
 ## Installation
 
