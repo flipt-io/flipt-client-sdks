@@ -17,12 +17,12 @@ import (
 var (
 	sdks    string
 	sdkToFn = map[string]integrationTestFn{
-		"python": pythonTests,
-		"go":     goTests,
-		"node":   nodeTests,
-		"ruby":   rubyTests,
-		"java":   javaTests,
-		//"browser": browserTests,
+		"python":  pythonTests,
+		"go":      goTests,
+		"node":    nodeTests,
+		"ruby":    rubyTests,
+		"java":    javaTests,
+		"browser": browserTests,
 	}
 	sema = make(chan struct{}, 5)
 )
@@ -33,6 +33,7 @@ type testArgs struct {
 	libFile    *dagger.File
 	headerFile *dagger.File
 	hostDir    *dagger.Directory
+	wasmDir    *dagger.Directory
 }
 
 type integrationTestFn func(context.Context, *dagger.Client, *dagger.Container, testArgs) error
@@ -151,6 +152,7 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 		libFile:    rust.File("/src/target/release/libfliptengine.so"),
 		headerFile: rust.File("/src/flipt-engine-ffi/include/flipt_engine.h"),
 		hostDir:    hostDirectory,
+		wasmDir:    rust.Directory("/src/flipt-client-browser/pkg"),
 	}
 }
 
@@ -257,6 +259,9 @@ func browserTests(ctx context.Context, client *dagger.Client, flipt *dagger.Cont
 	_, err := client.Pipeline("browser").Container().From("node:21.2-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-browser")).
+		WithDirectory("/src/pkg", args.wasmDir, dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"./node_modules/", ".gitignore"},
+		}).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
