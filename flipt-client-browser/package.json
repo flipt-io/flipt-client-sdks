@@ -1,6 +1,6 @@
 {
   "name": "@flipt-io/flipt-client-browser",
-  "version": "0.0.1",
+  "version": "0.0.8",
   "description": "Flipt Client Evaluation Browser SDK",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
