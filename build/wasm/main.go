@@ -92,16 +92,18 @@ func browserBuild(ctx context.Context, client *dagger.Client, hostDirectory *dag
 	}
 
 	container := client.Container().From("node:21.2-bookworm").
-		WithDirectory("/src", hostDirectory.Directory("flipt-client-browser")).
-		WithDirectory("/src/pkg", rust.Directory("/src/flipt-client-browser/pkg"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"./node_modules/", ".gitignore"},
+		WithDirectory("/src", hostDirectory.Directory("flipt-client-browser"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"./node_modules/", ".gitignore", "/pkg"},
+		}).
+		WithDirectory("/src/pkg", rust.Directory("/src/flipt-engine-wasm/pkg"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"./node_modules/", ".gitignore", "package.json", "README.md", "LICENSE"},
 		}).
 		WithWorkdir("/src").
 		WithExec([]string{"npm", "install"}).                // Install dependencies
 		WithExec([]string{"npm", "run", "build:typescript"}) // Build the browser package
 
 	if !push {
-		_, err = container.Sync(ctx)
+		_, err = container.Export(ctx, "/tmp/flipt-client-browser.2.tar.gz")
 		return err
 	}
 

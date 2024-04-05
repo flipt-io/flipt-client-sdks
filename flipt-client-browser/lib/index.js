@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FliptEvaluationClient = void 0;
-const pkg_1 = require("../pkg");
+const flipt_engine_wasm_js_1 = require("../pkg/flipt_engine_wasm.js");
 class FliptEvaluationClient {
     engine;
     fetcher;
@@ -13,7 +13,7 @@ class FliptEvaluationClient {
         url: 'http://localhost:8080',
         reference: ''
     }) {
-        await (0, pkg_1.default)();
+        await (0, flipt_engine_wasm_js_1.default)();
         let url = engine_opts.url ?? 'http://localhost:8080';
         // trim trailing slash
         url = url.replace(/\/$/, '');
@@ -44,7 +44,7 @@ class FliptEvaluationClient {
         };
         const resp = await fetcher();
         const data = await resp.json();
-        const engine = new pkg_1.Engine(namespace, data);
+        const engine = new flipt_engine_wasm_js_1.Engine(namespace, data);
         return new FliptEvaluationClient(engine, fetcher);
     }
     async refresh() {
