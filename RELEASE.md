@@ -61,7 +61,7 @@ Note: In the future we can potentially automate the tagging/pushing of the SDKs 
 
 Releasing the `flipt-client-browser` SDK is a three to four-step process:
 
-1. Update the `flipt-engine-wasm` dependency in `flipt-client-browser/src` (if necessary).
+1. Update the `flipt-engine-wasm` dependency in `flipt-engine-wasm` (if necessary).
 1. Update the `flipt-client-browser` version in `flipt-client-browser/package.json` and run `npm install`
 1. Commit and tag the SDK with the new version using the naming convention `flipt-client-browser-v{version}` (i.e. `flipt-client-browser-v0.1.0`).
 1. Push the tag to `origin`. This will trigger the appropriate GitHub Action to build, package, and publish the SDK.
