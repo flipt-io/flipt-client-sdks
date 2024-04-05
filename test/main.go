@@ -258,7 +258,9 @@ func javaTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 func browserTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
 	_, err := client.Pipeline("browser").Container().From("node:21.2-bookworm").
 		WithWorkdir("/src").
-		WithDirectory("/src", args.hostDir.Directory("flipt-client-browser")).
+		WithDirectory("/src", args.hostDir.Directory("flipt-client-browser"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"./node_modules/", ".gitignore"},
+		}).
 		WithDirectory("/src/pkg", args.wasmDir, dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./node_modules/", ".gitignore"},
 		}).

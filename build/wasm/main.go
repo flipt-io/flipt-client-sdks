@@ -69,7 +69,7 @@ func browserBuild(ctx context.Context, client *dagger.Client, hostDirectory *dag
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-client-browser", hostDirectory.Directory("flipt-client-browser"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"./node_modules/", "./pkg/"},
+			Exclude: []string{"./node_modules/", "./pkg/", ".gitignore"},
 		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml"))

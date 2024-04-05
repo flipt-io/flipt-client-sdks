@@ -7,13 +7,7 @@
       "DOM"
     ],
     "declaration": true,
+    "forceConsistentCasingInFileNames": true,
     "strict": true,
-  },
-  "include": [
-    "lib/**/*",
-  ],
-  "exclude": [
-    "node_modules",
-    "pkg/**/*"
-  ]
+  }
 }
