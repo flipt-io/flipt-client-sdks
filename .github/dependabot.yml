@@ -51,7 +51,7 @@ updates:
       - "automerge"
 
   - package-ecosystem: "cargo"
-    directory: "/flipt-evaluation"
+    directory: "/flipt-engine-wasm"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
@@ -61,7 +61,7 @@ updates:
       - "automerge"
 
   - package-ecosystem: "cargo"
-    directory: "/flipt-client-browser"
+    directory: "/flipt-evaluation"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
