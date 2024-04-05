@@ -260,7 +260,10 @@ func browserTests(ctx context.Context, client *dagger.Client, flipt *dagger.Cont
 	// TODO: fix this test, cant find `/src/pkg` directory from Jest
 	_, err := client.Pipeline("browser").Container().From("node:21.2-bookworm").
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-browser")).
-		WithDirectory("/src/pkg", args.wasmDir).
+		WithDirectory("/src/pkg", args.wasmDir, dagger.ContainerWithDirectoryOpts{
+			Include: []string{"package.json", "*.js", "*.wasm", "*.ts", "*.d.ts"},
+			Exclude: []string{"./node_modules/", ".gitignore"},
+		}).
 		WithWorkdir("/src").
 		WithExec([]string{"npm", "install"}).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
