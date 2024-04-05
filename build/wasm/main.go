@@ -92,7 +92,7 @@ func browserBuild(ctx context.Context, client *dagger.Client, hostDirectory *dag
 	container := client.Container().From("node:21.2-bookworm").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-browser")).
 		WithDirectory("/src/pkg", rust.Directory("/src/flipt-engine-wasm/pkg"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"./node_modules/"},
+			Exclude: []string{"./node_modules/", ".gitignore"},
 		}).
 		WithWorkdir("/src").
 		WithExec([]string{"npm", "install"}).     // Install dependencies
