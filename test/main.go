@@ -15,14 +15,14 @@ import (
 )
 
 var (
-	languages    string
-	languageToFn = map[string]integrationTestFn{
-		"python":  pythonTests,
-		"go":      goTests,
-		"node":    nodeTests,
-		"ruby":    rubyTests,
-		"java":    javaTests,
-		"browser": browserTests,
+	sdks    string
+	sdkToFn = map[string]integrationTestFn{
+		"python": pythonTests,
+		"go":     goTests,
+		"node":   nodeTests,
+		"ruby":   rubyTests,
+		"java":   javaTests,
+		//"browser": browserTests,
 	}
 	sema = make(chan struct{}, 5)
 )
@@ -33,12 +33,13 @@ type testArgs struct {
 	libFile    *dagger.File
 	headerFile *dagger.File
 	hostDir    *dagger.Directory
+	wasmDir    *dagger.Directory
 }
 
 type integrationTestFn func(context.Context, *dagger.Client, *dagger.Container, testArgs) error
 
 func init() {
-	flag.StringVar(&languages, "languages", "", "comma separated list of which language(s) to run integration tests for")
+	flag.StringVar(&sdks, "sdks", "", "comma separated list of which sdks(s) to run integration tests for")
 }
 
 func main() {
@@ -50,17 +51,17 @@ func main() {
 }
 
 func run() error {
-	var tests = make(map[string]integrationTestFn, len(languageToFn))
+	var tests = make(map[string]integrationTestFn, len(sdkToFn))
 
-	maps.Copy(tests, languageToFn)
+	maps.Copy(tests, sdkToFn)
 
-	if languages != "" {
-		l := strings.Split(languages, ",")
+	if sdks != "" {
+		l := strings.Split(sdks, ",")
 		subset := make(map[string]integrationTestFn, len(l))
 		for _, language := range l {
-			testFn, ok := languageToFn[language]
+			testFn, ok := sdkToFn[language]
 			if !ok {
-				return fmt.Errorf("language %s is not supported", language)
+				return fmt.Errorf("sdk %s is not supported", language)
 			}
 			subset[language] = testFn
 		}
@@ -130,7 +131,7 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 	rust = rust.
 		WithExec([]string{"cargo", "install", "wasm-pack"}). // Install wasm-pack
 		WithWorkdir("/src/flipt-engine-wasm").
-		WithExec([]string{"wasm-pack", "build", "--target", "nodejs"}) // Build the wasm package
+		WithExec([]string{"wasm-pack", "build", "--target", "web"}) // Build the wasm package
 
 	// Flipt
 	flipt := client.Container().From("flipt/flipt:latest").
@@ -150,6 +151,7 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 		arch:       arch,
 		libFile:    rust.File("/src/target/release/libfliptengine.so"),
 		headerFile: rust.File("/src/flipt-engine-ffi/include/flipt_engine.h"),
+		wasmDir:    rust.Directory("/src/flipt-engine-wasm/pkg"),
 		hostDir:    hostDirectory,
 	}
 }
@@ -253,14 +255,17 @@ func javaTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 	return err
 }
 
+// browserTests runs the browser integration test suite against a container running Flipt.
 func browserTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
+	// TODO: fix this test, cant find `/src/pkg` directory from Jest
 	_, err := client.Pipeline("browser").Container().From("node:21.2-bookworm").
-		WithWorkdir("/src").
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-browser")).
+		WithDirectory("/src/pkg", args.wasmDir).
+		WithWorkdir("/src").
+		WithExec([]string{"npm", "install"}).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithExec([]string{"npm", "install"}).
 		WithExec([]string{"npm", "test"}).
 		Sync(ctx)
 

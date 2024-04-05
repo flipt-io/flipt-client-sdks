@@ -51,6 +51,16 @@ updates:
       - "automerge"
 
   - package-ecosystem: "cargo"
+    directory: "/flipt-engine-wasm"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      # kodiak `merge.automerge_label`
+      - "automerge"
+
+  - package-ecosystem: "cargo"
     directory: "/flipt-evaluation"
     schedule:
       interval: "weekly"

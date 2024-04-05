@@ -13,14 +13,12 @@ import (
 )
 
 var (
-	sdks   string
-	push   bool
-	tag    string
-	engine bool
+	sdks string
+	push bool
+	tag  string
 )
 
 func init() {
-	flag.BoolVar(&engine, "engine", false, "build the engine")
 	flag.StringVar(&sdks, "sdks", "", "comma separated list of which sdks(s) to run builds for")
 	flag.BoolVar(&push, "push", false, "push built artifacts to registry")
 	flag.StringVar(&tag, "tag", "", "tag to use for release")
@@ -39,9 +37,7 @@ type buildFn func(context.Context, *dagger.Client, *dagger.Directory) error
 func run() error {
 	var build buildFn
 
-	if engine {
-		build = wasmBuild
-	} else if sdks == "browser" {
+	if sdks == "browser" {
 		build = browserBuild
 	} else {
 		return fmt.Errorf("no builds specified")
@@ -63,7 +59,7 @@ func run() error {
 	return build(ctx, client, dir)
 }
 
-func wasmBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
+func browserBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
 	arch := "x86_64"
 	if strings.Contains(runtime.GOARCH, "arm64") || strings.Contains(runtime.GOARCH, "aarch64") {
 		arch = "arm64"
@@ -81,50 +77,26 @@ func wasmBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 			WithExec([]string{"apt-get", "-y", "install", "binaryen"})
 	}
 
-	rust = rust.
-		WithExec([]string{"cargo", "install", "wasm-pack"}). // Install wasm-pack
-		WithWorkdir("/src/flipt-engine-wasm").
-		WithExec([]string{"wasm-pack", "build", "--scope", "flipt-io"}) // Build the wasm package
-
 	var err error
 
-	if !push {
-		_, err = rust.Sync(ctx)
+	rust, err = rust.
+		WithExec([]string{"cargo", "install", "wasm-pack"}). // Install wasm-pack
+		WithWorkdir("/src/flipt-engine-wasm").
+		WithExec([]string{"wasm-pack", "build", "--target", "web"}).
+		Sync(ctx)
+
+	if err != nil {
 		return err
 	}
 
 	container := client.Container().From("node:21.2-bookworm").
-		WithDirectory("/src", rust.Directory("/src/flipt-engine-wasm/pkg"), dagger.ContainerWithDirectoryOpts{
+		WithDirectory("/src", hostDirectory.Directory("flipt-client-browser")).
+		WithDirectory("/src/pkg", rust.Directory("/src/flipt-engine-wasm/pkg"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./node_modules/"},
 		}).
 		WithWorkdir("/src").
-		WithExec([]string{"npm", "version", "--allow-same-version", tag}) // Update the version
-
-	if os.Getenv("NPM_API_KEY") == "" {
-		return fmt.Errorf("NPM_API_KEY is not set")
-	}
-
-	npmAPIKeySecret := client.SetSecret("npm-api-key", os.Getenv("NPM_API_KEY"))
-
-	_, err = container.WithSecretVariable("NPM_TOKEN", npmAPIKeySecret).
-		WithExec([]string{"npm", "config", "set", "--", "//registry.npmjs.org/:_authToken", "${NPM_TOKEN}"}).
-		WithExec([]string{"npm", "publish", "--access", "public"}).
-		Sync(ctx)
-
-	return err
-}
-
-func browserBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
-	container := client.Container().From("node:21.2-bookworm").
-		WithDirectory("/src", hostDirectory.Directory("flipt-client-browser"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"./node_modules/"},
-		}).
-		WithWorkdir("/src").
-		WithExec([]string{"npm", "install"}).
-		WithExec([]string{"npm", "run", "build"}).
-		WithExec([]string{"npm", "pack"})
-
-	var err error
+		WithExec([]string{"npm", "install"}).     // Install dependencies
+		WithExec([]string{"npm", "run", "build"}) // Build the browser package
 
 	if !push {
 		_, err = container.Sync(ctx)

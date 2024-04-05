@@ -1,9 +1,9 @@
-import { FliptEvaluationClient } from '..';
+const FliptEvaluationClient = require('../lib/index.js');
 
 describe('FliptEvaluationClient', () => {
-  let fliptUrl: string | undefined;
-  let authToken: string | undefined;
-  let client: FliptEvaluationClient;
+  let fliptUrl;
+  let authToken;
+  let client;
 
   beforeAll(() => {
     fliptUrl = process.env['FLIPT_URL'];

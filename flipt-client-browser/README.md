@@ -53,3 +53,22 @@ fliptEvaluationClient.refresh();
 ```
 
 This allows you to update the flag state in a controlled manner, such as in a polling loop or when a user interacts with your application.
+
+## Development
+
+### Prerequisites
+
+- [flipt-engine-wasm](../flipt-engine-wasm/README.md)
+
+### Build
+
+```bash
+npm run build
+```
+
+### Test
+
+```bash
+npm install
+npm test
+```
