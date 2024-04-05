@@ -1,4 +1,4 @@
-import { FliptEvaluationClient } from '../lib';
+const FliptEvaluationClient = require('../lib/index.js');
 
 describe('FliptEvaluationClient', () => {
   let fliptUrl;

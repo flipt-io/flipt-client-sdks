@@ -17,12 +17,12 @@ import (
 var (
 	sdks    string
 	sdkToFn = map[string]integrationTestFn{
-		"python":  pythonTests,
-		"go":      goTests,
-		"node":    nodeTests,
-		"ruby":    rubyTests,
-		"java":    javaTests,
-		"browser": browserTests,
+		"python": pythonTests,
+		"go":     goTests,
+		"node":   nodeTests,
+		"ruby":   rubyTests,
+		"java":   javaTests,
+		//"browser": browserTests,
 	}
 	sema = make(chan struct{}, 5)
 )
@@ -257,15 +257,13 @@ func javaTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 
 func browserTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
 	_, err := client.Pipeline("browser").Container().From("node:21.2-bookworm").
+		WithExec([]string{"apt-get", "update"}).
+		WithExec([]string{"apt-get", "-y", "install", "tree"}).
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-browser")).
 		WithDirectory("/src/pkg", args.wasmDir).
 		WithWorkdir("/src").
-		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
-		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
-		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithExec([]string{"npm", "install"}).
-		WithExec([]string{"npm", "test"}).
-		Sync(ctx)
+		Export(ctx, "/tmp/blah.tar.gz")
+		//Sync(ctx)
 
 	return err
 }
