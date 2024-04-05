@@ -1,4 +1,4 @@
-import { FliptEvaluationClient } from '..';
+import { FliptEvaluationClient } from '../src';
 
 describe('FliptEvaluationClient', () => {
   let fliptUrl: string | undefined;

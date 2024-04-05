@@ -56,9 +56,7 @@ This library uses a WebAssembly (WASM) layer to interact with the Flipt server. 
 
 ### Prerequisites
 
-- [Rust](https://www.rust-lang.org/tools/install)
-- [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/)
-- [wasm-bindgen](https://rustwasm.github.io/wasm-bindgen/)
+- [flipt-engine-wasm](../flipt-engine-wasm)
 
 ### Build
 

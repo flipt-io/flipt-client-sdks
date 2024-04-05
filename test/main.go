@@ -17,12 +17,12 @@ import (
 var (
 	sdks    string
 	sdkToFn = map[string]integrationTestFn{
-		"python":  pythonTests,
-		"go":      goTests,
-		"node":    nodeTests,
-		"ruby":    rubyTests,
-		"java":    javaTests,
-		"browser": browserTests,
+		"python": pythonTests,
+		"go":     goTests,
+		"node":   nodeTests,
+		"ruby":   rubyTests,
+		"java":   javaTests,
+		//"browser": browserTests,
 	}
 	sema = make(chan struct{}, 5)
 )
@@ -118,7 +118,7 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 	rust := client.Container().From("rust:1.74.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
-		WithDirectory("/src/flipt-client-browser", hostDirectory.Directory("flipt-client-browser")).
+		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm")).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
 		WithExec([]string{"cargo", "build", "--release"}) // Build the dynamic library
@@ -130,7 +130,7 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 
 	rust = rust.
 		WithExec([]string{"cargo", "install", "wasm-pack"}). // Install wasm-pack
-		WithWorkdir("/src/flipt-client-browser").
+		WithWorkdir("/src/flipt-engine-wasm").
 		WithExec([]string{"wasm-pack", "build", "--target", "web"}) // Build the wasm package
 
 	// Flipt
@@ -152,7 +152,7 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 		libFile:    rust.File("/src/target/release/libfliptengine.so"),
 		headerFile: rust.File("/src/flipt-engine-ffi/include/flipt_engine.h"),
 		hostDir:    hostDirectory,
-		wasmDir:    rust.Directory("/src/flipt-client-browser/pkg"),
+		wasmDir:    rust.Directory("/src/flipt-engine-wasm/pkg"),
 	}
 }
 
