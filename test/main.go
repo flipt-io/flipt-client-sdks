@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	languages    string
-	languageToFn = map[string]integrationTestFn{
+	sdks    string
+	sdkToFn = map[string]integrationTestFn{
 		"python": pythonTests,
 		"go":     goTests,
 		"node":   nodeTests,
@@ -38,7 +38,7 @@ type testArgs struct {
 type integrationTestFn func(context.Context, *dagger.Client, *dagger.Container, testArgs) error
 
 func init() {
-	flag.StringVar(&languages, "languages", "", "comma separated list of which language(s) to run integration tests for")
+	flag.StringVar(&sdks, "sdks", "", "comma separated list of which language(s) to run integration tests for")
 }
 
 func main() {
@@ -50,17 +50,17 @@ func main() {
 }
 
 func run() error {
-	var tests = make(map[string]integrationTestFn, len(languageToFn))
+	var tests = make(map[string]integrationTestFn, len(sdkToFn))
 
-	maps.Copy(tests, languageToFn)
+	maps.Copy(tests, sdkToFn)
 
-	if languages != "" {
-		l := strings.Split(languages, ",")
+	if sdks != "" {
+		l := strings.Split(sdks, ",")
 		subset := make(map[string]integrationTestFn, len(l))
 		for _, language := range l {
-			testFn, ok := languageToFn[language]
+			testFn, ok := sdkToFn[language]
 			if !ok {
-				return fmt.Errorf("language %s is not supported", language)
+				return fmt.Errorf("sdk %s is not supported", language)
 			}
 			subset[language] = testFn
 		}
@@ -130,7 +130,7 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 	rust = rust.
 		WithExec([]string{"cargo", "install", "wasm-pack"}). // Install wasm-pack
 		WithWorkdir("/src/flipt-client-browser").
-		WithExec([]string{"wasm-pack", "build", "--target", "nodejs"}) // Build the wasm package
+		WithExec([]string{"wasm-pack", "build", "--target", "web"}) // Build the wasm package
 
 	// Flipt
 	flipt := client.Container().From("flipt/flipt:latest").
@@ -253,16 +253,16 @@ func javaTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 	return err
 }
 
-// func browserTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
-// 	_, err := client.Pipeline("browser").Container().From("node:21.2-bookworm").
-// 		WithWorkdir("/src").
-// 		WithDirectory("/src", args.hostDir.Directory("flipt-client-browser")).
-// 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
-// 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
-// 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-// 		WithExec([]string{"npm", "install"}).
-// 		WithExec([]string{"npm", "test"}).
-// 		Sync(ctx)
+func browserTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
+	_, err := client.Pipeline("browser").Container().From("node:21.2-bookworm").
+		WithWorkdir("/src").
+		WithDirectory("/src", args.hostDir.Directory("flipt-client-browser")).
+		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
+		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
+		WithExec([]string{"npm", "install"}).
+		WithExec([]string{"npm", "test"}).
+		Sync(ctx)
 
-// 	return err
-// }
+	return err
+}
