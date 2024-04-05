@@ -255,15 +255,19 @@ func javaTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 	return err
 }
 
+// browserTests runs the browser integration test suite against a container running Flipt.
 func browserTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
+	// TODO: fix this test, cant find `/src/pkg` directory from Jest
 	_, err := client.Pipeline("browser").Container().From("node:21.2-bookworm").
-		WithExec([]string{"apt-get", "update"}).
-		WithExec([]string{"apt-get", "-y", "install", "tree"}).
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-browser")).
 		WithDirectory("/src/pkg", args.wasmDir).
 		WithWorkdir("/src").
-		Export(ctx, "/tmp/blah.tar.gz")
-		//Sync(ctx)
+		WithExec([]string{"npm", "install"}).
+		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
+		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
+		WithExec([]string{"npm", "test"}).
+		Sync(ctx)
 
 	return err
 }
