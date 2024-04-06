@@ -1,4 +1,4 @@
-import { FliptEvaluationClient } from '../lib/index.js';
+import { FliptEvaluationClient } from '../src/index.mjs';
 
 describe('FliptEvaluationClient', () => {
   let fliptUrl;
