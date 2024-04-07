@@ -103,7 +103,7 @@ func browserBuild(ctx context.Context, client *dagger.Client, hostDirectory *dag
 		WithExec([]string{"npm", "run", "build"}) // Build the browser package
 
 	if !push {
-		_, err = container.Export(ctx, "/tmp/flipt-client-browser.tar.gz")
+		_, err = container.Sync(ctx)
 		return err
 	}
 
