@@ -95,7 +95,7 @@ func browserBuild(ctx context.Context, client *dagger.Client, hostDirectory *dag
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-browser"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./node_modules/", ".gitignore", "/pkg"},
 		}).
-		WithDirectory("/src/pkg", rust.Directory("/src/flipt-engine-wasm/pkg"), dagger.ContainerWithDirectoryOpts{
+		WithDirectory("/src/dist", rust.Directory("/src/flipt-engine-wasm/pkg"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./node_modules/", ".gitignore", "package.json", "README.md", "LICENSE"},
 		}).
 		WithWorkdir("/src").
@@ -103,7 +103,7 @@ func browserBuild(ctx context.Context, client *dagger.Client, hostDirectory *dag
 		WithExec([]string{"npm", "run", "build"}) // Build the browser package
 
 	if !push {
-		_, err = container.Sync(ctx)
+		_, err = container.Export(ctx, "/tmp/flipt-client-browser.tar.gz")
 		return err
 	}
 

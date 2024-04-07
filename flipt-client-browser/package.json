@@ -2,30 +2,27 @@
   "name": "@flipt-io/flipt-client-browser",
   "version": "0.0.13",
   "description": "Flipt Client Evaluation Browser SDK",
-  "main": "src/index.js",
-  "module": "src/index.mjs",
-  "types": "src/index.d.ts",
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
   "private": false,
   "author": "Flipt Devs <dev@flipt.io>",
   "license": "MIT",
   "files": [
-    "src",
-    "pkg/*.js",
-    "pkg/*.d.ts",
-    "pkg/*.wasm",
-    "pkg/*.wasm.d.ts"
+    "dist"
   ],
   "scripts": {
     "fmt": "prettier --config .prettierrc 'src/**/*.ts' --write",
     "lint": "prettier --check src/**/*.ts",
     "test": "jest",
-    "build": "tsc && rollup -c"
+    "build": "rollup -c"
   },
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-typescript": "^11.1.6",
     "@types/jest": "^29.5.12",
     "jest": "^29.7.0",
     "rollup": "^4.14.0",
+    "tslib": "^2.6.2",
     "typescript": "^5.4.3"
   }
 }
