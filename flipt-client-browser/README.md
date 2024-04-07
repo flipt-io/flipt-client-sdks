@@ -5,6 +5,12 @@
 
 The `flipt-client-browser` library contains the JavaScript/TypeScript source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client for the browser.
 
+## Installation
+
+```bash
+npm install @flipt-io/flipt-client-browser
+```
+
 ## Usage
 
 In your JavaScript/Typescript code you can import this client and use it as so:
