@@ -1,4 +1,4 @@
-import { FliptEvaluationClient } from '../src/index.mjs';
+const flipt = require('../dist/index.cjs');
 
 describe('FliptEvaluationClient', () => {
   let fliptUrl;
@@ -19,7 +19,7 @@ describe('FliptEvaluationClient', () => {
   });
 
   beforeEach(async () => {
-    client = await FliptEvaluationClient.init('default', {
+    client = await flipt.FliptEvaluationClient.init('default', {
       url: fliptUrl,
       authentication: {
         client_token: authToken
