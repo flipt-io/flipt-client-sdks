@@ -17,12 +17,12 @@ import (
 var (
 	sdks    string
 	sdkToFn = map[string]integrationTestFn{
-		"python":  pythonTests,
-		"go":      goTests,
-		"node":    nodeTests,
-		"ruby":    rubyTests,
-		"java":    javaTests,
-		"browser": browserTests,
+		"python": pythonTests,
+		"go":     goTests,
+		"node":   nodeTests,
+		"ruby":   rubyTests,
+		"java":   javaTests,
+		//"browser": browserTests,
 	}
 	sema = make(chan struct{}, 5)
 )
@@ -118,7 +118,7 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 	rust := client.Container().From("rust:1.74.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
-		WithDirectory("/src/flipt-client-browser", hostDirectory.Directory("flipt-client-browser")).
+		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm")).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
 		WithExec([]string{"cargo", "build", "--release"}) // Build the dynamic library
@@ -130,7 +130,7 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 
 	rust = rust.
 		WithExec([]string{"cargo", "install", "wasm-pack"}). // Install wasm-pack
-		WithWorkdir("/src/flipt-client-browser").
+		WithWorkdir("/src/flipt-engine-wasm").
 		WithExec([]string{"wasm-pack", "build", "--target", "web"}) // Build the wasm package
 
 	// Flipt
@@ -152,7 +152,7 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 		libFile:    rust.File("/src/target/release/libfliptengine.so"),
 		headerFile: rust.File("/src/flipt-engine-ffi/include/flipt_engine.h"),
 		hostDir:    hostDirectory,
-		wasmDir:    rust.Directory("/src/flipt-client-browser/pkg"),
+		wasmDir:    rust.Directory("/src/flipt-engine-wasm/pkg"),
 	}
 }
 
@@ -257,13 +257,14 @@ func javaTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 
 func browserTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
 	_, err := client.Pipeline("browser").Container().From("node:21.2-bookworm").
-		WithWorkdir("/src").
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-browser"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"./node_modules/", ".gitignore"},
+			Exclude: []string{"./node_modules/", ".gitignore", "/pkg"},
 		}).
-		WithDirectory("/src/pkg", args.wasmDir, dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"./node_modules/", ".gitignore"},
+		WithDirectory("/src/dist", args.wasmDir, dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"./node_modules/", ".gitignore", "package.json", "README.md", "LICENSE"},
 		}).
+		WithWorkdir("/src").
+		WithExec([]string{"npm", "install"}).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").

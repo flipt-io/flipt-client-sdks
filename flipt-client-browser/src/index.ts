@@ -1,4 +1,4 @@
-import init, { Engine } from '../pkg';
+import init, { Engine } from '../dist/flipt_engine_wasm.js';
 import { BooleanResult, EngineOpts, VariantResult } from './models.js';
 
 interface IEvaluationRequest {

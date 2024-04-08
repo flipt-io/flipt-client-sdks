@@ -1,9 +1,15 @@
 # Flipt Client Browser
 
-![Status: Work In Progress](https://img.shields.io/badge/status-work_in_progress-red)
+![Status: Beta](https://img.shields.io/badge/status-beta-yellow)
 [![npm](https://img.shields.io/npm/v/@flipt-io/flipt-client-browser?label=%40flipt-io%2Fflipt-client-browser)](https://www.npmjs.com/package/@flipt-io/flipt-client-browser)
 
 The `flipt-client-browser` library contains the JavaScript/TypeScript source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client for the browser.
+
+## Installation
+
+```bash
+npm install @flipt-io/flipt-client-browser
+```
 
 ## Usage
 
@@ -56,9 +62,7 @@ This library uses a WebAssembly (WASM) layer to interact with the Flipt server. 
 
 ### Prerequisites
 
-- [Rust](https://www.rust-lang.org/tools/install)
-- [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/)
-- [wasm-bindgen](https://rustwasm.github.io/wasm-bindgen/)
+- [flipt-engine-wasm](../flipt-engine-wasm)
 
 ### Build
 
