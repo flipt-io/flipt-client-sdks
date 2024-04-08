@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.11](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.10...flipt-engine-ffi-v0.1.11) (2024-04-08)
+
+
+### Features
+
+* wasm impl ([#217](https://github.com/flipt-io/flipt-client-sdks/issues/217)) ([3340d52](https://github.com/flipt-io/flipt-client-sdks/commit/3340d523b7f6bd94cec075cd2d4d4b0f6ddae5be))
+
 ## [0.1.10](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.9...flipt-engine-ffi-v0.1.10) (2024-03-28)
 
 ### Miscellaneous Chores
