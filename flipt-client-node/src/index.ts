@@ -15,12 +15,6 @@ import * as path from 'path';
 
 let libfile = '';
 
-interface IEvaluationRequest {
-  flag_key: string;
-  entity_id: string;
-  context: object;
-}
-
 // get absolute path to libfliptengine
 switch (os.platform()) {
   case 'darwin':
@@ -77,7 +71,7 @@ export class FliptEvaluationClient {
     entity_id: string,
     context: {}
   ): VariantResult {
-    const evaluation_request: IEvaluationRequest = {
+    const evaluation_request: EvaluationRequest = {
       flag_key,
       entity_id,
       context
@@ -100,7 +94,7 @@ export class FliptEvaluationClient {
     entity_id: string,
     context: {}
   ): BooleanResult {
-    const evaluation_request: IEvaluationRequest = {
+    const evaluation_request: EvaluationRequest = {
       flag_key,
       entity_id,
       context
@@ -119,18 +113,9 @@ export class FliptEvaluationClient {
   }
 
   public evaluateBatch(requests: EvaluationRequest[]): BatchResult {
-    const evaluationRequests: IEvaluationRequest[] = [];
-    for (const request of requests) {
-      evaluationRequests.push({
-        flag_key: request.flag_key,
-        entity_id: request.entity_id,
-        context: request.context
-      });
-    }
-
     const response = engineLib.evaluate_batch(
       this.engine,
-      allocCString(JSON.stringify(evaluationRequests))
+      allocCString(JSON.stringify(requests))
     );
 
     if (response === null) {

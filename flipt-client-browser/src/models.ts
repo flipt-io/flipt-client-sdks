@@ -52,12 +52,19 @@ export interface EvaluationResponse {
   error_evaluation_response?: ErrorEvaluationResponse;
 }
 
-export interface VariantResult extends Result<VariantEvaluationResponse> {}
-
-export interface BooleanResult extends Result<BooleanEvaluationResponse> {}
+export interface BatchEvaluationResponse {
+  responses: EvaluationResponse[];
+  request_duration_millis: number;
+}
 
 export interface Result<T> {
   status: string;
   result?: T;
   error_message: string;
 }
+
+export interface VariantResult extends Result<VariantEvaluationResponse> {}
+
+export interface BooleanResult extends Result<BooleanEvaluationResponse> {}
+
+export interface BatchResult extends Result<BatchEvaluationResponse> {}
