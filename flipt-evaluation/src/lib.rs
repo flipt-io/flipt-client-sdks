@@ -373,7 +373,7 @@ pub fn boolean_evaluation(
     })
 }
 
-pub fn batch_evalution(
+pub fn batch_evaluation(
     store: &dyn Store,
     namespace: &str,
     requests: Vec<EvaluationRequest>,
