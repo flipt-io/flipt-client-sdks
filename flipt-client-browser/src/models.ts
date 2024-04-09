@@ -12,6 +12,7 @@ export interface EngineOpts {
   url?: string;
   authentication?: AuthenticationStrategy;
   reference?: string;
+  fetcher?: () => Promise<Response>;
 }
 
 export interface EvaluationRequest {

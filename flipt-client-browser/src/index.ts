@@ -62,7 +62,6 @@ export class FliptEvaluationClient {
         method: 'GET',
         headers
       });
-
       if (!resp.ok) {
         throw new Error('Failed to fetch data');
       }

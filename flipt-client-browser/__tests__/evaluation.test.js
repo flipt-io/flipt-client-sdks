@@ -1,5 +1,4 @@
 const flipt = require('../dist/index.cjs');
-
 describe('FliptEvaluationClient', () => {
   let fliptUrl;
   let authToken;
@@ -11,6 +10,7 @@ describe('FliptEvaluationClient', () => {
       console.error('please set the FLIPT_URL environment variable');
       process.exit(1);
     }
+
     authToken = process.env['FLIPT_AUTH_TOKEN'];
     if (!authToken) {
       console.error('please set the FLIPT_AUTH_TOKEN environment variable');
@@ -121,7 +121,7 @@ describe('FliptEvaluationClient', () => {
       }
     ]);
 
-    expect(batch.error_message).toBeNull();
+    expect(batch.error_message).toBeUndefined();
     expect(batch.status).toEqual('success');
     expect(batch.result).toBeDefined();
 

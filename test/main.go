@@ -17,12 +17,12 @@ import (
 var (
 	sdks    string
 	sdkToFn = map[string]integrationTestFn{
-		"python": pythonTests,
-		"go":     goTests,
-		"node":   nodeTests,
-		"ruby":   rubyTests,
-		"java":   javaTests,
-		//"browser": browserTests,
+		"python":  pythonTests,
+		"go":      goTests,
+		"node":    nodeTests,
+		"ruby":    rubyTests,
+		"java":    javaTests,
+		"browser": browserTests,
 	}
 	sema = make(chan struct{}, 5)
 )
@@ -118,7 +118,9 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 	rust := client.Container().From("rust:1.74.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
-		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm")).
+		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"pkg/", ".gitignore"},
+		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
 		WithExec([]string{"cargo", "build", "--release"}) // Build the dynamic library
@@ -203,7 +205,7 @@ func nodeTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 		// The node_modules should never be version controlled, but we will exclude it here
 		// just to be safe.
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"./node_modules/"},
+			Exclude: []string{".node_modules/"},
 		}).
 		WithFile(fmt.Sprintf("/src/ext/linux_%s/libfliptengine.so", args.arch), args.libFile).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
@@ -258,17 +260,17 @@ func javaTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 func browserTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
 	_, err := client.Pipeline("browser").Container().From("node:21.2-bookworm").
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-browser"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"./node_modules/", ".gitignore", "/pkg"},
+			Exclude: []string{".node_modules/", ".gitignore", "dist/"},
 		}).
 		WithDirectory("/src/dist", args.wasmDir, dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"./node_modules/", ".gitignore", "package.json", "README.md", "LICENSE"},
+			Exclude: []string{".node_modules/", ".gitignore", "package.json", "README.md", "LICENSE"},
 		}).
 		WithWorkdir("/src").
-		WithExec([]string{"npm", "install"}).
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec([]string{"npm", "install"}).
+		WithExec([]string{"npm", "run", "build"}).
 		WithExec([]string{"npm", "test"}).
 		Sync(ctx)
 
