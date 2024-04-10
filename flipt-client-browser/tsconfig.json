@@ -2,13 +2,10 @@
   "compilerOptions": {
     "module": "ESNext",
     "target": "ESNext",
-    "lib": [
-      "ESNext",
-      "DOM"
-    ],
+    "lib": ["ESNext", "DOM"],
     "declaration": true,
     "declarationDir": "./dist",
     "forceConsistentCasingInFileNames": true,
-    "strict": true,
+    "strict": true
   }
 }

@@ -2,7 +2,8 @@ extern crate console_error_panic_hook;
 use wasm_bindgen::prelude::*;
 
 use fliptevaluation::{
-    boolean_evaluation, error::Error, models::source, store::Snapshot, variant_evaluation,
+    batch_evaluation, boolean_evaluation, error::Error, models::source, store::Snapshot,
+    variant_evaluation,
 };
 use serde::{Deserialize, Serialize};
 
@@ -119,6 +120,22 @@ impl Engine {
         };
 
         let result = variant_evaluation(&self.store, &self.namespace, &req);
+
+        let response = JsResponse::from(result);
+
+        Ok(serde_wasm_bindgen::to_value(&response)?)
+    }
+
+    pub fn evaluate_batch(&self, request: JsValue) -> Result<JsValue, JsValue> {
+        let req: Vec<fliptevaluation::EvaluationRequest> =
+            match serde_wasm_bindgen::from_value(request) {
+                Ok(r) => r,
+                Err(e) => {
+                    panic!("Invalid JSON: {}", e);
+                }
+            };
+
+        let result = batch_evaluation(&self.store, &self.namespace, req);
 
         let response = JsResponse::from(result);
 

@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock};
 
 use fliptevaluation::{
-    batch_evalution, boolean_evaluation,
+    batch_evaluation, boolean_evaluation,
     error::Error,
     models::{flipt, source::Document},
     parser::Parser,
@@ -103,6 +103,6 @@ where
         requests: Vec<EvaluationRequest>,
     ) -> Result<BatchEvaluationResponse, Error> {
         let _r_lock = self.mtx.read().unwrap();
-        batch_evalution(&self.store, &self.namespace, requests)
+        batch_evaluation(&self.store, &self.namespace, requests)
     }
 }
