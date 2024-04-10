@@ -1,6 +1,6 @@
 [package]
 name = "flipt-engine-wasm"
-version = "0.1.10"
+version = "0.1.0"
 edition = "2021"
 authors = ["Flipt Devs <dev@flipt.io>"]
 license = "MIT"
