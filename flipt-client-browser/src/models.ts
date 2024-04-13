@@ -1,3 +1,7 @@
+export interface fetcher {
+  (): Promise<Response>;
+}
+
 export interface AuthenticationStrategy {}
 
 export interface ClientTokenAuthentication extends AuthenticationStrategy {
@@ -12,6 +16,7 @@ export interface EngineOpts {
   url?: string;
   authentication?: AuthenticationStrategy;
   reference?: string;
+  fetcher?: fetcher;
 }
 
 export interface EvaluationRequest {
@@ -58,7 +63,7 @@ export interface BatchEvaluationResponse {
 }
 
 export interface Result<T> {
-  status: string;
+  status: 'success' | 'failure';
   result?: T;
   error_message: string;
 }

@@ -30,6 +30,7 @@ export class FliptEvaluationClient {
     }
   ): Promise<FliptEvaluationClient> {
     await init();
+
     let url = engine_opts.url ?? 'http://localhost:8080';
     // trim trailing slash
     url = url.replace(/\/$/, '');
@@ -57,17 +58,21 @@ export class FliptEvaluationClient {
       }
     }
 
-    const fetcher = async () => {
-      const resp = await fetch(url, {
-        method: 'GET',
-        headers
-      });
-      if (!resp.ok) {
-        throw new Error('Failed to fetch data');
-      }
+    let fetcher = engine_opts.fetcher;
 
-      return resp;
-    };
+    if (!fetcher) {
+      fetcher = async () => {
+        const resp = await fetch(url, {
+          method: 'GET',
+          headers
+        });
+        if (!resp.ok) {
+          throw new Error('Failed to fetch data');
+        }
+
+        return resp;
+      };
+    }
 
     const resp = await fetcher();
     const data = await resp.json();
