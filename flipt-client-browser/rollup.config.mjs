@@ -1,5 +1,5 @@
 import typescript from '@rollup/plugin-typescript';
-import commonjs from '@rollup/plugin-typescript';
+import { wasm } from '@rollup/plugin-wasm';
 
 export default {
   input: 'src/index.ts',
@@ -15,5 +15,10 @@ export default {
       sourcemap: true
     }
   ],
-  plugins: [typescript()]
+  plugins: [
+    typescript(),
+    wasm({
+      targetEnv: 'auto-inline'
+    })
+  ]
 };

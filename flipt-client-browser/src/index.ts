@@ -1,4 +1,6 @@
 import init, { Engine } from '../dist/flipt_engine_wasm.js';
+import wasm from '../dist/flipt_engine_wasm_bg.wasm';
+
 import {
   BatchResult,
   BooleanResult,
@@ -29,7 +31,7 @@ export class FliptEvaluationClient {
       reference: ''
     }
   ): Promise<FliptEvaluationClient> {
-    await init();
+    await init(await wasm());
 
     let url = engine_opts.url ?? 'http://localhost:8080';
     // trim trailing slash
