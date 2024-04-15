@@ -1,3 +1,5 @@
 module.exports = {
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js']
+  //testEnvironment: 'jsdom',
+  setupFiles: ['<rootDir>/jest.polyfills.js'],
+  moduleFileExtensions: ['ts', 'js', 'html']
 };
