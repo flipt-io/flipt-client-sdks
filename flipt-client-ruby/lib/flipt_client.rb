@@ -56,8 +56,8 @@ module Flipt
       @namespace = namespace
 
       # set default no auth if not provided
-      authentication = opts.fetch(:authentication, Flipt::NoAuthentication.new)
-      unless authentication.is_a?(Flipt::AuthenticationStrategy)
+      authentication = opts.fetch(:authentication, NoAuthentication.new)
+      unless authentication.is_a?(AuthenticationStrategy)
         raise ArgumentError,
               'invalid authentication strategy'
       end
