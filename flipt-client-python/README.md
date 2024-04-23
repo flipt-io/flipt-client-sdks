@@ -10,6 +10,15 @@ The `flipt-client-python` library contains the Python source code for the Flipt 
 pip install flipt-client
 ```
 
+## Supported Architectures
+
+This SDK currently supports the following OSes/architectures:
+
+- Linux x86_64
+- Linux arm64
+- MacOS x86_64
+- MacOS arm64
+
 ## Usage
 
 In your Python code you can import this client and use it as so:

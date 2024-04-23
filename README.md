@@ -22,6 +22,15 @@ The [Foreign Function Interface (FFI)](https://en.wikipedia.org/wiki/Foreign_fun
 > [!IMPORTANT]
 > Our FFI SDKs currently only work with OSes that use the `glibc` C library. We are working on adding support for other OSes that use `musl` such as Alpine Linux. See [this issue](https://github.com/flipt-io/flipt-client-sdks/issues/141) for more information.
 
+### Supported Architectures
+
+The FFI based SDKs are currently supported on the following OSes/architectures:
+
+- Linux x86_64
+- Linux arm64
+- MacOS x86_64
+- MacOS arm64
+
 ### WASM
 
 The WebAssembly (WASM) version of the client SDKs is currently in beta. This version allows you to evaluate flags in the browser using WebAssembly which is OS and architecture agnostic.

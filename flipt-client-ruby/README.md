@@ -10,7 +10,16 @@ The `flipt-client-ruby` library contains the Ruby source code for the Flipt [cli
 gem install flipt_client
 ```
 
-## Using System Libffi
+## Supported Architectures
+
+This SDK currently supports the following OSes/architectures:
+
+- Linux x86_64
+- Linux arm64
+- MacOS x86_64
+- MacOS arm64
+
+### Using System Libffi
 
 If you are experiencing segfaults when using this gem, you may need to configure `ffi` to use the system libffi instead of the bundled one.
 

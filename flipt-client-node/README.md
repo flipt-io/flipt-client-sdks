@@ -10,6 +10,15 @@ The `flipt-client-node` library contains the JavaScript/TypeScript source code f
 npm install @flipt-io/flipt-client
 ```
 
+## Supported Architectures
+
+This SDK currently supports the following OSes/architectures:
+
+- Linux x86_64
+- Linux arm64
+- MacOS x86_64
+- MacOS arm64
+
 ## Usage
 
 In your Node code you can import this client and use it as so:

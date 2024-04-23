@@ -28,6 +28,15 @@ Add the dependency in your `pom.xml`:
 </dependency>
 ```
 
+## Supported Architectures
+
+This SDK currently supports the following OSes/architectures:
+
+- Linux x86_64
+- Linux arm64
+- MacOS x86_64
+- MacOS arm64
+
 ## Usage
 
 In your Java code you can import this client and use it as so:

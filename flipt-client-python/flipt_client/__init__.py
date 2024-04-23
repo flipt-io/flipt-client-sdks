@@ -29,12 +29,12 @@ class FliptEvaluationClient:
         # get dynamic library extension for the current platform
         if platform.system() == "Darwin":
             arch = platform.machine()
-            if arch == "arm64" or arch == "aarch64":
+            if arch == "x86_64":
+                libfile = "darwin_x86_64/libfliptengine.dylib"
+            elif arch == "arm64" or arch == "aarch64":
                 libfile = "darwin_arm64/libfliptengine.dylib"
             else:
-                raise Exception(
-                    f"Unsupported processor: {platform.processor()}. Please use an arm64 Mac."
-                )
+                raise Exception(f"Unsupported processor: {platform.processor()}")
         elif platform.system() == "Linux":
             arch = platform.machine()
             if arch == "x86_64":
@@ -42,9 +42,7 @@ class FliptEvaluationClient:
             elif arch == "arm64" or arch == "aarch64":
                 libfile = "linux_arm64/libfliptengine.so"
             else:
-                raise Exception(
-                    f"Unsupported processor: {platform.processor()}. Please use an x86_64 or arm64 Linux machine."
-                )
+                raise Exception(f"Unsupported processor: {platform.processor()}")
         else:
             raise Exception(f"Unsupported platform: {platform.system()}.")
 

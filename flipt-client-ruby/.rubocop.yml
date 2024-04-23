@@ -12,6 +12,12 @@ Metrics/BlockLength:
     - "spec/**/*"
     - "test/**/*"
 
+Metrics/MethodLength:
+  Max: 20
+  Exclude:
+    - "spec/**/*"
+    - "test/**/*"
+
 Layout/LineLength:
   Exclude:
     - "spec/**/*"

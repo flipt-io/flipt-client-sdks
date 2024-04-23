@@ -11,6 +11,15 @@ The `flipt-client-go` library contains the Go source code for the Flipt [client-
 go get go.flipt.io/flipt-client
 ```
 
+## Supported Architectures
+
+This SDK currently supports the following OSes/architectures:
+
+- Linux x86_64
+- Linux arm64
+- MacOS x86_64
+- MacOS arm64
+
 ## Usage
 
 In your Go code you can import this client and use it as so:

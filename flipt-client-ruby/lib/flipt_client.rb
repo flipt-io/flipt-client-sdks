@@ -18,6 +18,8 @@ module Flipt
       case RbConfig::CONFIG['arch']
       when /arm64-darwin/
         "ext/darwin_arm64/#{FLIPTENGINE}.dylib"
+      when /x86_64-darwin/
+        "ext/darwin_x86_64/#{FLIPTENGINE}.dylib"
       when /arm64-linux|aarch64-linux/
         "ext/linux_arm64/#{FLIPTENGINE}.so"
       when /x86_64-linux/
