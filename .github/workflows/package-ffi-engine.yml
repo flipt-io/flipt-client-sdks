@@ -28,6 +28,10 @@ jobs:
             os: macos-latest
             target: aarch64-apple-darwin
             use_cross: false
+          - name: Darwin-x86_64
+            os: macos-latest
+            target: x86_64-apple-darwin
+            use_cross: false
 
     runs-on: ${{ matrix.platform.os }}
     steps:
@@ -57,7 +61,7 @@ jobs:
           args: --target ${{ matrix.platform.target }} --release
           use-cross: ${{ matrix.platform.use_cross }}
 
-      - if: matrix.platform.name == 'Darwin-arm64'
+      - if: startsWith(matrix.platform.name, 'Darwin')
         run: |
           strip -x target/${{ matrix.platform.target }}/release/libfliptengine.dylib
 

@@ -21,6 +21,9 @@ switch (os.platform()) {
     if (os.arch() === 'arm64') {
       libfile = 'darwin_arm64/libfliptengine.dylib';
       break;
+    } else if (os.arch() === 'x64') {
+      libfile = 'darwin_x86_64/libfliptengine.dylib';
+      break;
     }
     throw new Error('Unsupported platform: ' + os.platform() + '/' + os.arch());
   case 'linux':
