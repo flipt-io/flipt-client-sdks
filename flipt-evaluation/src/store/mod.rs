@@ -41,6 +41,18 @@ struct Namespace {
 }
 
 impl Snapshot {
+    pub fn blank(namespace: &str) -> Snapshot {
+        Self {
+            namespace: Namespace {
+                _key: namespace.to_string(),
+                flags: HashMap::new(),
+                eval_rules: HashMap::new(),
+                eval_rollouts: HashMap::new(),
+                eval_distributions: HashMap::new(),
+            },
+        }
+    }
+
     pub fn build(namespace: &str, doc: source::Document) -> Result<Snapshot, Error> {
         let mut flags: HashMap<String, flipt::Flag> = HashMap::new();
         let mut eval_rules: HashMap<String, Vec<flipt::EvaluationRule>> = HashMap::new();

@@ -19,6 +19,7 @@ where
     parser: P,
     store: S,
     mtx: Arc<RwLock<i32>>,
+    error: Option<Error>,
 }
 
 impl<P> Evaluator<P, Snapshot>
@@ -33,20 +34,21 @@ where
     }
 
     pub fn replace_snapshot(&mut self) {
-        let doc = match self.parser.parse(&self.namespace) {
-            Ok(d) => d,
-            Err(_) => {
+        match self.parser.parse(&self.namespace) {
+            Ok(doc) => {
+                match Snapshot::build(&self.namespace, doc) {
+                    Ok(s) => {
+                        self.replace_store(s, None);
+                    }
+                    Err(err) => {
+                        // TODO: log::error!("error building snapshot: {}", e);
+                        self.replace_store(Snapshot::blank(&self.namespace), Some(err))
+                    }
+                };
+            }
+            Err(err) => {
                 // TODO: log::error!("error parsing document: {}"", e);
-                Document::default()
-            }
-        };
-
-        match Snapshot::build(&self.namespace, doc) {
-            Ok(s) => {
-                self.replace_store(s);
-            }
-            Err(_) => {
-                // TODO: log::error!("error building snapshot: {}", e);
+                self.replace_store(Snapshot::blank(&self.namespace), Some(err))
             }
         };
     }
@@ -63,16 +65,21 @@ where
             parser,
             store,
             mtx: Arc::new(RwLock::new(0)),
+            error: None,
         }
     }
 
-    pub fn replace_store(&mut self, store: S) {
+    pub fn replace_store(&mut self, store: S, err: Option<Error>) {
         let _w_lock = self.mtx.write().unwrap();
         self.store = store;
+        self.error = err;
     }
 
     pub fn list_flags(&self) -> Result<Vec<flipt::Flag>, Error> {
         let _r_lock = self.mtx.read().unwrap();
+        if self.error.is_some() {
+            return Err(self.error.expect("valid error"));
+        }
         match self.store.list_flags(&self.namespace) {
             Some(f) => Ok(f),
             None => Err(Error::Unknown(format!(
@@ -87,6 +94,9 @@ where
         evaluation_request: &EvaluationRequest,
     ) -> Result<VariantEvaluationResponse, Error> {
         let _r_lock = self.mtx.read().unwrap();
+        if self.error.is_some() {
+            return Err(self.error.expect("valid error"));
+        }
         variant_evaluation(&self.store, &self.namespace, evaluation_request)
     }
 
@@ -95,6 +105,9 @@ where
         evaluation_request: &EvaluationRequest,
     ) -> Result<BooleanEvaluationResponse, Error> {
         let _r_lock = self.mtx.read().unwrap();
+        if self.error.is_some() {
+            return Err(self.error.expect("valid error"));
+        }
         boolean_evaluation(&self.store, &self.namespace, evaluation_request)
     }
 
@@ -103,6 +116,9 @@ where
         requests: Vec<EvaluationRequest>,
     ) -> Result<BatchEvaluationResponse, Error> {
         let _r_lock = self.mtx.read().unwrap();
+        if self.error.is_some() {
+            return Err(self.error.expect("valid error"));
+        }
         batch_evaluation(&self.store, &self.namespace, requests)
     }
 }
