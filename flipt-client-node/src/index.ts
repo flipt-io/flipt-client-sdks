@@ -1,5 +1,5 @@
-import * as ffi from 'ffi-napi';
-import { Pointer, allocCString } from 'ref-napi';
+import * as ffi from '@2060.io/ffi-napi';
+import { Pointer, allocCString } from '@2060.io/ref-napi';
 import * as os from 'os';
 import {
   AuthenticationStrategy,

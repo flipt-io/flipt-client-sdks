@@ -19,8 +19,8 @@
   },
   "dependencies": {
     "@types/ffi": "^0.2.7",
-    "ffi-napi": "^4.0.3",
-    "ref-napi": "^3.0.3"
+    "@2060.io/ffi-napi": "^4.0.3",
+    "@2060.io/ref-napi": "^3.0.3"
   },
   "devDependencies": {
     "@types/ffi-napi": "^4.0.10",
