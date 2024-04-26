@@ -161,7 +161,7 @@ impl Parser for HTTPParser {
 
         let document: source::Document = match serde_json::from_str(&response_text) {
             Ok(doc) => doc,
-            Err(e) => return Err(Error::InvalidJSON(e)),
+            Err(e) => return Err(Error::InvalidJSON(e.to_string())),
         };
 
         Ok(document)

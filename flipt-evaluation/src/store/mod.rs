@@ -391,4 +391,15 @@ mod tests {
         }
         assert_eq!(found, 2);
     }
+
+    #[test]
+    fn test_blank_snapshot() {
+        let snapshot = Snapshot::blank("staging");
+        let namespace = snapshot.namespace;
+        assert_eq!("staging", namespace._key);
+        assert_eq!(0, namespace.flags.len());
+        assert_eq!(0, namespace.eval_rules.len());
+        assert_eq!(0, namespace.eval_distributions.len());
+        assert_eq!(0, namespace.eval_rollouts.len());
+    }
 }

@@ -1,11 +1,11 @@
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum Error {
     #[error("error engine null pointer")]
     NullPointer,
-    #[error("error parsing json")]
-    InvalidJSON(#[from] serde_json::Error),
+    #[error("error parsing json: {0}")]
+    InvalidJSON(String),
     #[error("invalid request: {0}")]
     InvalidRequest(String),
     #[error("server error: {0}")]
