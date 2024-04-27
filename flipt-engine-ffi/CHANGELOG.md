@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.13](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.12...flipt-engine-ffi-v0.1.13) (2024-04-27)
+
+
+### Bug Fixes
+
+* **engine-ffi:** return error to caller on connection or parse json failures ([#254](https://github.com/flipt-io/flipt-client-sdks/issues/254)) ([aaf3377](https://github.com/flipt-io/flipt-client-sdks/commit/aaf33775ee0d61e94dab5043f7337f330a208cbf))
+
 ## [0.1.12](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.12...flipt-engine-ffi-v0.1.12) (2024-04-23)
 
 
