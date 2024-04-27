@@ -69,6 +69,8 @@ To work around this issue you'll need to downgrade to Node v20 or lower. :(
 
 We plan to look into alternative ffi libraries for node in the future. See [#200](https://github.com/flipt-io/flipt-client-sdks/issues/200)
 
+For alpine, `python3 g++ make` packages may be required.
+
 ### Vitest
 
 If you are using this library in combination with [vitest](https://github.com/vitest-dev/vitest), you may run into segmentation fault issues. This is due to the fact that `vitest` does not work nicely with `ffi-napi` by default.

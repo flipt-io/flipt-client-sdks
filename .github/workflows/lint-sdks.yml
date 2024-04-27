@@ -31,15 +31,18 @@ jobs:
 
   lint-typescript:
     name: Lint Typescript
+    strategy:
+      matrix:
+        node-version: ['20', '21']
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
 
-      - name: Install Node
+      - name: Install Node ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: ${{ matrix.node-version }}
 
       - name: Lint Typescript source
         working-directory: flipt-client-node
