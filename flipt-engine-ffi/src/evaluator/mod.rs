@@ -42,13 +42,13 @@ where
                     }
                     Err(err) => {
                         // TODO: log::error!("error building snapshot: {}", e);
-                        self.replace_store(Snapshot::blank(&self.namespace), Some(err))
+                        self.replace_store(Snapshot::empty(&self.namespace), Some(err))
                     }
                 };
             }
             Err(err) => {
                 // TODO: log::error!("error parsing document: {}"", e);
-                self.replace_store(Snapshot::blank(&self.namespace), Some(err))
+                self.replace_store(Snapshot::empty(&self.namespace), Some(err))
             }
         };
     }
@@ -224,7 +224,7 @@ mod tests {
         parser.expect_parse().returning(|_| Ok(Document::default()));
         let mut evaluator =
             Evaluator::new_snapshot_evaluator("namespace", parser).expect("expect valid evaluator");
-        evaluator.replace_store(Snapshot::blank("other"), None);
+        evaluator.replace_store(Snapshot::empty("other"), None);
         let response = evaluator.list_flags();
         match response {
             Err(err) => assert_eq!(

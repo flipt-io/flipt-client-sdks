@@ -41,7 +41,7 @@ struct Namespace {
 }
 
 impl Snapshot {
-    pub fn blank(namespace: &str) -> Snapshot {
+    pub fn empty(namespace: &str) -> Snapshot {
         Self {
             namespace: Namespace {
                 _key: namespace.to_string(),
@@ -393,8 +393,8 @@ mod tests {
     }
 
     #[test]
-    fn test_blank_snapshot() {
-        let snapshot = Snapshot::blank("staging");
+    fn test_empty_snapshot() {
+        let snapshot = Snapshot::empty("staging");
         let namespace = snapshot.namespace;
         assert_eq!("staging", namespace._key);
         assert_eq!(0, namespace.flags.len());
