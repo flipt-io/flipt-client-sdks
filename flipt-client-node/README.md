@@ -59,16 +59,6 @@ fliptEvaluationClient.close();
 
 ## Potential Issues
 
-### Node v21+
-
-If you are using Node v21 or higher, you'll likely run into issues with the `ffi-napi` library. This is due to the fact that `ffi-napi` does not seem to be compatible with Node v21+.
-
-See: [node-ffi-napi #267](https://github.com/node-ffi-napi/node-ffi-napi/issues/267)
-
-To work around this issue you'll need to downgrade to Node v20 or lower. :(
-
-We plan to look into alternative ffi libraries for node in the future. See [#200](https://github.com/flipt-io/flipt-client-sdks/issues/200)
-
 ### Vitest
 
 If you are using this library in combination with [vitest](https://github.com/vitest-dev/vitest), you may run into segmentation fault issues. This is due to the fact that `vitest` does not work nicely with `ffi-napi` by default.
