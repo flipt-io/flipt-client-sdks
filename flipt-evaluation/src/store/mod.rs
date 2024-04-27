@@ -41,6 +41,18 @@ struct Namespace {
 }
 
 impl Snapshot {
+    pub fn empty(namespace: &str) -> Snapshot {
+        Self {
+            namespace: Namespace {
+                _key: namespace.to_string(),
+                flags: HashMap::new(),
+                eval_rules: HashMap::new(),
+                eval_rollouts: HashMap::new(),
+                eval_distributions: HashMap::new(),
+            },
+        }
+    }
+
     pub fn build(namespace: &str, doc: source::Document) -> Result<Snapshot, Error> {
         let mut flags: HashMap<String, flipt::Flag> = HashMap::new();
         let mut eval_rules: HashMap<String, Vec<flipt::EvaluationRule>> = HashMap::new();
@@ -378,5 +390,16 @@ mod tests {
             }
         }
         assert_eq!(found, 2);
+    }
+
+    #[test]
+    fn test_empty_snapshot() {
+        let snapshot = Snapshot::empty("staging");
+        let namespace = snapshot.namespace;
+        assert_eq!("staging", namespace._key);
+        assert_eq!(0, namespace.flags.len());
+        assert_eq!(0, namespace.eval_rules.len());
+        assert_eq!(0, namespace.eval_distributions.len());
+        assert_eq!(0, namespace.eval_rollouts.len());
     }
 }

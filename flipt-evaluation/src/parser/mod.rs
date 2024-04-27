@@ -38,7 +38,7 @@ impl Parser for TestParser {
 
         let document: source::Document = match serde_json::from_str(&state) {
             Ok(document) => document,
-            Err(e) => return Err(Error::InvalidJSON(e)),
+            Err(e) => return Err(Error::InvalidJSON(e.to_string())),
         };
 
         Ok(document)
