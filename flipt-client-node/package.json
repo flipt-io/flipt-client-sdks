@@ -8,7 +8,8 @@
   "author": "Flipt Devs <dev@flipt.io>",
   "license": "MIT",
   "files": [
-    "dist"
+    "dist",
+    "ext"
   ],
   "scripts": {
     "fmt": "prettier --config .prettierrc 'src/**/*.ts' --write",
