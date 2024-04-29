@@ -4,12 +4,12 @@
     "target": "es2019",
     "declaration": true,
     "outDir": "dist",
+    "rootDir": "src",
     "strict": true,
     "esModuleInterop": true
   },
   "include": [
     "src/**/*",
-    "__tests__"
   ],
   "exclude": [
     "node_modules",
