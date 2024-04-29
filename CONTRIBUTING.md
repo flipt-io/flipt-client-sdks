@@ -60,7 +60,15 @@ The client shape should be as follows:
 5. **List Flags** method: Should return a list of all flags in the namespace. Follow language conventions for naming.
 6. **Close** method (language dependent): Should close the engine and free any memory allocated by the engine. Follow language conventions for naming.
 
-### 3. Setup Tests
+### 3. Interface with the Engine
+
+The client should interface with the engine to evaluate flags. The engine is responsible for connecting to the Flipt server, fetching flag state, and evaluating flags.
+
+You don't have to build the engine from scratch in order to develop a new client. You can download the latest engine version from the [releases page](https://github.com/flipt-io/flipt-client-sdks/latest) for your platform and use it while developing the client.
+
+### 4. Setup Tests (optional)
+
+If you like to add tests using Dagger, you can follow the steps below. If you are not familiar with Dagger, you can skip this step and simply provide instructions for running the tests locally.
 
 Feel free to ask the team for help with this step.
 
@@ -68,15 +76,15 @@ Feel free to ask the team for help with this step.
 2. Update `test/main.go` to run the tests for the new client using Dagger. See the existing clients for examples.
 3. Ensure the tests pass locally by running `dagger run go run ./test/... --languages={language}` from the root of the repository. Note: You will need to have Docker, Go, and Dagger installed locally to run the tests.
 
-### 4. Update README
+### 5. Update README
 
 Update the [README.md](./README.md) to include the new client in the list of clients. Follow the existing clients for examples.
 
-### 5. Setup Dependabot
+### 6. Setup Dependabot (optional)
 
 Add a new section to the [dependabot.yml](./.github/dependabot.yml) file for the new language if applicable. Follow the existing languages for examples.
 
-### 6. Create a PR
+### 7. Create a PR
 
 Create a PR with the changes and we will review it as soon as possible. Please add any language specific idioms when it comes to packaging the client. This will allow us to automate and publish the client to the appropriate package manager.
 
