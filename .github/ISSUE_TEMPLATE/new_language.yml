@@ -65,6 +65,10 @@ body:
   - type: markdown
     attributes:
       value: |
+        ## Contributing
+
+        Check out our [Contributing Guide](https://github.com/flipt-io/flipt-client-sdks/blob/main/CONTRIBUTING.md) to learn more about how you can help contribute / implement this SDK request.
+
         ## Join the Flipt Community
 
         - [Join our Discord](https://flipt.io/discord) `#sdk-dev` channel to discuss your language request with the Flipt community.
