@@ -251,8 +251,12 @@ pub fn variant_evaluation(
         let d = &valid_distributions[index];
 
         variant_evaluation_response.r#match = true;
-        variant_evaluation_response.variant_key = d.variant_key.clone();
-        variant_evaluation_response.variant_attachment = d.variant_attachment.clone();
+        variant_evaluation_response
+            .variant_key
+            .clone_from(&d.variant_key);
+        variant_evaluation_response
+            .variant_attachment
+            .clone_from(&d.variant_attachment);
         variant_evaluation_response.reason = common::EvaluationReason::Match;
         variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
         return Ok(variant_evaluation_response);
