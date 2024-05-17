@@ -20,6 +20,6 @@ jobs:
           private_key: ${{ secrets.FLIPT_RELEASE_BOT_APP_PEM }}
           installation_id: ${{ secrets.FLIPT_RELEASE_BOT_INSTALLATION_ID }}
 
-      - uses: google-github-actions/release-please-action@v4
+      - uses: googleapis/release-please-action@v4
         with:
           token: ${{ steps.generate_token.outputs.token}}
