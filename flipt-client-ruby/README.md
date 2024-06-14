@@ -55,6 +55,25 @@ resp = client.evaluate_variant({ flag_key: 'buzz', entity_id: 'someentity', cont
 puts resp
 ```
 
+### Constructor Arguments
+
+The `Flipt::EvaluationClient` constructor accepts two optional arguments:
+
+- `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
+- `engine_opts`: A hash that supports several options for the client. The structure is:
+  - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
+  - `update_interval`: The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
+  - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
+  - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
+
+### Authentication
+
+The `FliptEvaluationClient` supports the following authentication strategies:
+
+- No Authentication (default)
+- [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
+- [JWT Authentication](https://docs.flipt.io/authentication/using-jwts)
+
 ## Load Test
 
 1. To run the load test, you'll need to have Flipt running locally. You can do this by running the following command from the root of the repository:
