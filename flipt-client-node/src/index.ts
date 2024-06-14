@@ -54,6 +54,20 @@ const engineLib = ffi.Library(libfile, {
 export class FliptEvaluationClient {
   private engine: Pointer<unknown>;
 
+  /**
+   * Initializes a new instance of the engine with the specified options.
+   *
+   * @param namespace - An optional namespace string for the engine instance. If not provided,
+   * `default` namespace will be used.
+   *
+   * @param engine_opts - The optional options for configuring the engine. If not provided,
+   *                      default values will be used.
+   *
+   * @returns Flipt evaluation client
+   *
+   * @throws Error
+   * This exception is thrown if platform is not supported.
+   */
   public constructor(
     namespace?: string,
     engine_opts: EngineOpts<AuthenticationStrategy> = {
@@ -69,6 +83,18 @@ export class FliptEvaluationClient {
     this.engine = engine;
   }
 
+  /**
+   * Performs evaluation for a variant flag.
+   *
+   * @param flag_key - Feature flag key. {@link EvaluationRequest.flag_key}
+   * @param entity_id - Entity identifier. {@link EvaluationRequest.entity_id}
+   * @param context - Context information for flag evaluation.  {@link EvaluationRequest.context}
+   *
+   * @returns {@link VariantResult} the result of evaluation
+   *
+   * @throws {@link Error}
+   * This exception is thrown if unexpected error occurs.
+   */
   public evaluateVariant(
     flag_key: string,
     entity_id: string,
@@ -92,6 +118,18 @@ export class FliptEvaluationClient {
     return JSON.parse(this.stringify(response));
   }
 
+  /**
+   * Performs evaluation for a boolean flag.
+   *
+   * @param flag_key - Feature flag key. {@link EvaluationRequest.flag_key}
+   * @param entity_id - Entity identifier. {@link EvaluationRequest.entity_id}
+   * @param context - Context information for flag evaluation.  {@link EvaluationRequest.context}
+   *
+   * @returns {@link BooleanResult} the result of evaluation
+   *
+   * @throws {@link Error}
+   * This exception is thrown if unexpected error occurs.
+   */
   public evaluateBoolean(
     flag_key: string,
     entity_id: string,
@@ -115,6 +153,16 @@ export class FliptEvaluationClient {
     return JSON.parse(this.stringify(response));
   }
 
+  /**
+   * Performs batch evaluation for bulk of flags.
+   *
+   * @param requests - array of evaluation requests {@link EvaluationRequest}.
+   *
+   * @returns {@link BatchResult}
+   *
+   * @throws {@link Error}
+   * This exception is thrown if unexpected error occurs.
+   */
   public evaluateBatch(requests: EvaluationRequest[]): BatchResult {
     const response = engineLib.evaluate_batch(
       this.engine,
@@ -128,6 +176,11 @@ export class FliptEvaluationClient {
     return JSON.parse(this.stringify(response));
   }
 
+  /**
+   * Retrieves flags.
+   *
+   * @returns {@link Result} the list of available flags in current namespace
+   */
   public listFlags(): Result<Flag[]> {
     const response = engineLib.list_flags(this.engine);
     if (response === null) {
@@ -137,11 +190,18 @@ export class FliptEvaluationClient {
     return JSON.parse(this.stringify(response));
   }
 
+  /**
+   * Frees memory allocated for the Flipt engine.
+   *
+   * It should be called when client is not in use anymore.
+   */
   public close() {
     engineLib.destroy_engine(this.engine);
   }
 
-  // get the string from ffi pointer and deallocate the data
+  /**
+   * Get the string from ffi pointer and deallocate the data
+   */
   private stringify(response: Pointer<string>): string {
     const value = Buffer.from(response.readCString()).toString('utf-8');
     engineLib.destroy_string(response);
