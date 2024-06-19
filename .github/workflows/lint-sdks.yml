@@ -33,7 +33,7 @@ jobs:
     name: Lint Typescript
     strategy:
       matrix:
-        node-version: ['20', '21']
+        node-version: ["20", "21"]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
