@@ -2,25 +2,22 @@
 
 ## [0.1.13](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.12...flipt-engine-ffi-v0.1.13) (2024-04-27)
 
-
 ### Bug Fixes
 
-* **engine-ffi:** return error to caller on connection or parse json failures ([#254](https://github.com/flipt-io/flipt-client-sdks/issues/254)) ([aaf3377](https://github.com/flipt-io/flipt-client-sdks/commit/aaf33775ee0d61e94dab5043f7337f330a208cbf))
+- **engine-ffi:** return error to caller on connection or parse json failures ([#254](https://github.com/flipt-io/flipt-client-sdks/issues/254)) ([aaf3377](https://github.com/flipt-io/flipt-client-sdks/commit/aaf33775ee0d61e94dab5043f7337f330a208cbf))
 
 ## [0.1.12](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.12...flipt-engine-ffi-v0.1.12) (2024-04-23)
 
-
 ### Miscellaneous Chores
 
-* release 0.1.12 ([b6ee0e1](https://github.com/flipt-io/flipt-client-sdks/commit/b6ee0e1147dbdead09f8d64903ef5ab7d9fb2b94))
+- release 0.1.12 ([b6ee0e1](https://github.com/flipt-io/flipt-client-sdks/commit/b6ee0e1147dbdead09f8d64903ef5ab7d9fb2b94))
 
 ## [0.1.11](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.10...flipt-engine-ffi-v0.1.11) (2024-04-10)
 
-
 ### Features
 
-* Batch eval wasm ([#237](https://github.com/flipt-io/flipt-client-sdks/issues/237)) ([d50bf32](https://github.com/flipt-io/flipt-client-sdks/commit/d50bf329a55f21bd035395e6e695f9f63ef4ec55))
-* wasm impl ([#217](https://github.com/flipt-io/flipt-client-sdks/issues/217)) ([3340d52](https://github.com/flipt-io/flipt-client-sdks/commit/3340d523b7f6bd94cec075cd2d4d4b0f6ddae5be))
+- Batch eval wasm ([#237](https://github.com/flipt-io/flipt-client-sdks/issues/237)) ([d50bf32](https://github.com/flipt-io/flipt-client-sdks/commit/d50bf329a55f21bd035395e6e695f9f63ef4ec55))
+- wasm impl ([#217](https://github.com/flipt-io/flipt-client-sdks/issues/217)) ([3340d52](https://github.com/flipt-io/flipt-client-sdks/commit/3340d523b7f6bd94cec075cd2d4d4b0f6ddae5be))
 
 ## [0.1.10](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.9...flipt-engine-ffi-v0.1.10) (2024-03-28)
 

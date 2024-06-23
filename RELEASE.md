@@ -43,7 +43,7 @@ Releasing each SDK is a two to three-step process:
     <img src=".github/images/release-engine-ffi-sdk.png" width=600 />
 </p>
 
-1. Update the SDK to the new version that you want to release (i.e. update the version in `package.json` for Node, `setup.py` for Python, `flipt_client.gemspec` for Ruby).
+1. Update the SDK to the new version that you want to release (i.e. update the version in `package.json` for Node, `pyproject.toml` for Python, `flipt_client.gemspec` for Ruby).
 1. Commit and tag the SDK with the new version using the naming convention `flipt-client-{language}-{version}` (i.e. `flipt-client-node-v0.1.0`).
 1. Push the tag to `origin`. This will trigger the appropriate GitHub Action to build, package, and publish the SDK.
 
