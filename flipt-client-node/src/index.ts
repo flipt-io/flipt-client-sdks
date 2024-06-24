@@ -13,35 +13,27 @@ import {
 } from './models';
 import * as path from 'path';
 
-let libfile = '';
+const libFiles: { [key: string]: string } = {
+  'darwin-arm64': 'darwin_arm64/libfliptengine.dylib',
+  'darwin-x64': 'darwin_x86_64/libfliptengine.dylib',
+  'linux-arm64': 'linux_arm64/libfliptengine.so',
+  'linux-x64': 'linux_x86_64/libfliptengine.so'
+};
 
-// get absolute path to libfliptengine
-switch (os.platform()) {
-  case 'darwin':
-    if (os.arch() === 'arm64') {
-      libfile = 'darwin_arm64/libfliptengine.dylib';
-      break;
-    } else if (os.arch() === 'x64') {
-      libfile = 'darwin_x86_64/libfliptengine.dylib';
-      break;
-    }
-    throw new Error('Unsupported platform: ' + os.platform() + '/' + os.arch());
-  case 'linux':
-    if (os.arch() === 'arm64') {
-      libfile = 'linux_arm64/libfliptengine.so';
-      break;
-    } else if (os.arch() === 'x64') {
-      libfile = 'linux_x86_64/libfliptengine.so';
-      break;
-    }
-    throw new Error('Unsupported platform: ' + os.platform() + '/' + os.arch());
-  default:
-    throw new Error('Unsupported platform: ' + os.platform() + '/' + os.arch());
+const platform = os.platform();
+const arch = os.arch();
+const key = `${platform}-${arch}`;
+
+const libfile = libFiles[key];
+
+if (!libfile) {
+  throw new Error(`Unsupported platform: ${platform}/${arch}`);
 }
 
-libfile = path.join(__dirname, '..', 'ext', libfile);
+// get absolute path to libfliptengine
+const engineLibPath = path.join(__dirname, '..', 'ext', libfile);
 
-const engineLib = ffi.Library(libfile, {
+const engineLib = ffi.Library(engineLibPath, {
   initialize_engine: ['void *', ['char **', 'string']],
   evaluate_variant: ['char **', ['void *', 'string']],
   evaluate_boolean: ['char **', ['void *', 'string']],
