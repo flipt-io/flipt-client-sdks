@@ -26,27 +26,26 @@ class FliptEvaluationClient:
     def __init__(
         self, namespace: str = "default", engine_opts: EngineOpts = EngineOpts()
     ):
-        # get dynamic library extension for the current platform
-        if platform.system() == "Darwin":
-            arch = platform.machine()
-            if arch == "x86_64":
-                libfile = "darwin_x86_64/libfliptengine.dylib"
-            elif arch == "arm64" or arch == "aarch64":
-                libfile = "darwin_arm64/libfliptengine.dylib"
-            else:
-                raise Exception(f"Unsupported processor: {platform.processor()}")
-        elif platform.system() == "Linux":
-            arch = platform.machine()
-            if arch == "x86_64":
-                libfile = "linux_x86_64/libfliptengine.so"
-            elif arch == "arm64" or arch == "aarch64":
-                libfile = "linux_arm64/libfliptengine.so"
-            else:
-                raise Exception(f"Unsupported processor: {platform.processor()}")
-        else:
-            raise Exception(f"Unsupported platform: {platform.system()}.")
+        # Mapping of platform-architecture combinations to their respective library file paths
+        lib_files = {
+            "Darwin-x86_64": "darwin_x86_64/libfliptengine.dylib",
+            "Darwin-arm64": "darwin_arm64/libfliptengine.dylib",
+            "Darwin-aarch64": "darwin_arm64/libfliptengine.dylib",
+            "Linux-x86_64": "linux_x86_64/libfliptengine.so",
+            "Linux-arm64": "linux_arm64/libfliptengine.so",
+            "Linux-aarch64": "linux_arm64/libfliptengine.so",
+        }
 
-        # get the absolute path to the engine library from the ../ext directory
+        platform_name = platform.system()
+        arch = platform.machine()
+        key = f"{platform_name}-{arch}"
+
+        libfile = lib_files.get(key)
+
+        if not libfile:
+            raise Exception(f"Unsupported platform/processor: {platform_name}/{arch}")
+
+        # Get the absolute path to the engine library from the ../ext directory
         engine_library_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), f"../ext/{libfile}"
         )
