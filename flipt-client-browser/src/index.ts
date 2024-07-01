@@ -12,10 +12,16 @@ import {
 export class FliptEvaluationClient {
   private engine: Engine;
   private fetcher: () => Promise<Response>;
+  private _namespace: string;
 
-  private constructor(engine: Engine, fetcher: () => Promise<Response>) {
+  private constructor(
+    engine: Engine,
+    fetcher: () => Promise<Response>,
+    namespace: string = 'default'
+  ) {
     this.engine = engine;
     this.fetcher = fetcher;
+    this._namespace = namespace;
   }
 
   /**
@@ -83,6 +89,10 @@ export class FliptEvaluationClient {
     return new FliptEvaluationClient(engine, fetcher);
   }
 
+  public get namespace(): string {
+    return this._namespace;
+  }
+
   /**
    * Refresh the flags snapshot
    * @returns void
@@ -143,5 +153,57 @@ export class FliptEvaluationClient {
    */
   public evaluateBatch(requests: EvaluationRequest[]): BatchResult {
     return this.engine.evaluate_batch(requests);
+  }
+}
+
+export class FliptMetrics {
+  evaluationClient: FliptEvaluationClient;
+  datadogRum: any;
+
+  constructor(evaluationClient: FliptEvaluationClient, datadogRum: any) {
+    this.evaluationClient = evaluationClient;
+    this.datadogRum = datadogRum;
+  }
+
+  public evaluateBoolean(
+    flag_key: string,
+    entity_id: string,
+    context: {}
+  ): BooleanResult {
+    const response = this.evaluationClient.evaluateBoolean(
+      flag_key,
+      entity_id,
+      context
+    );
+
+    if (this.datadogRum && response.result) {
+      this.datadogRum.addFeatureFlagEvaluation(
+        `${this.evaluationClient.namespace}/${flag_key}`,
+        response.result.enabled
+      );
+    }
+
+    return response;
+  }
+
+  public evaluateVariant(
+    flag_key: string,
+    entity_id: string,
+    context: {}
+  ): VariantResult {
+    const response = this.evaluationClient.evaluateVariant(
+      flag_key,
+      entity_id,
+      context
+    );
+
+    if (this.datadogRum && response.result) {
+      this.datadogRum.addFeatureFlagEvaluation(
+        `${this.evaluationClient.namespace}/${flag_key}`,
+        response.result.variant_key
+      );
+    }
+
+    return response;
   }
 }
