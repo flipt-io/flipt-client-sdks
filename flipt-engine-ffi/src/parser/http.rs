@@ -191,6 +191,53 @@ impl Parser for HTTPParser {
 #[cfg(test)]
 mod tests {
     use crate::parser::http::Authentication;
+    use crate::parser::http::HTTPParserBuilder;
+    use fliptevaluation::parser::Parser;
+
+    #[test]
+    fn test_parse() {
+        let mut server = mockito::Server::new();
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .create();
+
+        let url = server.url();
+        let mut parser = HTTPParserBuilder::new(&url)
+            .authentication(Authentication::None)
+            .build();
+
+        let result = parser.parse("default");
+
+        assert!(result.is_ok());
+        mock.assert();
+    }
+
+    #[test]
+    fn test_parse_not_modified() {
+        let mut server = mockito::Server::new();
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("if-none-match", "etag")
+            .with_status(304)
+            .create();
+
+        let url = server.url();
+        let mut parser = HTTPParserBuilder::new(&url)
+            .authentication(Authentication::None)
+            .build();
+
+        parser.etag = Some("etag".to_string());
+
+        let result = parser.parse("default");
+
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+
+        mock.assert();
+    }
 
     #[test]
     fn test_http_parser_url() {
