@@ -126,10 +126,6 @@ impl Parser for HTTPParser {
     fn parse(&mut self, namespace: &str) -> Result<Option<source::Document>, Error> {
         let mut headers = HeaderMap::new();
         headers.insert(
-            reqwest::header::CONTENT_TYPE,
-            reqwest::header::HeaderValue::from_static("application/json"),
-        );
-        headers.insert(
             reqwest::header::ACCEPT,
             reqwest::header::HeaderValue::from_static("application/json"),
         );
@@ -195,12 +191,13 @@ mod tests {
     use fliptevaluation::parser::Parser;
 
     #[test]
-    fn test_parse() {
+    fn test_http_parse() {
         let mut server = mockito::Server::new();
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
             .with_status(200)
             .with_header("content-type", "application/json")
+            .with_header("etag", "etag")
             .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
             .create();
 
@@ -213,10 +210,12 @@ mod tests {
 
         assert!(result.is_ok());
         mock.assert();
+
+        assert_eq!(parser.etag, Some("etag".to_string()));
     }
 
     #[test]
-    fn test_parse_not_modified() {
+    fn test_http_parse_not_modified() {
         let mut server = mockito::Server::new();
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
@@ -236,6 +235,69 @@ mod tests {
         assert!(result.is_ok());
         assert!(result.unwrap().is_none());
 
+        mock.assert();
+    }
+
+    #[test]
+    fn test_http_parse_error() {
+        let mut server = mockito::Server::new();
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .with_status(500)
+            .create();
+
+        let url = server.url();
+        let mut parser = HTTPParserBuilder::new(&url)
+            .authentication(Authentication::None)
+            .build();
+
+        let result = parser.parse("default");
+
+        assert!(!result.is_ok());
+        mock.assert();
+    }
+
+    #[test]
+    fn test_http_parse_token_auth() {
+        let mut server = mockito::Server::new();
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("authorization", "Bearer foo")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .create();
+
+        let url = server.url();
+        let mut parser = HTTPParserBuilder::new(&url)
+            .authentication(Authentication::ClientToken("foo".to_string()))
+            .build();
+
+        let result = parser.parse("default");
+
+        assert!(result.is_ok());
+        mock.assert();
+    }
+
+    #[test]
+    fn test_http_parse_jwt_auth() {
+        let mut server = mockito::Server::new();
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("authorization", "JWT foo")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .create();
+
+        let url = server.url();
+        let mut parser = HTTPParserBuilder::new(&url)
+            .authentication(Authentication::JwtToken("foo".to_string()))
+            .build();
+
+        let result = parser.parse("default");
+
+        assert!(result.is_ok());
         mock.assert();
     }
 
