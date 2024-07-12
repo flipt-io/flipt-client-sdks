@@ -130,6 +130,7 @@ where
         batch_evaluation(&self.store, &self.namespace, requests)
     }
 }
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -157,6 +158,7 @@ mod tests {
             }
         }
     }
+
     #[test]
     fn test_parser_with_error() {
         let expected_error = "server error: can't connect";
@@ -222,6 +224,17 @@ mod tests {
             response,
             "invalid request: failed to get flag information namespace/foo",
         );
+    }
+
+    #[test]
+    fn test_parser_with_no_snapshot() {
+        let mut parser = MockParser::new();
+        parser.expect_parse().returning(|_| Ok(None));
+        let evaluator =
+            Evaluator::new_snapshot_evaluator("namespace", parser).expect("expect valid evaluator");
+
+        let response = evaluator.list_flags();
+        assert!(response.is_ok());
     }
 
     #[test]
