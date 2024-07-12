@@ -281,10 +281,10 @@ mod tests {
 
     #[test]
     fn test_snapshot() {
-        let tp = TestParser::new();
+        let mut tp = TestParser::new();
         let doc = tp.parse("default").unwrap();
 
-        let snapshot = Snapshot::build("default", doc).unwrap();
+        let snapshot = Snapshot::build("default", doc.unwrap()).unwrap();
 
         let flag_variant = snapshot
             .get_flag("default", "flag1")
