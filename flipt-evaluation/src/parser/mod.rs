@@ -1,5 +1,5 @@
 pub trait Parser {
-    fn parse(&self, namespace: &str) -> Result<source::Document, Error>;
+    fn parse(&mut self, namespace: &str) -> Result<Option<source::Document>, Error>;
 }
 
 #[cfg(test)]
@@ -24,7 +24,7 @@ impl TestParser {
 
 #[cfg(test)]
 impl Parser for TestParser {
-    fn parse(&self, _: &str) -> Result<source::Document, Error> {
+    fn parse(&mut self, _: &str) -> Result<Option<source::Document>, Error> {
         let f = match &self.path {
             Some(path) => path.to_owned(),
             None => {
@@ -41,6 +41,6 @@ impl Parser for TestParser {
             Err(e) => return Err(Error::InvalidJSON(e.to_string())),
         };
 
-        Ok(document)
+        Ok(Some(document))
     }
 }

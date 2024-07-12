@@ -61,6 +61,7 @@ pub struct HTTPParser {
     http_url: String,
     authentication: HeaderMap,
     reference: Option<String>,
+    etag: Option<String>,
 }
 
 pub struct HTTPParserBuilder {
@@ -97,6 +98,7 @@ impl HTTPParserBuilder {
             http_url: self.http_url,
             authentication: self.authentication,
             reference: self.reference,
+            etag: None,
         }
     }
 }
@@ -121,7 +123,7 @@ impl HTTPParser {
 }
 
 impl Parser for HTTPParser {
-    fn parse(&self, namespace: &str) -> Result<source::Document, Error> {
+    fn parse(&mut self, namespace: &str) -> Result<Option<source::Document>, Error> {
         let mut headers = HeaderMap::new();
         headers.insert(
             reqwest::header::CONTENT_TYPE,
@@ -136,6 +138,14 @@ impl Parser for HTTPParser {
             "X-Flipt-Accept-Server-Version",
             reqwest::header::HeaderValue::from_static("1.38.0"),
         );
+
+        // add etag / if-none-match header if we have one
+        if let Some(etag) = &self.etag {
+            headers.insert(
+                reqwest::header::IF_NONE_MATCH,
+                reqwest::header::HeaderValue::from_str(etag).unwrap(),
+            );
+        }
 
         for (key, value) in self.authentication.iter() {
             headers.insert(key, value.clone());
@@ -154,6 +164,16 @@ impl Parser for HTTPParser {
             Err(e) => return Err(Error::Server(format!("failed to make request: {}", e))),
         };
 
+        // check if we have a 304 response
+        if response.status() == reqwest::StatusCode::NOT_MODIFIED {
+            return Ok(None);
+        }
+
+        // check if we have a new etag
+        if let Some(etag) = response.headers().get(reqwest::header::ETAG) {
+            self.etag = Some(etag.to_str().unwrap().to_string());
+        }
+
         let response_text = match response.text() {
             Ok(t) => t,
             Err(e) => return Err(Error::Server(format!("failed to get response body: {}", e))),
@@ -164,7 +184,7 @@ impl Parser for HTTPParser {
             Err(e) => return Err(Error::InvalidJSON(e.to_string())),
         };
 
-        Ok(document)
+        Ok(Some(document))
     }
 }
 

@@ -6,14 +6,19 @@ import {
   BooleanResult,
   EngineOpts,
   EvaluationRequest,
+  IFetcher,
   VariantResult
 } from './models.js';
 
 export class FliptEvaluationClient {
   private engine: Engine;
-  private fetcher: () => Promise<Response>;
+  private fetcher: IFetcher;
+  private etag?: string;
 
-  private constructor(engine: Engine, fetcher: () => Promise<Response>) {
+  private constructor(
+    engine: Engine,
+    fetcher: ({ etag }: { etag?: string }) => Promise<Response>
+  ) {
     this.engine = engine;
     this.fetcher = fetcher;
   }
@@ -64,11 +69,22 @@ export class FliptEvaluationClient {
     let fetcher = engine_opts.fetcher;
 
     if (!fetcher) {
-      fetcher = async () => {
+      fetcher = async ({ etag }: { etag?: string }) => {
+        if (etag) {
+          headers.append('If-None-Match', etag);
+        }
+
         const resp = await fetch(url, {
           method: 'GET',
           headers
         });
+
+        // check for 304 status code
+        if (resp.status === 304) {
+          return resp;
+        }
+
+        // ok only checks for range 200-299
         if (!resp.ok) {
           throw new Error('Failed to fetch data');
         }
@@ -77,7 +93,12 @@ export class FliptEvaluationClient {
       };
     }
 
-    const resp = await fetcher();
+    // should be no etag on first fetch
+    const resp = await fetcher({});
+    if (!resp) {
+      throw new Error('Failed to fetch data');
+    }
+
     const data = await resp.json();
 
     const engine = new Engine(namespace, data);
@@ -89,9 +110,18 @@ export class FliptEvaluationClient {
    * @returns void
    */
   public async refresh() {
-    const resp = await this.fetcher();
-    const data = await resp.json();
+    const opts = { etag: this.etag };
+    const resp = await this.fetcher(opts);
 
+    if (resp.status === 304) {
+      let etag = resp.headers.get('etag');
+      if (etag) {
+        this.etag = etag;
+      }
+      return;
+    }
+
+    const data = await resp.json();
     this.engine.snapshot(data);
   }
 

@@ -36,7 +36,11 @@ where
     pub fn replace_snapshot(&mut self) {
         match self.parser.parse(&self.namespace) {
             Ok(doc) => {
-                match Snapshot::build(&self.namespace, doc) {
+                // if doc is none then return, nothing to do
+                if doc.is_none() {
+                    return;
+                }
+                match Snapshot::build(&self.namespace, doc.unwrap()) {
                     Ok(s) => {
                         self.replace_store(s, None);
                     }
@@ -139,7 +143,7 @@ mod tests {
     mock! {
         pub Parser{}
         impl parser::Parser for Parser {
-            fn parse(&self, namespace: &str) -> Result<source::Document, Error>;
+            fn parse(&mut self, namespace: &str) -> Result<Option<source::Document>, Error>;
         }
     }
 
@@ -182,7 +186,9 @@ mod tests {
     #[test]
     fn test_parser_with_empty_snapshot() {
         let mut parser = MockParser::new();
-        parser.expect_parse().returning(|_| Ok(Document::default()));
+        parser
+            .expect_parse()
+            .returning(|_| Ok(Some(Document::default())));
         let evaluator =
             Evaluator::new_snapshot_evaluator("namespace", parser).expect("expect valid evaluator");
 
@@ -221,7 +227,9 @@ mod tests {
     #[test]
     fn test_list_flags_from_another_namespace() {
         let mut parser = MockParser::new();
-        parser.expect_parse().returning(|_| Ok(Document::default()));
+        parser
+            .expect_parse()
+            .returning(|_| Ok(Some(Document::default())));
         let mut evaluator =
             Evaluator::new_snapshot_evaluator("namespace", parser).expect("expect valid evaluator");
         evaluator.replace_store(Snapshot::empty("other"), None);
