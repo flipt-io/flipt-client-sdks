@@ -55,6 +55,24 @@ func main() {
 }
 ```
 
+### Client Options
+
+The `NewClient` constructor accepts a variadic number of `ClientOption` functions that can be used to configure the client. The available options are:
+
+- `WithNamespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
+- `WithURL`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
+- `WithUpdateInterval`: The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
+- `With{Method}Authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
+- `WithReference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
+
+### Authentication
+
+The `Client` supports the following authentication strategies:
+
+- No Authentication (default)
+- [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
+- [JWT Authentication](https://docs.flipt.io/authentication/using-jwts)
+
 ## Memory Management
 
 The engine that is allocated on the Rust side to compute evaluations for flag state will not be properly deallocated unless you call the `Close()` method on a `Client` instance.

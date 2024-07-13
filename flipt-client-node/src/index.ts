@@ -13,35 +13,27 @@ import {
 } from './models';
 import * as path from 'path';
 
-let libfile = '';
+const libFiles: { [key: string]: string } = {
+  'darwin-arm64': 'darwin_arm64/libfliptengine.dylib',
+  'darwin-x64': 'darwin_x86_64/libfliptengine.dylib',
+  'linux-arm64': 'linux_arm64/libfliptengine.so',
+  'linux-x64': 'linux_x86_64/libfliptengine.so'
+};
 
-// get absolute path to libfliptengine
-switch (os.platform()) {
-  case 'darwin':
-    if (os.arch() === 'arm64') {
-      libfile = 'darwin_arm64/libfliptengine.dylib';
-      break;
-    } else if (os.arch() === 'x64') {
-      libfile = 'darwin_x86_64/libfliptengine.dylib';
-      break;
-    }
-    throw new Error('Unsupported platform: ' + os.platform() + '/' + os.arch());
-  case 'linux':
-    if (os.arch() === 'arm64') {
-      libfile = 'linux_arm64/libfliptengine.so';
-      break;
-    } else if (os.arch() === 'x64') {
-      libfile = 'linux_x86_64/libfliptengine.so';
-      break;
-    }
-    throw new Error('Unsupported platform: ' + os.platform() + '/' + os.arch());
-  default:
-    throw new Error('Unsupported platform: ' + os.platform() + '/' + os.arch());
+const platform = os.platform();
+const arch = os.arch();
+const key = `${platform}-${arch}`;
+
+const libfile = libFiles[key];
+
+if (!libfile) {
+  throw new Error(`Unsupported platform: ${platform}/${arch}`);
 }
 
-libfile = path.join(__dirname, '..', 'ext', libfile);
+// get absolute path to libfliptengine
+const engineLibPath = path.join(__dirname, '..', 'ext', libfile);
 
-const engineLib = ffi.Library(libfile, {
+const engineLib = ffi.Library(engineLibPath, {
   initialize_engine: ['void *', ['char **', 'string']],
   evaluate_variant: ['char **', ['void *', 'string']],
   evaluate_boolean: ['char **', ['void *', 'string']],
@@ -54,6 +46,20 @@ const engineLib = ffi.Library(libfile, {
 export class FliptEvaluationClient {
   private engine: Pointer<unknown>;
 
+  /**
+   * Initializes a new instance of the engine with the specified options.
+   *
+   * @param namespace - An optional namespace string for the engine instance. If not provided,
+   * `default` namespace will be used.
+   *
+   * @param engine_opts - The optional options for configuring the engine. If not provided,
+   *                      default values will be used.
+   *
+   * @returns Flipt evaluation client
+   *
+   * @throws Error
+   * This exception is thrown if platform is not supported.
+   */
   public constructor(
     namespace?: string,
     engine_opts: EngineOpts<AuthenticationStrategy> = {
@@ -69,6 +75,18 @@ export class FliptEvaluationClient {
     this.engine = engine;
   }
 
+  /**
+   * Performs evaluation for a variant flag.
+   *
+   * @param flag_key - Feature flag key. {@link EvaluationRequest.flag_key}
+   * @param entity_id - Entity identifier. {@link EvaluationRequest.entity_id}
+   * @param context - Context information for flag evaluation.  {@link EvaluationRequest.context}
+   *
+   * @returns {@link VariantResult} the result of evaluation
+   *
+   * @throws {@link Error}
+   * This exception is thrown if unexpected error occurs.
+   */
   public evaluateVariant(
     flag_key: string,
     entity_id: string,
@@ -92,6 +110,18 @@ export class FliptEvaluationClient {
     return JSON.parse(this.stringify(response));
   }
 
+  /**
+   * Performs evaluation for a boolean flag.
+   *
+   * @param flag_key - Feature flag key. {@link EvaluationRequest.flag_key}
+   * @param entity_id - Entity identifier. {@link EvaluationRequest.entity_id}
+   * @param context - Context information for flag evaluation.  {@link EvaluationRequest.context}
+   *
+   * @returns {@link BooleanResult} the result of evaluation
+   *
+   * @throws {@link Error}
+   * This exception is thrown if unexpected error occurs.
+   */
   public evaluateBoolean(
     flag_key: string,
     entity_id: string,
@@ -115,6 +145,16 @@ export class FliptEvaluationClient {
     return JSON.parse(this.stringify(response));
   }
 
+  /**
+   * Performs batch evaluation for bulk of flags.
+   *
+   * @param requests - array of evaluation requests {@link EvaluationRequest}.
+   *
+   * @returns {@link BatchResult}
+   *
+   * @throws {@link Error}
+   * This exception is thrown if unexpected error occurs.
+   */
   public evaluateBatch(requests: EvaluationRequest[]): BatchResult {
     const response = engineLib.evaluate_batch(
       this.engine,
@@ -128,6 +168,11 @@ export class FliptEvaluationClient {
     return JSON.parse(this.stringify(response));
   }
 
+  /**
+   * Retrieves flags.
+   *
+   * @returns {@link Result} the list of available flags in current namespace
+   */
   public listFlags(): Result<Flag[]> {
     const response = engineLib.list_flags(this.engine);
     if (response === null) {
@@ -137,11 +182,18 @@ export class FliptEvaluationClient {
     return JSON.parse(this.stringify(response));
   }
 
+  /**
+   * Frees memory allocated for the Flipt engine.
+   *
+   * It should be called when client is not in use anymore.
+   */
   public close() {
     engineLib.destroy_engine(this.engine);
   }
 
-  // get the string from ffi pointer and deallocate the data
+  /**
+   * Get the string from ffi pointer and deallocate the data
+   */
   private stringify(response: Pointer<string>): string {
     const value = Buffer.from(response.readCString()).toString('utf-8');
     engineLib.destroy_string(response);

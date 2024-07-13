@@ -14,19 +14,19 @@ module Flipt
 
     FLIPTENGINE = 'libfliptengine'
 
+    LIB_FILES = {
+      /arm64-darwin/ => "ext/darwin_arm64/#{FLIPTENGINE}.dylib",
+      /x86_64-darwin/ => "ext/darwin_x86_64/#{FLIPTENGINE}.dylib",
+      /arm64-linux|aarch64-linux/ => "ext/linux_arm64/#{FLIPTENGINE}.so",
+      /x86_64-linux/ => "ext/linux_x86_64/#{FLIPTENGINE}.so"
+    }.freeze
+
     def self.libfile
-      case RbConfig::CONFIG['arch']
-      when /arm64-darwin/
-        "ext/darwin_arm64/#{FLIPTENGINE}.dylib"
-      when /x86_64-darwin/
-        "ext/darwin_x86_64/#{FLIPTENGINE}.dylib"
-      when /arm64-linux|aarch64-linux/
-        "ext/linux_arm64/#{FLIPTENGINE}.so"
-      when /x86_64-linux/
-        "ext/linux_x86_64/#{FLIPTENGINE}.so"
-      else
-        raise "unsupported platform #{RbConfig::CONFIG['arch']}"
+      arch = RbConfig::CONFIG['arch']
+      LIB_FILES.each do |pattern, path|
+        return path if arch.match?(pattern)
       end
+      raise "unsupported platform #{arch}"
     end
 
     ffi_lib File.expand_path(libfile, __dir__)
