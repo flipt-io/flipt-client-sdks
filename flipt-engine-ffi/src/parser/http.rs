@@ -61,6 +61,7 @@ pub struct HTTPParser {
     http_url: String,
     authentication: HeaderMap,
     reference: Option<String>,
+    etag: Option<String>,
 }
 
 pub struct HTTPParserBuilder {
@@ -97,6 +98,7 @@ impl HTTPParserBuilder {
             http_url: self.http_url,
             authentication: self.authentication,
             reference: self.reference,
+            etag: None,
         }
     }
 }
@@ -121,12 +123,8 @@ impl HTTPParser {
 }
 
 impl Parser for HTTPParser {
-    fn parse(&self, namespace: &str) -> Result<source::Document, Error> {
+    fn parse(&mut self, namespace: &str) -> Result<Option<source::Document>, Error> {
         let mut headers = HeaderMap::new();
-        headers.insert(
-            reqwest::header::CONTENT_TYPE,
-            reqwest::header::HeaderValue::from_static("application/json"),
-        );
         headers.insert(
             reqwest::header::ACCEPT,
             reqwest::header::HeaderValue::from_static("application/json"),
@@ -136,6 +134,14 @@ impl Parser for HTTPParser {
             "X-Flipt-Accept-Server-Version",
             reqwest::header::HeaderValue::from_static("1.38.0"),
         );
+
+        // add etag / if-none-match header if we have one
+        if let Some(etag) = &self.etag {
+            headers.insert(
+                reqwest::header::IF_NONE_MATCH,
+                reqwest::header::HeaderValue::from_str(etag).unwrap(),
+            );
+        }
 
         for (key, value) in self.authentication.iter() {
             headers.insert(key, value.clone());
@@ -154,6 +160,16 @@ impl Parser for HTTPParser {
             Err(e) => return Err(Error::Server(format!("failed to make request: {}", e))),
         };
 
+        // check if we have a 304 response
+        if response.status() == reqwest::StatusCode::NOT_MODIFIED {
+            return Ok(None);
+        }
+
+        // check if we have a new etag
+        if let Some(etag) = response.headers().get(reqwest::header::ETAG) {
+            self.etag = Some(etag.to_str().unwrap().to_string());
+        }
+
         let response_text = match response.text() {
             Ok(t) => t,
             Err(e) => return Err(Error::Server(format!("failed to get response body: {}", e))),
@@ -164,13 +180,126 @@ impl Parser for HTTPParser {
             Err(e) => return Err(Error::InvalidJSON(e.to_string())),
         };
 
-        Ok(document)
+        Ok(Some(document))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::parser::http::Authentication;
+    use crate::parser::http::HTTPParserBuilder;
+    use fliptevaluation::parser::Parser;
+
+    #[test]
+    fn test_http_parse() {
+        let mut server = mockito::Server::new();
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_header("etag", "etag")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .create();
+
+        let url = server.url();
+        let mut parser = HTTPParserBuilder::new(&url)
+            .authentication(Authentication::None)
+            .build();
+
+        let result = parser.parse("default");
+
+        assert!(result.is_ok());
+        mock.assert();
+
+        assert_eq!(parser.etag, Some("etag".to_string()));
+    }
+
+    #[test]
+    fn test_http_parse_not_modified() {
+        let mut server = mockito::Server::new();
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("if-none-match", "etag")
+            .with_status(304)
+            .create();
+
+        let url = server.url();
+        let mut parser = HTTPParserBuilder::new(&url)
+            .authentication(Authentication::None)
+            .build();
+
+        parser.etag = Some("etag".to_string());
+
+        let result = parser.parse("default");
+
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+
+        mock.assert();
+    }
+
+    #[test]
+    fn test_http_parse_error() {
+        let mut server = mockito::Server::new();
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .with_status(500)
+            .create();
+
+        let url = server.url();
+        let mut parser = HTTPParserBuilder::new(&url)
+            .authentication(Authentication::None)
+            .build();
+
+        let result = parser.parse("default");
+
+        assert!(!result.is_ok());
+        mock.assert();
+    }
+
+    #[test]
+    fn test_http_parse_token_auth() {
+        let mut server = mockito::Server::new();
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("authorization", "Bearer foo")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .create();
+
+        let url = server.url();
+        let mut parser = HTTPParserBuilder::new(&url)
+            .authentication(Authentication::ClientToken("foo".to_string()))
+            .build();
+
+        let result = parser.parse("default");
+
+        assert!(result.is_ok());
+        mock.assert();
+    }
+
+    #[test]
+    fn test_http_parse_jwt_auth() {
+        let mut server = mockito::Server::new();
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("authorization", "JWT foo")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .create();
+
+        let url = server.url();
+        let mut parser = HTTPParserBuilder::new(&url)
+            .authentication(Authentication::JwtToken("foo".to_string()))
+            .build();
+
+        let result = parser.parse("default");
+
+        assert!(result.is_ok());
+        mock.assert();
+    }
 
     #[test]
     fn test_http_parser_url() {

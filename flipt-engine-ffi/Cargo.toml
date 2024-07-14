@@ -21,6 +21,7 @@ path = "../flipt-evaluation"
 
 [dev-dependencies]
 mockall = "0.12.1"
+mockito = "1.4.0"
 
 [lib]
 name = "fliptengine"
