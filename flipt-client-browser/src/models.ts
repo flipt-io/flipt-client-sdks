@@ -1,5 +1,9 @@
+export interface IFetcherOpts {
+  etag?: string;
+}
+
 export interface IFetcher {
-  ({ etag }: { etag?: string }): Promise<Response>;
+  (opts?: IFetcherOpts): Promise<Response>;
 }
 
 export interface AuthenticationStrategy {}

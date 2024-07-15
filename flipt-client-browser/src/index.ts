@@ -15,10 +15,7 @@ export class FliptEvaluationClient {
   private fetcher: IFetcher;
   private etag?: string;
 
-  private constructor(
-    engine: Engine,
-    fetcher: ({ etag }: { etag?: string }) => Promise<Response>
-  ) {
+  private constructor(engine: Engine, fetcher: IFetcher) {
     this.engine = engine;
     this.fetcher = fetcher;
   }
@@ -49,7 +46,6 @@ export class FliptEvaluationClient {
 
     const headers = new Headers();
     headers.append('Accept', 'application/json');
-    headers.append('Content-Type', 'application/json');
     headers.append('x-flipt-accept-server-version', '1.38.0');
 
     if (engine_opts.authentication) {
@@ -69,9 +65,9 @@ export class FliptEvaluationClient {
     let fetcher = engine_opts.fetcher;
 
     if (!fetcher) {
-      fetcher = async ({ etag }: { etag?: string }) => {
-        if (etag) {
-          headers.append('If-None-Match', etag);
+      fetcher = async (opts?: { etag?: string }) => {
+        if (opts && opts.etag) {
+          headers.append('If-None-Match', opts.etag);
         }
 
         const resp = await fetch(url, {
@@ -94,7 +90,7 @@ export class FliptEvaluationClient {
     }
 
     // should be no etag on first fetch
-    const resp = await fetcher({});
+    const resp = await fetcher();
     if (!resp) {
       throw new Error('Failed to fetch data');
     }
