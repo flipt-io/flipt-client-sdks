@@ -1,0 +1,5 @@
+ffigen:
+  output: "generated_bindings.dart"
+  headers:
+    entry-points:
+      - "../flipt-engine-ffi/include/flipt_engine.h"

@@ -1,0 +1,26 @@
+name: flipt_client_flutter
+description: A starting point for Dart libraries or applications.
+version: 1.0.0
+# repository: https://github.com/my_org/my_repo
+
+environment:
+  sdk: ^3.4.4
+
+# Add regular dependencies here.
+dependencies:
+  ffi: ^2.1.2
+  json_annotation: ^4.9.0
+  # path: ^1.8.0
+
+dev_dependencies:
+  build_runner: ^2.4.11
+  ffigen: ^12.0.0
+  json_serializable: ^6.8.0
+  lints: ^3.0.0
+  test: ^1.24.0
+
+ffigen:
+  output: "generated_bindings.dart"
+  headers:
+    entry-points:
+      - "../flipt-engine-ffi/include/flipt_engine.h"
