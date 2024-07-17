@@ -1,6 +1,6 @@
 # Flipt Client SDKs
 
-![Status: Hardening](https://img.shields.io/badge/status-hardening-orange)
+![Status: Stable](https://img.shields.io/badge/status-stable-green)
 [![GitHub license](https://img.shields.io/github/license/flipt-io/flipt-client-sdks)](https://github.com/flipt-io/flipt-client-sdks/blob/main/LICENSE)
 
 This repository centralizes the client-side SDKs for [Flipt](https://github.com/flipt-io/flipt).
@@ -9,7 +9,7 @@ These client-side SDKs are responsible for evaluating context and returning the 
 
 Overall documentation for the client SDKs can be found on our [website](https://www.flipt.io/docs/integration/client).
 
-Also check out our introductory [blog post](https://www.flipt.io/blog/new-client-side-evaluation) on these client-side SDKs.
+Also, check out our introductory [blog post](https://www.flipt.io/blog/new-client-side-evaluation) on these client-side SDKs.
 
 ## Versions
 
@@ -24,7 +24,7 @@ The [Foreign Function Interface (FFI)](https://en.wikipedia.org/wiki/Foreign_fun
 
 ### Supported Architectures
 
-The FFI based SDKs are currently supported on the following OSes/architectures:
+The FFI-based SDKs are currently supported on the following OSes/architectures:
 
 - Linux x86_64
 - Linux arm64
@@ -54,7 +54,7 @@ We are constantly growing our list of clients. Currently, we support the followi
 1. [Ruby](./flipt-client-ruby) (FFI)
 1. [NodeJS](./flipt-client-node) (FFI)
 1. [Java](./flipt-client-java) (FFI)
-1. [JavaScript/Typescript](./flipt-client-browser) (WASM)
+1. [JavaScript/Typescript (Browser)](./flipt-client-browser) (WASM)
 
 Languages we are planning to support:
 
@@ -68,13 +68,13 @@ Documentation for each client can be found in the README of each client's direct
 
 ## Installation
 
-Please see each client's README for installation and usage instructions.
+Please take a look at each client's README for installation and usage instructions.
 
 ## Use Cases
 
 Why you may prefer to use a client-side SDK over our server-side SDKs:
 
-1. You want extreme low-latency evaluation and high throughput.
+1. You want extremely low-latency evaluation and high throughput.
 1. You are ok with eventual consistency and can tolerate stale data for a short time.
 1. You want to reduce the load in your network by not having each client make a request to the Flipt server for each evaluation.
 1. You need evaluation to occur in-process for some reason (e.g. you are evaluating a flag in a web worker).
