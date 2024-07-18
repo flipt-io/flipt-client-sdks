@@ -10,27 +10,27 @@ import (
 	flipt "go.flipt.io/flipt-client"
 )
 
-var (
-	fliptUrl  string
-	authToken string
-)
+var evaluationClient *flipt.Client
 
 func init() {
-	fliptUrl = os.Getenv("FLIPT_URL")
+	fliptUrl := os.Getenv("FLIPT_URL")
 	if fliptUrl == "" {
 		panic("set FLIPT_URL")
 	}
 
-	authToken = os.Getenv("FLIPT_AUTH_TOKEN")
+	authToken := os.Getenv("FLIPT_AUTH_TOKEN")
 	if authToken == "" {
 		panic("set FLIPT_AUTH_TOKEN")
+	}
+
+	var err error
+	evaluationClient, err = flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
+	if err != nil {
+		panic(err)
 	}
 }
 
 func TestVariant(t *testing.T) {
-	evaluationClient, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
-	require.NoError(t, err)
-
 	variant, err := evaluationClient.EvaluateVariant(context.TODO(), "flag1", "someentity", map[string]string{
 		"fizz": "buzz",
 	})
@@ -45,9 +45,6 @@ func TestVariant(t *testing.T) {
 }
 
 func TestBoolean(t *testing.T) {
-	evaluationClient, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
-	require.NoError(t, err)
-
 	boolean, err := evaluationClient.EvaluateBoolean(context.TODO(), "flag_boolean", "someentity", map[string]string{
 		"fizz": "buzz",
 	})
@@ -61,9 +58,6 @@ func TestBoolean(t *testing.T) {
 }
 
 func TestBatch(t *testing.T) {
-	evaluationClient, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
-	require.NoError(t, err)
-
 	batch, err := evaluationClient.EvaluateBatch(context.TODO(), []*flipt.EvaluationRequest{
 		{
 			FlagKey:  "flag1",
@@ -115,9 +109,6 @@ func TestBatch(t *testing.T) {
 }
 
 func TestListFlags(t *testing.T) {
-	evaluationClient, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
-	require.NoError(t, err)
-
 	response, err := evaluationClient.ListFlags(context.TODO())
 	require.NoError(t, err)
 
@@ -127,9 +118,6 @@ func TestListFlags(t *testing.T) {
 }
 
 func TestVariantFailure(t *testing.T) {
-	evaluationClient, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
-	require.NoError(t, err)
-
 	variant, err := evaluationClient.EvaluateVariant(context.TODO(), "nonexistent", "someentity", map[string]string{
 		"fizz": "buzz",
 	})
@@ -141,9 +129,6 @@ func TestVariantFailure(t *testing.T) {
 }
 
 func TestBooleanFailure(t *testing.T) {
-	evaluationClient, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
-	require.NoError(t, err)
-
 	boolean, err := evaluationClient.EvaluateBoolean(context.TODO(), "nonexistent", "someentity", map[string]string{
 		"fizz": "buzz",
 	})
