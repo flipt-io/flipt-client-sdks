@@ -47,7 +47,11 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## Language Support
 
-We are constantly growing our list of clients. Currently, we support the following languages/platforms:
+We are constantly growing our list of supported languages.
+
+### Released
+
+Currently, we support the following languages/platforms:
 
 1. [Go](./flipt-client-go) (FFI)
 1. [Python](./flipt-client-python) (FFI)
@@ -56,15 +60,26 @@ We are constantly growing our list of clients. Currently, we support the followi
 1. [Java](./flipt-client-java) (FFI)
 1. [JavaScript/Typescript (Browser)](./flipt-client-browser) (WASM)
 
+Documentation for each client can be found in the README of that client's directory.
+
+### Planned
+
 Languages we are planning to support:
 
-1. Rust
-1. C#
-1. PHP
+1. [Rust](https://github.com/flipt-io/flipt-client-sdks/issues/83)
+1. [C#](https://github.com/flipt-io/flipt-client-sdks/issues/310)
+
+### Help Wanted
+
+Languages we would like to support but lack expertise in:
+
+1. [Kotlin](https://github.com/flipt-io/flipt-client-sdks/issues/264)
+1. [Swift](https://github.com/flipt-io/flipt-client-sdks/issues/263)
+1. [Flutter/Dart](https://github.com/flipt-io/flipt-client-sdks/issues/32)
 
 Want to see a client in a language we don't support? [Open an issue](https://github.com/flipt-io/flipt-client-sdks/issues/new?assignees=&labels=new-language&projects=&template=new_language.yml) and let us know!
 
-Documentation for each client can be found in the README of each client's directory.
+Alternatively, if you have experience in any of the above languages/platforms we welcome all contributions!! ❤️
 
 ## Installation
 
