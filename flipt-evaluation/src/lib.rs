@@ -138,6 +138,13 @@ pub fn variant_evaluation(
     if !flag.enabled {
         variant_evaluation_response.reason = common::EvaluationReason::FlagDisabled;
         variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
+
+        if flag.default_variant.is_some() {
+            let default_variant = flag.default_variant.as_ref().unwrap();
+            variant_evaluation_response.variant_key = default_variant.key.clone();
+            variant_evaluation_response.variant_attachment = default_variant.attachment.clone();
+        }
+
         return Ok(variant_evaluation_response);
     }
 
@@ -151,6 +158,17 @@ pub fn variant_evaluation(
             )));
         }
     };
+
+    // if no rules and flag is enabled, return default variant
+    if evaluation_rules.is_empty() && flag.default_variant.is_some() {
+        let default_variant = flag.default_variant.as_ref().unwrap();
+        variant_evaluation_response.variant_key = default_variant.key.clone();
+        variant_evaluation_response.variant_attachment = default_variant.attachment.clone();
+        variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
+        variant_evaluation_response.reason = common::EvaluationReason::Default;
+
+        return Ok(variant_evaluation_response);
+    }
 
     for rule in evaluation_rules {
         if rule.rank < last_rank {
@@ -224,10 +242,18 @@ pub fn variant_evaluation(
         }
 
         // no distributions for the rule
+        // match is true here because it did match the segment/rule
         if valid_distributions.is_empty() {
             variant_evaluation_response.r#match = true;
             variant_evaluation_response.reason = common::EvaluationReason::Match;
             variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
+
+            if flag.default_variant.is_some() {
+                let default_variant = flag.default_variant.as_ref().unwrap();
+                variant_evaluation_response.variant_key = default_variant.key.clone();
+                variant_evaluation_response.variant_attachment = default_variant.attachment.clone();
+            }
+
             return Ok(variant_evaluation_response);
         }
 
@@ -242,9 +268,18 @@ pub fn variant_evaluation(
             Err(idx) => idx,
         };
 
+        // if index is outside of our existing buckets then it does not match any distribution
         if index == valid_distributions.len() {
             variant_evaluation_response.r#match = false;
             variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
+
+            if flag.default_variant.is_some() {
+                let default_variant = flag.default_variant.as_ref().unwrap();
+                variant_evaluation_response.variant_key = default_variant.key.clone();
+                variant_evaluation_response.variant_attachment = default_variant.attachment.clone();
+                variant_evaluation_response.reason = common::EvaluationReason::Default;
+            }
+
             return Ok(variant_evaluation_response);
         }
 
@@ -1006,6 +1041,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: true,
                 r#type: common::FlagType::Variant,
+                default_variant: None,
             })
         });
 
@@ -1071,6 +1107,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: true,
                 r#type: common::FlagType::Variant,
+                default_variant: None,
             })
         });
 
@@ -1145,6 +1182,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: true,
                 r#type: common::FlagType::Variant,
+                default_variant: None,
             })
         });
 
@@ -1256,6 +1294,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: true,
                 r#type: common::FlagType::Variant,
+                default_variant: None,
             })
         });
 
@@ -1351,6 +1390,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: true,
                 r#type: common::FlagType::Variant,
+                default_variant: None,
             })
         });
 
@@ -1456,6 +1496,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: true,
                 r#type: common::FlagType::Variant,
+                default_variant: None,
             })
         });
 
@@ -1567,6 +1608,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: true,
                 r#type: common::FlagType::Variant,
+                default_variant: None,
             })
         });
 
@@ -1677,6 +1719,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: true,
                 r#type: common::FlagType::Variant,
+                default_variant: None,
             })
         });
 
@@ -1774,6 +1817,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: true,
                 r#type: common::FlagType::Variant,
+                default_variant: None,
             })
         });
 
@@ -1848,6 +1892,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: true,
                 r#type: common::FlagType::Variant,
+                default_variant: None,
             })
         });
 
@@ -1957,6 +2002,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: true,
                 r#type: common::FlagType::Variant,
+                default_variant: None,
             })
         });
 
@@ -2051,6 +2097,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: true,
                 r#type: common::FlagType::Variant,
+                default_variant: None,
             })
         });
 
@@ -2147,6 +2194,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: true,
                 r#type: common::FlagType::Variant,
+                default_variant: None,
             })
         });
 
@@ -2257,6 +2305,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: true,
                 r#type: common::FlagType::Variant,
+                default_variant: None,
             })
         });
 
@@ -2366,6 +2415,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: true,
                 r#type: common::FlagType::Variant,
+                default_variant: None,
             })
         });
 
@@ -2485,6 +2535,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: true,
                 r#type: common::FlagType::Variant,
+                default_variant: None,
             })
         });
 
@@ -2567,6 +2618,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: true,
                 r#type: common::FlagType::Variant,
+                default_variant: None,
             })
         });
 
@@ -2673,6 +2725,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: false,
                 r#type: common::FlagType::Boolean,
+                default_variant: None,
             })
         });
 
@@ -2734,6 +2787,7 @@ mod tests {
                 key: String::from("foo"),
                 enabled: false,
                 r#type: common::FlagType::Boolean,
+                default_variant: None,
             })
         });
 
