@@ -141,8 +141,12 @@ pub fn variant_evaluation(
 
         if flag.default_variant.is_some() {
             let default_variant = flag.default_variant.as_ref().unwrap();
-            variant_evaluation_response.variant_key = default_variant.key.clone();
-            variant_evaluation_response.variant_attachment = default_variant.attachment.clone();
+            variant_evaluation_response
+                .variant_key
+                .clone_from(&default_variant.key);
+            variant_evaluation_response
+                .variant_attachment
+                .clone_from(&default_variant.attachment);
         }
 
         return Ok(variant_evaluation_response);
@@ -162,8 +166,12 @@ pub fn variant_evaluation(
     // if no rules and flag is enabled, return default variant
     if evaluation_rules.is_empty() && flag.default_variant.is_some() {
         let default_variant = flag.default_variant.as_ref().unwrap();
-        variant_evaluation_response.variant_key = default_variant.key.clone();
-        variant_evaluation_response.variant_attachment = default_variant.attachment.clone();
+        variant_evaluation_response
+            .variant_key
+            .clone_from(&default_variant.key);
+        variant_evaluation_response
+            .variant_attachment
+            .clone_from(&default_variant.attachment);
         variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
         variant_evaluation_response.reason = common::EvaluationReason::Default;
 
@@ -250,8 +258,12 @@ pub fn variant_evaluation(
 
             if flag.default_variant.is_some() {
                 let default_variant = flag.default_variant.as_ref().unwrap();
-                variant_evaluation_response.variant_key = default_variant.key.clone();
-                variant_evaluation_response.variant_attachment = default_variant.attachment.clone();
+                variant_evaluation_response
+                    .variant_key
+                    .clone_from(&default_variant.key);
+                variant_evaluation_response
+                    .variant_attachment
+                    .clone_from(&default_variant.attachment);
             }
 
             return Ok(variant_evaluation_response);
@@ -275,8 +287,12 @@ pub fn variant_evaluation(
 
             if flag.default_variant.is_some() {
                 let default_variant = flag.default_variant.as_ref().unwrap();
-                variant_evaluation_response.variant_key = default_variant.key.clone();
-                variant_evaluation_response.variant_attachment = default_variant.attachment.clone();
+                variant_evaluation_response
+                    .variant_key
+                    .clone_from(&default_variant.key);
+                variant_evaluation_response
+                    .variant_attachment
+                    .clone_from(&default_variant.attachment);
                 variant_evaluation_response.reason = common::EvaluationReason::Default;
             }
 

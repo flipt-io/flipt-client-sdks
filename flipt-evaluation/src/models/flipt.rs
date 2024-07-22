@@ -7,6 +7,7 @@ pub struct Flag {
     pub key: String,
     pub enabled: bool,
     pub r#type: common::FlagType,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default_variant: Option<Variant>,
 }
 
