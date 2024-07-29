@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.15](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.14...flipt-engine-ffi-v0.1.15) (2024-07-29)
+
+
+### Features
+
+* add support for default variant eval ([#309](https://github.com/flipt-io/flipt-client-sdks/issues/309)) ([ad88594](https://github.com/flipt-io/flipt-client-sdks/commit/ad88594b3f56acf62a72ca6c988409eb07c89a65))
+
 ## [0.1.14](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.13...flipt-engine-ffi-v0.1.14) (2024-07-14)
 
 
