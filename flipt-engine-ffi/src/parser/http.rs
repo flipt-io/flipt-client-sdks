@@ -132,7 +132,7 @@ impl Parser for HTTPParser {
         // version (or higher) that we can accept from the server
         headers.insert(
             "X-Flipt-Accept-Server-Version",
-            reqwest::header::HeaderValue::from_static("1.38.0"),
+            reqwest::header::HeaderValue::from_static("1.47.0"),
         );
 
         // add etag / if-none-match header if we have one

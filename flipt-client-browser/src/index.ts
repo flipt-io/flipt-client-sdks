@@ -46,7 +46,7 @@ export class FliptEvaluationClient {
 
     const headers = new Headers();
     headers.append('Accept', 'application/json');
-    headers.append('x-flipt-accept-server-version', '1.38.0');
+    headers.append('x-flipt-accept-server-version', '1.47.0');
 
     if (engine_opts.authentication) {
       if ('client_token' in engine_opts.authentication) {

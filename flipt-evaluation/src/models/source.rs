@@ -37,6 +37,15 @@ pub struct Flag {
     pub enabled: bool,
     pub rules: Option<Vec<Rule>>,
     pub rollouts: Option<Vec<Rollout>>,
+    pub default_variant: Option<Variant>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Variant {
+    pub id: String,
+    pub key: String,
+    pub attachment: String,
 }
 
 #[derive(Deserialize)]

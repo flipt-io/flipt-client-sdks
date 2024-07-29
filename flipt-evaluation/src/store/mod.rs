@@ -64,6 +64,11 @@ impl Snapshot {
                 key: flag.key.clone(),
                 enabled: flag.enabled,
                 r#type: flag.r#type.unwrap_or(common::FlagType::Variant),
+                default_variant: flag.default_variant.map(|v| flipt::Variant {
+                    id: v.id,
+                    key: v.key,
+                    attachment: v.attachment,
+                }),
             };
 
             flags.insert(f.key.clone(), f);
