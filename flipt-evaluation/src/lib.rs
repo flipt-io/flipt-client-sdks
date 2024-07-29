@@ -135,20 +135,21 @@ pub fn variant_evaluation(
         ..Default::default()
     };
 
+    if flag.default_variant.is_some() {
+        variant_evaluation_response.reason = common::EvaluationReason::Default;
+
+        let default_variant = flag.default_variant.as_ref().unwrap();
+        variant_evaluation_response
+            .variant_key
+            .clone_from(&default_variant.key);
+        variant_evaluation_response
+            .variant_attachment
+            .clone_from(&default_variant.attachment);
+    }
+
     if !flag.enabled {
         variant_evaluation_response.reason = common::EvaluationReason::FlagDisabled;
         variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
-
-        if flag.default_variant.is_some() {
-            let default_variant = flag.default_variant.as_ref().unwrap();
-            variant_evaluation_response
-                .variant_key
-                .clone_from(&default_variant.key);
-            variant_evaluation_response
-                .variant_attachment
-                .clone_from(&default_variant.attachment);
-        }
-
         return Ok(variant_evaluation_response);
     }
 
@@ -164,17 +165,8 @@ pub fn variant_evaluation(
     };
 
     // if no rules and flag is enabled, return default variant
-    if evaluation_rules.is_empty() && flag.default_variant.is_some() {
-        let default_variant = flag.default_variant.as_ref().unwrap();
-        variant_evaluation_response
-            .variant_key
-            .clone_from(&default_variant.key);
-        variant_evaluation_response
-            .variant_attachment
-            .clone_from(&default_variant.attachment);
+    if evaluation_rules.is_empty() {
         variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
-        variant_evaluation_response.reason = common::EvaluationReason::Default;
-
         return Ok(variant_evaluation_response);
     }
 
@@ -255,17 +247,6 @@ pub fn variant_evaluation(
             variant_evaluation_response.r#match = true;
             variant_evaluation_response.reason = common::EvaluationReason::Match;
             variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
-
-            if flag.default_variant.is_some() {
-                let default_variant = flag.default_variant.as_ref().unwrap();
-                variant_evaluation_response
-                    .variant_key
-                    .clone_from(&default_variant.key);
-                variant_evaluation_response
-                    .variant_attachment
-                    .clone_from(&default_variant.attachment);
-            }
-
             return Ok(variant_evaluation_response);
         }
 
@@ -284,18 +265,6 @@ pub fn variant_evaluation(
         if index == valid_distributions.len() {
             variant_evaluation_response.r#match = false;
             variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
-
-            if flag.default_variant.is_some() {
-                let default_variant = flag.default_variant.as_ref().unwrap();
-                variant_evaluation_response
-                    .variant_key
-                    .clone_from(&default_variant.key);
-                variant_evaluation_response
-                    .variant_attachment
-                    .clone_from(&default_variant.attachment);
-                variant_evaluation_response.reason = common::EvaluationReason::Default;
-            }
-
             return Ok(variant_evaluation_response);
         }
 
