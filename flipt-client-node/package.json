@@ -1,6 +1,6 @@
 {
   "name": "@flipt-io/flipt-client",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Flipt Client Evaluation SDK",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
