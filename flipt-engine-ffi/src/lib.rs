@@ -1,8 +1,7 @@
 pub mod evaluator;
-pub mod parser;
 
 use evaluator::Evaluator;
-use parser::http::{Authentication, HTTPParser, HTTPParserBuilder};
+use fliptevaluation::http::{Authentication, HTTPParser, HTTPParserBuilder};
 
 use fliptevaluation::error::Error;
 use fliptevaluation::models::flipt;

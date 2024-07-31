@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use web_time::SystemTime;
 
 pub mod error;
+#[cfg(feature = "http")]
+pub mod http;
 pub mod models;
 pub mod parser;
 pub mod store;
