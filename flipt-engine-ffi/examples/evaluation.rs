@@ -2,7 +2,7 @@
 
 use fliptengine::{
     evaluator::Evaluator,
-    parser::http::{Authentication, HTTPParserBuilder},
+    http::{Authentication, HTTPParserBuilder},
 };
 use fliptevaluation::EvaluationRequest;
 use std::collections::HashMap;

@@ -186,8 +186,8 @@ impl Parser for HTTPParser {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::http::Authentication;
-    use crate::parser::http::HTTPParserBuilder;
+    use crate::http::Authentication;
+    use crate::http::HTTPParserBuilder;
     use fliptevaluation::parser::Parser;
 
     #[test]
