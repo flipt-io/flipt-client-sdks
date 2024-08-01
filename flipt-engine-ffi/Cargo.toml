@@ -15,6 +15,7 @@ reqwest = { version = "0.12.2", features = ["json", "blocking"] }
 tokio = { version = "1.33.0", features = ["full"] }
 futures = "0.3"
 openssl = { version = "0.10", features = ["vendored"] }
+thiserror = "1.0.63"
 
 [dependencies.flipt-evaluation]
 path = "../flipt-evaluation"

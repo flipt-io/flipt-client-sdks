@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 use fliptevaluation::{
     batch_evaluation, boolean_evaluation,
     error::Error,
-    models::{flipt, source::Document},
+    models::{flipt, source},
     parser::Parser,
     store::{Snapshot, Store},
     variant_evaluation, BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
@@ -27,7 +27,7 @@ where
     P: Parser + Send,
 {
     pub fn new_snapshot_evaluator(namespace: &str, parser: P) -> Result<Self, Error> {
-        let snap = Snapshot::build(namespace, Document::default())?;
+        let snap = Snapshot::build(namespace, source::Document::default())?;
         let mut e = Evaluator::new(namespace, parser, snap);
         e.replace_snapshot();
         Ok(e)
@@ -190,7 +190,7 @@ mod tests {
         let mut parser = MockParser::new();
         parser
             .expect_parse()
-            .returning(|_| Ok(Some(Document::default())));
+            .returning(|_| Ok(Some(source::Document::default())));
         let evaluator =
             Evaluator::new_snapshot_evaluator("namespace", parser).expect("expect valid evaluator");
 
@@ -242,7 +242,7 @@ mod tests {
         let mut parser = MockParser::new();
         parser
             .expect_parse()
-            .returning(|_| Ok(Some(Document::default())));
+            .returning(|_| Ok(Some(source::Document::default())));
         let mut evaluator =
             Evaluator::new_snapshot_evaluator("namespace", parser).expect("expect valid evaluator");
         evaluator.replace_store(Snapshot::empty("other"), None);

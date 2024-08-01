@@ -2,8 +2,6 @@ use thiserror::Error;
 
 #[derive(Error, Debug, Clone)]
 pub enum Error {
-    #[error("error engine null pointer")]
-    NullPointer,
     #[error("error parsing json: {0}")]
     InvalidJSON(String),
     #[error("invalid request: {0}")]
