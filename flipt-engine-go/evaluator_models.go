@@ -2,8 +2,6 @@ package flipt_engine_go
 
 import (
 	"time"
-
-	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -97,21 +95,4 @@ type Analytics struct {
 	EvaluationValue string
 	EntityID        string
 	Value           uint32
-}
-
-func (r *Analytics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddTime("timestamp", r.Timestamp)
-	enc.AddString("analytic_name", r.AnalyticName)
-	enc.AddString("namespace_key", r.NamespaceKey)
-	enc.AddString("flag_key", r.FlagKey)
-	enc.AddString("flag_type", r.FlagType.String())
-	enc.AddString("reason", r.Reason.String())
-	if r.Match != nil {
-		enc.AddBool("match", *r.Match)
-	}
-	enc.AddString("evaluation_value", r.EvaluationValue)
-	enc.AddString("entity_id", r.EntityID)
-	enc.AddUint32("value", r.Value)
-
-	return nil
 }

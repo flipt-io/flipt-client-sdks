@@ -15,13 +15,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	analyticsTopicKey  = "topic"
-	analyticsTopicName = "analytics.prod.flipt_counter"
-	analyticsObjectKey = "analytics"
-	analyticsName      = "flag_evaluation_count"
-)
-
 var (
 	evaluator   *Evaluator
 	evaluatorMu sync.RWMutex
@@ -167,20 +160,6 @@ func (r *Evaluator) Boolean(req *RequestEvaluation, flag *EvalFlag) (*ResponseBo
 		return nil, err
 	}
 
-	r.logger.Info("dwh call",
-		zap.String(analyticsTopicKey, analyticsTopicName),
-		zap.Object(analyticsObjectKey, &Analytics{
-			Timestamp:       time.Now().UTC(),
-			AnalyticName:    analyticsName,
-			NamespaceKey:    req.NamespaceKey,
-			FlagKey:         req.FlagKey,
-			FlagType:        flag.typ,
-			Reason:          eval.Reason,
-			EvaluationValue: strconv.FormatBool(eval.Enabled),
-			EntityID:        req.EntityID,
-			Value:           1,
-		}))
-
 	return eval, nil
 }
 
@@ -189,21 +168,6 @@ func (r *Evaluator) Variant(req *RequestEvaluation, flag *EvalFlag) (*ResponseVa
 	if err != nil {
 		return nil, err
 	}
-
-	r.logger.Info("dwh call",
-		zap.String(analyticsTopicKey, analyticsTopicName),
-		zap.Object(analyticsObjectKey, &Analytics{
-			Timestamp:       time.Now().UTC(),
-			AnalyticName:    analyticsName,
-			NamespaceKey:    req.NamespaceKey,
-			FlagKey:         req.FlagKey,
-			FlagType:        flag.typ,
-			Reason:          eval.Reason,
-			Match:           &eval.Match,
-			EvaluationValue: eval.VariantKey,
-			EntityID:        req.EntityID,
-			Value:           1,
-		}))
 
 	return eval, nil
 }

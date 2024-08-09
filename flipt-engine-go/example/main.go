@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -10,12 +11,12 @@ import (
 
 func main() {
 	cfg := &flipt_engine_go.Config{
-		Enabled:    false,
-		Host:       "",
-		Version:    "",
-		Timeout:    0,
-		Interval:   0,
-		Namespaces: nil,
+		Enabled:    true,
+		Host:       "localhost:8900",
+		Version:    "1.39.0",
+		Timeout:    10 * time.Second,
+		Interval:   30 * time.Minute,
+		Namespaces: []string{"default", "mobile"},
 	}
 
 	logger := zap.NewNop()
