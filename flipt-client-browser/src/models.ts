@@ -1,5 +1,9 @@
-export interface fetcher {
-  (): Promise<Response>;
+export interface IFetcherOpts {
+  etag?: string;
+}
+
+export interface IFetcher {
+  (opts?: IFetcherOpts): Promise<Response>;
 }
 
 export interface AuthenticationStrategy {}
@@ -16,7 +20,7 @@ export interface EngineOpts {
   url?: string;
   authentication?: AuthenticationStrategy;
   reference?: string;
-  fetcher?: fetcher;
+  fetcher?: IFetcher;
 }
 
 export interface EvaluationRequest {

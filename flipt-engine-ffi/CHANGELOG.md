@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.15](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.14...flipt-engine-ffi-v0.1.15) (2024-07-29)
+
+
+### Features
+
+* add support for default variant eval ([#309](https://github.com/flipt-io/flipt-client-sdks/issues/309)) ([ad88594](https://github.com/flipt-io/flipt-client-sdks/commit/ad88594b3f56acf62a72ca6c988409eb07c89a65))
+
+## [0.1.14](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.13...flipt-engine-ffi-v0.1.14) (2024-07-14)
+
+
+### Features
+
+* support etags in clients ([#299](https://github.com/flipt-io/flipt-client-sdks/issues/299)) ([e2acce3](https://github.com/flipt-io/flipt-client-sdks/commit/e2acce311f7531cfba831112222e7c63cb364759))
+
 ## [0.1.13](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.12...flipt-engine-ffi-v0.1.13) (2024-04-27)
 
 ### Bug Fixes

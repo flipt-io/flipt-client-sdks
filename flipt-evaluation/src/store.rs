@@ -64,6 +64,11 @@ impl Snapshot {
                 key: flag.key.clone(),
                 enabled: flag.enabled,
                 r#type: flag.r#type.unwrap_or(common::FlagType::Variant),
+                default_variant: flag.default_variant.map(|v| flipt::Variant {
+                    id: v.id,
+                    key: v.key,
+                    attachment: v.attachment,
+                }),
             };
 
             flags.insert(f.key.clone(), f);
@@ -281,10 +286,10 @@ mod tests {
 
     #[test]
     fn test_snapshot() {
-        let tp = TestParser::new();
+        let mut tp = TestParser::new();
         let doc = tp.parse("default").unwrap();
 
-        let snapshot = Snapshot::build("default", doc).unwrap();
+        let snapshot = Snapshot::build("default", doc.unwrap()).unwrap();
 
         let flag_variant = snapshot
             .get_flag("default", "flag1")

@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 use fliptevaluation::{
     batch_evaluation, boolean_evaluation,
     error::Error,
-    models::{flipt, source::Document},
+    models::{flipt, source},
     parser::Parser,
     store::{Snapshot, Store},
     variant_evaluation, BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
@@ -27,7 +27,7 @@ where
     P: Parser + Send,
 {
     pub fn new_snapshot_evaluator(namespace: &str, parser: P) -> Result<Self, Error> {
-        let snap = Snapshot::build(namespace, Document::default())?;
+        let snap = Snapshot::build(namespace, source::Document::default())?;
         let mut e = Evaluator::new(namespace, parser, snap);
         e.replace_snapshot();
         Ok(e)
@@ -36,7 +36,11 @@ where
     pub fn replace_snapshot(&mut self) {
         match self.parser.parse(&self.namespace) {
             Ok(doc) => {
-                match Snapshot::build(&self.namespace, doc) {
+                // if doc is none then return, nothing to do
+                if doc.is_none() {
+                    return;
+                }
+                match Snapshot::build(&self.namespace, doc.unwrap()) {
                     Ok(s) => {
                         self.replace_store(s, None);
                     }
@@ -126,6 +130,7 @@ where
         batch_evaluation(&self.store, &self.namespace, requests)
     }
 }
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -139,7 +144,7 @@ mod tests {
     mock! {
         pub Parser{}
         impl parser::Parser for Parser {
-            fn parse(&self, namespace: &str) -> Result<source::Document, Error>;
+            fn parse(&mut self, namespace: &str) -> Result<Option<source::Document>, Error>;
         }
     }
 
@@ -153,6 +158,7 @@ mod tests {
             }
         }
     }
+
     #[test]
     fn test_parser_with_error() {
         let expected_error = "server error: can't connect";
@@ -182,7 +188,9 @@ mod tests {
     #[test]
     fn test_parser_with_empty_snapshot() {
         let mut parser = MockParser::new();
-        parser.expect_parse().returning(|_| Ok(Document::default()));
+        parser
+            .expect_parse()
+            .returning(|_| Ok(Some(source::Document::default())));
         let evaluator =
             Evaluator::new_snapshot_evaluator("namespace", parser).expect("expect valid evaluator");
 
@@ -219,9 +227,22 @@ mod tests {
     }
 
     #[test]
+    fn test_parser_with_no_snapshot() {
+        let mut parser = MockParser::new();
+        parser.expect_parse().returning(|_| Ok(None));
+        let evaluator =
+            Evaluator::new_snapshot_evaluator("namespace", parser).expect("expect valid evaluator");
+
+        let response = evaluator.list_flags();
+        assert!(response.is_ok());
+    }
+
+    #[test]
     fn test_list_flags_from_another_namespace() {
         let mut parser = MockParser::new();
-        parser.expect_parse().returning(|_| Ok(Document::default()));
+        parser
+            .expect_parse()
+            .returning(|_| Ok(Some(source::Document::default())));
         let mut evaluator =
             Evaluator::new_snapshot_evaluator("namespace", parser).expect("expect valid evaluator");
         evaluator.replace_store(Snapshot::empty("other"), None);

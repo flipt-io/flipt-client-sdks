@@ -1,8 +1,8 @@
 pub mod evaluator;
-pub mod parser;
+pub mod http;
 
 use evaluator::Evaluator;
-use parser::http::{Authentication, HTTPParser, HTTPParserBuilder};
+use http::{Authentication, HTTPParser, HTTPParserBuilder};
 
 use fliptevaluation::error::Error;
 use fliptevaluation::models::flipt;
@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
+use thiserror::Error;
 
 #[derive(Deserialize)]
 struct FFIEvaluationRequest {
@@ -42,6 +43,12 @@ enum Status {
     Success,
     #[serde(rename = "failure")]
     Failure,
+}
+
+#[derive(Error, Debug, Clone)]
+enum FFIError {
+    #[error("error engine null pointer")]
+    NullPointer,
 }
 
 impl<T> From<Result<T, Error>> for FFIResponse<T>
@@ -159,9 +166,9 @@ impl Engine {
 ///
 /// This function should not be called unless an Engine is initiated. It provides a helper
 /// utility to retrieve an Engine instance for evaluation use.
-unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, Error> {
+unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, FFIError> {
     if engine_ptr.is_null() {
-        Err(Error::NullPointer)
+        Err(FFIError::NullPointer)
     } else {
         Ok(unsafe { &mut *(engine_ptr as *mut Engine) })
     }

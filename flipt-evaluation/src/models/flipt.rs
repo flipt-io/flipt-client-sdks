@@ -1,5 +1,5 @@
 use crate::models::common;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, Serialize)]
@@ -7,10 +7,13 @@ pub struct Flag {
     pub key: String,
     pub enabled: bool,
     pub r#type: common::FlagType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_variant: Option<Variant>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Variant {
+    pub id: String,
     pub key: String,
     pub attachment: String,
 }
