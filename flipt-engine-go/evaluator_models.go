@@ -1,9 +1,5 @@
 package flipt_engine_go
 
-import (
-	"time"
-)
-
 const (
 	reasonDisabled evalReason = "FLAG_DISABLED_EVALUATION_REASON"
 	reasonMatch    evalReason = "MATCH_EVALUATION_REASON"
@@ -82,17 +78,4 @@ type ResponseBatchEvaluation struct {
 
 type ResponseListFlags struct {
 	Flags []*ResponseFlag `json:"flags"`
-}
-
-type Analytics struct {
-	Timestamp       time.Time
-	AnalyticName    string
-	NamespaceKey    string
-	FlagKey         string
-	FlagType        flagType
-	Reason          evalReason
-	Match           *bool // server-side пишет пустую строку в тип BOOLEAN_FLAG_TYPE
-	EvaluationValue string
-	EntityID        string
-	Value           uint32
 }
