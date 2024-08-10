@@ -1,3 +1,5 @@
+use std::fmt::{self};
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
@@ -74,12 +76,24 @@ pub enum EvaluationReason {
     Unknown,
 }
 
+impl fmt::Display for EvaluationReason {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum ErrorEvaluationReason {
     #[serde(rename = "UNKNOWN_ERROR_EVALUATION_REASON")]
     Unknown,
     #[serde(rename = "NOT_FOUND_ERROR_EVALUATION_REASON")]
     NotFound,
+}
+
+impl fmt::Display for ErrorEvaluationReason {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -90,4 +104,10 @@ pub enum ResponseType {
     Boolean,
     #[serde(rename = "ERROR_EVALUATION_RESPONSE_TYPE")]
     Error,
+}
+
+impl fmt::Display for ResponseType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }

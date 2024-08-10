@@ -1,0 +1,78 @@
+package flipt:evaluation;
+
+interface types {
+    record evaluation-request {
+        flag-key: string,
+        entity-id: string,
+        context: string,
+    }
+
+    record error-evaluation-response {
+        flag-key: string,
+        namespace-key: string,
+        reason: string,
+    }
+
+    record variant-evaluation-response {
+        match: bool,
+        segment-keys: list<string>,
+        reason: string,
+        flag-key: string,
+        variant-key: string,
+        variant-attachment: string,
+        request-duration-millis: f32,
+        timestamp: string,
+    }
+
+    record boolean-evaluation-response {
+        enabled: bool,
+        flag-key: string,
+        reason: string,
+        request-duration-millis: f32,
+        timestamp: string,
+    }
+
+    record batch-evaluation-response {
+        responses: list<evaluation-response>,
+        request-duration-millis: f32,
+    }
+
+    enum evaluation-response-type {
+        type-variant,
+        type-boolean,
+        type-error,
+    }
+
+    record evaluation-response {
+        response-type: evaluation-response-type,
+        variant-evaluation: option<variant-evaluation-response>,
+        boolean-evaluation: option<boolean-evaluation-response>,
+        error-evaluation: option<error-evaluation-response>,
+    }
+}
+
+interface evaluator {
+    use types.{
+        evaluation-request,
+        evaluation-response,
+        batch-evaluation-response,
+        variant-evaluation-response,
+        boolean-evaluation-response,
+        error-evaluation-response,
+        evaluation-response-type,
+    };
+
+    resource snapshot {
+        constructor(namespace: string, data: string);
+        snapshot: func(data: string);
+        evaluate-variant: func(request: evaluation-request) -> option<variant-evaluation-response>;
+        evaluate-boolean: func(request: evaluation-request) -> option<boolean-evaluation-response>;
+        evaluate-batch: func(requests: list<evaluation-request>) -> batch-evaluation-response;
+    }
+}
+
+world host {
+    export evaluator;
+}
+
+
