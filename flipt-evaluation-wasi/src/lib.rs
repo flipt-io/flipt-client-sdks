@@ -1,10 +1,6 @@
 use std::cell::RefCell;
 
 use exports::flipt::evaluation::evaluator::{Guest, GuestSnapshot};
-use flipt::evaluation::types::{
-    BatchEvaluationResponse, BooleanEvaluationResponse, ErrorEvaluationResponse, EvaluationRequest,
-    EvaluationResponse, EvaluationResponseType, VariantEvaluationResponse,
-};
 use fliptevaluation::models::source;
 
 wit_bindgen::generate!({
@@ -16,6 +12,8 @@ struct GuestEvaluator;
 impl Guest for GuestEvaluator {
     type Snapshot = Snapshot;
 }
+
+export!(GuestEvaluator);
 
 struct Snapshot {
     namespace: RefCell<String>,
@@ -41,93 +39,33 @@ impl GuestSnapshot for Snapshot {
         self.store.replace(store);
     }
 
-    fn evaluate_variant(&self, request: EvaluationRequest) -> Option<VariantEvaluationResponse> {
+    fn evaluate_variant(&self, request: String) -> Option<String> {
+        let request: fliptevaluation::EvaluationRequest = serde_json::from_str(&request).unwrap();
         let response = fliptevaluation::variant_evaluation(
             &*self.store.borrow(),
             &self.namespace.borrow(),
-            &request.into(),
+            &request,
         );
-        Some(response.ok()?.into())
+        match response {
+            Ok(r) => Some(serde_json::to_string(&r).unwrap()),
+            Err(_e) => None,
+        }
     }
 
-    fn evaluate_boolean(&self, request: EvaluationRequest) -> Option<BooleanEvaluationResponse> {
+    fn evaluate_boolean(&self, request: String) -> Option<String> {
+        let request: fliptevaluation::EvaluationRequest = serde_json::from_str(&request).unwrap();
         let response = fliptevaluation::boolean_evaluation(
             &*self.store.borrow(),
             &self.namespace.borrow(),
-            &request.into(),
+            &request,
         );
-        Some(response.ok()?.into())
-    }
-
-    fn evaluate_batch(&self, _requests: Vec<EvaluationRequest>) -> BatchEvaluationResponse {
-        todo!()
-    }
-}
-
-impl From<fliptevaluation::BooleanEvaluationResponse> for BooleanEvaluationResponse {
-    fn from(response: fliptevaluation::BooleanEvaluationResponse) -> Self {
-        Self {
-            enabled: response.enabled,
-            flag_key: response.flag_key,
-            reason: response.reason.to_string(),
-            request_duration_millis: response.request_duration_millis as f32,
-            timestamp: response.timestamp.to_string(),
-        }
-    }
-}
-
-impl From<fliptevaluation::VariantEvaluationResponse> for VariantEvaluationResponse {
-    fn from(response: fliptevaluation::VariantEvaluationResponse) -> Self {
-        Self {
-            match_: response.r#match,
-            segment_keys: response.segment_keys,
-            reason: response.reason.to_string(),
-            flag_key: response.flag_key,
-            variant_key: response.variant_key,
-            variant_attachment: response.variant_attachment,
-            request_duration_millis: response.request_duration_millis as f32,
-            timestamp: response.timestamp.to_string(),
-        }
-    }
-}
-
-impl From<fliptevaluation::ErrorEvaluationResponse> for ErrorEvaluationResponse {
-    fn from(response: fliptevaluation::ErrorEvaluationResponse) -> Self {
-        Self {
-            flag_key: response.flag_key,
-            namespace_key: response.namespace_key,
-            reason: response.reason.to_string(),
-        }
-    }
-}
-
-impl From<EvaluationRequest> for fliptevaluation::EvaluationRequest {
-    fn from(request: EvaluationRequest) -> Self {
-        Self {
-            flag_key: request.flag_key,
-            entity_id: request.entity_id,
-            context: serde_json::from_str(&request.context).unwrap_or_default(),
-        }
-    }
-}
-
-impl From<fliptevaluation::models::common::ResponseType> for EvaluationResponseType {
-    fn from(response: fliptevaluation::models::common::ResponseType) -> Self {
         match response {
-            fliptevaluation::models::common::ResponseType::Boolean => Self::TypeBoolean,
-            fliptevaluation::models::common::ResponseType::Variant => Self::TypeVariant,
-            fliptevaluation::models::common::ResponseType::Error => Self::TypeError,
+            Ok(r) => Some(serde_json::to_string(&r).unwrap()),
+            Err(_e) => None,
         }
     }
-}
 
-impl From<fliptevaluation::EvaluationResponse> for EvaluationResponse {
-    fn from(response: fliptevaluation::EvaluationResponse) -> Self {
-        Self {
-            response_type: response.r#type.into(),
-            variant_evaluation: response.variant_evaluation_response.map(|r| r.into()),
-            boolean_evaluation: response.boolean_evaluation_response.map(|r| r.into()),
-            error_evaluation: response.error_evaluation_response.map(|r| r.into()),
-        }
+    fn evaluate_batch(&self, _requests: String) -> Option<String> {
+        todo!()
     }
 }
