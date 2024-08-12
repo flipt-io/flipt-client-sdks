@@ -1,10 +1,10 @@
 [package]
-name = "flipt-engine-wasm"
+name = "flipt-engine-wasm-js"
 version = "0.1.0"
 edition = "2021"
 authors = ["Flipt Devs <dev@flipt.io>"]
 license = "MIT"
-description = "Flipt WASM Client Engine"
+description = "Flipt WASM Client Engine for JavaScript"
 publish = false
 
 [lib]

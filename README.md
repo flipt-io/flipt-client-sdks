@@ -58,7 +58,7 @@ Currently, we support the following languages/platforms:
 1. [Ruby](./flipt-client-ruby) (FFI)
 1. [NodeJS](./flipt-client-node) (FFI)
 1. [Java](./flipt-client-java) (FFI)
-1. [JavaScript/Typescript (Browser)](./flipt-client-browser) (WASM)
+1. [JavaScript/Typescript (Browser)](./flipt-client-browser) (WASM (JavaScript))
 
 Documentation for each client can be found in the README of that client's directory.
 

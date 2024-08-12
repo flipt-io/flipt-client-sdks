@@ -74,13 +74,13 @@ This allows you to update the flag state in a controlled manner, such as in a po
 
 ## Development
 
-### WASM
+### WASM (JavaScript)
 
 This library uses a WebAssembly (WASM) layer to interact with the Flipt server. It is written in Rust and exposes a JavaScript API using the `wasm-bindgen` and `wasm-pack` tools. We wrap the built WASM layer in a JavaScript API to make it easier to use in a browser environment.
 
 ### Prerequisites
 
-- [flipt-engine-wasm](../flipt-engine-wasm)
+- [flipt-engine-wasm-js](../flipt-engine-wasm-js)
 
 ### Build
 

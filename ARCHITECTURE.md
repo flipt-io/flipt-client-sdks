@@ -52,7 +52,11 @@ The client SDKs are responsible for the following:
 
 ## WebAssembly
 
-[`flipt-engine-wasm`](./flipt-engine-wasm) is a Rust library that compiles to [WebAssembly](https://webassembly.org/) and is designed to be embedded in the client-side SDKs that run in the browser.
+### JavaScript
+
+[`flipt-engine-wasm-js`](./flipt-engine-wasm-js) is a Rust library that compiles to [WebAssembly](https://webassembly.org/) and is designed to be embedded in the client-side SDKs that run in the browser.
+
+It uses [wasm-bindgen](https://github.com/rustwasm/wasm-bindgen) to interface with the JavaScript runtime, which is why it's only supported in JavaScript.
 
 The client-side SDKs send context to the client engine via the WebAssembly interface and receive the results of the evaluation from the engine.
 
@@ -61,14 +65,31 @@ Because of the current limitations of WebAssembly, the engine is designed to be 
 You can refer to the architecture diagram below:
 
 <p align="center">
-    <img src=".github/images/architecture-wasm.png" alt="Client SDKs Architecture (WASM)" width="500px" />
+    <img src=".github/images/architecture-wasm-js.png" alt="Client SDKs Architecture (WASM)" width="500px" />
 </p>
+
+### Native
+
+[`flipt-engine-wasm`](./flipt-engine-wasm) is a Rust library that compiles to WebAssembly without relying on wasm-bindgen. This approach allows for a more portable WebAssembly module that can be used in various environments beyond just JavaScript runtimes.
+
+The native library is designed to be embedded in the native language client SDKs.
+
+The architecture for the native WebAssembly implementation can be visualized as follows:
+
+<p align="center">
+    <img src=".github/images/architecture-wasm-native.png" alt="Client SDKs Architecture (WASM Native)" width="500px" />
+</p>
+
+In this architecture, the `flipt-engine-wasm` library compiles to a raw WebAssembly module. The host environment (which could be various runtimes or languages) is responsible for loading and instantiating the WebAssembly module, as well as providing the necessary imports and handling exports.
+
+This approach offers greater flexibility and portability, allowing the Flipt engine to be integrated into a wider range of environments and languages that support WebAssembly, beyond just web browsers.
+
 
 ### Responsibilities
 
-#### WASM Engine
+#### WASM Engine (JavaScript)
 
-The [`flipt-engine-wasm`](./flipt-engine-wasm) library is responsible for the following:
+The [`flipt-engine-wasm-js`](./flipt-engine-wasm-js) library is responsible for the following:
 
 - Deserializing the evaluation state from JSON to memory.
 - Calling the evaluation logic from the [`flipt-evaluation`](./flipt-evaluation) library to evaluate context against the evaluation state and returning the evaluation results.

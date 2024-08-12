@@ -118,7 +118,7 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 	rust := client.Container().From("rust:1.74.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
-		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
+		WithDirectory("/src/flipt-engine-wasm-js", hostDirectory.Directory("flipt-engine-wasm-js"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"pkg/", ".gitignore"},
 		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
@@ -132,7 +132,7 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 
 	rust = rust.
 		WithExec([]string{"cargo", "install", "wasm-pack"}). // Install wasm-pack
-		WithWorkdir("/src/flipt-engine-wasm").
+		WithWorkdir("/src/flipt-engine-wasm-js").
 		WithExec([]string{"wasm-pack", "build", "--target", "web"}) // Build the wasm package
 
 	// Flipt
@@ -154,7 +154,7 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 		libFile:    rust.File("/src/target/release/libfliptengine.so"),
 		headerFile: rust.File("/src/flipt-engine-ffi/include/flipt_engine.h"),
 		hostDir:    hostDirectory,
-		wasmDir:    rust.Directory("/src/flipt-engine-wasm/pkg"),
+		wasmDir:    rust.Directory("/src/flipt-engine-wasm-js/pkg"),
 	}
 }
 
