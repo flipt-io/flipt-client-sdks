@@ -16,9 +16,7 @@ tokio = { version = "1.33.0", features = ["full"] }
 futures = "0.3"
 openssl = { version = "0.10", features = ["vendored"] }
 thiserror = "1.0.63"
-
-[dependencies.flipt-evaluation]
-path = "../flipt-evaluation"
+flipt-evaluation = { path = "../flipt-evaluation" }
 
 [dev-dependencies]
 mockall = "0.13.0"

@@ -1,6 +1,7 @@
+use serde::Serialize;
 use thiserror::Error;
 
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug, Clone, Serialize)]
 pub enum Error {
     #[error("error parsing json: {0}")]
     InvalidJSON(String),

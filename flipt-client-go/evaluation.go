@@ -1,6 +1,7 @@
 package evaluation
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,7 +12,7 @@ import (
 )
 
 var (
-	//go:embed ext/flipt_evaluation_wasi.wasm
+	//go:embed ext/flipt_evaluation_wasm.wasm
 	wasm []byte
 )
 
@@ -20,6 +21,8 @@ type Client struct {
 	namespace string
 	instance  *wasmtime.Instance
 	store     *wasmtime.Store
+	memory    *wasmtime.Memory
+	enginePtr int32
 }
 
 // NewClient constructs a Client.
@@ -54,14 +57,54 @@ func NewClient(opts ...clientOption) (*Client, error) {
 		return nil, err
 	}
 
-	f := instance.GetFunc(store, "new")
+	f := instance.GetFunc(store, "initialize_engine")
 	if f == nil {
-		return nil, fmt.Errorf("new function not found")
+		return nil, fmt.Errorf("initialize_engine function not found")
 	}
 
-	if _, err := f.Call(store, "default", "{}"); err != nil {
+	namespace := "default"
+	lenNamespace := len(namespace)
+
+	payload := "{\"namespace\": {\"key\": \"default\"}, \"flags\": []}"
+	lenPayload := len(payload)
+
+	// allocate memory for the strings
+	allocate := instance.GetFunc(store, "allocate")
+	if allocate == nil {
+		return nil, fmt.Errorf("allocate function not found")
+	}
+
+	namespacePtr, err := allocate.Call(store, lenNamespace)
+	if err != nil {
 		return nil, err
 	}
+	payloadPtr, err := allocate.Call(store, lenPayload)
+	if err != nil {
+		return nil, err
+	}
+
+	// get a pointer to the memory
+	memoryInstance := instance.GetExport(store, "memory").Memory()
+	if memoryInstance == nil {
+		return nil, fmt.Errorf("memory not found in WASM instance")
+	}
+
+	// need to keep this around for the lifetime of the client
+	// so it doesn't get garbage collected
+	client.memory = memoryInstance
+
+	// write namespace and payload to memory
+	data := memoryInstance.UnsafeData(store)
+	copy(data[uint32(namespacePtr.(int32)):], []byte(namespace))
+	copy(data[uint32(payloadPtr.(int32)):], []byte(payload))
+
+	// initialize_engine
+	enginePtr, err := f.Call(store, namespacePtr, lenNamespace, payloadPtr, lenPayload)
+	if err != nil {
+		return nil, err
+	}
+
+	client.enginePtr = enginePtr.(int32)
 
 	client.instance = instance
 	client.store = store
@@ -123,19 +166,47 @@ func (e *Client) EvaluateVariant(_ context.Context, flagKey, entityID string, ev
 		return nil, err
 	}
 
-	f := e.instance.GetFunc(e.store, "evaluate-variant")
-	if f == nil {
-		return nil, fmt.Errorf("evaluate-variant function not found")
+	lenEreq := len(ereq)
+	// allocate memory for the strings
+	allocate := e.instance.GetFunc(e.store, "allocate")
+	if allocate == nil {
+		return nil, fmt.Errorf("allocate function not found")
 	}
 
-	result, err := f.Call(e.store, ereq)
+	deallocate := e.instance.GetFunc(e.store, "deallocate")
+	if deallocate == nil {
+		return nil, fmt.Errorf("deallocate function not found")
+	}
+
+	ereqPtr, err := allocate.Call(e.store, lenEreq)
 	if err != nil {
 		return nil, err
 	}
 
-	var vr *VariantResult
+	defer deallocate.Call(e.store, ereqPtr, lenEreq)
 
-	if err := json.Unmarshal([]byte(result.(string)), &vr); err != nil {
+	// copy the evaluation request to the memory
+	data := e.memory.UnsafeData(e.store)
+	copy(data[uint32(ereqPtr.(int32)):], ereq)
+
+	f := e.instance.GetFunc(e.store, "evaluate_variant")
+	if f == nil {
+		return nil, fmt.Errorf("evaluate_variant function not found")
+	}
+
+	resultPtr, err := f.Call(e.store, e.enginePtr, ereqPtr, lenEreq)
+	if err != nil {
+		return nil, err
+	}
+
+	result := e.memory.UnsafeData(e.store)[uint32(resultPtr.(int32)):]
+	n := bytes.IndexByte(result, 0)
+	if n < 0 {
+		n = 0
+	}
+
+	var vr *VariantResult
+	if err := json.Unmarshal(result[:n], &vr); err != nil {
 		return nil, err
 	}
 
