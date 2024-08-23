@@ -47,7 +47,6 @@ jobs:
 
     env:
       CARGO_TERM_COLOR: always
-      OS: ${{ matrix.platform.os }}
 
     steps:
       - uses: actions/checkout@v4
@@ -66,8 +65,8 @@ jobs:
         run: |
           # dependencies are only needed on ubuntu as that's the only place where
           # we make cross-compilation
-          if [[ $OS =~ ^ubuntu.*$ ]]; then
-            sudo apt-get install -qq crossbuild-essential-arm64 crossbuild-essential-armhf musl-tools
+          if [[ "${{ matrix.platform.os }}" =~ ^ubuntu.*$ ]]; then
+            sudo apt-get install -qq musl-tools musl-dev
           fi
 
           # some additional configuration for cross-compilation on linux
@@ -82,7 +81,11 @@ jobs:
         run: rustup target add ${{ matrix.platform.target }}
 
       - name: Run build
-        run: cargo build -p flipt-engine-ffi --release --target ${{ matrix.platform.target }}
+        run: |
+          if [[ "${{ matrix.platform.target }}" == *-musl* ]]; then
+            export RUSTFLAGS="-C target-feature=-crt-static"
+          fi
+          cargo build -p flipt-engine-ffi --release --target ${{ matrix.platform.target }}
 
       - if: startsWith(matrix.platform.name, 'Darwin')
         run: |
