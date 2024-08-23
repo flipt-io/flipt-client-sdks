@@ -66,7 +66,7 @@ jobs:
           # dependencies are only needed on ubuntu as that's the only place where
           # we make cross-compilation
           if [[ $OS =~ ^ubuntu.*$ ]]; then
-            sudo apt-get install -qq crossbuild-essential-arm64 crossbuild-essential-armhf
+            sudo apt-get install -qq crossbuild-essential-arm64 crossbuild-essential-armhf musl-tools
           fi
 
           # some additional configuration for cross-compilation on linux
@@ -81,7 +81,7 @@ jobs:
         run: rustup target add ${{ matrix.platform.target }}
 
       - name: Run build
-        run: cargo build -p flipt-engine-ffi --release --verbose --target ${{ matrix.platform.target }}
+        run: cargo build -p flipt-engine-ffi --release --target ${{ matrix.platform.target }}
 
       - if: startsWith(matrix.platform.name, 'Darwin')
         run: |
