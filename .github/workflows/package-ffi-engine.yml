@@ -16,6 +16,7 @@ permissions:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         platform:
           - name: Linux-x86_64
