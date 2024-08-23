@@ -51,9 +51,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Update Rust
-        run: rustup update
-
       # - uses: actions/cache@v4
       #   with:
       #     path: |
@@ -69,11 +66,21 @@ jobs:
           # dependencies are only needed on ubuntu as that's the only place where
           # we make cross-compilation
           if [[ "${{ matrix.platform.os }}" =~ ^ubuntu.*$ ]]; then
-            sudo apt-get install -qq musl-tools musl-dev
+            sudo apt-get install -qq musl-tools musl-dev crossbuild-essential-arm64
           fi
 
+          # some additional configuration for cross-compilation on linux
+          cat >>~/.cargo/config <<EOF
+          [target.aarch64-unknown-linux-gnu]
+          linker = "aarch64-linux-gnu-gcc"
+          [target.aarch64-unknown-linux-musl]
+          linker = "aarch64-linux-gnu-gcc"
+          EOF
+
       - name: Install rust target
-        run: rustup target add ${{ matrix.platform.target }}
+        run: |
+          rustup update
+          rustup target add ${{ matrix.platform.target }}
 
       - name: Run build
         run: |
