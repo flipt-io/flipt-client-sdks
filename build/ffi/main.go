@@ -26,6 +26,7 @@ var (
 		"ruby":   rubyBuild,
 		"java":   javaBuild,
 	}
+	libc string
 	sema = make(chan struct{}, 5)
 )
 
@@ -33,6 +34,7 @@ func init() {
 	flag.StringVar(&sdks, "sdks", "", "comma separated list of which sdks(s) to run builds for")
 	flag.BoolVar(&push, "push", false, "push built artifacts to registry")
 	flag.StringVar(&tag, "tag", "", "tag to use for release")
+	flag.StringVar(&libc, "libc", "glibc", "libc to use for building the ffi (musl or glibc)")
 }
 
 func main() {
