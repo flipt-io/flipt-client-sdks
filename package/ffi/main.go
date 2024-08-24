@@ -104,7 +104,7 @@ func run() error {
 	}
 
 	dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
-		Exclude: []string{".github/", "build/", "test/", ".git/"},
+		Exclude: []string{".github/", "package/", "test/", ".git/"},
 	})
 
 	var g errgroup.Group
