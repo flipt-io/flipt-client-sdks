@@ -1,4 +1,4 @@
-module go.flipt.io/flipt/client-sdks/build/ffi
+module go.flipt.io/flipt/client-sdks/package/ffi
 
 go 1.21.3
 

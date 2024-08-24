@@ -74,4 +74,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
-          dagger run go run ./build/ffi --sdks=${{ inputs.sdk }} --push=true --tag=${{ inputs.tag }} --engine-tag=${{ env.ENGINE_TAG }} --libc=${{ inputs.libc }}
+          dagger run go run ./package/ffi --sdks=${{ inputs.sdk }} --push=true --tag=${{ inputs.tag }} --engine-tag=${{ env.ENGINE_TAG }} --libc=${{ inputs.libc }}
