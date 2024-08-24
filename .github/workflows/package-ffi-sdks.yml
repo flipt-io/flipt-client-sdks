@@ -7,7 +7,7 @@ on:
         type: string
         required: true
         default: "latest"
-      sdk:
+      sdks:
         description: "SDK(s) to build"
         type: string
         required: true
@@ -74,4 +74,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
-          dagger run go run ./package/ffi --sdks=${{ inputs.sdk }} --push=true --tag=${{ inputs.tag }} --engine-tag=${{ env.ENGINE_TAG }} --libc=${{ inputs.libc }}
+          dagger run go run ./package/ffi --sdks=${{ inputs.sdks }} --push=true --tag=${{ inputs.tag }} --engine-tag=${{ env.ENGINE_TAG }} --libc=${{ inputs.libc }}

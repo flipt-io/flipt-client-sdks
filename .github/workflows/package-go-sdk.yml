@@ -10,7 +10,7 @@ jobs:
   build:
     uses: ./.github/workflows/package-ffi-sdks.yml
     with:
-      sdk: go
+      sdks: go,go-musl
       engine-tag: "latest"
       tag: ${{ github.ref }}
     secrets: inherit

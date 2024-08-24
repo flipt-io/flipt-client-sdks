@@ -13,6 +13,6 @@ jobs:
   build:
     uses: ./.github/workflows/package-ffi-sdks.yml
     with:
-      sdk: ruby
+      sdks: ruby
       engine-tag: "latest"
     secrets: inherit

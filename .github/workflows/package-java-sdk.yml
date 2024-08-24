@@ -17,6 +17,6 @@ jobs:
   build:
     uses: ./.github/workflows/package-ffi-sdks.yml
     with:
-      sdk: java
+      sdks: java
       engine-tag: "latest"
     secrets: inherit
