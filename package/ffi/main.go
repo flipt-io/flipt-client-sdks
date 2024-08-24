@@ -132,12 +132,12 @@ func take(fn func() error) func() error {
 
 var (
 	packages = map[string]string{
-		"Linux-arm64":   "aarch64-unknown-linux-gnu",
-		"Linux-x86_64":  "x86_64-unknown-linux-gnu",
-		"Darwin-arm64":  "aarch64-apple-darwin",
-		"Darwin-x86_64": "x86_64-apple-darwin",
-		// "Linux-arm64-musl":  "aarch64-unknown-linux-musl",
-		// "Linux-x86_64-musl": "x86_64-unknown-linux-musl",
+		"Linux-arm64":       "aarch64-unknown-linux-gnu",
+		"Linux-x86_64":      "x86_64-unknown-linux-gnu",
+		"Darwin-arm64":      "aarch64-apple-darwin",
+		"Darwin-x86_64":     "x86_64-apple-darwin",
+		"Linux-arm64-musl":  "aarch64-unknown-linux-musl",
+		"Linux-x86_64-musl": "x86_64-unknown-linux-musl",
 	}
 )
 
