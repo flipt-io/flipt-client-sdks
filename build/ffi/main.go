@@ -16,10 +16,11 @@ import (
 )
 
 var (
-	sdks     string
-	push     bool
-	tag      string
-	sdksToFn = map[string]buildFn{
+	sdks      string
+	push      bool
+	tag       string
+	engineTag string
+	sdksToFn  = map[string]buildFn{
 		"python": pythonBuild,
 		"go":     goBuild,
 		"node":   nodeBuild,
@@ -34,7 +35,8 @@ func init() {
 	flag.StringVar(&sdks, "sdks", "", "comma separated list of which sdks(s) to run builds for")
 	flag.BoolVar(&push, "push", false, "push built artifacts to registry")
 	flag.StringVar(&tag, "tag", "", "tag to use for release")
-	flag.StringVar(&libc, "libc", "glibc", "libc to use for building the ffi (musl or glibc)")
+	flag.StringVar(&libc, "libc", "", "libc to use for building the ffi (musl or glibc)")
+	flag.StringVar(&engineTag, "engine-tag", "", "tag to use for the engine ffi")
 }
 
 func main() {
@@ -75,6 +77,14 @@ func run() error {
 
 	defer client.Close()
 
+	if engineTag != "" {
+		// download the pre-build libraries for each platform to local tmp directory
+		// to be be used later to copy into the sdk directories
+		if err := downloadFFI(ctx, client); err != nil {
+			return err
+		}
+	}
+
 	dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
 		Exclude: []string{".github/", "build/", "test/", ".git/"},
 	})
@@ -100,6 +110,54 @@ func take(fn func() error) func() error {
 
 		return fn()
 	}
+}
+
+var (
+	glibcPackages = map[string]string{
+		"Linux-arm64":   "aarch64-unknown-linux-gnu",
+		"Linux-x86_64":  "x86_64-unknown-linux-gnu",
+		"Darwin-arm64":  "aarch64-apple-darwin",
+		"Darwin-x86_64": "x86_64-apple-darwin",
+	}
+
+	muslPackages = map[string]string{
+		"Linux-arm64-musl":  "aarch64-unknown-linux-musl",
+		"Linux-x86_64-musl": "x86_64-unknown-linux-musl",
+	}
+)
+
+func downloadFFI(ctx context.Context, client *dagger.Client) error {
+	if engineTag == "" {
+		return fmt.Errorf("ENGINE_TAG is not set")
+	}
+
+	packages := glibcPackages
+	if libc == "musl" {
+		packages = muslPackages
+	}
+
+	for pkg, target := range packages {
+		out := strings.ToLower(strings.ReplaceAll(pkg, "-", "_"))
+		url := fmt.Sprintf("https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-%s/flipt-engine-ffi-%s.tar.gz", engineTag, pkg)
+
+		container := client.Container().From("debian:bookworm-slim").
+			WithExec([]string{"apt-get", "update"}).
+			WithExec([]string{"apt-get", "install", "-y", "wget"}).
+			WithExec([]string{"mkdir", "-p", "/tmp/dl"}).
+			WithExec(strings.Split(fmt.Sprintf("wget %s -O /tmp/dl/%s.tar.gz", url, pkg), " ")).
+			WithExec(strings.Split(fmt.Sprintf("mkdir -p /tmp/%s", out), " ")).
+			WithExec(strings.Split(fmt.Sprintf("mkdir -p /out/%s", out), " ")).
+			WithExec(strings.Split(fmt.Sprintf("tar -xzf /tmp/dl/%s.tar.gz -C /tmp/%s", pkg, out), " ")).
+			WithExec([]string{"sh", "-c", "mv /tmp/" + out + "/target/" + target + "/release/* /out/" + out}).
+			Directory("/out")
+
+		_, err := container.Export(ctx, "./tmp/")
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
@@ -151,6 +209,9 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 	}
 
 	targetTag := strings.TrimPrefix(tag, tagPrefix)
+	if libc == "musl" {
+		targetTag += "-musl"
+	}
 
 	pat := os.Getenv("GITHUB_TOKEN")
 	if pat == "" {

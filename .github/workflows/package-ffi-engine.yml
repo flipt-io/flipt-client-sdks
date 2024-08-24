@@ -51,15 +51,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # - uses: actions/cache@v4
-      #   with:
-      #     path: |
-      #       ~/.cargo/bin/
-      #       ~/.cargo/registry/index/
-      #       ~/.cargo/registry/cache/
-      #       ~/.cargo/git/db/
-      #       target/
-      #     key: ${{ runner.os }}-${{ matrix.platform.target}}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-${{ matrix.platform.target}}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install and configure dependencies
         run: |
