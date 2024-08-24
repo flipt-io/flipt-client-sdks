@@ -102,6 +102,13 @@ jobs:
             target/${{ matrix.platform.target }}/release/libfliptengine.* \
             || true
 
+      - name: Upload Artifacts (Pull Request)
+        uses: actions/upload-artifact@v4
+        if: github.event_name == 'pull_request'
+        with:
+          name: flipt-engine-ffi-${{ matrix.platform.name }}
+          path: flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
+
       - name: Upload Release Assets (Tag)
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
