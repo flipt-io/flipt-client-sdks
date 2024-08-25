@@ -74,6 +74,11 @@ jobs:
             target/
           key: ${{ runner.os }}-${{ matrix.platform.target}}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Set RUSTFLAGS
+        if: startsWith(matrix.platform.target, '*-musl')
+        run: |
+          echo "RUSTFLAGS=-C target-feature=-crt-static" >> $GITHUB_ENV
+
       - name: Build ${{ matrix.platform.name }}
         uses: actions-rs/cargo@v1
         with:
