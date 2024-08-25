@@ -2,7 +2,6 @@
 
 ## [0.1.16](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.15...flipt-engine-ffi-v0.1.16) (2024-08-25)
 
-
 ### Miscellaneous Chores
 
 * release 0.1.16 ([ffa7c53](https://github.com/flipt-io/flipt-client-sdks/commit/ffa7c535b7023eb218a78e949548b3fd6df4dd9d))
