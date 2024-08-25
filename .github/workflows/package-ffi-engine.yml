@@ -64,14 +64,14 @@ jobs:
       - name: Install and configure dependencies
         run: |
           if [[ "${{ matrix.platform.os }}" =~ ^ubuntu.*$ ]]; then
-            sudo apt-get install -qq musl-tools musl-dev gcc-aarch64-linux-gnu
+            sudo apt-get install -y musl-tools musl-dev
           fi
 
           cat >>~/.cargo/config <<EOF
           [target.aarch64-unknown-linux-gnu]
           linker = "aarch64-linux-gnu-gcc"
           [target.aarch64-unknown-linux-musl]
-          linker = "aarch64-linux-musl-gcc"
+          linker = "aarch64-unknown-linux-musl-ld"
           EOF
 
       - name: Install rust target
@@ -83,7 +83,6 @@ jobs:
         run: |
           if [[ "${{ matrix.platform.target }}" == *-musl* ]]; then
             export RUSTFLAGS="-C target-feature=-crt-static"
-            export TARGET_CC="aarch64-linux-musl-gcc"
           fi
           cargo build -p flipt-engine-ffi --release --target ${{ matrix.platform.target }}
 
