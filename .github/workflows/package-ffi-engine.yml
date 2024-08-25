@@ -22,26 +22,32 @@ jobs:
           - name: Linux-x86_64
             os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            use_cross: false
 
           - name: Linux-arm64
             os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
+            use_cross: true
 
           - name: Linux-x86_64-musl
             os: ubuntu-latest
             target: x86_64-unknown-linux-musl
+            use_cross: true
 
-          # - name: Linux-arm64-musl
-          #   os: ubuntu-latest
-          #   target: aarch64-unknown-linux-musl
+          - name: Linux-arm64-musl
+            os: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            use_cross: true
 
           - name: Darwin-arm64
             os: macos-latest
             target: aarch64-apple-darwin
+            use_cross: false
 
           - name: Darwin-x86_64
             os: macos-latest
             target: x86_64-apple-darwin
+            use_cross: false
 
     runs-on: ${{ matrix.platform.os }}
 
@@ -50,6 +56,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Rust ${{ matrix.platform.name }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.platform.target }}
+          override: true
 
       - uses: actions/cache@v4
         with:
@@ -61,28 +74,12 @@ jobs:
             target/
           key: ${{ runner.os }}-${{ matrix.platform.target}}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install and configure dependencies
-        run: |
-          if [[ "${{ matrix.platform.os }}" =~ ^ubuntu.*$ ]]; then
-            sudo apt-get install -y musl-tools musl-dev gcc-aarch64-linux-gnu
-          fi
-
-          cat >>~/.cargo/config <<EOF
-          [target.aarch64-unknown-linux-gnu]
-          linker = "aarch64-linux-gnu-gcc"
-          EOF
-
-      - name: Install rust target
-        run: |
-          rustup update
-          rustup target add ${{ matrix.platform.target }}
-
-      - name: Run build
-        run: |
-          if [[ "${{ matrix.platform.target }}" == *-musl* ]]; then
-            export RUSTFLAGS="-C target-feature=-crt-static"
-          fi
-          cargo build -p flipt-engine-ffi --release --target ${{ matrix.platform.target }}
+      - name: Build ${{ matrix.platform.name }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: -p flipt-engine-ffi --target ${{ matrix.platform.target }} --release
+          use-cross: ${{ matrix.platform.use_cross }}
 
       - if: startsWith(matrix.platform.name, 'Darwin')
         run: |
