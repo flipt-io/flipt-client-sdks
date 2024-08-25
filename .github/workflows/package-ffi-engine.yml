@@ -64,14 +64,15 @@ jobs:
       - name: Install and configure dependencies
         run: |
           if [[ "${{ matrix.platform.os }}" =~ ^ubuntu.*$ ]]; then
-            sudo apt-get install -y musl-tools musl-dev
+            sudo apt-get install -y musl-tools musl-dev gcc-aarch64-linux-gnu
           fi
 
           cat >>~/.cargo/config <<EOF
           [target.aarch64-unknown-linux-gnu]
           linker = "aarch64-linux-gnu-gcc"
           [target.aarch64-unknown-linux-musl]
-          linker = "aarch64-unknown-linux-musl-ld"
+          linker = "aarch64-linux-gnu-gcc"
+          rustflags = [ "-C", "target-feature=+crt-static", "-C", "link-arg=-lgcc" ]
           EOF
 
       - name: Install rust target
@@ -81,9 +82,6 @@ jobs:
 
       - name: Run build
         run: |
-          if [[ "${{ matrix.platform.target }}" == *-musl* ]]; then
-            export RUSTFLAGS="-C target-feature=-crt-static"
-          fi
           cargo build -p flipt-engine-ffi --release --target ${{ matrix.platform.target }}
 
       - if: startsWith(matrix.platform.name, 'Darwin')
