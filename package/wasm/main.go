@@ -53,7 +53,7 @@ func run() error {
 	defer client.Close()
 
 	dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
-		Exclude: []string{".github/", "build/", "test/", ".git/"},
+		Exclude: []string{".github/", "package/", "test/", ".git/"},
 	})
 
 	return build(ctx, client, dir)

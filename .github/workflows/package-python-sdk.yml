@@ -13,6 +13,6 @@ jobs:
   build:
     uses: ./.github/workflows/package-ffi-sdks.yml
     with:
-      sdk: python
+      sdks: python
       engine-tag: "latest"
     secrets: inherit

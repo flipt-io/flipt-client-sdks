@@ -123,7 +123,7 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
-		WithExec([]string{"cargo", "build", "--release"}) // Build the dynamic library
+		WithExec([]string{"cargo", "build", "-p", "flipt-engine-ffi", "--release"}) // Build the dynamic library
 
 	if arch == "arm64" {
 		rust = rust.WithExec([]string{"apt-get", "update"}).

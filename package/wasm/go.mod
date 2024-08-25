@@ -1,4 +1,4 @@
-module go.flipt.io/flipt/client-sdks/build/wasm
+module go.flipt.io/flipt/client-sdks/package/wasm
 
 go 1.22.1
 

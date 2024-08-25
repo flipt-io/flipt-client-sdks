@@ -7,7 +7,7 @@ on:
         type: string
         required: true
         default: "latest"
-      sdk:
+      sdks:
         description: "SDK(s) to build"
         type: string
         required: true
@@ -56,39 +56,7 @@ jobs:
             jq -r ".[] | select(.tag_name | startswith(\"flipt-engine-ffi-\")) | .tag_name" | \
             sort -Vr | head -n 1 | sed "s/^flipt-engine-ffi-//")" >> $GITHUB_ENV
           fi
-
-      - name: Download Mac ARM64 Engine
-        run: |
-          mkdir -p tmp/darwin_arm64 && \
-          wget "https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-${ENGINE_TAG}/flipt-engine-ffi-Darwin-arm64.tar.gz" -O /tmp/flipt-engine-ffi-Darwin-arm64.tar.gz && \
-          mkdir -p /tmp/darwin_arm64 && \
-          tar -xzf /tmp/flipt-engine-ffi-Darwin-arm64.tar.gz -C /tmp/darwin_arm64 && \
-          mv /tmp/darwin_arm64/target/aarch64-apple-darwin/release/* tmp/darwin_arm64
-
-      - name: Download Mac x86_64 Engine
-        run: |
-          mkdir -p tmp/darwin_x86_64 && \
-          wget "https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-${ENGINE_TAG}/flipt-engine-ffi-Darwin-x86_64.tar.gz" -O /tmp/flipt-engine-ffi-Darwin-x86_64.tar.gz && \
-          mkdir -p /tmp/darwin_x86_64 && \
-          tar -xzf /tmp/flipt-engine-ffi-Darwin-x86_64.tar.gz -C /tmp/darwin_x86_64 && \
-          mv /tmp/darwin_x86_64/target/x86_64-apple-darwin/release/* tmp/darwin_x86_64
-
-      - name: Download Linux ARM64 Engine
-        run: |
-          mkdir -p tmp/linux_arm64 && \
-          wget "https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-${ENGINE_TAG}/flipt-engine-ffi-Linux-arm64.tar.gz" -O /tmp/flipt-engine-ffi-Linux-arm64.tar.gz && \
-          mkdir -p /tmp/linux_arm64 && \
-          tar -xzf /tmp/flipt-engine-ffi-Linux-arm64.tar.gz -C /tmp/linux_arm64 && \
-          mv /tmp/linux_arm64/target/aarch64-unknown-linux-gnu/release/* tmp/linux_arm64
-
-      - name: Download Linux x86_64 Engine
-        run: |
-          mkdir -p tmp/linux_x86_64 && \
-          wget "https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-${ENGINE_TAG}/flipt-engine-ffi-Linux-x86_64.tar.gz" -O /tmp/flipt-engine-ffi-Linux-x86_64.tar.gz && \
-          mkdir -p /tmp/linux_x86_64 && \
-          tar -xzf /tmp/flipt-engine-ffi-Linux-x86_64.tar.gz -C /tmp/linux_x86_64 && \
-          mv /tmp/linux_x86_64/target/x86_64-unknown-linux-gnu/release/* tmp/linux_x86_64
-
+     
       - name: Generate token
         id: generate_token
         uses: tibdex/github-app-token@v2
@@ -101,4 +69,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
-          dagger run go run ./build/ffi --sdks=${{ inputs.sdk }} --push=true --tag=${{ inputs.tag }}
+          dagger run go run ./package/ffi --sdks=${{ inputs.sdks }} --push=true --tag=${{ inputs.tag }} --engine-tag=${{ env.ENGINE_TAG }}

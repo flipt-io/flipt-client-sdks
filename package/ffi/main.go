@@ -16,15 +16,17 @@ import (
 )
 
 var (
-	sdks     string
-	push     bool
-	tag      string
-	sdksToFn = map[string]buildFn{
-		"python": pythonBuild,
-		"go":     goBuild,
-		"node":   nodeBuild,
-		"ruby":   rubyBuild,
-		"java":   javaBuild,
+	sdks      string
+	push      bool
+	tag       string
+	engineTag string
+	sdksToFn  = map[string]buildFn{
+		"python":  pythonBuild,
+		"go":      goBuild,
+		"go-musl": goMuslBuild,
+		"node":    nodeBuild,
+		"ruby":    rubyBuild,
+		"java":    javaBuild,
 	}
 	sema = make(chan struct{}, 5)
 )
@@ -33,6 +35,7 @@ func init() {
 	flag.StringVar(&sdks, "sdks", "", "comma separated list of which sdks(s) to run builds for")
 	flag.BoolVar(&push, "push", false, "push built artifacts to registry")
 	flag.StringVar(&tag, "tag", "", "tag to use for release")
+	flag.StringVar(&engineTag, "engine-tag", "", "tag to use for the engine ffi")
 }
 
 func main() {
@@ -43,7 +46,26 @@ func main() {
 	}
 }
 
-type buildFn func(context.Context, *dagger.Client, *dagger.Directory) error
+type libc string
+
+const (
+	glibc libc = "glibc"
+	musl  libc = "musl"
+)
+
+type buildOptions struct {
+	libc libc
+}
+
+type buildOptionsFn func(*buildOptions)
+
+func withMusl() buildOptionsFn {
+	return func(opts *buildOptions) {
+		opts.libc = musl
+	}
+}
+
+type buildFn func(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts ...buildOptionsFn) error
 
 func run() error {
 	var builds = make(map[string]buildFn, len(sdksToFn))
@@ -73,8 +95,16 @@ func run() error {
 
 	defer client.Close()
 
+	if engineTag != "" {
+		// download the pre-build libraries for each platform to local tmp directory
+		// to be be used later to copy into the sdk directories
+		if err := downloadFFI(ctx, client); err != nil {
+			return err
+		}
+	}
+
 	dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
-		Exclude: []string{".github/", "build/", "test/", ".git/"},
+		Exclude: []string{".github/", "package/", "test/", ".git/"},
 	})
 
 	var g errgroup.Group
@@ -100,7 +130,53 @@ func take(fn func() error) func() error {
 	}
 }
 
-func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
+var (
+	packages = map[string]string{
+		"Linux-arm64":       "aarch64-unknown-linux-gnu",
+		"Linux-x86_64":      "x86_64-unknown-linux-gnu",
+		"Darwin-arm64":      "aarch64-apple-darwin",
+		"Darwin-x86_64":     "x86_64-apple-darwin",
+		"Linux-arm64-musl":  "aarch64-unknown-linux-musl",
+		"Linux-x86_64-musl": "x86_64-unknown-linux-musl",
+	}
+)
+
+func args(args string, a ...any) []string {
+	return strings.Split(fmt.Sprintf(args, a...), " ")
+}
+
+func downloadFFI(ctx context.Context, client *dagger.Client) error {
+	if engineTag == "" {
+		return fmt.Errorf("ENGINE_TAG is not set")
+	}
+
+	for pkg, target := range packages {
+		var (
+			out = strings.ToLower(strings.ReplaceAll(pkg, "-", "_"))
+			url = fmt.Sprintf("https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-%s/flipt-engine-ffi-%s.tar.gz", engineTag, pkg)
+		)
+
+		container := client.Container().From("debian:bookworm-slim").
+			WithExec([]string{"apt-get", "update"}).
+			WithExec([]string{"apt-get", "install", "-y", "wget"}).
+			WithExec([]string{"mkdir", "-p", "/tmp/dl"}).
+			WithExec(args("wget %s -O /tmp/dl/%s.tar.gz", url, pkg)).
+			WithExec(args("mkdir -p /tmp/%s", out)).
+			WithExec(args("mkdir -p /out/%s", out)).
+			WithExec(args("tar -xzf /tmp/dl/%s.tar.gz -C /tmp/%s", pkg, out)).
+			WithExec([]string{"sh", "-c", "mv /tmp/" + out + "/target/" + target + "/release/* /out/" + out}).
+			Directory("/out")
+
+		_, err := container.Export(ctx, "./tmp/")
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts ...buildOptionsFn) error {
 	container := client.Container().From("python:3.11-bookworm").
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-python")).
@@ -130,25 +206,14 @@ func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagg
 	return err
 }
 
-func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
-	if tag == "" {
-		return fmt.Errorf("tag is not set")
+func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts ...buildOptionsFn) error {
+	buildOpts := buildOptions{
+		libc: glibc,
 	}
 
-	const tagPrefix = "refs/tags/flipt-client-go-"
-	if !strings.HasPrefix(tag, tagPrefix) {
-		return fmt.Errorf("tag %q must start with %q", tag, tagPrefix)
+	for _, opt := range opts {
+		opt(&buildOpts)
 	}
-
-	// because of how Go modules work, we need to create a new repo that contains
-	// only the go client code. This is because the go client code is in a subdirectory
-	// we also need to copy the ext directory into the tag of this new repo so that it can be used
-	targetRepo := os.Getenv("TARGET_REPO")
-	if targetRepo == "" {
-		targetRepo = "https://github.com/flipt-io/flipt-client-go.git"
-	}
-
-	targetTag := strings.TrimPrefix(tag, tagPrefix)
 
 	pat := os.Getenv("GITHUB_TOKEN")
 	if pat == "" {
@@ -179,8 +244,19 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 	repository := git.
 		WithExec([]string{"git", "clone", "https://github.com/flipt-io/flipt-client-sdks.git", "/src"}).
 		WithWorkdir("/src").
-		WithDirectory("/tmp/ext", hostDirectory.Directory("tmp")).
 		WithFile("/tmp/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h"))
+
+	defaultExclude := []string{"*.rlib"}
+
+	if buildOpts.libc == glibc {
+		exclude := append(defaultExclude, "*_musl")
+		repository = repository.
+			WithDirectory("/tmp/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{Exclude: exclude})
+	} else {
+		repository = repository.
+			WithDirectory("/tmp/ext/linux_arm64", hostDirectory.Directory("tmp/linux_arm64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: defaultExclude}).
+			WithDirectory("/tmp/ext/linux_x86_64", hostDirectory.Directory("tmp/linux_x86_64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: defaultExclude})
+	}
 
 	filtered := repository.
 		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").
@@ -192,6 +268,28 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 	_, err := filtered.Sync(ctx)
 	if !push {
 		return err
+	}
+
+	if tag == "" {
+		return fmt.Errorf("tag is not set")
+	}
+
+	const tagPrefix = "refs/tags/flipt-client-go-"
+	if !strings.HasPrefix(tag, tagPrefix) {
+		return fmt.Errorf("tag %q must start with %q", tag, tagPrefix)
+	}
+
+	// because of how Go modules work, we need to create a new repo that contains
+	// only the go client code. This is because the go client code is in a subdirectory
+	// we also need to copy the ext directory into the tag of this new repo so that it can be used
+	targetRepo := os.Getenv("TARGET_REPO")
+	if targetRepo == "" {
+		targetRepo = "https://github.com/flipt-io/flipt-client-go.git"
+	}
+
+	targetTag := strings.TrimPrefix(tag, tagPrefix)
+	if buildOpts.libc == musl {
+		targetTag += "-musl"
 	}
 
 	// push to target repo/tag
@@ -206,7 +304,11 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 	return err
 }
 
-func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
+func goMuslBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts ...buildOptionsFn) error {
+	return goBuild(ctx, client, hostDirectory, append(opts, withMusl())...)
+}
+
+func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts ...buildOptionsFn) error {
 	container := client.Container().From("node:21.2-bookworm").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./node_modules/"},
@@ -239,7 +341,7 @@ func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	return err
 }
 
-func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
+func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts ...buildOptionsFn) error {
 	container := client.Container().From("ruby:3.1-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-ruby")).
@@ -269,7 +371,7 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	return err
 }
 
-func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
+func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts ...buildOptionsFn) error {
 	// the directory structure of the tmp directory is as follows:
 	// tmp/linux_x86_64/
 	// tmp/linux_arm64/
