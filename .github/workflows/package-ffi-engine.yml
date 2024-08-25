@@ -90,7 +90,7 @@ jobs:
         run: |
           strip -x target/${{ matrix.platform.target }}/release/libfliptengine.dylib
 
-      - if: startsWith(matrix.platform.name, 'Linux')
+      - if: startsWith(matrix.platform.name, 'Linux-x86_64')
         run: |
           strip -x target/${{ matrix.platform.target }}/release/libfliptengine.so
 
