@@ -46,11 +46,11 @@ func main() {
 	}
 }
 
-type libc uint
+type libc string
 
 const (
-	glibc libc = iota
-	musl
+	glibc libc = "glibc"
+	musl  libc = "musl"
 )
 
 type buildOptions struct {
@@ -141,6 +141,10 @@ var (
 	}
 )
 
+func args(args string, a ...any) []string {
+	return strings.Split(fmt.Sprintf(args, a...), " ")
+}
+
 func downloadFFI(ctx context.Context, client *dagger.Client) error {
 	if engineTag == "" {
 		return fmt.Errorf("ENGINE_TAG is not set")
@@ -156,10 +160,10 @@ func downloadFFI(ctx context.Context, client *dagger.Client) error {
 			WithExec([]string{"apt-get", "update"}).
 			WithExec([]string{"apt-get", "install", "-y", "wget"}).
 			WithExec([]string{"mkdir", "-p", "/tmp/dl"}).
-			WithExec(strings.Split(fmt.Sprintf("wget %s -O /tmp/dl/%s.tar.gz", url, pkg), " ")).
-			WithExec(strings.Split(fmt.Sprintf("mkdir -p /tmp/%s", out), " ")).
-			WithExec(strings.Split(fmt.Sprintf("mkdir -p /out/%s", out), " ")).
-			WithExec(strings.Split(fmt.Sprintf("tar -xzf /tmp/dl/%s.tar.gz -C /tmp/%s", pkg, out), " ")).
+			WithExec(args("wget %s -O /tmp/dl/%s.tar.gz", url, pkg)).
+			WithExec(args("mkdir -p /tmp/%s", out)).
+			WithExec(args("mkdir -p /out/%s", out)).
+			WithExec(args("tar -xzf /tmp/dl/%s.tar.gz -C /tmp/%s", pkg, out)).
 			WithExec([]string{"sh", "-c", "mv /tmp/" + out + "/target/" + target + "/release/* /out/" + out}).
 			Directory("/out")
 

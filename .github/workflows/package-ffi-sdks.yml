@@ -11,11 +11,6 @@ on:
         description: "SDK(s) to build"
         type: string
         required: true
-      libc:
-        description: "Libc to use"
-        type: string
-        required: false
-        default: ""
       tag:
         description: "Tag to use for SDK(s)"
         type: string
@@ -74,4 +69,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
-          dagger run go run ./package/ffi --sdks=${{ inputs.sdks }} --push=true --tag=${{ inputs.tag }} --engine-tag=${{ env.ENGINE_TAG }} --libc=${{ inputs.libc }}
+          dagger run go run ./package/ffi --sdks=${{ inputs.sdks }} --push=true --tag=${{ inputs.tag }} --engine-tag=${{ env.ENGINE_TAG }}
