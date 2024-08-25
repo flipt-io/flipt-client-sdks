@@ -246,13 +246,16 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 		WithWorkdir("/src").
 		WithFile("/tmp/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h"))
 
+	defaultExclude := []string{"*.rlib"}
+
 	if buildOpts.libc == glibc {
+		exclude := append(defaultExclude, "*_musl")
 		repository = repository.
-			WithDirectory("/tmp/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"*_musl"}})
+			WithDirectory("/tmp/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{Exclude: exclude})
 	} else {
 		repository = repository.
-			WithDirectory("/tmp/ext/linux_arm64", hostDirectory.Directory("tmp/linux_arm64_musl")).
-			WithDirectory("/tmp/ext/linux_x86_64", hostDirectory.Directory("tmp/linux_x86_64_musl"))
+			WithDirectory("/tmp/ext/linux_arm64", hostDirectory.Directory("tmp/linux_arm64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: defaultExclude}).
+			WithDirectory("/tmp/ext/linux_x86_64", hostDirectory.Directory("tmp/linux_x86_64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: defaultExclude})
 	}
 
 	filtered := repository.
