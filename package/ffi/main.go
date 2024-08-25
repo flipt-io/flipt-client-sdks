@@ -288,9 +288,6 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 	}
 
 	targetTag := strings.TrimPrefix(tag, tagPrefix)
-	if buildOpts.libc == musl {
-		targetTag += "-musl"
-	}
 
 	// push to target repo/tag
 	_, err = filtered.WithExec([]string{
