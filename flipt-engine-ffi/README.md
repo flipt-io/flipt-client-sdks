@@ -6,7 +6,7 @@ It leverages the [flipt-evaluation](../flipt-evaluation) library to perform the 
 
 ## Architecture
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md).
+See [ARCHITECTURE.md](../ARCHITECTURE.md).
 
 ### Prerequisites
 
