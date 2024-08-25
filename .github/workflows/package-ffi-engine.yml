@@ -75,7 +75,7 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.platform.target}}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Set RUSTFLAGS
-        if: startsWith(matrix.platform.target, '*-musl')
+        if: endsWith(matrix.platform.target, '-musl')
         run: |
           echo "RUSTFLAGS=-C target-feature=-crt-static" >> $GITHUB_ENV
 
@@ -90,7 +90,7 @@ jobs:
         run: |
           strip -x target/${{ matrix.platform.target }}/release/libfliptengine.dylib
 
-      - if: matrix.platform.name == 'Linux-x86_64'
+      - if: startsWith(matrix.platform.name, 'Linux')
         run: |
           strip -x target/${{ matrix.platform.target }}/release/libfliptengine.so
 
