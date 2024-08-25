@@ -72,7 +72,7 @@ jobs:
           linker = "aarch64-linux-gnu-gcc"
           [target.aarch64-unknown-linux-musl]
           linker = "aarch64-linux-gnu-gcc"
-          rustflags = [ "-C", "target-feature=+crt-static", "-C", "link-arg=-lgcc" ]
+          rustflags = [ "-C", "target-feature=-crt-static", "-C", "link-arg=-lgcc" ]
           EOF
 
       - name: Install rust target
