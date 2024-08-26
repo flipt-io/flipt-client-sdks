@@ -14,9 +14,9 @@ public class VariantEvaluationResponse {
 
   private final String flagKey;
 
-  private final String variantKey;
+  private final Optional<String> variantKey;
 
-  private final String variantAttachment;
+  private final Optional<String> variantAttachment;
 
   private final float requestDurationMillis;
 
