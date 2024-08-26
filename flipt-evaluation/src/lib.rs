@@ -121,7 +121,7 @@ pub fn variant_evaluation(
             ))
         })?;
 
-    if matches!(flag.r#type, common::FlagType::Variant) {
+    if !matches!(flag.r#type, common::FlagType::Variant) {
         return Err(Error::InvalidRequest(format!(
             "{} is not a variant flag",
             &request.flag_key,
@@ -287,7 +287,7 @@ pub fn boolean_evaluation(
             ))
         })?;
 
-    if matches!(flag.r#type, common::FlagType::Boolean) {
+    if !matches!(flag.r#type, common::FlagType::Boolean) {
         return Err(Error::InvalidRequest(format!(
             "{} is not a boolean flag",
             &request.flag_key,
