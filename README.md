@@ -20,7 +20,7 @@ There are two versions of the client SDKs:
 The [Foreign Function Interface (FFI)](https://en.wikipedia.org/wiki/Foreign_function_interface) versions of the client SDKs are currently available.
 
 > [!IMPORTANT]
-> Our FFI SDKs currently only work with OSes that use the `glibc` C library. We are working on adding support for other OSes that use `musl` such as Alpine Linux. See [this issue](https://github.com/flipt-io/flipt-client-sdks/issues/141) for more information.
+> Our FFI SDKs fully support OSes that use the `glibc` implementation of the C standard library. We have beta support for versions of the SDKs that use the `musl` C library. See [this issue](https://github.com/flipt-io/flipt-client-sdks/issues/141) for which SDKs have versions that support `musl`.
 
 ### Supported Architectures
 

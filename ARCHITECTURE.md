@@ -7,7 +7,7 @@ The Flipt client-side SDKs are currently broken down into two main implementatio
 - [FFI](#ffi)
 - [WebAssembly](#webassembly)
 
-You're use case will determine which implementation is best for you. The FFI implementation is designed to be embedded in native language client SDKs, while the WebAssembly implementation is designed to be embedded in client-side SDKs that runs in the browser.
+Your use case will determine which implementation is best for you. The FFI implementation is designed to be embedded in native language client SDKs, while the WebAssembly implementation is designed to be embedded in client-side SDKs that run in the browser.
 
 ## FFI
 
