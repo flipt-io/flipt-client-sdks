@@ -37,8 +37,8 @@ public class VariantEvaluationResponse {
     this.segmentKeys = segmentKeys;
     this.reason = reason;
     this.flagKey = flagKey;
-    this.variantKey = variantKey;
-    this.variantAttachment = variantAttachment;
+    this.variantKey = Optional.ofNullable(variantKey);
+    this.variantAttachment = Optional.ofNullable(variantAttachment);
     this.requestDurationMillis = requestDurationMillis;
     this.timestamp = timestamp;
   }
@@ -62,12 +62,12 @@ public class VariantEvaluationResponse {
   }
 
   @JsonProperty("variant_key")
-  public String getVariantKey() {
+  public Optional<String> getVariantKey() {
     return variantKey;
   }
 
   @JsonProperty("variant_attachment")
-  public String getVariantAttachment() {
+  public Optional<String> getVariantAttachment() {
     return variantAttachment;
   }
 
