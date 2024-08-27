@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use web_time::SystemTime;
+use web_time::Instant;
 
 pub mod error;
 pub mod models;
@@ -18,14 +18,14 @@ const DEFAULT_TOTAL_BUCKET_NUMBER: u32 = 1000;
 const DEFAULT_PERCENT_MULTIPIER: f32 = DEFAULT_TOTAL_BUCKET_NUMBER as f32 / DEFAULT_PERCENT;
 
 #[repr(C)]
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, PartialEq, Debug)]
 pub struct EvaluationRequest {
     pub flag_key: String,
     pub entity_id: String,
     pub context: HashMap<String, String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct VariantEvaluationResponse {
     pub r#match: bool,
     pub segment_keys: Vec<String>,
@@ -37,7 +37,7 @@ pub struct VariantEvaluationResponse {
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct BooleanEvaluationResponse {
     pub enabled: bool,
     pub flag_key: String,
@@ -46,20 +46,20 @@ pub struct BooleanEvaluationResponse {
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct ErrorEvaluationResponse {
     pub flag_key: String,
     pub namespace_key: String,
     pub reason: common::ErrorEvaluationReason,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct BatchEvaluationResponse {
     pub responses: Vec<EvaluationResponse>,
     pub request_duration_millis: f64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct EvaluationResponse {
     pub r#type: common::ResponseType,
     pub boolean_evaluation_response: Option<BooleanEvaluationResponse>,
@@ -71,7 +71,7 @@ impl Default for VariantEvaluationResponse {
     fn default() -> Self {
         Self {
             r#match: false,
-            segment_keys: Vec::new(),
+            segment_keys: vec![],
             reason: common::EvaluationReason::Unknown,
             flag_key: String::from(""),
             variant_key: String::from(""),
@@ -109,64 +109,55 @@ pub fn variant_evaluation(
     namespace: &str,
     request: &EvaluationRequest,
 ) -> Result<VariantEvaluationResponse, Error> {
-    let now = SystemTime::now();
+    let start = Instant::now();
     let mut last_rank = 0;
 
-    let flag = match store.get_flag(namespace, &request.flag_key) {
-        Some(f) => {
-            if f.r#type != common::FlagType::Variant {
-                return Err(Error::InvalidRequest(format!(
-                    "{} is not a variant flag",
-                    &request.flag_key,
-                )));
-            }
-            f
-        }
-        None => {
-            return Err(Error::InvalidRequest(format!(
+    let flag = store
+        .get_flag(namespace, &request.flag_key)
+        .ok_or_else(|| {
+            Error::InvalidRequest(format!(
                 "failed to get flag information {}/{}",
                 namespace, &request.flag_key,
-            )));
-        }
-    };
+            ))
+        })?;
+
+    if !matches!(flag.r#type, common::FlagType::Variant) {
+        return Err(Error::InvalidRequest(format!(
+            "{} is not a variant flag",
+            &request.flag_key,
+        )));
+    }
 
     let mut variant_evaluation_response = VariantEvaluationResponse {
         flag_key: flag.key.clone(),
         ..Default::default()
     };
 
-    if flag.default_variant.is_some() {
+    if let Some(default_variant) = &flag.default_variant {
         variant_evaluation_response.reason = common::EvaluationReason::Default;
-
-        let default_variant = flag.default_variant.as_ref().unwrap();
-        variant_evaluation_response
-            .variant_key
-            .clone_from(&default_variant.key);
-        variant_evaluation_response
-            .variant_attachment
-            .clone_from(&default_variant.attachment);
+        variant_evaluation_response.variant_key = default_variant.key.clone();
+        variant_evaluation_response.variant_attachment = default_variant.attachment.clone();
     }
 
     if !flag.enabled {
         variant_evaluation_response.reason = common::EvaluationReason::FlagDisabled;
-        variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
+        variant_evaluation_response.request_duration_millis = start.elapsed().as_millis() as f64;
         return Ok(variant_evaluation_response);
     }
 
-    let evaluation_rules = match store.get_evaluation_rules(namespace, &request.flag_key) {
-        Some(rules) => rules,
-        None => {
-            return Err(Error::Unknown(format!(
+    let evaluation_rules = store
+        .get_evaluation_rules(namespace, &request.flag_key)
+        .ok_or_else(|| {
+            Error::Unknown(format!(
                 "error getting evaluation rules for namespace {} and flag {}",
                 namespace,
                 request.flag_key.clone()
-            )));
-        }
-    };
+            ))
+        })?;
 
     // if no rules and flag is enabled, return default variant
     if evaluation_rules.is_empty() {
-        variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
+        variant_evaluation_response.request_duration_millis = start.elapsed().as_millis() as f64;
         return Ok(variant_evaluation_response);
     }
 
@@ -180,22 +171,19 @@ pub fn variant_evaluation(
 
         last_rank = rule.rank;
 
-        let mut segment_keys: Vec<String> = Vec::new();
+        let mut segment_keys: Vec<String> = vec![];
         let mut segment_matches = 0;
 
-        for kv in &rule.segments {
-            let matched = match matches_constraints(
+        for (segment_key, segment) in &rule.segments {
+            let matched = matches_constraints(
                 &request.context,
-                &kv.1.constraints,
-                &kv.1.match_type,
+                &segment.constraints,
+                &segment.match_type,
                 &request.entity_id,
-            ) {
-                Ok(b) => b,
-                Err(err) => return Err(err),
-            };
+            )?;
 
             if matched {
-                segment_keys.push(kv.0.into());
+                segment_keys.push(segment_key.clone());
                 segment_matches += 1;
             }
         }
@@ -212,19 +200,18 @@ pub fn variant_evaluation(
 
         variant_evaluation_response.segment_keys = segment_keys;
 
-        let distributions = match store.get_evaluation_distributions(namespace, &rule.id) {
-            Some(evaluation_distributions) => evaluation_distributions,
-            None => {
-                return Err(Error::Unknown(format!(
+        let distributions = store
+            .get_evaluation_distributions(namespace, &rule.id)
+            .ok_or_else(|| {
+                Error::Unknown(format!(
                     "error getting evaluation distributions for namespace {} and rule {}",
                     namespace,
                     rule.id.clone()
-                )))
-            }
-        };
+                ))
+            })?;
 
-        let mut valid_distributions: Vec<flipt::EvaluationDistribution> = Vec::new();
-        let mut buckets: Vec<i32> = Vec::new();
+        let mut valid_distributions: Vec<flipt::EvaluationDistribution> = vec![];
+        let mut buckets: Vec<i32> = vec![];
 
         for distribution in distributions {
             if distribution.rollout > 0.0 {
@@ -246,7 +233,8 @@ pub fn variant_evaluation(
         if valid_distributions.is_empty() {
             variant_evaluation_response.r#match = true;
             variant_evaluation_response.reason = common::EvaluationReason::Match;
-            variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
+            variant_evaluation_response.request_duration_millis =
+                start.elapsed().as_millis() as f64;
             return Ok(variant_evaluation_response);
         }
 
@@ -264,21 +252,18 @@ pub fn variant_evaluation(
         // if index is outside of our existing buckets then it does not match any distribution
         if index == valid_distributions.len() {
             variant_evaluation_response.r#match = false;
-            variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
+            variant_evaluation_response.request_duration_millis =
+                start.elapsed().as_millis() as f64;
             return Ok(variant_evaluation_response);
         }
 
         let d = &valid_distributions[index];
 
         variant_evaluation_response.r#match = true;
-        variant_evaluation_response
-            .variant_key
-            .clone_from(&d.variant_key);
-        variant_evaluation_response
-            .variant_attachment
-            .clone_from(&d.variant_attachment);
+        variant_evaluation_response.variant_key = d.variant_key.clone();
+        variant_evaluation_response.variant_attachment = d.variant_attachment.clone();
         variant_evaluation_response.reason = common::EvaluationReason::Match;
-        variant_evaluation_response.request_duration_millis = get_duration_millis(now)?;
+        variant_evaluation_response.request_duration_millis = start.elapsed().as_millis() as f64;
         return Ok(variant_evaluation_response);
     }
 
@@ -290,37 +275,34 @@ pub fn boolean_evaluation(
     namespace: &str,
     request: &EvaluationRequest,
 ) -> Result<BooleanEvaluationResponse, Error> {
-    let now = SystemTime::now();
+    let start = Instant::now();
     let mut last_rank = 0;
 
-    let flag = match store.get_flag(namespace, &request.flag_key) {
-        Some(f) => {
-            if f.r#type != common::FlagType::Boolean {
-                return Err(Error::InvalidRequest(format!(
-                    "{} is not a boolean flag",
-                    &request.flag_key,
-                )));
-            }
-            f
-        }
-        None => {
-            return Err(Error::InvalidRequest(format!(
+    let flag = store
+        .get_flag(namespace, &request.flag_key)
+        .ok_or_else(|| {
+            Error::InvalidRequest(format!(
                 "failed to get flag information {}/{}",
                 namespace, &request.flag_key,
-            )));
-        }
-    };
+            ))
+        })?;
 
-    let evaluation_rollouts = match store.get_evaluation_rollouts(namespace, &request.flag_key) {
-        Some(rollouts) => rollouts,
-        None => {
-            return Err(Error::Unknown(format!(
+    if !matches!(flag.r#type, common::FlagType::Boolean) {
+        return Err(Error::InvalidRequest(format!(
+            "{} is not a boolean flag",
+            &request.flag_key,
+        )));
+    }
+
+    let evaluation_rollouts = store
+        .get_evaluation_rollouts(namespace, &request.flag_key)
+        .ok_or_else(|| {
+            Error::Unknown(format!(
                 "error getting evaluation rollouts for namespace {} and flag {}",
                 namespace,
                 request.flag_key.clone()
-            )));
-        }
-    };
+            ))
+        })?;
 
     for rollout in evaluation_rollouts {
         if rollout.rank < last_rank {
@@ -332,9 +314,7 @@ pub fn boolean_evaluation(
 
         last_rank = rollout.rank;
 
-        if rollout.threshold.is_some() {
-            let threshold = rollout.threshold.unwrap();
-
+        if let Some(threshold) = rollout.threshold {
             let normalized_value =
                 (crc32fast::hash(format!("{}{}", request.entity_id, request.flag_key).as_bytes())
                     % 100) as f32;
@@ -344,24 +324,20 @@ pub fn boolean_evaluation(
                     enabled: threshold.value,
                     flag_key: flag.key.clone(),
                     reason: common::EvaluationReason::Match,
-                    request_duration_millis: get_duration_millis(now)?,
+                    request_duration_millis: start.elapsed().as_millis() as f64,
                     timestamp: chrono::offset::Utc::now(),
                 });
             }
-        } else if rollout.segment.is_some() {
-            let segment = rollout.segment.unwrap();
+        } else if let Some(segment) = rollout.segment {
             let mut segment_matches = 0;
 
-            for s in &segment.segments {
-                let matched = match matches_constraints(
+            for segment_data in segment.segments.values() {
+                let matched = matches_constraints(
                     &request.context,
-                    &s.1.constraints,
-                    &s.1.match_type,
+                    &segment_data.constraints,
+                    &segment_data.match_type,
                     &request.entity_id,
-                ) {
-                    Ok(v) => v,
-                    Err(err) => return Err(err),
-                };
+                )?;
 
                 if matched {
                     segment_matches += 1;
@@ -382,7 +358,7 @@ pub fn boolean_evaluation(
                 enabled: segment.value,
                 flag_key: flag.key.clone(),
                 reason: common::EvaluationReason::Match,
-                request_duration_millis: get_duration_millis(now)?,
+                request_duration_millis: start.elapsed().as_millis() as f64,
                 timestamp: chrono::offset::Utc::now(),
             });
         }
@@ -392,7 +368,7 @@ pub fn boolean_evaluation(
         enabled: flag.enabled,
         flag_key: flag.key.clone(),
         reason: common::EvaluationReason::Default,
-        request_duration_millis: get_duration_millis(now)?,
+        request_duration_millis: start.elapsed().as_millis() as f64,
         timestamp: chrono::offset::Utc::now(),
     })
 }
@@ -402,9 +378,9 @@ pub fn batch_evaluation(
     namespace: &str,
     requests: Vec<EvaluationRequest>,
 ) -> Result<BatchEvaluationResponse, Error> {
-    let now = SystemTime::now();
+    let start = Instant::now();
 
-    let mut evaluation_responses: Vec<EvaluationResponse> = Vec::new();
+    let mut evaluation_responses: Vec<EvaluationResponse> = vec![];
     for request in requests {
         let flag = match store.get_flag(namespace, &request.flag_key) {
             Some(f) => f,
@@ -414,7 +390,7 @@ pub fn batch_evaluation(
                     boolean_evaluation_response: None,
                     variant_evaluation_response: None,
                     error_evaluation_response: Some(ErrorEvaluationResponse {
-                        flag_key: request.flag_key,
+                        flag_key: request.flag_key.clone(),
                         namespace_key: namespace.to_string(),
                         reason: common::ErrorEvaluationReason::NotFound,
                     }),
@@ -447,15 +423,8 @@ pub fn batch_evaluation(
 
     Ok(BatchEvaluationResponse {
         responses: evaluation_responses,
-        request_duration_millis: get_duration_millis(now)?,
+        request_duration_millis: start.elapsed().as_millis() as f64,
     })
-}
-
-fn get_duration_millis(now: SystemTime) -> Result<f64, Error> {
-    match now.elapsed() {
-        Ok(elapsed) => Ok(elapsed.as_secs_f64() * 1000.0),
-        Err(_) => Err(Error::Unknown("error getting duration".to_string())),
-    }
 }
 
 fn matches_constraints(
@@ -465,26 +434,22 @@ fn matches_constraints(
     entity_id: &str,
 ) -> Result<bool, Error> {
     let mut constraint_matches: usize = 0;
-
     for constraint in constraints {
-        let value = match eval_context.get(&constraint.property) {
-            Some(v) => v,
-            None => {
-                // If we have an entityId return dummy value which is an empty string.
-                ""
-            }
-        };
+        let value = eval_context
+            .get(&constraint.property)
+            .unwrap_or(&String::new())
+            .to_string();
 
         let matched = match constraint.r#type {
-            common::ConstraintComparisonType::String => matches_string(constraint, value),
+            common::ConstraintComparisonType::String => matches_string(constraint, &value),
             common::ConstraintComparisonType::Number => {
-                matches_number(constraint, value).unwrap_or(false)
+                matches_number(constraint, &value).unwrap_or(false)
             }
             common::ConstraintComparisonType::Boolean => {
-                matches_boolean(constraint, value).unwrap_or(false)
+                matches_boolean(constraint, &value).unwrap_or(false)
             }
             common::ConstraintComparisonType::DateTime => {
-                matches_datetime(constraint, value).unwrap_or(false)
+                matches_datetime(constraint, &value).unwrap_or(false)
             }
             common::ConstraintComparisonType::EntityId => matches_string(constraint, entity_id),
             _ => {
@@ -1116,8 +1081,8 @@ mod tests {
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(!v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::FlagDisabled);
-        assert!(v.variant_key.is_empty());
-        assert!(v.variant_attachment.is_empty());
+        assert_eq!(v.variant_key, String::from(""));
+        assert_eq!(v.variant_attachment, String::from(""));
     }
 
     #[test]
