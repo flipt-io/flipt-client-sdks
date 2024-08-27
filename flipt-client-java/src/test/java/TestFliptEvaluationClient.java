@@ -42,8 +42,7 @@ public class TestFliptEvaluationClient {
     Assertions.assertEquals("flag1", response.getFlagKey());
     Assertions.assertTrue(response.isMatch());
     Assertions.assertEquals("MATCH_EVALUATION_REASON", response.getReason());
-    Assertions.assertTrue(response.getVariantKey().isPresent());
-    Assertions.assertEquals("variant1", response.getVariantKey().get());
+    Assertions.assertEquals("variant1", response.getVariantKey());
     Assertions.assertEquals("segment1", response.getSegmentKeys()[0]);
   }
 
@@ -91,8 +90,7 @@ public class TestFliptEvaluationClient {
     Assertions.assertEquals("flag1", variantResponse.getFlagKey());
     Assertions.assertTrue(variantResponse.isMatch());
     Assertions.assertEquals("MATCH_EVALUATION_REASON", variantResponse.getReason());
-    Assertions.assertTrue(variantResponse.getVariantKey().isPresent());
-    Assertions.assertEquals("variant1", variantResponse.getVariantKey().get());
+    Assertions.assertEquals("variant1", variantResponse.getVariantKey());
     Assertions.assertEquals("segment1", variantResponse.getSegmentKeys()[0]);
 
     Assertions.assertTrue(responses[1].getBooleanEvaluationResponse().isPresent());

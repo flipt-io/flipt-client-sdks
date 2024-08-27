@@ -3,7 +3,6 @@ package io.flipt.client.models;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.Optional;
 
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public class VariantEvaluationResponse {
@@ -15,9 +14,9 @@ public class VariantEvaluationResponse {
 
   private final String flagKey;
 
-  private final Optional<String> variantKey;
+  private final String variantKey;
 
-  private final Optional<String> variantAttachment;
+  private final String variantAttachment;
 
   private final float requestDurationMillis;
 
@@ -37,8 +36,8 @@ public class VariantEvaluationResponse {
     this.segmentKeys = segmentKeys;
     this.reason = reason;
     this.flagKey = flagKey;
-    this.variantKey = Optional.ofNullable(variantKey);
-    this.variantAttachment = Optional.ofNullable(variantAttachment);
+    this.variantKey = variantKey;
+    this.variantAttachment = variantAttachment;
     this.requestDurationMillis = requestDurationMillis;
     this.timestamp = timestamp;
   }
@@ -62,12 +61,12 @@ public class VariantEvaluationResponse {
   }
 
   @JsonProperty("variant_key")
-  public Optional<String> getVariantKey() {
+  public String getVariantKey() {
     return variantKey;
   }
 
   @JsonProperty("variant_attachment")
-  public Optional<String> getVariantAttachment() {
+  public String getVariantAttachment() {
     return variantAttachment;
   }
 

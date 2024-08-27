@@ -31,8 +31,8 @@ pub struct VariantEvaluationResponse {
     pub segment_keys: Vec<String>,
     pub reason: common::EvaluationReason,
     pub flag_key: String,
-    pub variant_key: Option<String>,
-    pub variant_attachment: Option<String>,
+    pub variant_key: String,
+    pub variant_attachment: String,
     pub request_duration_millis: f64,
     pub timestamp: DateTime<Utc>,
 }
@@ -74,8 +74,8 @@ impl Default for VariantEvaluationResponse {
             segment_keys: vec![],
             reason: common::EvaluationReason::Unknown,
             flag_key: String::from(""),
-            variant_key: None,
-            variant_attachment: None,
+            variant_key: String::from(""),
+            variant_attachment: String::from(""),
             request_duration_millis: 0.0,
             timestamp: chrono::offset::Utc::now(),
         }
@@ -135,8 +135,8 @@ pub fn variant_evaluation(
 
     if let Some(default_variant) = &flag.default_variant {
         variant_evaluation_response.reason = common::EvaluationReason::Default;
-        variant_evaluation_response.variant_key = Some(default_variant.key.clone());
-        variant_evaluation_response.variant_attachment = Some(default_variant.attachment.clone());
+        variant_evaluation_response.variant_key = default_variant.key.clone();
+        variant_evaluation_response.variant_attachment = default_variant.attachment.clone();
     }
 
     if !flag.enabled {
@@ -260,8 +260,8 @@ pub fn variant_evaluation(
         let d = &valid_distributions[index];
 
         variant_evaluation_response.r#match = true;
-        variant_evaluation_response.variant_key = Some(d.variant_key.clone());
-        variant_evaluation_response.variant_attachment = Some(d.variant_attachment.clone());
+        variant_evaluation_response.variant_key = d.variant_key.clone();
+        variant_evaluation_response.variant_attachment = d.variant_attachment.clone();
         variant_evaluation_response.reason = common::EvaluationReason::Match;
         variant_evaluation_response.request_duration_millis = start.elapsed().as_millis() as f64;
         return Ok(variant_evaluation_response);
@@ -1081,8 +1081,8 @@ mod tests {
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(!v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::FlagDisabled);
-        assert!(v.variant_key.is_none());
-        assert!(v.variant_attachment.is_none());
+        assert_eq!(v.variant_key, String::from(""));
+        assert_eq!(v.variant_attachment, String::from(""));
     }
 
     #[test]
@@ -1123,10 +1123,10 @@ mod tests {
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(!v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::FlagDisabled);
-        assert_eq!(v.variant_key, Some(String::from("default")));
+        assert_eq!(v.variant_key, String::from("default"));
         assert_eq!(
             v.variant_attachment,
-            Some(serde_json::json!({"key": "value"}).to_string())
+            serde_json::json!({"key": "value"}).to_string()
         );
     }
 
@@ -1283,10 +1283,10 @@ mod tests {
         assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
-        assert_eq!(v.variant_key, Some(String::from("default")));
+        assert_eq!(v.variant_key, String::from("default"));
         assert_eq!(
             v.variant_attachment,
-            Some(serde_json::json!({"key": "value"}).to_string())
+            serde_json::json!({"key": "value"}).to_string()
         );
     }
 
@@ -1592,11 +1592,8 @@ mod tests {
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
-        assert_eq!(v.variant_key, Some(String::from("variant1")));
-        assert_eq!(
-            v.variant_attachment,
-            Some(String::from(r#"{"foo": "bar"}"#))
-        );
+        assert_eq!(v.variant_key, String::from("variant1"));
+        assert_eq!(v.variant_attachment, String::from(r#"{"foo": "bar"}"#));
         assert!(v
             .segment_keys
             .iter()
@@ -1695,7 +1692,7 @@ mod tests {
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
-        assert_eq!(v.variant_key, Some(String::from("variant1")));
+        assert_eq!(v.variant_key, String::from("variant1"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
         let variant = variant_evaluation(
@@ -1715,7 +1712,7 @@ mod tests {
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
-        assert_eq!(v.variant_key, Some(String::from("variant2")));
+        assert_eq!(v.variant_key, String::from("variant2"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
 
@@ -1826,7 +1823,7 @@ mod tests {
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
-        assert_eq!(v.variant_key, Some(String::from("variant1")));
+        assert_eq!(v.variant_key, String::from("variant1"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
 
@@ -1903,7 +1900,7 @@ mod tests {
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
-        assert_eq!(v.variant_key, Some(String::from("variant1")));
+        assert_eq!(v.variant_key, String::from("variant1"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
         let variant = variant_evaluation(
@@ -1923,7 +1920,7 @@ mod tests {
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
-        assert_eq!(v.variant_key, Some(String::from("variant2")));
+        assert_eq!(v.variant_key, String::from("variant2"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
 
@@ -2080,10 +2077,10 @@ mod tests {
         assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
-        assert_eq!(v.variant_key, Some(String::from("default")));
+        assert_eq!(v.variant_key, String::from("default"));
         assert_eq!(
             v.variant_attachment,
-            Some(serde_json::json!({"key": "value"}).to_string())
+            serde_json::json!({"key": "value"}).to_string()
         );
     }
 
@@ -2385,11 +2382,8 @@ mod tests {
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
-        assert_eq!(v.variant_key, Some(String::from("variant1")));
-        assert_eq!(
-            v.variant_attachment,
-            Some(String::from(r#"{"foo": "bar"}"#))
-        );
+        assert_eq!(v.variant_key, String::from("variant1"));
+        assert_eq!(v.variant_attachment, String::from(r#"{"foo": "bar"}"#));
     }
 
     #[test]
@@ -2479,7 +2473,7 @@ mod tests {
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
-        assert_eq!(v.variant_key, Some(String::from("variant1")));
+        assert_eq!(v.variant_key, String::from("variant1"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
         let variant = variant_evaluation(
@@ -2499,7 +2493,7 @@ mod tests {
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
-        assert_eq!(v.variant_key, Some(String::from("variant2")));
+        assert_eq!(v.variant_key, String::from("variant2"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
 
@@ -2609,7 +2603,7 @@ mod tests {
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
-        assert_eq!(v.variant_key, Some(String::from("variant1")));
+        assert_eq!(v.variant_key, String::from("variant1"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
 
@@ -2686,7 +2680,7 @@ mod tests {
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
-        assert_eq!(v.variant_key, Some(String::from("variant1")));
+        assert_eq!(v.variant_key, String::from("variant1"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
         let variant = variant_evaluation(
@@ -2706,7 +2700,7 @@ mod tests {
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
-        assert_eq!(v.variant_key, Some(String::from("variant2")));
+        assert_eq!(v.variant_key, String::from("variant2"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
         context.insert(String::from("foo"), String::from("bar"));
@@ -2728,7 +2722,7 @@ mod tests {
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
-        assert_eq!(v.variant_key, Some(String::from("variant2")));
+        assert_eq!(v.variant_key, String::from("variant2"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
 
@@ -2812,7 +2806,7 @@ mod tests {
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
-        assert_eq!(v.variant_key, Some(String::from("variant2")));
+        assert_eq!(v.variant_key, String::from("variant2"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
 
@@ -2919,7 +2913,7 @@ mod tests {
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
         assert_eq!(v.reason, common::EvaluationReason::Match);
-        assert_eq!(v.variant_key, Some(String::from("variant3")));
+        assert_eq!(v.variant_key, String::from("variant3"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
 

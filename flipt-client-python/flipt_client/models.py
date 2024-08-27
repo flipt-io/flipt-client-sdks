@@ -33,8 +33,8 @@ class VariantEvaluationResponse(BaseModel):
     segment_keys: List[str]
     reason: str
     flag_key: str
-    variant_key: Optional[str] = None
-    variant_attachment: Optional[str] = None
+    variant_key: str
+    variant_attachment: str
     request_duration_millis: float
     timestamp: str
 
