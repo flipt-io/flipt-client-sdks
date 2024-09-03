@@ -37,10 +37,13 @@ func init() {
 func TestInvalidAuthentication(t *testing.T) {
 	client, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication("invalid"))
 	require.NoError(t, err)
-	_, err = client.EvaluateVariant(context.TODO(), "flag1", "someentity", map[string]string{
+	variant, err := client.EvaluateVariant(context.TODO(), "flag1", "someentity", map[string]string{
 		"fizz": "buzz",
 	})
-	assert.EqualError(t, err, "invalid authentication")
+	require.NoError(t, err)
+	assert.Nil(t, variant.Result)
+	assert.Equal(t, "failure", variant.Status)
+	assert.Equal(t, "invalid authentication", variant.ErrorMessage)
 }
 
 func TestVariant(t *testing.T) {
