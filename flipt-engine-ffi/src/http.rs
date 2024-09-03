@@ -159,28 +159,33 @@ impl Parser for HTTPParser {
             },
             Err(e) => return Err(Error::Server(format!("failed to make request: {}", e))),
         };
+        match response.status() {
+            // check if we have a 304 response
+            reqwest::StatusCode::NOT_MODIFIED => Ok(None),
+            reqwest::StatusCode::OK => {
+                // check if we have a new etag
+                if let Some(etag) = response.headers().get(reqwest::header::ETAG) {
+                    self.etag = Some(etag.to_str().unwrap().to_string());
+                }
 
-        // check if we have a 304 response
-        if response.status() == reqwest::StatusCode::NOT_MODIFIED {
-            return Ok(None);
+                let response_text = match response.text() {
+                    Ok(t) => t,
+                    Err(e) => {
+                        return Err(Error::Server(format!("failed to get response body: {}", e)))
+                    }
+                };
+
+                match serde_json::from_str(&response_text) {
+                    Ok(doc) => Ok(Some(doc)),
+                    Err(e) => Err(Error::InvalidJSON(e.to_string())),
+                }
+            }
+            _ => Err(Error::Server(format!(
+                "unexpected http response: {} {}",
+                response.status(),
+                response.text().unwrap_or("".to_string())
+            ))),
         }
-
-        // check if we have a new etag
-        if let Some(etag) = response.headers().get(reqwest::header::ETAG) {
-            self.etag = Some(etag.to_str().unwrap().to_string());
-        }
-
-        let response_text = match response.text() {
-            Ok(t) => t,
-            Err(e) => return Err(Error::Server(format!("failed to get response body: {}", e))),
-        };
-
-        let document: source::Document = match serde_json::from_str(&response_text) {
-            Ok(doc) => doc,
-            Err(e) => return Err(Error::InvalidJSON(e.to_string())),
-        };
-
-        Ok(Some(document))
     }
 }
 
@@ -298,6 +303,28 @@ mod tests {
         let result = parser.parse("default");
 
         assert!(result.is_ok());
+        mock.assert();
+    }
+
+    #[test]
+    fn test_http_parse_jwt_auth_failure() {
+        let mut server = mockito::Server::new();
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("authorization", "JWT foo")
+            .with_status(401)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"code":16,"message":"request was not authenticated","details":[]}"#)
+            .create();
+
+        let url = server.url();
+        let mut parser = HTTPParserBuilder::new(&url)
+            .authentication(Authentication::JwtToken("foo".to_string()))
+            .build();
+
+        let result = parser.parse("default");
+
+        assert!(result.is_err());
         mock.assert();
     }
 
