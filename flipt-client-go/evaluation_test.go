@@ -10,15 +10,19 @@ import (
 	flipt "go.flipt.io/flipt-client"
 )
 
-var evaluationClient *flipt.Client
+var (
+	evaluationClient *flipt.Client
+	fliptUrl         string
+	authToken        string
+)
 
 func init() {
-	fliptUrl := os.Getenv("FLIPT_URL")
+	fliptUrl = os.Getenv("FLIPT_URL")
 	if fliptUrl == "" {
 		panic("set FLIPT_URL")
 	}
 
-	authToken := os.Getenv("FLIPT_AUTH_TOKEN")
+	authToken = os.Getenv("FLIPT_AUTH_TOKEN")
 	if authToken == "" {
 		panic("set FLIPT_AUTH_TOKEN")
 	}
@@ -28,6 +32,11 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func TestInvalidAuthentication(t *testing.T) {
+	_, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication("invalid"))
+	assert.EqualError(t, err, "invalid authentication")
 }
 
 func TestVariant(t *testing.T) {
