@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.17](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.16...flipt-engine-ffi-v0.1.17) (2024-09-03)
+
+
+### Bug Fixes
+
+* **ffi:** handle errors from http response ([#347](https://github.com/flipt-io/flipt-client-sdks/issues/347)) ([0c86da9](https://github.com/flipt-io/flipt-client-sdks/commit/0c86da9e4cf13e827266c6e7019db76b41019cdf)), closes [#346](https://github.com/flipt-io/flipt-client-sdks/issues/346)
+
 ## [0.1.16](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.15...flipt-engine-ffi-v0.1.16) (2024-08-25)
 
 ### Miscellaneous Chores
