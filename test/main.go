@@ -144,9 +144,9 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 		WithUser("flipt").
 		WithEnvVariable("FLIPT_STORAGE_TYPE", "local").
 		WithEnvVariable("FLIPT_STORAGE_LOCAL_PATH", "/var/data/flipt").
-		WithEnvVariable("FLIPT_AUTHENTICATION_METHODS_TOKEN_ENABLED", "1").
+		WithEnvVariable("FLIPT_AUTHENTICATION_METHODS_TOKEN_ENABLED", "true").
 		WithEnvVariable("FLIPT_AUTHENTICATION_METHODS_TOKEN_BOOTSTRAP_TOKEN", "secret").
-		WithEnvVariable("FLIPT_AUTHENTICATION_REQUIRED", "1").
+		WithEnvVariable("FLIPT_AUTHENTICATION_REQUIRED", "true").
 		WithExposedPort(8080)
 
 	return flipt, testArgs{
