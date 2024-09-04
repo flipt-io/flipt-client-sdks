@@ -10,15 +10,19 @@ import (
 	flipt "go.flipt.io/flipt-client"
 )
 
-var evaluationClient *flipt.Client
+var (
+	evaluationClient *flipt.Client
+	fliptUrl         string
+	authToken        string
+)
 
 func init() {
-	fliptUrl := os.Getenv("FLIPT_URL")
+	fliptUrl = os.Getenv("FLIPT_URL")
 	if fliptUrl == "" {
 		panic("set FLIPT_URL")
 	}
 
-	authToken := os.Getenv("FLIPT_AUTH_TOKEN")
+	authToken = os.Getenv("FLIPT_AUTH_TOKEN")
 	if authToken == "" {
 		panic("set FLIPT_AUTH_TOKEN")
 	}
@@ -30,14 +34,21 @@ func init() {
 	}
 }
 
+func TestInvalidAuthentication(t *testing.T) {
+	client, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication("invalid"))
+	require.NoError(t, err)
+	_, err = client.EvaluateVariant(context.TODO(), "flag1", "someentity", map[string]string{
+		"fizz": "buzz",
+	})
+	assert.EqualError(t, err, "server error: response: HTTP status client error (401 Unauthorized) for url (http://flipt:8080/internal/v1/evaluation/snapshot/namespace/default)")
+}
+
 func TestVariant(t *testing.T) {
 	variant, err := evaluationClient.EvaluateVariant(context.TODO(), "flag1", "someentity", map[string]string{
 		"fizz": "buzz",
 	})
 	require.NoError(t, err)
 
-	assert.Equal(t, "success", variant.Status)
-	assert.Empty(t, variant.ErrorMessage)
 	assert.True(t, variant.Result.Match)
 	assert.Equal(t, "flag1", variant.Result.FlagKey)
 	assert.Equal(t, "MATCH_EVALUATION_REASON", variant.Result.Reason)
@@ -50,8 +61,6 @@ func TestBoolean(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	assert.Equal(t, "success", boolean.Status)
-	assert.Empty(t, boolean.ErrorMessage)
 	assert.Equal(t, "flag_boolean", boolean.Result.FlagKey)
 	assert.True(t, boolean.Result.Enabled)
 	assert.Equal(t, "MATCH_EVALUATION_REASON", boolean.Result.Reason)
@@ -83,9 +92,6 @@ func TestBatch(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	assert.Equal(t, "success", batch.Status)
-	assert.Empty(t, batch.ErrorMessage)
-
 	assert.Len(t, batch.Result.Responses, 3)
 
 	variant := batch.Result.Responses[0]
@@ -113,28 +119,19 @@ func TestListFlags(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotEmpty(t, response)
-	assert.Equal(t, "success", response.Status)
 	assert.Equal(t, 2, len(*response.Result))
 }
 
 func TestVariantFailure(t *testing.T) {
-	variant, err := evaluationClient.EvaluateVariant(context.TODO(), "nonexistent", "someentity", map[string]string{
+	_, err := evaluationClient.EvaluateVariant(context.TODO(), "nonexistent", "someentity", map[string]string{
 		"fizz": "buzz",
 	})
-	require.NoError(t, err)
-
-	assert.Nil(t, variant.Result)
-	assert.Equal(t, "failure", variant.Status)
-	assert.Equal(t, "invalid request: failed to get flag information default/nonexistent", variant.ErrorMessage)
+	assert.EqualError(t, err, "invalid request: failed to get flag information default/nonexistent")
 }
 
 func TestBooleanFailure(t *testing.T) {
-	boolean, err := evaluationClient.EvaluateBoolean(context.TODO(), "nonexistent", "someentity", map[string]string{
+	_, err := evaluationClient.EvaluateBoolean(context.TODO(), "nonexistent", "someentity", map[string]string{
 		"fizz": "buzz",
 	})
-	require.NoError(t, err)
-
-	assert.Nil(t, boolean.Result)
-	assert.Equal(t, "failure", boolean.Status)
-	assert.Equal(t, "invalid request: failed to get flag information default/nonexistent", boolean.ErrorMessage)
+	assert.EqualError(t, err, "invalid request: failed to get flag information default/nonexistent")
 }
