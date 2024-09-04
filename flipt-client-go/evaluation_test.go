@@ -40,7 +40,7 @@ func TestInvalidAuthentication(t *testing.T) {
 	_, err = client.EvaluateVariant(context.TODO(), "flag1", "someentity", map[string]string{
 		"fizz": "buzz",
 	})
-	require.EqualError(t, err, "server error: response: HTTP status client error (401 Unauthorized) for url (http://flipt:8080/internal/v1/evaluation/snapshot/namespace/default)")
+	assert.EqualError(t, err, "server error: response: HTTP status client error (401 Unauthorized) for url (http://flipt:8080/internal/v1/evaluation/snapshot/namespace/default)")
 }
 
 func TestVariant(t *testing.T) {
@@ -126,12 +126,12 @@ func TestVariantFailure(t *testing.T) {
 	_, err := evaluationClient.EvaluateVariant(context.TODO(), "nonexistent", "someentity", map[string]string{
 		"fizz": "buzz",
 	})
-	require.EqualError(t, err, "invalid request: failed to get flag information default/nonexistent")
+	assert.EqualError(t, err, "invalid request: failed to get flag information default/nonexistent")
 }
 
 func TestBooleanFailure(t *testing.T) {
 	_, err := evaluationClient.EvaluateBoolean(context.TODO(), "nonexistent", "someentity", map[string]string{
 		"fizz": "buzz",
 	})
-	require.EqualError(t, err, "invalid request: failed to get flag information default/nonexistent")
+	assert.EqualError(t, err, "invalid request: failed to get flag information default/nonexistent")
 }

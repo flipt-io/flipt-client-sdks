@@ -134,6 +134,7 @@ func (e *Client) EvaluateVariant(_ context.Context, flagKey, entityID string, ev
 	if vr.Status == statusSuccess {
 		return vr, nil
 	}
+
 	return nil, errors.New(vr.ErrorMessage)
 }
 
@@ -224,6 +225,7 @@ func (e *Client) ListFlags(_ context.Context) (*ListFlagsResult, error) {
 	if fl.Status == statusSuccess {
 		return fl, nil
 	}
+
 	return nil, errors.New(fl.ErrorMessage)
 }
 
