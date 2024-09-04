@@ -14,8 +14,11 @@ import "C"
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"unsafe"
 )
+
+const statusSuccess = "success"
 
 // Client wraps the functionality of making variant and boolean evaluation of Flipt feature flags.
 type Client struct {
@@ -128,7 +131,10 @@ func (e *Client) EvaluateVariant(_ context.Context, flagKey, entityID string, ev
 		return nil, err
 	}
 
-	return vr, nil
+	if vr.Status == statusSuccess {
+		return vr, nil
+	}
+	return nil, errors.New(vr.ErrorMessage)
 }
 
 // EvaluateBoolean performs evaluation for a boolean flag.
@@ -157,7 +163,11 @@ func (e *Client) EvaluateBoolean(_ context.Context, flagKey, entityID string, ev
 		return nil, err
 	}
 
-	return br, nil
+	if br.Status == statusSuccess {
+		return br, nil
+	}
+
+	return nil, errors.New(br.ErrorMessage)
 }
 
 // EvaluateBatch performs evaluation for a batch of flags.
@@ -192,7 +202,11 @@ func (e *Client) EvaluateBatch(_ context.Context, requests []*EvaluationRequest)
 		return nil, err
 	}
 
-	return br, nil
+	if br.Status == statusSuccess {
+		return br, nil
+	}
+
+	return nil, errors.New(br.ErrorMessage)
 }
 
 func (e *Client) ListFlags(_ context.Context) (*ListFlagsResult, error) {
@@ -207,7 +221,10 @@ func (e *Client) ListFlags(_ context.Context) (*ListFlagsResult, error) {
 		return nil, err
 	}
 
-	return fl, nil
+	if fl.Status == statusSuccess {
+		return fl, nil
+	}
+	return nil, errors.New(fl.ErrorMessage)
 }
 
 // Close cleans up the allocated engine as it was initialized in the constructor.
