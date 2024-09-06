@@ -2,7 +2,7 @@
 
 [![pub package](https://img.shields.io/pub/v/flipt_client.svg)](https://pub.dev/packages/flipt_client)
 
-The `flipt-client-dart` library contains the Dart source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client. T
+The `flipt-client-dart` library contains the Dart source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client.
 
 ## Installation
 
@@ -33,27 +33,31 @@ void main() {
   // Initialize the client
   final client = FliptEvaluationClient(
     'default',
-    EngineOpts(
+    Options.withClientToken(
+      'your-token',
       url: 'http://localhost:8080',
-      authentication: ClientTokenAuthentication('your-token'),
     ),
   );
 
   // Evaluate a variant flag
-  final variantResult = client.evaluateVariant(
-    'flag1',
-    'user123',
-    {'key': 'value'},
+  final EvaluationResponse<VariantResult> result =
+          await client.evaluateVariant(
+    flagKey: 'flag1',
+    entityId: 'someentity',
+    context: {'fizz': 'buzz'},
   );
-  print('Variant: ${variantResult.variantKey}');
+
+  print('Variant: ${result.result?.variantKey}');
 
   // Evaluate a boolean flag
-  final booleanResult = client.evaluateBoolean(
-    'flag2',
-    'user123',
-    {'key': 'value'},
+  final EvaluationResponse<BooleanResult> result =
+          await client.evaluateBoolean(
+    flagKey: 'flag2',
+    entityId: 'user123',
+    context: {'key': 'value'},
   );
-  print('Enabled: ${booleanResult.enabled}');
+
+  print('Enabled: ${result.result?.enabled}');
 
   // Don't forget to close the client when you're done
   client.close();
