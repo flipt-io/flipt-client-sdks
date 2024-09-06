@@ -20,6 +20,11 @@ typedef EvaluateBooleanNative = Pointer<Utf8> Function(
 typedef EvaluateBooleanDart = Pointer<Utf8> Function(
     Pointer<Void> engine, Pointer<Utf8> evaluationRequest);
 
+typedef EvaluateBatchNative = Pointer<Utf8> Function(
+    Pointer<Void> engine, Pointer<Utf8> evaluationRequests);
+typedef EvaluateBatchDart = Pointer<Utf8> Function(
+    Pointer<Void> engine, Pointer<Utf8> evaluationRequests);
+
 typedef DestroyEngineNative = Void Function(Pointer<Void> engine);
 typedef DestroyEngineDart = void Function(Pointer<Void> engine);
 
@@ -75,13 +80,15 @@ class FliptEvaluationClient {
     final optsJson = jsonEncode(options?.toJson() ?? {});
     final optsUtf8 = optsJson.toNativeUtf8();
 
-    _engine = initializeEngine(namespaceUtf8, optsUtf8);
-
-    calloc.free(namespaceUtf8);
-    calloc.free(optsUtf8);
+    try {
+      _engine = initializeEngine(namespaceUtf8, optsUtf8);
+    } finally {
+      calloc.free(namespaceUtf8);
+      calloc.free(optsUtf8);
+    }
   }
 
-  EvaluationResponse<VariantResult> evaluateVariant(
+  Result<VariantEvaluationResponse> evaluateVariant(
       {required String flagKey,
       required String entityId,
       required Map<String, dynamic> context}) {
@@ -103,9 +110,10 @@ class FliptEvaluationClient {
     _destroyString(resultPtr);
 
     try {
-      final response = EvaluationResponse<VariantResult>.fromJson(
+      final response = Result<VariantEvaluationResponse>.fromJson(
         jsonDecode(result) as Map<String, dynamic>,
-        (json) => VariantResult.fromJson(json as Map<String, dynamic>),
+        (json) =>
+            VariantEvaluationResponse.fromJson(json as Map<String, dynamic>),
       );
 
       if (response.status != EvaluationStatus.success) {
@@ -118,7 +126,7 @@ class FliptEvaluationClient {
     }
   }
 
-  EvaluationResponse<BooleanResult> evaluateBoolean(
+  Result<BooleanEvaluationResponse> evaluateBoolean(
       {required String flagKey,
       required String entityId,
       required Map<String, dynamic> context}) {
@@ -140,9 +148,10 @@ class FliptEvaluationClient {
       final result = resultPtr.toDartString();
       _destroyString(resultPtr);
 
-      final response = EvaluationResponse<BooleanResult>.fromJson(
+      final response = Result<BooleanEvaluationResponse>.fromJson(
         jsonDecode(result) as Map<String, dynamic>,
-        (json) => BooleanResult.fromJson(json as Map<String, dynamic>),
+        (json) =>
+            BooleanEvaluationResponse.fromJson(json as Map<String, dynamic>),
       );
 
       if (response.status != EvaluationStatus.success) {
@@ -152,6 +161,32 @@ class FliptEvaluationClient {
       return response;
     } finally {
       calloc.free(requestUtf8);
+    }
+  }
+
+  Result<BatchEvaluationResponse> evaluateBatch(
+      List<EvaluationRequest> requests) {
+    final evaluateBatch =
+        _lib.lookupFunction<EvaluateBatchNative, EvaluateBatchDart>(
+            'evaluate_batch');
+
+    final requestsJson = jsonEncode(requests.map((r) => r.toJson()).toList());
+    final requestsUtf8 = requestsJson.toNativeUtf8();
+
+    try {
+      final resultPtr = evaluateBatch(_engine, requestsUtf8);
+      final result = resultPtr.toDartString();
+      _destroyString(resultPtr);
+
+      final response = Result<BatchEvaluationResponse>.fromJson(
+        jsonDecode(result) as Map<String, dynamic>,
+        (json) =>
+            BatchEvaluationResponse.fromJson(json as Map<String, dynamic>),
+      );
+
+      return response;
+    } finally {
+      calloc.free(requestsUtf8);
     }
   }
 

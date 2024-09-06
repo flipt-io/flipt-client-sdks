@@ -78,25 +78,25 @@ enum EvaluationStatus {
 }
 
 @JsonSerializable(genericArgumentFactories: true)
-class EvaluationResponse<T> {
+class Result<T> {
   final EvaluationStatus status;
   final T? result;
   final String? errorMessage;
 
-  EvaluationResponse({
+  Result({
     required this.status,
     this.result,
     this.errorMessage,
   });
 
-  factory EvaluationResponse.fromJson(
+  factory Result.fromJson(
           Map<String, dynamic> json, T Function(Object?) fromJsonT) =>
-      _$EvaluationResponseFromJson(
+      _$ResultFromJson(
           json, (object) => fromJsonT(object as Map<String, dynamic>));
 }
 
 @JsonSerializable()
-class VariantResult {
+class VariantEvaluationResponse {
   final bool match;
   final List<String> segmentKeys;
   final String reason;
@@ -106,7 +106,7 @@ class VariantResult {
   final double requestDurationMillis;
   final String timestamp;
 
-  VariantResult({
+  VariantEvaluationResponse({
     required this.match,
     required this.segmentKeys,
     required this.reason,
@@ -117,20 +117,20 @@ class VariantResult {
     required this.timestamp,
   });
 
-  factory VariantResult.fromJson(Map<String, dynamic> json) =>
-      _$VariantResultFromJson(json);
-  Map<String, dynamic> toJson() => _$VariantResultToJson(this);
+  factory VariantEvaluationResponse.fromJson(Map<String, dynamic> json) =>
+      _$VariantEvaluationResponseFromJson(json);
+  Map<String, dynamic> toJson() => _$VariantEvaluationResponseToJson(this);
 }
 
 @JsonSerializable()
-class BooleanResult {
+class BooleanEvaluationResponse {
   final bool enabled;
   final String flagKey;
   final String reason;
   final double requestDurationMillis;
   final String timestamp;
 
-  BooleanResult({
+  BooleanEvaluationResponse({
     required this.enabled,
     required this.flagKey,
     required this.reason,
@@ -138,7 +138,70 @@ class BooleanResult {
     required this.timestamp,
   });
 
-  factory BooleanResult.fromJson(Map<String, dynamic> json) =>
-      _$BooleanResultFromJson(json);
-  Map<String, dynamic> toJson() => _$BooleanResultToJson(this);
+  factory BooleanEvaluationResponse.fromJson(Map<String, dynamic> json) =>
+      _$BooleanEvaluationResponseFromJson(json);
+  Map<String, dynamic> toJson() => _$BooleanEvaluationResponseToJson(this);
+}
+
+@JsonSerializable()
+class ErrorEvaluationResponse {
+  final String flagKey;
+  final String namespaceKey;
+  final String reason;
+
+  ErrorEvaluationResponse({
+    required this.flagKey,
+    required this.namespaceKey,
+    required this.reason,
+  });
+
+  factory ErrorEvaluationResponse.fromJson(Map<String, dynamic> json) =>
+      _$ErrorEvaluationResponseFromJson(json);
+  Map<String, dynamic> toJson() => _$ErrorEvaluationResponseToJson(this);
+}
+
+@JsonSerializable()
+class EvaluationResponse {
+  final String type;
+  final BooleanEvaluationResponse? booleanEvaluationResponse;
+  final VariantEvaluationResponse? variantEvaluationResponse;
+  final ErrorEvaluationResponse? errorEvaluationResponse;
+
+  EvaluationResponse({
+    required this.type,
+    this.booleanEvaluationResponse,
+    this.variantEvaluationResponse,
+    this.errorEvaluationResponse,
+  });
+
+  factory EvaluationResponse.fromJson(Map<String, dynamic> json) =>
+      _$EvaluationResponseFromJson(json);
+  Map<String, dynamic> toJson() => _$EvaluationResponseToJson(this);
+}
+
+@JsonSerializable()
+class BatchEvaluationResponse {
+  final List<EvaluationResponse> responses;
+  final double requestDurationMillis;
+
+  BatchEvaluationResponse({
+    required this.responses,
+    required this.requestDurationMillis,
+  });
+
+  factory BatchEvaluationResponse.fromJson(Map<String, dynamic> json) {
+    return BatchEvaluationResponse(
+      responses: (json['responses'] as List?)
+              ?.map(
+                  (e) => EvaluationResponse.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      requestDurationMillis: json['request_duration_millis'] as double? ?? 0.0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'responses': responses.map((e) => e.toJson()).toList(),
+        'request_duration_millis': requestDurationMillis,
+      };
 }
