@@ -27,6 +27,7 @@ var (
 		"node":    nodeBuild,
 		"ruby":    rubyBuild,
 		"java":    javaBuild,
+		"dart":    dartBuild,
 	}
 	sema = make(chan struct{}, 5)
 )
@@ -180,7 +181,9 @@ func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagg
 	container := client.Container().From("python:3.11-bookworm").
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-python")).
-		WithDirectory("/src/ext", hostDirectory.Directory("tmp")).
+		WithDirectory("/src/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"**/*.rlib", "*_musl"},
+		}).
 		WithFile("/src/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithWorkdir("/src").
 		WithExec([]string{"poetry", "install", "--without=dev", "-v"}).
@@ -310,7 +313,9 @@ func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./node_modules/"},
 		}).
-		WithDirectory("/src/ext", hostDirectory.Directory("tmp")).
+		WithDirectory("/src/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"**/*.rlib", "*_musl"},
+		}).
 		WithFile("/src/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithWorkdir("/src").
 		WithExec([]string{"npm", "install"}).
@@ -342,7 +347,9 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	container := client.Container().From("ruby:3.1-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-ruby")).
-		WithDirectory("/src/lib/ext", hostDirectory.Directory("tmp")).
+		WithDirectory("/src/lib/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"**/*.rlib", "*_musl"},
+		}).
 		WithFile("/src/lib/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithExec([]string{"bundle", "install"}).
 		WithExec([]string{"bundle", "exec", "rake", "build"})
@@ -400,7 +407,9 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 
 	container := client.Container().From("gradle:8.5.0-jdk11").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-java")).
-		WithDirectory("/src/src/main/resources", hostDirectory.Directory("tmp")).
+		WithDirectory("/src/src/main/resources", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"**/*.rlib", "*_musl"},
+		}).
 		WithFile("/src/main/resources/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithWorkdir("/src").
 		WithExec([]string{"gradle", "-x", "test", "build"})
@@ -442,6 +451,40 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		WithSecretVariable("PGP_PRIVATE_KEY", pgpPrivateKey).
 		WithSecretVariable("PGP_PASSPHRASE", pgpPassphrase).
 		WithExec([]string{"gradle", "publish"}).
+		Sync(ctx)
+
+	return err
+}
+
+func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts ...buildOptionsFn) error {
+	container := client.Container().From("dart:stable").
+		WithDirectory("/src", hostDirectory.Directory("flipt-client-dart"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{".gitignore", ".dart_tool/"},
+		}).
+		WithDirectory("/src/lib/src/ffi", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"**/*.rlib", "*_musl"},
+		}).
+		WithWorkdir("/src").
+		WithExec([]string{"dart", "pub", "get"})
+
+	var err error
+
+	if !push {
+		_, err = container.WithExec([]string{"dart", "pub", "publish", "--dry-run"}).Sync(ctx)
+		return err
+	}
+
+	// get oidc token for publishing to pub.dev
+	// https://dart.dev/tools/pub/automated-publishing#publishing-packages-using-github-actions
+	if os.Getenv("PUB_TOKEN") == "" {
+		return fmt.Errorf("PUB_TOKEN is not set")
+	}
+
+	pubToken := client.SetSecret("pub-token", os.Getenv("PUB_TOKEN"))
+
+	_, err = container.WithSecretVariable("PUB_TOKEN", pubToken).
+		WithExec([]string{"dart", "pub", "token", "add", "https://pub.dev", "--env-var", "PUB_TOKEN"}).
+		WithExec([]string{"dart", "pub", "publish", "--force"}).
 		Sync(ctx)
 
 	return err

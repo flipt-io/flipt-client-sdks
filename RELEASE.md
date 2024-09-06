@@ -55,6 +55,7 @@ Note: In the future we can potentially automate the tagging/pushing of the SDKs 
 - [ ] Update the `flipt-client-python` version in `flipt-client-python/pyproject.toml`
 - [ ] Update the `flipt-client-ruby` version in `flipt-client-ruby/lib/flipt_client/version.rb`
 - [ ] Update the `flipt-client-java` version in `flipt-client-java/build.gradle`
+- [ ] Update the `flipt-client-dart` version in `flipt-client-dart/pubspec.yaml`
 - [ ] Tag each SDK with the new version and push the tags to `origin`
 
 ### WASM
