@@ -24,6 +24,10 @@ This SDK currently supports the following OSes/architectures:
 - MacOS x86_64
 - MacOS arm64
 
+> [!IMPORTANT]
+> This SDK currently only supports desktop platforms (MacOS and Linux).
+> We are working on adding support for mobile platforms such as iOS and Android.
+
 ## Usage
 
 ```dart
