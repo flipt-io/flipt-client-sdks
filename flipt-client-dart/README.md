@@ -40,7 +40,7 @@ void main() {
   );
 
   // Evaluate a variant flag
-  final result = await client.evaluateVariant(
+  final result = client.evaluateVariant(
     flagKey: 'flag1',
     entityId: 'someentity',
     context: {'fizz': 'buzz'},
@@ -49,7 +49,7 @@ void main() {
   print('Variant: ${result.result?.variantKey}');
 
   // Evaluate a boolean flag
-  final result = await client.evaluateBoolean(
+  final result = client.evaluateBoolean(
     flagKey: 'flag2',
     entityId: 'user123',
     context: {'key': 'value'},
