@@ -117,3 +117,11 @@ npm run build
 npm install
 npm test
 ```
+
+## Contributing
+
+Contributions are welcome! Please feel free to open an issue or submit a Pull Request.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

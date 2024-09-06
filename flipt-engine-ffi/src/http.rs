@@ -8,6 +8,7 @@ use fliptevaluation::parser::Parser;
 #[derive(Debug, Clone, Default, Deserialize)]
 #[cfg_attr(test, derive(PartialEq))]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum Authentication {
     #[default]
     None,
