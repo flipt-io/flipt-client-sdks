@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 env:
   RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
