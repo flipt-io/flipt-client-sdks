@@ -22,7 +22,7 @@ void main() {
     });
 
     test('Evaluate Variant Flag', () async {
-      final result = await client.evaluateVariant(
+      final result = client.evaluateVariant(
         flagKey: 'flag1',
         entityId: 'someentity',
         context: {'fizz': 'buzz'},
@@ -38,7 +38,7 @@ void main() {
     });
 
     test('Evaluate Boolean Flag', () async {
-      final result = await client.evaluateBoolean(
+      final result = client.evaluateBoolean(
         flagKey: 'flag_boolean',
         entityId: 'someentity',
         context: {'fizz': 'buzz'},
@@ -54,7 +54,7 @@ void main() {
     });
 
     test('Evaluate Batch', () async {
-      final result = await client.evaluateBatch([
+      final result = client.evaluateBatch([
         EvaluationRequest(
           flagKey: 'flag1',
           entityId: 'someentity',
@@ -107,7 +107,7 @@ void main() {
     });
 
     test('List Flags', () async {
-      final result = await client.listFlags();
+      final result = client.listFlags();
       expect(result.status, equals(Status.success));
       expect(result.result, isA<List<Flag>>());
       expect(result.result, hasLength(2));
