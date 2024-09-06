@@ -20,6 +20,18 @@ Map<String, dynamic> _$OptionsToJson(Options instance) => <String, dynamic>{
       'authentication': instance.authentication,
     };
 
+Flag _$FlagFromJson(Map<String, dynamic> json) => Flag(
+      key: json['key'] as String,
+      enabled: json['enabled'] as bool,
+      type: json['type'] as String,
+    );
+
+Map<String, dynamic> _$FlagToJson(Flag instance) => <String, dynamic>{
+      'key': instance.key,
+      'enabled': instance.enabled,
+      'type': instance.type,
+    };
+
 EvaluationRequest _$EvaluationRequestFromJson(Map<String, dynamic> json) =>
     EvaluationRequest(
       flagKey: json['flag_key'] as String,
@@ -39,7 +51,7 @@ Result<T> _$ResultFromJson<T>(
   T Function(Object? json) fromJsonT,
 ) =>
     Result<T>(
-      status: $enumDecode(_$EvaluationStatusEnumMap, json['status']),
+      status: $enumDecode(_$StatusEnumMap, json['status']),
       result: _$nullableGenericFromJson(json['result'], fromJsonT),
       errorMessage: json['error_message'] as String?,
     );
@@ -49,14 +61,14 @@ Map<String, dynamic> _$ResultToJson<T>(
   Object? Function(T value) toJsonT,
 ) =>
     <String, dynamic>{
-      'status': _$EvaluationStatusEnumMap[instance.status]!,
+      'status': _$StatusEnumMap[instance.status]!,
       'result': _$nullableGenericToJson(instance.result, toJsonT),
       'error_message': instance.errorMessage,
     };
 
-const _$EvaluationStatusEnumMap = {
-  EvaluationStatus.success: 'success',
-  EvaluationStatus.failure: 'failure',
+const _$StatusEnumMap = {
+  Status.success: 'success',
+  Status.failure: 'failure',
 };
 
 T? _$nullableGenericFromJson<T>(
@@ -179,4 +191,20 @@ Map<String, dynamic> _$BatchEvaluationResponseToJson(
     <String, dynamic>{
       'responses': instance.responses.map((e) => e.toJson()).toList(),
       'request_duration_millis': instance.requestDurationMillis,
+    };
+
+FlagListResponse _$FlagListResponseFromJson(Map<String, dynamic> json) =>
+    FlagListResponse(
+      status: $enumDecode(_$StatusEnumMap, json['status']),
+      result: (json['result'] as List<dynamic>?)
+          ?.map((e) => Flag.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      errorMessage: json['error_message'] as String?,
+    );
+
+Map<String, dynamic> _$FlagListResponseToJson(FlagListResponse instance) =>
+    <String, dynamic>{
+      'status': _$StatusEnumMap[instance.status]!,
+      'result': instance.result?.map((e) => e.toJson()).toList(),
+      'error_message': instance.errorMessage,
     };

@@ -54,6 +54,22 @@ class Options {
 }
 
 @JsonSerializable()
+class Flag {
+  final String key;
+  final bool enabled;
+  final String type;
+
+  Flag({
+    required this.key,
+    required this.enabled,
+    required this.type,
+  });
+
+  factory Flag.fromJson(Map<String, dynamic> json) => _$FlagFromJson(json);
+  Map<String, dynamic> toJson() => _$FlagToJson(this);
+}
+
+@JsonSerializable()
 class EvaluationRequest {
   final String flagKey;
   final String entityId;
@@ -70,7 +86,7 @@ class EvaluationRequest {
   Map<String, dynamic> toJson() => _$EvaluationRequestToJson(this);
 }
 
-enum EvaluationStatus {
+enum Status {
   @JsonValue('success')
   success,
   @JsonValue('failure')
@@ -79,7 +95,7 @@ enum EvaluationStatus {
 
 @JsonSerializable(genericArgumentFactories: true)
 class Result<T> {
-  final EvaluationStatus status;
+  final Status status;
   final T? result;
   final String? errorMessage;
 
@@ -204,4 +220,29 @@ class BatchEvaluationResponse {
         'responses': responses.map((e) => e.toJson()).toList(),
         'request_duration_millis': requestDurationMillis,
       };
+}
+
+@JsonSerializable()
+class FlagListResponse {
+  final Status status;
+  final List<Flag>? result;
+  final String? errorMessage;
+
+  FlagListResponse({
+    required this.status,
+    required this.result,
+    this.errorMessage,
+  });
+
+  factory FlagListResponse.fromJson(Map<String, dynamic> json) =>
+      _$FlagListResponseFromJson(json);
+  Map<String, dynamic> toJson() => _$FlagListResponseToJson(this);
+
+  Result<List<Flag>> toResult() {
+    return Result<List<Flag>>(
+      status: status,
+      result: result,
+      errorMessage: errorMessage,
+    );
+  }
 }

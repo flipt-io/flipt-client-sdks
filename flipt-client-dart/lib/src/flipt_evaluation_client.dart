@@ -25,6 +25,9 @@ typedef EvaluateBatchNative = Pointer<Utf8> Function(
 typedef EvaluateBatchDart = Pointer<Utf8> Function(
     Pointer<Void> engine, Pointer<Utf8> evaluationRequests);
 
+typedef ListFlagsNative = Pointer<Utf8> Function(Pointer<Void> engine);
+typedef ListFlagsDart = Pointer<Utf8> Function(Pointer<Void> engine);
+
 typedef DestroyEngineNative = Void Function(Pointer<Void> engine);
 typedef DestroyEngineDart = void Function(Pointer<Void> engine);
 
@@ -116,7 +119,7 @@ class FliptEvaluationClient {
             VariantEvaluationResponse.fromJson(json as Map<String, dynamic>),
       );
 
-      if (response.status != EvaluationStatus.success) {
+      if (response.status != Status.success) {
         throw Exception('Failed to evaluate variant: ${response.errorMessage}');
       }
 
@@ -154,7 +157,7 @@ class FliptEvaluationClient {
             BooleanEvaluationResponse.fromJson(json as Map<String, dynamic>),
       );
 
-      if (response.status != EvaluationStatus.success) {
+      if (response.status != Status.success) {
         throw Exception('Failed to evaluate boolean: ${response.errorMessage}');
       }
 
@@ -184,10 +187,32 @@ class FliptEvaluationClient {
             BatchEvaluationResponse.fromJson(json as Map<String, dynamic>),
       );
 
+      if (response.status != Status.success) {
+        throw Exception('Failed to evaluate batch: ${response.errorMessage}');
+      }
+
       return response;
     } finally {
       calloc.free(requestsUtf8);
     }
+  }
+
+  Result<List<Flag>> listFlags() {
+    final listFlags =
+        _lib.lookupFunction<ListFlagsNative, ListFlagsDart>('list_flags');
+
+    final resultPtr = listFlags(_engine);
+    final result = resultPtr.toDartString();
+    _destroyString(resultPtr);
+
+    final response =
+        FlagListResponse.fromJson(jsonDecode(result) as Map<String, dynamic>);
+
+    if (response.status != Status.success) {
+      throw Exception('Failed to list flags: ${response.errorMessage}');
+    }
+
+    return response.toResult();
   }
 
   void _destroyString(Pointer<Utf8> str) {

@@ -28,7 +28,7 @@ void main() {
         context: {'fizz': 'buzz'},
       );
 
-      expect(result.status, equals(EvaluationStatus.success));
+      expect(result.status, equals(Status.success));
       expect(result.result, isA<VariantEvaluationResponse>());
 
       final variantResult = result.result as VariantEvaluationResponse;
@@ -44,7 +44,7 @@ void main() {
         context: {'fizz': 'buzz'},
       );
 
-      expect(result.status, equals(EvaluationStatus.success));
+      expect(result.status, equals(Status.success));
       expect(result.result, isA<BooleanEvaluationResponse>());
 
       final booleanResult = result.result as BooleanEvaluationResponse;
@@ -72,7 +72,7 @@ void main() {
         ),
       ]);
 
-      expect(result.status, equals(EvaluationStatus.success));
+      expect(result.status, equals(Status.success));
       expect(result.result, isA<BatchEvaluationResponse>());
 
       final batch = result.result as BatchEvaluationResponse;
@@ -104,6 +104,13 @@ void main() {
           equals('default'));
       expect(errorResponse.errorEvaluationResponse!.reason,
           equals('NOT_FOUND_ERROR_EVALUATION_REASON'));
+    });
+
+    test('List Flags', () async {
+      final result = await client.listFlags();
+      expect(result.status, equals(Status.success));
+      expect(result.result, isA<List<Flag>>());
+      expect(result.result, hasLength(2));
     });
   });
 }
