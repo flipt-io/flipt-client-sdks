@@ -19,5 +19,6 @@ dev_dependencies:
 flutter:
   assets:
     - lib/src/ffi/linux_x86_64/libfliptengine.so
+    - lib/src/ffi/linux_arm64/libfliptengine.so
     - lib/src/ffi/darwin_x86_64/libfliptengine.dylib
     - lib/src/ffi/darwin_arm64/libfliptengine.dylib
