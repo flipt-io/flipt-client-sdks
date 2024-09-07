@@ -505,6 +505,7 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		return err
 	}
 
+	fmt.Printf("token: %q\n", string(token))
 	pubToken := client.SetSecret("pub-token", string(token))
 
 	_, err = container.WithSecretVariable("PUB_TOKEN", pubToken).
