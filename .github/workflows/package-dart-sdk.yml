@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   build:
-    needs: setup
     uses: ./.github/workflows/package-ffi-sdks.yml
     with:
       sdks: dart
