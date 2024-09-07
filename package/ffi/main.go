@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"maps"
 	"net/url"
 	"os"
+	"os/exec"
 	"strings"
 
 	"dagger.io/dagger"
@@ -489,46 +491,18 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		tokenUrl = fmt.Sprintf("%s&audience=%s", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL"), aud)
 	)
 
-	// Debug: Check if the environment variables are set
-	fmt.Printf("ACTIONS_ID_TOKEN_REQUEST_TOKEN: %v\n", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN") != "")
-	fmt.Printf("tokenUrl: %s\n", tokenUrl)
+	var (
+		buf = bytes.Buffer{}
+		cmd = exec.Command("curl", "-s", "-H", fmt.Sprintf("Authorization: Bearer %s", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN")), tokenUrl, "|", "jq", "-r", ".value")
+	)
 
-	// Execute the curl command and capture its output
-	curlOutput, err := container.WithExec([]string{"curl", "-v", "-H", fmt.Sprintf("Authorization: Bearer %s", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN")), tokenUrl}).Stdout(ctx)
-	if err != nil {
+	cmd.Stdout = &buf
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("curl command failed: %w", err)
 	}
-	fmt.Printf("Curl output: %s\n", curlOutput)
 
-	// Parse the JSON response
-	jqOutput, err := container.WithExec([]string{"apt-get", "update"}).
-		WithExec([]string{"apt-get", "install", "-y", "jq"}).
-		WithExec([]string{"sh", "-c", fmt.Sprintf("echo '%s' | jq -r '.value'", curlOutput)}).Stdout(ctx)
-	if err != nil {
-		return fmt.Errorf("jq command failed: %w", err)
-	}
-	fmt.Printf("Parsed token value: %s\n", jqOutput)
-
-	// Write the token to a file
-	_, err = container.WithExec([]string{"sh", "-c", fmt.Sprintf("echo '%s' > /tmp/token", jqOutput)}).Sync(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to write token to file: %w", err)
-	}
-
-	// Export the file
-	_, err = container.File("/tmp/token").Export(ctx, "/tmp/token")
-	if err != nil {
-		return fmt.Errorf("failed to export token file: %w", err)
-	}
-
-	// Read the exported file
-	token, err := os.ReadFile("/tmp/token")
-	if err != nil {
-		return fmt.Errorf("failed to read exported token file: %w", err)
-	}
-	fmt.Printf("Read token from file: %s\n", token)
-
-	pubToken := client.SetSecret("pub-token", string(token))
+	pubToken := client.SetSecret("pub-token", buf.String())
 
 	_, err = container.WithSecretVariable("PUB_TOKEN", pubToken).
 		WithExec([]string{"dart", "pub", "token", "add", "https://pub.dev", "--env-var", "PUB_TOKEN"}).
