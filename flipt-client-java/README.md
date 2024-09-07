@@ -91,3 +91,11 @@ The `FliptEvaluationClient` supports the following authentication strategies:
 - No Authentication (default)
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
 - [JWT Authentication](https://docs.flipt.io/authentication/using-jwts)
+
+## Contributing
+
+Contributions are welcome! Please feel free to open an issue or submit a Pull Request.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

@@ -87,3 +87,11 @@ See the following issue for more information: [vitest #2091: vitest will crash w
 To work around this issue, it is recommended to run your tests with the `--pool=forks` flag.
 
 See [#169](https://github.com/flipt-io/flipt-client-sdks/issues/169) for more information.
+
+## Contributing
+
+Contributions are welcome! Please feel free to open an issue or submit a Pull Request.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

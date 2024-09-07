@@ -92,3 +92,11 @@ The `FliptEvaluationClient` supports the following authentication strategies:
    ```bash
    bundle exec ruby load_test.rb
    ```
+
+## Contributing
+
+Contributions are welcome! Please feel free to open an issue or submit a Pull Request.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

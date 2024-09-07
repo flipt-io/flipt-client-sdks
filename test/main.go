@@ -23,6 +23,7 @@ var (
 		"ruby":    rubyTests,
 		"java":    javaTests,
 		"browser": browserTests,
+		"dart":    dartTests,
 	}
 	sema = make(chan struct{}, 5)
 )
@@ -272,6 +273,23 @@ func browserTests(ctx context.Context, client *dagger.Client, flipt *dagger.Cont
 		WithExec([]string{"npm", "install"}).
 		WithExec([]string{"npm", "run", "build"}).
 		WithExec([]string{"npm", "test"}).
+		Sync(ctx)
+
+	return err
+}
+
+func dartTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
+	_, err := client.Pipeline("dart").Container().From("dart:stable").
+		WithWorkdir("/src").
+		WithDirectory("/src", args.hostDir.Directory("flipt-client-dart"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{".gitignore", ".dart_tool/"},
+		}).
+		WithFile(fmt.Sprintf("/src/lib/src/ffi/linux_%s/libfliptengine.so", args.arch), args.libFile).
+		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
+		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
+		WithExec([]string{"dart", "pub", "get"}).
+		WithExec([]string{"dart", "test"}).
 		Sync(ctx)
 
 	return err

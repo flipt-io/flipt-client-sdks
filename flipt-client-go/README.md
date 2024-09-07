@@ -98,3 +98,11 @@ The engine that is allocated on the Rust side to compute evaluations for flag st
 ```go
 defer evaluationClient.Close()
 ```
+
+## Contributing
+
+Contributions are welcome! Please feel free to open an issue or submit a Pull Request.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
