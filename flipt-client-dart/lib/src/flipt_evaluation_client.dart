@@ -91,7 +91,7 @@ class FliptEvaluationClient {
     }
   }
 
-  Result<VariantEvaluationResponse> evaluateVariant(
+  VariantEvaluationResponse evaluateVariant(
       {required String flagKey,
       required String entityId,
       required Map<String, dynamic> context}) {
@@ -111,25 +111,22 @@ class FliptEvaluationClient {
     final resultPtr = evaluateVariant(_engine, requestUtf8);
     final result = resultPtr.toDartString();
     _destroyString(resultPtr);
+    calloc.free(requestUtf8);
 
-    try {
-      final response = Result<VariantEvaluationResponse>.fromJson(
-        jsonDecode(result) as Map<String, dynamic>,
-        (json) =>
-            VariantEvaluationResponse.fromJson(json as Map<String, dynamic>),
-      );
+    final response = Result<VariantEvaluationResponse>.fromJson(
+      jsonDecode(result) as Map<String, dynamic>,
+      (json) =>
+          VariantEvaluationResponse.fromJson(json as Map<String, dynamic>),
+    );
 
-      if (response.status != Status.success) {
-        throw Exception('Failed to evaluate variant: ${response.errorMessage}');
-      }
-
-      return response;
-    } finally {
-      calloc.free(requestUtf8);
+    if (response.status != Status.success) {
+      throw Exception('Failed to evaluate variant: ${response.errorMessage}');
     }
+
+    return response.result!;
   }
 
-  Result<BooleanEvaluationResponse> evaluateBoolean(
+  BooleanEvaluationResponse evaluateBoolean(
       {required String flagKey,
       required String entityId,
       required Map<String, dynamic> context}) {
@@ -146,29 +143,25 @@ class FliptEvaluationClient {
     final requestJson = jsonEncode(request.toJson());
     final requestUtf8 = requestJson.toNativeUtf8();
 
-    try {
-      final resultPtr = evaluateBoolean(_engine, requestUtf8);
-      final result = resultPtr.toDartString();
-      _destroyString(resultPtr);
+    final resultPtr = evaluateBoolean(_engine, requestUtf8);
+    final result = resultPtr.toDartString();
+    _destroyString(resultPtr);
+    calloc.free(requestUtf8);
 
-      final response = Result<BooleanEvaluationResponse>.fromJson(
-        jsonDecode(result) as Map<String, dynamic>,
-        (json) =>
-            BooleanEvaluationResponse.fromJson(json as Map<String, dynamic>),
-      );
+    final response = Result<BooleanEvaluationResponse>.fromJson(
+      jsonDecode(result) as Map<String, dynamic>,
+      (json) =>
+          BooleanEvaluationResponse.fromJson(json as Map<String, dynamic>),
+    );
 
-      if (response.status != Status.success) {
-        throw Exception('Failed to evaluate boolean: ${response.errorMessage}');
-      }
-
-      return response;
-    } finally {
-      calloc.free(requestUtf8);
+    if (response.status != Status.success) {
+      throw Exception('Failed to evaluate boolean: ${response.errorMessage}');
     }
+
+    return response.result!;
   }
 
-  Result<BatchEvaluationResponse> evaluateBatch(
-      List<EvaluationRequest> requests) {
+  BatchEvaluationResponse evaluateBatch(List<EvaluationRequest> requests) {
     final evaluateBatch =
         _lib.lookupFunction<EvaluateBatchNative, EvaluateBatchDart>(
             'evaluate_batch');
@@ -176,28 +169,24 @@ class FliptEvaluationClient {
     final requestsJson = jsonEncode(requests.map((r) => r.toJson()).toList());
     final requestsUtf8 = requestsJson.toNativeUtf8();
 
-    try {
-      final resultPtr = evaluateBatch(_engine, requestsUtf8);
-      final result = resultPtr.toDartString();
-      _destroyString(resultPtr);
+    final resultPtr = evaluateBatch(_engine, requestsUtf8);
+    final result = resultPtr.toDartString();
+    _destroyString(resultPtr);
+    calloc.free(requestsUtf8);
 
-      final response = Result<BatchEvaluationResponse>.fromJson(
-        jsonDecode(result) as Map<String, dynamic>,
-        (json) =>
-            BatchEvaluationResponse.fromJson(json as Map<String, dynamic>),
-      );
+    final response = Result<BatchEvaluationResponse>.fromJson(
+      jsonDecode(result) as Map<String, dynamic>,
+      (json) => BatchEvaluationResponse.fromJson(json as Map<String, dynamic>),
+    );
 
-      if (response.status != Status.success) {
-        throw Exception('Failed to evaluate batch: ${response.errorMessage}');
-      }
-
-      return response;
-    } finally {
-      calloc.free(requestsUtf8);
+    if (response.status != Status.success) {
+      throw Exception('Failed to evaluate batch: ${response.errorMessage}');
     }
+
+    return response.result!;
   }
 
-  Result<List<Flag>> listFlags() {
+  List<Flag> listFlags() {
     final listFlags =
         _lib.lookupFunction<ListFlagsNative, ListFlagsDart>('list_flags');
 
@@ -212,7 +201,7 @@ class FliptEvaluationClient {
       throw Exception('Failed to list flags: ${response.errorMessage}');
     }
 
-    return response.toResult();
+    return response.toResult().result!;
   }
 
   void _destroyString(Pointer<Utf8> str) {

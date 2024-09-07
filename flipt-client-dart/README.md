@@ -50,7 +50,7 @@ void main() {
     context: {'fizz': 'buzz'},
   );
 
-  print('Variant: ${result.result?.variantKey}');
+  print('Variant: ${result.variantKey}');
 
   // Evaluate a boolean flag
   final result = client.evaluateBoolean(
@@ -59,7 +59,7 @@ void main() {
     context: {'key': 'value'},
   );
 
-  print('Enabled: ${result.result?.enabled}');
+  print('Enabled: ${result.enabled}');
 
   // Don't forget to close the client when you're done
   client.close();

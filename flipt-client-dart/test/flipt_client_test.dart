@@ -28,10 +28,9 @@ void main() {
         context: {'fizz': 'buzz'},
       );
 
-      expect(result.status, equals(Status.success));
-      expect(result.result, isA<VariantEvaluationResponse>());
+      expect(result, isA<VariantEvaluationResponse>());
 
-      final variantResult = result.result as VariantEvaluationResponse;
+      final variantResult = result as VariantEvaluationResponse;
       expect(variantResult.flagKey, equals('flag1'));
       expect(variantResult.reason, equals('MATCH_EVALUATION_REASON'));
       expect(variantResult.segmentKeys, equals(['segment1']));
@@ -44,10 +43,9 @@ void main() {
         context: {'fizz': 'buzz'},
       );
 
-      expect(result.status, equals(Status.success));
-      expect(result.result, isA<BooleanEvaluationResponse>());
+      expect(result, isA<BooleanEvaluationResponse>());
 
-      final booleanResult = result.result as BooleanEvaluationResponse;
+      final booleanResult = result as BooleanEvaluationResponse;
       expect(booleanResult.enabled, isA<bool>());
       expect(booleanResult.flagKey, equals('flag_boolean'));
       expect(booleanResult.reason, equals('MATCH_EVALUATION_REASON'));
@@ -72,10 +70,9 @@ void main() {
         ),
       ]);
 
-      expect(result.status, equals(Status.success));
-      expect(result.result, isA<BatchEvaluationResponse>());
+      expect(result, isA<BatchEvaluationResponse>());
 
-      final batch = result.result as BatchEvaluationResponse;
+      final batch = result as BatchEvaluationResponse;
 
       expect(batch.responses, hasLength(3));
 
@@ -108,9 +105,8 @@ void main() {
 
     test('List Flags', () async {
       final result = client.listFlags();
-      expect(result.status, equals(Status.success));
-      expect(result.result, isA<List<Flag>>());
-      expect(result.result, hasLength(2));
+      expect(result, isA<List<Flag>>());
+      expect(result, hasLength(2));
     });
   });
 }
