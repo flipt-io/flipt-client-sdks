@@ -500,6 +500,7 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	}
 
 	out := buf.String()
+	fmt.Printf("out: %s\n", out)
 	buf.Reset()
 
 	jqCmd := exec.Command("sh", "-c", fmt.Sprintf("echo '%s' | jq -r '.value'", out))
@@ -509,8 +510,10 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		return fmt.Errorf("jq command failed: %w", err)
 	}
 
-	pubToken := client.SetSecret("pub-token", buf.String())
+	token := buf.String()
+	fmt.Printf("token: %s\n", token)
 
+	pubToken := client.SetSecret("pub-token", token)
 	_, err = container.WithSecretVariable("PUB_TOKEN", pubToken).
 		WithExec([]string{"dart", "pub", "token", "add", "https://pub.dev", "--env-var", "PUB_TOKEN"}).
 		WithExec([]string{"dart", "pub", "publish"}).
