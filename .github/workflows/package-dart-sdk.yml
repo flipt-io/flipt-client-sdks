@@ -9,7 +9,20 @@ permissions:
   id-token: write
 
 jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      pub-token: ${{ steps.setup.outputs.pub-token }}
+    steps:
+      - id: setup
+        run: |
+          OIDC_TOKEN=$(curl -sLS "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://pub.dev" -H "User-Agent: actions/oidc-client" -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" | jq -r '.value')
+          echo "pub-token=$OIDC_TOKEN" >> $GITHUB_OUTPUT
+
   build:
+    needs: setup
+    env:
+      PUB_TOKEN: ${{ needs.setup.outputs.pub-token }}
     uses: ./.github/workflows/package-ffi-sdks.yml
     with:
       sdks: dart

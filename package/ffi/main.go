@@ -8,9 +8,7 @@ import (
 	"fmt"
 	"log"
 	"maps"
-	"net/url"
 	"os"
-	"os/exec"
 	"strings"
 
 	"dagger.io/dagger"
@@ -478,31 +476,12 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 
 	// get oidc token for publishing to pub.dev
 	// https://dart.dev/tools/pub/automated-publishing#publishing-packages-using-github-actions
-	if os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL") == "" {
-		return fmt.Errorf("ACTIONS_ID_TOKEN_REQUEST_URL is not set")
-	}
-	if os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN") == "" {
-		return fmt.Errorf("ACTIONS_ID_TOKEN_REQUEST_TOKEN is not set")
-	}
-
-	var (
-		aud      = url.QueryEscape("https://pub.dev")
-		tokenUrl = fmt.Sprintf("%s&audience=%s", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL"), aud)
-	)
-
-	curlCmd := exec.Command("sh", "-c", fmt.Sprintf("curl -s -H \"Authorization: Bearer %s\" %s > token.json", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN"), tokenUrl))
-	curlCmd.Stderr = os.Stderr
-	if err := curlCmd.Run(); err != nil {
-		return fmt.Errorf("curl command failed: %w", err)
-	}
-
-	jqCmd := exec.Command("sh", "-c", "echo 'PUB_TOKEN=$(cat token.json | jq -r '.value')' > $GITHUB_ENV")
-	jqCmd.Stderr = os.Stderr
-	if err := jqCmd.Run(); err != nil {
-		return fmt.Errorf("jq command failed: %w", err)
+	if os.Getenv("PUB_TOKEN") == "" {
+		return fmt.Errorf("PUB_TOKEN is not set")
 	}
 
 	pubToken := client.SetSecret("pub-token", os.Getenv("PUB_TOKEN"))
+
 	_, err = container.WithSecretVariable("PUB_TOKEN", pubToken).
 		WithExec([]string{"dart", "pub", "token", "add", "https://pub.dev", "--env-var", "PUB_TOKEN"}).
 		WithExec([]string{"dart", "pub", "publish"}).
