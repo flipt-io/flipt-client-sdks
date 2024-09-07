@@ -489,7 +489,9 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		tokenUrl = fmt.Sprintf("%s?audience=%s", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL"), aud)
 	)
 
-	_, err = client.Container().From("alpine:latest").
+	_, err = client.Container().From("debian:bookworm-slim").
+		WithExec([]string{"apt-get", "update"}).
+		WithExec([]string{"apt-get", "install", "-y", "curl"}).
 		WithExec([]string{"curl", "-s", "-H", "Authorization: Bearer " + os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN"), tokenUrl, ">", "/tmp/token"}).
 		File("/tmp/token").
 		Export(ctx, "tmp/token")
