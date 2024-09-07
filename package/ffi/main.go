@@ -493,7 +493,7 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 
 	var (
 		buf = bytes.Buffer{}
-		cmd = exec.Command("curl", "-s", "-H", fmt.Sprintf("Authorization: Bearer %s", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN")), tokenUrl, "|", "jq", "-r", ".value")
+		cmd = exec.Command("sh", "-c", fmt.Sprintf("curl -s -H \"Authorization: Bearer %s\" %s | jq -r '.value'", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN"), tokenUrl))
 	)
 
 	cmd.Stdout = &buf
