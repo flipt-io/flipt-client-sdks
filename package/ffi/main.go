@@ -494,14 +494,16 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	fmt.Printf("tokenUrl: %s\n", tokenUrl)
 
 	// Execute the curl command and capture its output
-	curlOutput, err := container.WithExec([]string{"sh", "-c", fmt.Sprintf("curl -v -H 'Authorization: Bearer %s' %s", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN"), tokenUrl)}).Stdout(ctx)
+	curlOutput, err := container.WithExec([]string{"curl", "-v", "-H", fmt.Sprintf("Authorization: Bearer %s", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN")), tokenUrl}).Stdout(ctx)
 	if err != nil {
 		return fmt.Errorf("curl command failed: %w", err)
 	}
 	fmt.Printf("Curl output: %s\n", curlOutput)
 
 	// Parse the JSON response
-	jqOutput, err := container.WithExec([]string{"sh", "-c", fmt.Sprintf("echo '%s' | jq -r '.value'", curlOutput)}).Stdout(ctx)
+	jqOutput, err := container.WithExec([]string{"apt-get", "update"}).
+		WithExec([]string{"apt-get", "install", "-y", "jq"}).
+		WithExec([]string{"sh", "-c", fmt.Sprintf("echo '%s' | jq -r '.value'", curlOutput)}).Stdout(ctx)
 	if err != nil {
 		return fmt.Errorf("jq command failed: %w", err)
 	}
@@ -514,13 +516,13 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	}
 
 	// Export the file
-	_, err = container.File("/tmp/token").Export(ctx, "tmp/token")
+	_, err = container.File("/tmp/token").Export(ctx, "/tmp/token")
 	if err != nil {
 		return fmt.Errorf("failed to export token file: %w", err)
 	}
 
 	// Read the exported file
-	token, err := os.ReadFile("tmp/token")
+	token, err := os.ReadFile("/tmp/token")
 	if err != nil {
 		return fmt.Errorf("failed to read exported token file: %w", err)
 	}
