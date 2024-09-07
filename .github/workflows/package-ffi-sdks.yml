@@ -29,6 +29,7 @@ env:
   MAVEN_PUBLISH_REGISTRY_URL: ${{ secrets.MAVEN_PUBLISH_REGISTRY_URL }}
   PGP_PRIVATE_KEY: ${{ secrets.PGP_PRIVATE_KEY }}
   PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
+  PUB_TOKEN: ${{ secrets.PUB_TOKEN }}
 
 jobs:
   build:

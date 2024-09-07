@@ -21,10 +21,9 @@ jobs:
 
   build:
     needs: setup
-    env:
-      PUB_TOKEN: ${{ needs.setup.outputs.pub-token }}
     uses: ./.github/workflows/package-ffi-sdks.yml
     with:
       sdks: dart
       engine-tag: "latest"
-    secrets: inherit
+    secrets:
+      PUB_TOKEN: ${{ needs.setup.outputs.pub-token }}
