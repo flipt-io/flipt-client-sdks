@@ -491,8 +491,8 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 
 	_, err = client.Container().From("debian:bookworm-slim").
 		WithExec([]string{"apt-get", "update"}).
-		WithExec([]string{"apt-get", "install", "-y", "curl"}).
-		WithExec([]string{"curl", "-s", "-H", "Authorization: Bearer " + os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN"), tokenUrl, ">", "/tmp/token"}).
+		WithExec([]string{"apt-get", "install", "-y", "curl", "jq"}).
+		WithExec([]string{"sh", "-c", fmt.Sprintf("curl -s -H 'Authorization: Bearer %s' %s | jq -r '.value' > /tmp/token", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN"), tokenUrl)}).
 		File("/tmp/token").
 		Export(ctx, "tmp/token")
 
