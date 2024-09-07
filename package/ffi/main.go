@@ -484,7 +484,7 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 
 	_, err = container.WithSecretVariable("PUB_TOKEN", pubToken).
 		WithExec([]string{"dart", "pub", "token", "add", "https://pub.dev", "--env-var", "PUB_TOKEN"}).
-		WithExec([]string{"dart", "pub", "publish"}).
+		WithExec([]string{"dart", "pub", "publish", "--force"}).
 		Sync(ctx)
 
 	return err
