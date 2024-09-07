@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -489,31 +488,21 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	var (
 		aud      = url.QueryEscape("https://pub.dev")
 		tokenUrl = fmt.Sprintf("%s&audience=%s", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL"), aud)
-		buf      = bytes.Buffer{}
 	)
 
-	curlCmd := exec.Command("sh", "-c", fmt.Sprintf("curl -s -H \"Authorization: Bearer %s\" %s", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN"), tokenUrl))
-	curlCmd.Stdout = &buf
+	curlCmd := exec.Command("sh", "-c", fmt.Sprintf("curl -s -H \"Authorization: Bearer %s\" %s > token.json", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN"), tokenUrl))
 	curlCmd.Stderr = os.Stderr
 	if err := curlCmd.Run(); err != nil {
 		return fmt.Errorf("curl command failed: %w", err)
 	}
 
-	out := buf.String()
-	fmt.Printf("out: %s\n", out)
-	buf.Reset()
-
-	jqCmd := exec.Command("sh", "-c", fmt.Sprintf("echo '%s' | jq -r '.value'", out))
-	jqCmd.Stdout = &buf
+	jqCmd := exec.Command("sh", "-c", "echo 'PUB_TOKEN=$(cat token.json | jq -r '.value')' > $GITHUB_ENV")
 	jqCmd.Stderr = os.Stderr
 	if err := jqCmd.Run(); err != nil {
 		return fmt.Errorf("jq command failed: %w", err)
 	}
 
-	token := buf.String()
-	fmt.Printf("token: %s\n", token)
-
-	pubToken := client.SetSecret("pub-token", token)
+	pubToken := client.SetSecret("pub-token", os.Getenv("PUB_TOKEN"))
 	_, err = container.WithSecretVariable("PUB_TOKEN", pubToken).
 		WithExec([]string{"dart", "pub", "token", "add", "https://pub.dev", "--env-var", "PUB_TOKEN"}).
 		WithExec([]string{"dart", "pub", "publish"}).
