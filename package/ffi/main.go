@@ -489,17 +489,24 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	var (
 		aud      = url.QueryEscape("https://pub.dev")
 		tokenUrl = fmt.Sprintf("%s&audience=%s", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL"), aud)
+		buf      = bytes.Buffer{}
 	)
 
-	var (
-		buf = bytes.Buffer{}
-		cmd = exec.Command("sh", "-c", fmt.Sprintf("curl -s -H \"Authorization: Bearer %s\" %s | jq -r '.value'", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN"), tokenUrl))
-	)
-
-	cmd.Stdout = &buf
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	curlCmd := exec.Command("sh", "-c", fmt.Sprintf("curl -s -H \"Authorization: Bearer %s\" %s", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN"), tokenUrl))
+	curlCmd.Stdout = &buf
+	curlCmd.Stderr = os.Stderr
+	if err := curlCmd.Run(); err != nil {
 		return fmt.Errorf("curl command failed: %w", err)
+	}
+
+	out := buf.String()
+	buf.Reset()
+
+	jqCmd := exec.Command("sh", "-c", fmt.Sprintf("echo '%s' | jq -r '.value'", out))
+	jqCmd.Stdout = &buf
+	jqCmd.Stderr = os.Stderr
+	if err := jqCmd.Run(); err != nil {
+		return fmt.Errorf("jq command failed: %w", err)
 	}
 
 	pubToken := client.SetSecret("pub-token", buf.String())
