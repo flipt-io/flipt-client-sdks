@@ -486,7 +486,7 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 
 	var (
 		aud      = url.QueryEscape("https://pub.dev")
-		tokenUrl = fmt.Sprintf("%s?audience=%s", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL"), aud)
+		tokenUrl = fmt.Sprintf("%s&audience=%s", os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL"), aud)
 	)
 
 	_, err = client.Container().From("debian:bookworm-slim").
