@@ -59,6 +59,7 @@ Currently, we support the following languages/platforms:
 1. [NodeJS](./flipt-client-node) (FFI)
 1. [Java](./flipt-client-java) (FFI)
 1. [JavaScript/Typescript (Browser)](./flipt-client-browser) (WASM)
+1. [Flutter/Dart](./flipt-client-dart) (FFI)
 
 Documentation for each client can be found in the README of that client's directory.
 
@@ -75,7 +76,6 @@ Languages we would like to support but lack expertise in:
 
 1. [Kotlin](https://github.com/flipt-io/flipt-client-sdks/issues/264)
 1. [Swift](https://github.com/flipt-io/flipt-client-sdks/issues/263)
-1. [Flutter/Dart](https://github.com/flipt-io/flipt-client-sdks/issues/32)
 
 Want to see a client in a language we don't support? [Open an issue](https://github.com/flipt-io/flipt-client-sdks/issues/new?assignees=&labels=new-language&projects=&template=new_language.yml) and let us know!
 

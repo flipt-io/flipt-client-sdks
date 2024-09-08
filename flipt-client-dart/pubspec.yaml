@@ -1,7 +1,7 @@
 name: flipt_client
 description: Flipt Client Evaluation SDK for Dart
-version: 0.1.0-pre.3
-homepage: https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-client-dart
+version: 0.1.0
+homepage: https://flipt.io
 
 environment:
   sdk: '>=2.12.0 <4.0.0'
