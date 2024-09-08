@@ -1,10 +1,10 @@
 // cargo run --example evaluation
 
-use fliptengine::{
+use fliptevaluation::EvaluationRequest;
+use fliptevaluation::{
     evaluator::Evaluator,
     http::{Authentication, HTTPParserBuilder},
 };
-use fliptevaluation::EvaluationRequest;
 use std::collections::HashMap;
 
 fn main() {

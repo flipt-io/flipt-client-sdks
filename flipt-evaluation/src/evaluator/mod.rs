@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use fliptevaluation::{
+use crate::{
     batch_evaluation, boolean_evaluation,
     error::Error,
     models::{flipt, source},
@@ -136,8 +136,8 @@ mod tests {
     use std::collections::HashMap;
 
     use super::*;
-    use fliptevaluation::models::source;
-    use fliptevaluation::parser;
+    use crate::models::source;
+    use crate::parser;
     use mockall::predicate::*;
     use mockall::*;
 

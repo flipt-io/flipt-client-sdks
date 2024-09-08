@@ -1,9 +1,9 @@
 use reqwest::header::{self, HeaderMap};
 use serde::Deserialize;
 
-use fliptevaluation::error::Error;
-use fliptevaluation::models::source;
-use fliptevaluation::parser::Parser;
+use crate::error::Error;
+use crate::models::source;
+use crate::parser::Parser;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -194,7 +194,7 @@ impl Parser for HTTPParser {
 mod tests {
     use crate::http::Authentication;
     use crate::http::HTTPParserBuilder;
-    use fliptevaluation::parser::Parser;
+    use crate::parser::Parser;
 
     #[test]
     fn test_http_parse() {

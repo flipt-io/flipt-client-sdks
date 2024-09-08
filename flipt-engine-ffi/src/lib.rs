@@ -1,14 +1,9 @@
-pub mod evaluator;
-pub mod http;
-
-use evaluator::Evaluator;
-use http::{Authentication, HTTPParser, HTTPParserBuilder};
-
 use fliptevaluation::error::Error;
+use fliptevaluation::http;
 use fliptevaluation::models::flipt;
 use fliptevaluation::store::Snapshot;
 use fliptevaluation::{
-    BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
+    evaluator::Evaluator, BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
     VariantEvaluationResponse,
 };
 use libc::c_void;
@@ -78,14 +73,14 @@ fn result_to_json_ptr<T: Serialize>(result: Result<T, Error>) -> *mut c_char {
 }
 
 #[derive(Deserialize)]
-pub struct EngineOpts {
+pub struct Options {
     url: Option<String>,
-    authentication: Option<Authentication>,
+    authentication: Option<http::Authentication>,
     update_interval: Option<u64>,
     reference: Option<String>,
 }
 
-impl Default for EngineOpts {
+impl Default for Options {
     fn default() -> Self {
         Self {
             url: Some("http://localhost:8080".into()),
@@ -97,12 +92,12 @@ impl Default for EngineOpts {
 }
 
 pub struct Engine {
-    pub opts: EngineOpts,
-    pub evaluator: Arc<Mutex<Evaluator<HTTPParser, Snapshot>>>,
+    pub opts: Options,
+    pub evaluator: Arc<Mutex<Evaluator<http::HTTPParser, Snapshot>>>,
 }
 
 impl Engine {
-    pub fn new(evaluator: Evaluator<HTTPParser, Snapshot>, opts: EngineOpts) -> Self {
+    pub fn new(evaluator: Evaluator<http::HTTPParser, Snapshot>, opts: Options) -> Self {
         let mut engine = Self {
             opts,
             evaluator: Arc::new(Mutex::new(evaluator)),
@@ -186,7 +181,7 @@ pub unsafe extern "C" fn initialize_engine(
 
     let engine_opts_bytes = CStr::from_ptr(opts).to_bytes();
     let bytes_str_repr = std::str::from_utf8(engine_opts_bytes).unwrap();
-    let engine_opts: EngineOpts = serde_json::from_str(bytes_str_repr).unwrap_or_default();
+    let engine_opts: Options = serde_json::from_str(bytes_str_repr).unwrap_or_default();
 
     let http_url = engine_opts
         .url
@@ -196,7 +191,7 @@ pub unsafe extern "C" fn initialize_engine(
     let authentication = engine_opts.authentication.to_owned();
     let reference = engine_opts.reference.to_owned();
 
-    let mut parser_builder = HTTPParserBuilder::new(&http_url);
+    let mut parser_builder = http::HTTPParserBuilder::new(&http_url);
 
     parser_builder = match authentication {
         Some(authentication) => parser_builder.authentication(authentication),
