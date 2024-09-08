@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 env:
   RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
@@ -64,6 +65,16 @@ jobs:
           app_id: ${{ secrets.FLIPT_RELEASE_BOT_APP_ID }}
           private_key: ${{ secrets.FLIPT_RELEASE_BOT_APP_PEM }}
           installation_id: ${{ secrets.FLIPT_RELEASE_BOT_INSTALLATION_ID }}
+
+      - name: Get Pub.Dev OIDC Token
+        if: ${{ inputs.sdks == 'dart' }}
+        run: |
+          OIDC_TOKEN=$(curl -sLS "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://pub.dev" -H "User-Agent: actions/oidc-client" -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" | jq -r '.value')
+          if [ -z "$OIDC_TOKEN" ]; then
+            echo "Failed to obtain OIDC token"
+            exit 1
+          fi
+          echo "PUB_TOKEN=$OIDC_TOKEN" >> $GITHUB_ENV
 
       - name: Build Individual SDK(s)
         env:
