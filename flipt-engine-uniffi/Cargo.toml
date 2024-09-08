@@ -1,0 +1,22 @@
+[package]
+name = "flipt-engine-uniffi"
+version = "0.1.0"
+edition = "2021"
+authors = ["Flipt Devs <dev@flipt.io>"]
+license = "MIT"
+description = "Flipt UniFFI Client Engine"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+uniffi = "0.27.0"
+flipt-evaluation = { path = "../flipt-evaluation" }
+chrono = { version = "0.4.31", features = ["serde"] }
+
+[build-dependencies]
+uniffi = { version = "0.27.0", features = ["build"] }
+
+[dev-dependencies]
+uniffi = { version = "0.27.0", features = ["bindgen-tests"] }

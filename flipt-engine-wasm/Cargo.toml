@@ -8,6 +8,7 @@ description = "Flipt WASM Client Engine"
 publish = false
 
 [lib]
+name = "fliptengine_wasm"
 crate-type = ["cdylib"]
 
 [dependencies]

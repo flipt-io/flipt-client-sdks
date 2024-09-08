@@ -7,6 +7,10 @@ license = "MIT"
 description = "Flipt FFI Client Engine"
 publish = false
 
+[lib]
+name = "fliptengine"
+crate-type = ["rlib", "dylib"]
+
 [dependencies]
 libc = "0.2.150"
 serde = { version = "1.0.147", features = ["derive"] }
@@ -23,7 +27,3 @@ path = "../flipt-evaluation"
 [dev-dependencies]
 mockall = "0.13.0"
 mockito = "1.4.0"
-
-[lib]
-name = "fliptengine"
-crate-type = ["rlib", "dylib"]

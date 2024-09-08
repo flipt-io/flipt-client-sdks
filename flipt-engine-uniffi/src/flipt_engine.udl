@@ -1,0 +1,55 @@
+namespace flipt_engine {
+    VariantEvaluationResponse evaluate_variant(string flag_key, string entity_id, record<string, string> context);
+    BooleanEvaluationResponse evaluate_boolean(string flag_key, string entity_id, record<string, string> context);
+    BatchEvaluationResponse evaluate_batch(sequence<EvaluationRequest> requests);
+};
+
+dictionary EvaluationRequest {
+    string flag_key;
+    string entity_id;
+    record<string, string> context;
+};
+
+enum EvaluationReason {
+    "FlagDisabled",
+    "Match",
+    "Default",
+    "Unknown",
+};
+
+dictionary VariantEvaluationResponse {
+    boolean match;
+    sequence<string> segment_keys;
+    EvaluationReason reason;
+    string flag_key;
+    string variant_key;
+    string variant_attachment;
+    double request_duration_millis;
+    string timestamp;
+};
+
+dictionary BooleanEvaluationResponse {
+    boolean enabled;
+    EvaluationReason reason;
+    string flag_key;
+    double request_duration_millis;
+    string timestamp;
+};
+
+dictionary ErrorEvaluationResponse {
+    EvaluationReason reason;
+    string flag_key;
+    string namespace_key;
+};
+
+dictionary EvaluationResponse {
+    string response_type;
+    BooleanEvaluationResponse? boolean_evaluation_response;
+    VariantEvaluationResponse? variant_evaluation_response;
+    ErrorEvaluationResponse? error_evaluation_response;
+};
+
+dictionary BatchEvaluationResponse {
+    sequence<EvaluationResponse> responses;
+    double request_duration_millis;
+};
