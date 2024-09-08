@@ -1,5 +1,6 @@
-use crate::models::common;
 use serde::Deserialize;
+
+use super::flipt;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -32,7 +33,7 @@ pub struct Namespace {
 pub struct Flag {
     pub key: String,
     pub name: String,
-    pub r#type: Option<common::FlagType>,
+    pub r#type: Option<flipt::FlagType>,
     pub description: Option<String>,
     pub enabled: bool,
     pub rules: Option<Vec<Rule>>,
@@ -53,7 +54,7 @@ pub struct Variant {
 pub struct Rule {
     pub distributions: Vec<Distribution>,
     pub segments: Option<Vec<Segment>>,
-    pub segment_operator: common::SegmentOperator,
+    pub segment_operator: flipt::SegmentOperator,
 }
 
 #[derive(Deserialize)]
@@ -75,7 +76,7 @@ pub struct Rollout {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SegmentRule {
-    pub segment_operator: Option<common::SegmentOperator>,
+    pub segment_operator: Option<flipt::SegmentOperator>,
     pub value: bool,
     pub segments: Vec<Segment>,
 }
@@ -91,14 +92,14 @@ pub struct Threshold {
 #[serde(rename_all = "camelCase")]
 pub struct Segment {
     pub key: String,
-    pub match_type: common::SegmentMatchType,
+    pub match_type: flipt::SegmentMatchType,
     pub constraints: Vec<SegmentConstraint>,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SegmentConstraint {
-    pub r#type: common::ConstraintComparisonType,
+    pub r#type: flipt::ConstraintComparisonType,
     pub property: String,
     pub operator: String,
     pub value: String,
@@ -106,7 +107,7 @@ pub struct SegmentConstraint {
 
 #[cfg(test)]
 mod tests {
-    use crate::models::common::ConstraintComparisonType;
+    use crate::models::flipt::ConstraintComparisonType;
 
     use super::SegmentConstraint;
 

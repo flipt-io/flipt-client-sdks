@@ -1,5 +1,4 @@
 use crate::error::Error;
-use crate::models::common;
 use crate::models::flipt;
 use crate::models::source;
 
@@ -63,7 +62,7 @@ impl Snapshot {
             let f = flipt::Flag {
                 key: flag.key.clone(),
                 enabled: flag.enabled,
-                r#type: flag.r#type.unwrap_or(common::FlagType::Variant),
+                r#type: flag.r#type.unwrap_or(flipt::FlagType::Variant),
                 default_variant: flag.default_variant.map(|v| flipt::Variant {
                     id: v.id,
                     key: v.key,
@@ -142,7 +141,7 @@ impl Snapshot {
 
                 let mut evaluation_rollout: flipt::EvaluationRollout = flipt::EvaluationRollout {
                     rank: rollout_idx,
-                    rollout_type: common::RolloutType::Unknown,
+                    rollout_type: flipt::RolloutType::Unknown,
                     segment: None,
                     threshold: None,
                 };
@@ -156,7 +155,7 @@ impl Snapshot {
                         value: threshold.value,
                     });
 
-                    evaluation_rollout.rollout_type = common::RolloutType::Threshold;
+                    evaluation_rollout.rollout_type = flipt::RolloutType::Threshold;
                 } else if rollout.segment.is_some() {
                     let mut evaluation_rollout_segments: HashMap<String, flipt::EvaluationSegment> =
                         HashMap::new();
@@ -184,12 +183,12 @@ impl Snapshot {
                         );
                     }
 
-                    evaluation_rollout.rollout_type = common::RolloutType::Segment;
+                    evaluation_rollout.rollout_type = flipt::RolloutType::Segment;
                     evaluation_rollout.segment = Some(flipt::RolloutSegment {
                         value: segment_rule.value,
                         segment_operator: segment_rule
                             .segment_operator
-                            .unwrap_or(common::SegmentOperator::Or),
+                            .unwrap_or(flipt::SegmentOperator::Or),
                         segments: evaluation_rollout_segments,
                     });
                 }
@@ -279,7 +278,6 @@ impl Store for Snapshot {
 #[cfg(test)]
 mod tests {
     use super::{Snapshot, Store};
-    use crate::models::common;
     use crate::models::flipt;
     use crate::parser::Parser;
     use crate::parser::TestParser;
@@ -297,7 +295,7 @@ mod tests {
 
         assert_eq!(flag_variant.key, "flag1");
         assert!(flag_variant.enabled);
-        assert_eq!(flag_variant.r#type, common::FlagType::Variant);
+        assert_eq!(flag_variant.r#type, flipt::FlagType::Variant);
 
         let flag_boolean = snapshot
             .get_flag("default", "flag_boolean")
@@ -305,7 +303,7 @@ mod tests {
 
         assert_eq!(flag_boolean.key, "flag_boolean");
         assert!(flag_boolean.enabled);
-        assert_eq!(flag_boolean.r#type, common::FlagType::Boolean);
+        assert_eq!(flag_boolean.r#type, flipt::FlagType::Boolean);
 
         let evaluation_rules = snapshot
             .get_evaluation_rules("default", "flag1")
@@ -315,7 +313,7 @@ mod tests {
         assert_eq!(evaluation_rules[0].flag_key, "flag1");
         assert_eq!(
             evaluation_rules[0].segment_operator,
-            common::SegmentOperator::Or
+            flipt::SegmentOperator::Or
         );
         assert_eq!(evaluation_rules[0].rank, 1);
         assert_eq!(evaluation_rules[0].segments.len(), 1);
@@ -326,9 +324,9 @@ mod tests {
                 .expect("segment1 should exist"),
             flipt::EvaluationSegment {
                 segment_key: "segment1".into(),
-                match_type: common::SegmentMatchType::Any,
+                match_type: flipt::SegmentMatchType::Any,
                 constraints: vec![flipt::EvaluationConstraint {
-                    r#type: common::ConstraintComparisonType::String,
+                    r#type: flipt::ConstraintComparisonType::String,
                     property: "fizz".into(),
                     operator: "eq".into(),
                     value: "buzz".into(),
@@ -352,7 +350,7 @@ mod tests {
         assert_eq!(evaluation_rollouts[0].rank, 1);
         assert_eq!(
             evaluation_rollouts[0].rollout_type,
-            common::RolloutType::Segment
+            flipt::RolloutType::Segment
         );
 
         let segment_rollout = evaluation_rollouts[0]
@@ -361,10 +359,7 @@ mod tests {
             .expect("first rollout should be segment");
 
         assert!(segment_rollout.value);
-        assert_eq!(
-            segment_rollout.segment_operator,
-            common::SegmentOperator::Or
-        );
+        assert_eq!(segment_rollout.segment_operator, flipt::SegmentOperator::Or);
         assert_eq!(
             *segment_rollout
                 .segments
@@ -372,9 +367,9 @@ mod tests {
                 .expect("segment1 should exist"),
             flipt::EvaluationSegment {
                 segment_key: "segment1".into(),
-                match_type: common::SegmentMatchType::Any,
+                match_type: flipt::SegmentMatchType::Any,
                 constraints: vec![flipt::EvaluationConstraint {
-                    r#type: common::ConstraintComparisonType::String,
+                    r#type: flipt::ConstraintComparisonType::String,
                     property: "fizz".into(),
                     operator: "eq".into(),
                     value: "buzz".into(),
@@ -387,10 +382,10 @@ mod tests {
         let mut found = 0;
         for flag in flags {
             if flag.key == "flag1" {
-                assert_eq!(flag.r#type, common::FlagType::Variant);
+                assert_eq!(flag.r#type, flipt::FlagType::Variant);
                 found += 1;
             } else if flag.key == "flag_boolean" {
-                assert_eq!(flag.r#type, common::FlagType::Boolean);
+                assert_eq!(flag.r#type, flipt::FlagType::Boolean);
                 found += 1;
             }
         }

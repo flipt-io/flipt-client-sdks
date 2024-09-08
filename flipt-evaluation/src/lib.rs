@@ -9,7 +9,6 @@ pub mod parser;
 pub mod store;
 
 use crate::error::Error;
-use crate::models::common;
 use crate::models::flipt;
 use crate::store::Store;
 
@@ -29,7 +28,7 @@ pub struct EvaluationRequest {
 pub struct VariantEvaluationResponse {
     pub r#match: bool,
     pub segment_keys: Vec<String>,
-    pub reason: common::EvaluationReason,
+    pub reason: flipt::EvaluationReason,
     pub flag_key: String,
     pub variant_key: String,
     pub variant_attachment: String,
@@ -41,7 +40,7 @@ pub struct VariantEvaluationResponse {
 pub struct BooleanEvaluationResponse {
     pub enabled: bool,
     pub flag_key: String,
-    pub reason: common::EvaluationReason,
+    pub reason: flipt::EvaluationReason,
     pub request_duration_millis: f64,
     pub timestamp: DateTime<Utc>,
 }
@@ -50,7 +49,7 @@ pub struct BooleanEvaluationResponse {
 pub struct ErrorEvaluationResponse {
     pub flag_key: String,
     pub namespace_key: String,
-    pub reason: common::ErrorEvaluationReason,
+    pub reason: flipt::ErrorEvaluationReason,
 }
 
 #[derive(Serialize, Debug)]
@@ -61,7 +60,7 @@ pub struct BatchEvaluationResponse {
 
 #[derive(Serialize, Debug)]
 pub struct EvaluationResponse {
-    pub r#type: common::ResponseType,
+    pub r#type: flipt::ResponseType,
     pub boolean_evaluation_response: Option<BooleanEvaluationResponse>,
     pub variant_evaluation_response: Option<VariantEvaluationResponse>,
     pub error_evaluation_response: Option<ErrorEvaluationResponse>,
@@ -72,7 +71,7 @@ impl Default for VariantEvaluationResponse {
         Self {
             r#match: false,
             segment_keys: vec![],
-            reason: common::EvaluationReason::Unknown,
+            reason: flipt::EvaluationReason::Unknown,
             flag_key: String::from(""),
             variant_key: String::from(""),
             variant_attachment: String::from(""),
@@ -87,7 +86,7 @@ impl Default for BooleanEvaluationResponse {
         Self {
             enabled: false,
             flag_key: String::from(""),
-            reason: common::EvaluationReason::Unknown,
+            reason: flipt::EvaluationReason::Unknown,
             request_duration_millis: 0.0,
             timestamp: chrono::offset::Utc::now(),
         }
@@ -99,7 +98,7 @@ impl Default for ErrorEvaluationResponse {
         Self {
             flag_key: String::from(""),
             namespace_key: String::from(""),
-            reason: common::ErrorEvaluationReason::Unknown,
+            reason: flipt::ErrorEvaluationReason::Unknown,
         }
     }
 }
@@ -121,7 +120,7 @@ pub fn variant_evaluation(
             ))
         })?;
 
-    if !matches!(flag.r#type, common::FlagType::Variant) {
+    if !matches!(flag.r#type, flipt::FlagType::Variant) {
         return Err(Error::InvalidRequest(format!(
             "{} is not a variant flag",
             &request.flag_key,
@@ -134,13 +133,13 @@ pub fn variant_evaluation(
     };
 
     if let Some(default_variant) = &flag.default_variant {
-        variant_evaluation_response.reason = common::EvaluationReason::Default;
+        variant_evaluation_response.reason = flipt::EvaluationReason::Default;
         variant_evaluation_response.variant_key = default_variant.key.clone();
         variant_evaluation_response.variant_attachment = default_variant.attachment.clone();
     }
 
     if !flag.enabled {
-        variant_evaluation_response.reason = common::EvaluationReason::FlagDisabled;
+        variant_evaluation_response.reason = flipt::EvaluationReason::FlagDisabled;
         variant_evaluation_response.request_duration_millis = start.elapsed().as_millis() as f64;
         return Ok(variant_evaluation_response);
     }
@@ -188,11 +187,11 @@ pub fn variant_evaluation(
             }
         }
 
-        if rule.segment_operator == common::SegmentOperator::Or {
+        if rule.segment_operator == flipt::SegmentOperator::Or {
             if segment_matches < 1 {
                 continue;
             }
-        } else if rule.segment_operator == common::SegmentOperator::And
+        } else if rule.segment_operator == flipt::SegmentOperator::And
             && rule.segments.len() != segment_matches
         {
             continue;
@@ -232,7 +231,7 @@ pub fn variant_evaluation(
         // match is true here because it did match the segment/rule
         if valid_distributions.is_empty() {
             variant_evaluation_response.r#match = true;
-            variant_evaluation_response.reason = common::EvaluationReason::Match;
+            variant_evaluation_response.reason = flipt::EvaluationReason::Match;
             variant_evaluation_response.request_duration_millis =
                 start.elapsed().as_millis() as f64;
             return Ok(variant_evaluation_response);
@@ -262,7 +261,7 @@ pub fn variant_evaluation(
         variant_evaluation_response.r#match = true;
         variant_evaluation_response.variant_key = d.variant_key.clone();
         variant_evaluation_response.variant_attachment = d.variant_attachment.clone();
-        variant_evaluation_response.reason = common::EvaluationReason::Match;
+        variant_evaluation_response.reason = flipt::EvaluationReason::Match;
         variant_evaluation_response.request_duration_millis = start.elapsed().as_millis() as f64;
         return Ok(variant_evaluation_response);
     }
@@ -287,7 +286,7 @@ pub fn boolean_evaluation(
             ))
         })?;
 
-    if !matches!(flag.r#type, common::FlagType::Boolean) {
+    if !matches!(flag.r#type, flipt::FlagType::Boolean) {
         return Err(Error::InvalidRequest(format!(
             "{} is not a boolean flag",
             &request.flag_key,
@@ -323,7 +322,7 @@ pub fn boolean_evaluation(
                 return Ok(BooleanEvaluationResponse {
                     enabled: threshold.value,
                     flag_key: flag.key.clone(),
-                    reason: common::EvaluationReason::Match,
+                    reason: flipt::EvaluationReason::Match,
                     request_duration_millis: start.elapsed().as_millis() as f64,
                     timestamp: chrono::offset::Utc::now(),
                 });
@@ -344,11 +343,11 @@ pub fn boolean_evaluation(
                 }
             }
 
-            if segment.segment_operator == common::SegmentOperator::Or {
+            if segment.segment_operator == flipt::SegmentOperator::Or {
                 if segment_matches < 1 {
                     continue;
                 }
-            } else if segment.segment_operator == common::SegmentOperator::And
+            } else if segment.segment_operator == flipt::SegmentOperator::And
                 && segment.segments.len() != segment_matches
             {
                 continue;
@@ -357,7 +356,7 @@ pub fn boolean_evaluation(
             return Ok(BooleanEvaluationResponse {
                 enabled: segment.value,
                 flag_key: flag.key.clone(),
-                reason: common::EvaluationReason::Match,
+                reason: flipt::EvaluationReason::Match,
                 request_duration_millis: start.elapsed().as_millis() as f64,
                 timestamp: chrono::offset::Utc::now(),
             });
@@ -367,7 +366,7 @@ pub fn boolean_evaluation(
     Ok(BooleanEvaluationResponse {
         enabled: flag.enabled,
         flag_key: flag.key.clone(),
-        reason: common::EvaluationReason::Default,
+        reason: flipt::EvaluationReason::Default,
         request_duration_millis: start.elapsed().as_millis() as f64,
         timestamp: chrono::offset::Utc::now(),
     })
@@ -386,13 +385,13 @@ pub fn batch_evaluation(
             Some(f) => f,
             None => {
                 evaluation_responses.push(EvaluationResponse {
-                    r#type: common::ResponseType::Error,
+                    r#type: flipt::ResponseType::Error,
                     boolean_evaluation_response: None,
                     variant_evaluation_response: None,
                     error_evaluation_response: Some(ErrorEvaluationResponse {
                         flag_key: request.flag_key.clone(),
                         namespace_key: namespace.to_string(),
-                        reason: common::ErrorEvaluationReason::NotFound,
+                        reason: flipt::ErrorEvaluationReason::NotFound,
                     }),
                 });
                 continue;
@@ -400,19 +399,19 @@ pub fn batch_evaluation(
         };
 
         match flag.r#type {
-            common::FlagType::Boolean => {
+            flipt::FlagType::Boolean => {
                 let boolean_evaluation = boolean_evaluation(store, namespace, &request)?;
                 evaluation_responses.push(EvaluationResponse {
-                    r#type: common::ResponseType::Boolean,
+                    r#type: flipt::ResponseType::Boolean,
                     boolean_evaluation_response: Some(boolean_evaluation),
                     variant_evaluation_response: None,
                     error_evaluation_response: None,
                 });
             }
-            common::FlagType::Variant => {
+            flipt::FlagType::Variant => {
                 let variant_evaluation = variant_evaluation(store, namespace, &request)?;
                 evaluation_responses.push(EvaluationResponse {
-                    r#type: common::ResponseType::Variant,
+                    r#type: flipt::ResponseType::Variant,
                     boolean_evaluation_response: None,
                     variant_evaluation_response: Some(variant_evaluation),
                     error_evaluation_response: None,
@@ -430,7 +429,7 @@ pub fn batch_evaluation(
 fn matches_constraints(
     eval_context: &HashMap<String, String>,
     constraints: &Vec<flipt::EvaluationConstraint>,
-    segment_match_type: &common::SegmentMatchType,
+    segment_match_type: &flipt::SegmentMatchType,
     entity_id: &str,
 ) -> Result<bool, Error> {
     let mut constraint_matches: usize = 0;
@@ -441,17 +440,17 @@ fn matches_constraints(
             .to_string();
 
         let matched = match constraint.r#type {
-            common::ConstraintComparisonType::String => matches_string(constraint, &value),
-            common::ConstraintComparisonType::Number => {
+            flipt::ConstraintComparisonType::String => matches_string(constraint, &value),
+            flipt::ConstraintComparisonType::Number => {
                 matches_number(constraint, &value).unwrap_or(false)
             }
-            common::ConstraintComparisonType::Boolean => {
+            flipt::ConstraintComparisonType::Boolean => {
                 matches_boolean(constraint, &value).unwrap_or(false)
             }
-            common::ConstraintComparisonType::DateTime => {
+            flipt::ConstraintComparisonType::DateTime => {
                 matches_datetime(constraint, &value).unwrap_or(false)
             }
-            common::ConstraintComparisonType::EntityId => matches_string(constraint, entity_id),
+            flipt::ConstraintComparisonType::EntityId => matches_string(constraint, entity_id),
             _ => {
                 return Ok(false);
             }
@@ -460,12 +459,12 @@ fn matches_constraints(
         if matched {
             constraint_matches += 1;
 
-            if segment_match_type == &common::SegmentMatchType::Any {
+            if segment_match_type == &flipt::SegmentMatchType::Any {
                 break;
             } else {
                 continue;
             }
-        } else if segment_match_type == &common::SegmentMatchType::All {
+        } else if segment_match_type == &flipt::SegmentMatchType::All {
             break;
         } else {
             continue;
@@ -473,8 +472,8 @@ fn matches_constraints(
     }
 
     let is_match = match segment_match_type {
-        common::SegmentMatchType::All => constraints.len() == constraint_matches,
-        common::SegmentMatchType::Any => constraints.is_empty() || constraint_matches != 0,
+        flipt::SegmentMatchType::All => constraints.len() == constraint_matches,
+        flipt::SegmentMatchType::Any => constraints.is_empty() || constraint_matches != 0,
     };
 
     Ok(is_match)
@@ -712,49 +711,49 @@ mod tests {
 
     matches_string_tests! {
         string_eq: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::String,
+            r#type: flipt::ConstraintComparisonType::String,
             property: String::from("number"),
             operator: String::from("eq"),
             value: String::from("number"),
         }, "number", true),
         string_neq: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::String,
+            r#type: flipt::ConstraintComparisonType::String,
             property: String::from("number"),
             operator: String::from("neq"),
             value: String::from("number"),
         }, "num", true),
         string_prefix: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::String,
+            r#type: flipt::ConstraintComparisonType::String,
             property: String::from("number"),
             operator: String::from("prefix"),
             value: String::from("num"),
         }, "number", true),
         string_suffix: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::String,
+            r#type: flipt::ConstraintComparisonType::String,
             property: String::from("number"),
             operator: String::from("suffix"),
             value: String::from("ber"),
         }, "number", true),
         string_isoneof_exists: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::String,
+            r#type: flipt::ConstraintComparisonType::String,
             property: String::from("number"),
             operator: String::from("isoneof"),
             value: String::from(r#"["1", "2"]"#),
         }, "2", true),
         string_isoneof_absent: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::String,
+            r#type: flipt::ConstraintComparisonType::String,
             property: String::from("number"),
             operator: String::from("isoneof"),
             value: String::from(r#"["1", "2"]"#),
         }, "3", false),
         string_isnotoneof_exists: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::String,
+            r#type: flipt::ConstraintComparisonType::String,
             property: String::from("number"),
             operator: String::from("isnotoneof"),
             value: String::from(r#"["1", "2"]"#),
         }, "2", false),
         string_isnotoneof_absent: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::String,
+            r#type: flipt::ConstraintComparisonType::String,
             property: String::from("number"),
             operator: String::from("isnotoneof"),
             value: String::from(r#"["1", "2"]"#),
@@ -763,37 +762,37 @@ mod tests {
 
     matches_datetime_tests! {
         datetime_eq: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::DateTime,
+            r#type: flipt::ConstraintComparisonType::DateTime,
             property: String::from("date"),
             operator: String::from("eq"),
             value: String::from("2006-01-02T15:04:05Z"),
         }, "2006-01-02T15:04:05Z", true),
         datetime_neq: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::DateTime,
+            r#type: flipt::ConstraintComparisonType::DateTime,
             property: String::from("date"),
             operator: String::from("neq"),
             value: String::from("2006-01-02T15:04:05Z"),
         }, "2006-01-02T15:03:05Z", true),
         datetime_lt: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::DateTime,
+            r#type: flipt::ConstraintComparisonType::DateTime,
             property: String::from("date"),
             operator: String::from("lt"),
             value: String::from("2006-01-02T15:04:05Z"),
         }, "2006-01-02T14:03:05Z", true),
         datetime_gt: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::DateTime,
+            r#type: flipt::ConstraintComparisonType::DateTime,
             property: String::from("date"),
             operator: String::from("gt"),
             value: String::from("2006-01-02T15:04:05Z"),
         }, "2006-01-02T16:03:05Z", true),
         datetime_lte: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::DateTime,
+            r#type: flipt::ConstraintComparisonType::DateTime,
             property: String::from("date"),
             operator: String::from("lte"),
             value: String::from("2006-01-02T15:04:05Z"),
         }, "2006-01-02T15:04:05Z", true),
         datetime_gte: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::DateTime,
+            r#type: flipt::ConstraintComparisonType::DateTime,
             property: String::from("date"),
             operator: String::from("gte"),
             value: String::from("2006-01-02T15:04:05Z"),
@@ -803,61 +802,61 @@ mod tests {
 
     matches_number_tests! {
         number_eq: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::Number,
+            r#type: flipt::ConstraintComparisonType::Number,
             property: String::from("number"),
             operator: String::from("eq"),
             value: String::from("1"),
         }, "1", true),
         number_neq: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::Number,
+            r#type: flipt::ConstraintComparisonType::Number,
             property: String::from("number"),
             operator: String::from("neq"),
             value: String::from("1"),
         }, "0", true),
         number_lt: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::Number,
+            r#type: flipt::ConstraintComparisonType::Number,
             property: String::from("number"),
             operator: String::from("lt"),
             value: String::from("4"),
         }, "3", true),
         number_gt: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::Number,
+            r#type: flipt::ConstraintComparisonType::Number,
             property: String::from("number"),
             operator: String::from("gt"),
             value: String::from("3"),
         }, "4", true),
         number_lte: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::Number,
+            r#type: flipt::ConstraintComparisonType::Number,
             property: String::from("date"),
             operator: String::from("lte"),
             value: String::from("3"),
         }, "3", true),
         number_gte: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::Number,
+            r#type: flipt::ConstraintComparisonType::Number,
             property: String::from("date"),
             operator: String::from("gte"),
             value: String::from("3"),
         }, "4", true),
         number_isoneof_exists: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::Number,
+            r#type: flipt::ConstraintComparisonType::Number,
             property: String::from("number"),
             operator: String::from("isoneof"),
             value: String::from("[1, 2]"),
         }, "2", true),
         number_isoneof_absent: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::Number,
+            r#type: flipt::ConstraintComparisonType::Number,
             property: String::from("number"),
             operator: String::from("isoneof"),
             value: String::from("[1, 2]"),
         }, "3", false),
         number_isnotoneof_exists: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::Number,
+            r#type: flipt::ConstraintComparisonType::Number,
             property: String::from("number"),
             operator: String::from("isnotoneof"),
             value: String::from("[1, 2]"),
         }, "2", false),
         number_isnotoneof_absent: (&flipt::EvaluationConstraint{
-            r#type: common::ConstraintComparisonType::Number,
+            r#type: flipt::ConstraintComparisonType::Number,
             property: String::from("number"),
             operator: String::from("isnotoneof"),
             value: String::from("[1, 2]"),
@@ -868,7 +867,7 @@ mod tests {
     fn test_matches_boolean_success() {
         let value_one = matches_boolean(
             &flipt::EvaluationConstraint {
-                r#type: common::ConstraintComparisonType::Boolean,
+                r#type: flipt::ConstraintComparisonType::Boolean,
                 property: String::from("fizz"),
                 operator: String::from("true"),
                 value: "".into(),
@@ -881,7 +880,7 @@ mod tests {
 
         let value_two = matches_boolean(
             &flipt::EvaluationConstraint {
-                r#type: common::ConstraintComparisonType::Boolean,
+                r#type: flipt::ConstraintComparisonType::Boolean,
                 property: String::from("fizz"),
                 operator: String::from("false"),
                 value: "".into(),
@@ -897,7 +896,7 @@ mod tests {
     fn test_matches_boolean_failure() {
         let result = matches_boolean(
             &flipt::EvaluationConstraint {
-                r#type: common::ConstraintComparisonType::Boolean,
+                r#type: flipt::ConstraintComparisonType::Boolean,
                 property: String::from("fizz"),
                 operator: String::from("true"),
                 value: "".into(),
@@ -916,7 +915,7 @@ mod tests {
     fn test_matches_number_failure() {
         let result_one = matches_number(
             &flipt::EvaluationConstraint {
-                r#type: common::ConstraintComparisonType::Number,
+                r#type: flipt::ConstraintComparisonType::Number,
                 property: String::from("number"),
                 operator: String::from("eq"),
                 value: String::from("9"),
@@ -932,7 +931,7 @@ mod tests {
 
         let result_two = matches_number(
             &flipt::EvaluationConstraint {
-                r#type: common::ConstraintComparisonType::Number,
+                r#type: flipt::ConstraintComparisonType::Number,
                 property: String::from("number"),
                 operator: String::from("eq"),
                 value: String::from("notanumber"),
@@ -951,7 +950,7 @@ mod tests {
     fn test_matches_datetime_failure() {
         let result_one = matches_datetime(
             &flipt::EvaluationConstraint {
-                r#type: common::ConstraintComparisonType::String,
+                r#type: flipt::ConstraintComparisonType::String,
                 property: String::from("date"),
                 operator: String::from("eq"),
                 value: String::from("blah"),
@@ -967,7 +966,7 @@ mod tests {
 
         let result_two = matches_datetime(
             &flipt::EvaluationConstraint {
-                r#type: common::ConstraintComparisonType::String,
+                r#type: flipt::ConstraintComparisonType::String,
                 property: String::from("date"),
                 operator: String::from("eq"),
                 value: String::from("2006-01-02T15:04:05Z"),
@@ -990,7 +989,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
         });
@@ -1000,9 +999,9 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::All,
+                match_type: flipt::SegmentMatchType::All,
                 constraints: vec![flipt::EvaluationConstraint {
-                    r#type: common::ConstraintComparisonType::EntityId,
+                    r#type: flipt::ConstraintComparisonType::EntityId,
                     property: String::from("entityId"),
                     operator: String::from("eq"),
                     value: String::from("user@flipt.io"),
@@ -1018,7 +1017,7 @@ mod tests {
                     flag_key: String::from("foo"),
                     segments: segments.clone(),
                     rank: 1,
-                    segment_operator: common::SegmentOperator::Or,
+                    segment_operator: flipt::SegmentOperator::Or,
                 }])
             });
 
@@ -1043,7 +1042,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
 
@@ -1055,7 +1054,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: false,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
         });
@@ -1080,7 +1079,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(!v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::FlagDisabled);
+        assert_eq!(v.reason, flipt::EvaluationReason::FlagDisabled);
         assert_eq!(v.variant_key, String::from(""));
         assert_eq!(v.variant_attachment, String::from(""));
     }
@@ -1093,7 +1092,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: false,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: Some(flipt::Variant {
                     id: String::from("1"),
                     key: String::from("default"),
@@ -1122,7 +1121,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(!v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::FlagDisabled);
+        assert_eq!(v.reason, flipt::EvaluationReason::FlagDisabled);
         assert_eq!(v.variant_key, String::from("default"));
         assert_eq!(
             v.variant_attachment,
@@ -1139,7 +1138,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
         });
@@ -1149,16 +1148,16 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::All,
+                match_type: flipt::SegmentMatchType::All,
                 constraints: vec![
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("bar"),
                         operator: String::from("eq"),
                         value: String::from("baz"),
                     },
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("foo"),
                         operator: String::from("eq"),
                         value: String::from("bar"),
@@ -1175,7 +1174,7 @@ mod tests {
                     flag_key: String::from("foo"),
                     segments: segments.clone(),
                     rank: 1,
-                    segment_operator: common::SegmentOperator::Or,
+                    segment_operator: flipt::SegmentOperator::Or,
                 }])
             });
 
@@ -1202,7 +1201,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
 
@@ -1214,7 +1213,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: Some(flipt::Variant {
                     id: String::from("1"),
                     key: String::from("default"),
@@ -1228,16 +1227,16 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::All,
+                match_type: flipt::SegmentMatchType::All,
                 constraints: vec![
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("bar"),
                         operator: String::from("eq"),
                         value: String::from("baz"),
                     },
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("foo"),
                         operator: String::from("eq"),
                         value: String::from("bar"),
@@ -1254,7 +1253,7 @@ mod tests {
                     flag_key: String::from("foo"),
                     segments: segments.clone(),
                     rank: 1,
-                    segment_operator: common::SegmentOperator::Or,
+                    segment_operator: flipt::SegmentOperator::Or,
                 }])
             });
 
@@ -1281,7 +1280,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
         assert_eq!(v.variant_key, String::from("default"));
         assert_eq!(
@@ -1298,7 +1297,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
         });
@@ -1308,16 +1307,16 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::All,
+                match_type: flipt::SegmentMatchType::All,
                 constraints: vec![
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("bar"),
                         operator: String::from("eq"),
                         value: String::from("baz"),
                     },
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("foo"),
                         operator: String::from("eq"),
                         value: String::from("bar"),
@@ -1330,9 +1329,9 @@ mod tests {
             String::from("segment2"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment2"),
-                match_type: common::SegmentMatchType::All,
+                match_type: flipt::SegmentMatchType::All,
                 constraints: vec![flipt::EvaluationConstraint {
-                    r#type: common::ConstraintComparisonType::String,
+                    r#type: flipt::ConstraintComparisonType::String,
                     property: String::from("company"),
                     operator: String::from("eq"),
                     value: String::from("flipt"),
@@ -1348,7 +1347,7 @@ mod tests {
                     flag_key: String::from("foo"),
                     segments: segments.clone(),
                     rank: 1,
-                    segment_operator: common::SegmentOperator::And,
+                    segment_operator: flipt::SegmentOperator::And,
                 }])
             });
 
@@ -1377,7 +1376,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
 
         let mut context: HashMap<String, String> = HashMap::new();
         context.insert(String::from("bar"), String::from("boz"));
@@ -1398,7 +1397,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(!v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Unknown);
+        assert_eq!(v.reason, flipt::EvaluationReason::Unknown);
         assert!(v.segment_keys.is_empty());
     }
 
@@ -1410,7 +1409,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
         });
@@ -1420,16 +1419,16 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::All,
+                match_type: flipt::SegmentMatchType::All,
                 constraints: vec![
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("bar"),
                         operator: String::from("eq"),
                         value: String::from("baz"),
                     },
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("foo"),
                         operator: String::from("eq"),
                         value: String::from("bar"),
@@ -1441,9 +1440,9 @@ mod tests {
             String::from("segment2"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment2"),
-                match_type: common::SegmentMatchType::All,
+                match_type: flipt::SegmentMatchType::All,
                 constraints: vec![flipt::EvaluationConstraint {
-                    r#type: common::ConstraintComparisonType::Boolean,
+                    r#type: flipt::ConstraintComparisonType::Boolean,
                     property: String::from("admin"),
                     operator: String::from("true"),
                     value: String::from(""),
@@ -1459,7 +1458,7 @@ mod tests {
                     flag_key: String::from("foo"),
                     segments: segments.clone(),
                     rank: 1,
-                    segment_operator: common::SegmentOperator::And,
+                    segment_operator: flipt::SegmentOperator::And,
                 }])
             });
 
@@ -1495,7 +1494,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(!v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Unknown);
+        assert_eq!(v.reason, flipt::EvaluationReason::Unknown);
     }
 
     #[test]
@@ -1506,7 +1505,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
         });
@@ -1516,16 +1515,16 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::All,
+                match_type: flipt::SegmentMatchType::All,
                 constraints: vec![
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("bar"),
                         operator: String::from("eq"),
                         value: String::from("baz"),
                     },
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("foo"),
                         operator: String::from("eq"),
                         value: String::from("bar"),
@@ -1537,9 +1536,9 @@ mod tests {
             String::from("segment2"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment2"),
-                match_type: common::SegmentMatchType::All,
+                match_type: flipt::SegmentMatchType::All,
                 constraints: vec![flipt::EvaluationConstraint {
-                    r#type: common::ConstraintComparisonType::Boolean,
+                    r#type: flipt::ConstraintComparisonType::Boolean,
                     property: String::from("admin"),
                     operator: String::from("true"),
                     value: String::from(""),
@@ -1555,7 +1554,7 @@ mod tests {
                     flag_key: String::from("foo"),
                     segments: segments.clone(),
                     rank: 1,
-                    segment_operator: common::SegmentOperator::And,
+                    segment_operator: flipt::SegmentOperator::And,
                 }])
             });
 
@@ -1591,7 +1590,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.variant_key, String::from("variant1"));
         assert_eq!(v.variant_attachment, String::from(r#"{"foo": "bar"}"#));
         assert!(v
@@ -1612,7 +1611,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
         });
@@ -1622,16 +1621,16 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::All,
+                match_type: flipt::SegmentMatchType::All,
                 constraints: vec![
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("bar"),
                         operator: String::from("eq"),
                         value: String::from("baz"),
                     },
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("foo"),
                         operator: String::from("eq"),
                         value: String::from("bar"),
@@ -1648,7 +1647,7 @@ mod tests {
                     flag_key: String::from("foo"),
                     segments: segments.clone(),
                     rank: 1,
-                    segment_operator: common::SegmentOperator::And,
+                    segment_operator: flipt::SegmentOperator::And,
                 }])
             });
 
@@ -1691,7 +1690,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.variant_key, String::from("variant1"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
@@ -1711,7 +1710,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.variant_key, String::from("variant2"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
@@ -1724,7 +1723,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
         });
@@ -1734,16 +1733,16 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::All,
+                match_type: flipt::SegmentMatchType::All,
                 constraints: vec![
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::Boolean,
+                        r#type: flipt::ConstraintComparisonType::Boolean,
                         property: String::from("premium_user"),
                         operator: String::from("true"),
                         value: String::from(""),
                     },
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("foo"),
                         operator: String::from("eq"),
                         value: String::from("bar"),
@@ -1757,7 +1756,7 @@ mod tests {
             String::from("segment2"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment2"),
-                match_type: common::SegmentMatchType::All,
+                match_type: flipt::SegmentMatchType::All,
                 constraints: vec![],
             },
         );
@@ -1771,14 +1770,14 @@ mod tests {
                         flag_key: String::from("foo"),
                         segments: segments.clone(),
                         rank: 1,
-                        segment_operator: common::SegmentOperator::And,
+                        segment_operator: flipt::SegmentOperator::And,
                     },
                     flipt::EvaluationRule {
                         id: String::from("2"),
                         flag_key: String::from("foo"),
                         segments: segments_two.clone(),
                         rank: 2,
-                        segment_operator: common::SegmentOperator::And,
+                        segment_operator: flipt::SegmentOperator::And,
                     },
                 ])
             });
@@ -1822,7 +1821,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.variant_key, String::from("variant1"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
@@ -1835,7 +1834,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
         });
@@ -1845,7 +1844,7 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::All,
+                match_type: flipt::SegmentMatchType::All,
                 constraints: vec![],
             },
         );
@@ -1858,7 +1857,7 @@ mod tests {
                     flag_key: String::from("foo"),
                     segments: segments.clone(),
                     rank: 1,
-                    segment_operator: common::SegmentOperator::And,
+                    segment_operator: flipt::SegmentOperator::And,
                 }])
             });
 
@@ -1899,7 +1898,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.variant_key, String::from("variant1"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
@@ -1919,7 +1918,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.variant_key, String::from("variant2"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
@@ -1933,7 +1932,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
         });
@@ -1943,16 +1942,16 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::Any,
+                match_type: flipt::SegmentMatchType::Any,
                 constraints: vec![
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("bar"),
                         operator: String::from("eq"),
                         value: String::from("baz"),
                     },
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("foo"),
                         operator: String::from("eq"),
                         value: String::from("bar"),
@@ -1969,7 +1968,7 @@ mod tests {
                     flag_key: String::from("foo"),
                     segments: segments.clone(),
                     rank: 1,
-                    segment_operator: common::SegmentOperator::Or,
+                    segment_operator: flipt::SegmentOperator::Or,
                 }])
             });
 
@@ -1996,7 +1995,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
 
@@ -2008,7 +2007,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: Some(flipt::Variant {
                     id: String::from("1"),
                     key: String::from("default"),
@@ -2022,16 +2021,16 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::Any,
+                match_type: flipt::SegmentMatchType::Any,
                 constraints: vec![
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("bar"),
                         operator: String::from("eq"),
                         value: String::from("baz"),
                     },
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("foo"),
                         operator: String::from("eq"),
                         value: String::from("bar"),
@@ -2048,7 +2047,7 @@ mod tests {
                     flag_key: String::from("foo"),
                     segments: segments.clone(),
                     rank: 1,
-                    segment_operator: common::SegmentOperator::Or,
+                    segment_operator: flipt::SegmentOperator::Or,
                 }])
             });
 
@@ -2075,7 +2074,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
         assert_eq!(v.variant_key, String::from("default"));
         assert_eq!(
@@ -2092,7 +2091,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
         });
@@ -2102,16 +2101,16 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::Any,
+                match_type: flipt::SegmentMatchType::Any,
                 constraints: vec![
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("bar"),
                         operator: String::from("eq"),
                         value: String::from("baz"),
                     },
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("foo"),
                         operator: String::from("eq"),
                         value: String::from("bar"),
@@ -2123,9 +2122,9 @@ mod tests {
             String::from("segment2"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment2"),
-                match_type: common::SegmentMatchType::Any,
+                match_type: flipt::SegmentMatchType::Any,
                 constraints: vec![flipt::EvaluationConstraint {
-                    r#type: common::ConstraintComparisonType::String,
+                    r#type: flipt::ConstraintComparisonType::String,
                     property: String::from("company"),
                     operator: String::from("eq"),
                     value: String::from("flipt"),
@@ -2141,7 +2140,7 @@ mod tests {
                     flag_key: String::from("foo"),
                     segments: segments.clone(),
                     rank: 1,
-                    segment_operator: common::SegmentOperator::And,
+                    segment_operator: flipt::SegmentOperator::And,
                 }])
             });
 
@@ -2169,7 +2168,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
 
         let mut context: HashMap<String, String> = HashMap::new();
         context.insert(String::from("bar"), String::from("boz"));
@@ -2190,7 +2189,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(!v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Unknown);
+        assert_eq!(v.reason, flipt::EvaluationReason::Unknown);
         assert!(v.segment_keys.is_empty());
     }
 
@@ -2202,7 +2201,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
         });
@@ -2212,16 +2211,16 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::Any,
+                match_type: flipt::SegmentMatchType::Any,
                 constraints: vec![
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("bar"),
                         operator: String::from("eq"),
                         value: String::from("baz"),
                     },
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("foo"),
                         operator: String::from("eq"),
                         value: String::from("bar"),
@@ -2233,9 +2232,9 @@ mod tests {
             String::from("segment2"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment2"),
-                match_type: common::SegmentMatchType::Any,
+                match_type: flipt::SegmentMatchType::Any,
                 constraints: vec![flipt::EvaluationConstraint {
-                    r#type: common::ConstraintComparisonType::Boolean,
+                    r#type: flipt::ConstraintComparisonType::Boolean,
                     property: String::from("admin"),
                     operator: String::from("true"),
                     value: String::from(""),
@@ -2251,7 +2250,7 @@ mod tests {
                     flag_key: String::from("foo"),
                     segments: segments.clone(),
                     rank: 1,
-                    segment_operator: common::SegmentOperator::And,
+                    segment_operator: flipt::SegmentOperator::And,
                 }])
             });
 
@@ -2286,7 +2285,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(!v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Unknown);
+        assert_eq!(v.reason, flipt::EvaluationReason::Unknown);
     }
 
     #[test]
@@ -2297,7 +2296,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
         });
@@ -2307,16 +2306,16 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::Any,
+                match_type: flipt::SegmentMatchType::Any,
                 constraints: vec![
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("bar"),
                         operator: String::from("eq"),
                         value: String::from("baz"),
                     },
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("foo"),
                         operator: String::from("eq"),
                         value: String::from("bar"),
@@ -2328,9 +2327,9 @@ mod tests {
             String::from("segment2"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment2"),
-                match_type: common::SegmentMatchType::Any,
+                match_type: flipt::SegmentMatchType::Any,
                 constraints: vec![flipt::EvaluationConstraint {
-                    r#type: common::ConstraintComparisonType::Boolean,
+                    r#type: flipt::ConstraintComparisonType::Boolean,
                     property: String::from("admin"),
                     operator: String::from("true"),
                     value: String::from(""),
@@ -2346,7 +2345,7 @@ mod tests {
                     flag_key: String::from("foo"),
                     segments: segments.clone(),
                     rank: 1,
-                    segment_operator: common::SegmentOperator::And,
+                    segment_operator: flipt::SegmentOperator::And,
                 }])
             });
 
@@ -2381,7 +2380,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.variant_key, String::from("variant1"));
         assert_eq!(v.variant_attachment, String::from(r#"{"foo": "bar"}"#));
     }
@@ -2394,7 +2393,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
         });
@@ -2404,16 +2403,16 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::Any,
+                match_type: flipt::SegmentMatchType::Any,
                 constraints: vec![
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("bar"),
                         operator: String::from("eq"),
                         value: String::from("baz"),
                     },
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("foo"),
                         operator: String::from("eq"),
                         value: String::from("bar"),
@@ -2430,7 +2429,7 @@ mod tests {
                     flag_key: String::from("foo"),
                     segments: segments.clone(),
                     rank: 1,
-                    segment_operator: common::SegmentOperator::And,
+                    segment_operator: flipt::SegmentOperator::And,
                 }])
             });
 
@@ -2472,7 +2471,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.variant_key, String::from("variant1"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
@@ -2492,7 +2491,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.variant_key, String::from("variant2"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
@@ -2505,7 +2504,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
         });
@@ -2515,16 +2514,16 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::Any,
+                match_type: flipt::SegmentMatchType::Any,
                 constraints: vec![
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::Boolean,
+                        r#type: flipt::ConstraintComparisonType::Boolean,
                         property: String::from("premium_user"),
                         operator: String::from("true"),
                         value: String::from(""),
                     },
                     flipt::EvaluationConstraint {
-                        r#type: common::ConstraintComparisonType::String,
+                        r#type: flipt::ConstraintComparisonType::String,
                         property: String::from("foo"),
                         operator: String::from("eq"),
                         value: String::from("bar"),
@@ -2538,7 +2537,7 @@ mod tests {
             String::from("segment2"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment2"),
-                match_type: common::SegmentMatchType::Any,
+                match_type: flipt::SegmentMatchType::Any,
                 constraints: vec![],
             },
         );
@@ -2552,14 +2551,14 @@ mod tests {
                         flag_key: String::from("foo"),
                         segments: segments.clone(),
                         rank: 1,
-                        segment_operator: common::SegmentOperator::And,
+                        segment_operator: flipt::SegmentOperator::And,
                     },
                     flipt::EvaluationRule {
                         id: String::from("2"),
                         flag_key: String::from("foo"),
                         segments: segments_two.clone(),
                         rank: 2,
-                        segment_operator: common::SegmentOperator::And,
+                        segment_operator: flipt::SegmentOperator::And,
                     },
                 ])
             });
@@ -2602,7 +2601,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.variant_key, String::from("variant1"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
@@ -2615,7 +2614,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
         });
@@ -2625,7 +2624,7 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::Any,
+                match_type: flipt::SegmentMatchType::Any,
                 constraints: vec![],
             },
         );
@@ -2638,7 +2637,7 @@ mod tests {
                     flag_key: String::from("foo"),
                     segments: segments.clone(),
                     rank: 1,
-                    segment_operator: common::SegmentOperator::And,
+                    segment_operator: flipt::SegmentOperator::And,
                 }])
             });
 
@@ -2679,7 +2678,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.variant_key, String::from("variant1"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
@@ -2699,7 +2698,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.variant_key, String::from("variant2"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
 
@@ -2721,7 +2720,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.variant_key, String::from("variant2"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
@@ -2735,7 +2734,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
         });
@@ -2745,9 +2744,9 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::Any,
+                match_type: flipt::SegmentMatchType::Any,
                 constraints: vec![flipt::EvaluationConstraint {
-                    r#type: common::ConstraintComparisonType::String,
+                    r#type: flipt::ConstraintComparisonType::String,
                     property: String::from("bar"),
                     operator: String::from("eq"),
                     value: String::from("baz"),
@@ -2763,7 +2762,7 @@ mod tests {
                     flag_key: String::from("foo"),
                     segments: segments.clone(),
                     rank: 1,
-                    segment_operator: common::SegmentOperator::And,
+                    segment_operator: flipt::SegmentOperator::And,
                 }])
             });
 
@@ -2805,7 +2804,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.variant_key, String::from("variant2"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
@@ -2818,7 +2817,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
-                r#type: common::FlagType::Variant,
+                r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
         });
@@ -2828,9 +2827,9 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::Any,
+                match_type: flipt::SegmentMatchType::Any,
                 constraints: vec![flipt::EvaluationConstraint {
-                    r#type: common::ConstraintComparisonType::String,
+                    r#type: flipt::ConstraintComparisonType::String,
                     property: String::from("bar"),
                     operator: String::from("eq"),
                     value: String::from("baz"),
@@ -2846,7 +2845,7 @@ mod tests {
                     flag_key: String::from("foo"),
                     segments: segments.clone(),
                     rank: 1,
-                    segment_operator: common::SegmentOperator::And,
+                    segment_operator: flipt::SegmentOperator::And,
                 }])
             });
 
@@ -2912,7 +2911,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(v.r#match);
-        assert_eq!(v.reason, common::EvaluationReason::Match);
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.variant_key, String::from("variant3"));
         assert_eq!(v.segment_keys, vec![String::from("segment1")]);
     }
@@ -2925,7 +2924,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: false,
-                r#type: common::FlagType::Boolean,
+                r#type: flipt::FlagType::Boolean,
                 default_variant: None,
             })
         });
@@ -2935,9 +2934,9 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::Any,
+                match_type: flipt::SegmentMatchType::Any,
                 constraints: vec![flipt::EvaluationConstraint {
-                    r#type: common::ConstraintComparisonType::Boolean,
+                    r#type: flipt::ConstraintComparisonType::Boolean,
                     property: String::from("some"),
                     operator: String::from("notpresent"),
                     value: String::from(""),
@@ -2949,11 +2948,11 @@ mod tests {
             .expect_get_evaluation_rollouts()
             .returning(move |_, _| {
                 Some(vec![flipt::EvaluationRollout {
-                    rollout_type: common::RolloutType::Segment,
+                    rollout_type: flipt::RolloutType::Segment,
                     rank: 1,
                     segment: Some(RolloutSegment {
                         value: true,
-                        segment_operator: common::SegmentOperator::Or,
+                        segment_operator: flipt::SegmentOperator::Or,
                         segments: segments.clone(),
                     }),
                     threshold: None,
@@ -2976,7 +2975,7 @@ mod tests {
 
         assert_eq!(b.flag_key, String::from("foo"));
         assert!(b.enabled);
-        assert_eq!(b.reason, common::EvaluationReason::Match);
+        assert_eq!(b.reason, flipt::EvaluationReason::Match);
     }
 
     #[test]
@@ -2987,7 +2986,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: false,
-                r#type: common::FlagType::Boolean,
+                r#type: flipt::FlagType::Boolean,
                 default_variant: None,
             })
         });
@@ -2997,9 +2996,9 @@ mod tests {
             String::from("segment1"),
             flipt::EvaluationSegment {
                 segment_key: String::from("segment1"),
-                match_type: common::SegmentMatchType::Any,
+                match_type: flipt::SegmentMatchType::Any,
                 constraints: vec![flipt::EvaluationConstraint {
-                    r#type: common::ConstraintComparisonType::Boolean,
+                    r#type: flipt::ConstraintComparisonType::Boolean,
                     property: String::from("some"),
                     operator: String::from("present"),
                     value: String::from(""),
@@ -3011,11 +3010,11 @@ mod tests {
             .expect_get_evaluation_rollouts()
             .returning(move |_, _| {
                 Some(vec![flipt::EvaluationRollout {
-                    rollout_type: common::RolloutType::Segment,
+                    rollout_type: flipt::RolloutType::Segment,
                     rank: 1,
                     segment: Some(RolloutSegment {
                         value: true,
-                        segment_operator: common::SegmentOperator::Or,
+                        segment_operator: flipt::SegmentOperator::Or,
                         segments: segments.clone(),
                     }),
                     threshold: None,
@@ -3041,7 +3040,7 @@ mod tests {
 
         assert_eq!(b.flag_key, String::from("foo"));
         assert!(b.enabled);
-        assert_eq!(b.reason, common::EvaluationReason::Match);
+        assert_eq!(b.reason, flipt::EvaluationReason::Match);
     }
 
     #[test]
@@ -3050,13 +3049,13 @@ mod tests {
             HashMap::from([("fruit".into(), "apple".into())]);
         let constrains = vec![
             flipt::EvaluationConstraint {
-                r#type: common::ConstraintComparisonType::Boolean,
+                r#type: flipt::ConstraintComparisonType::Boolean,
                 property: String::from("fruit"),
                 operator: String::from("true"),
                 value: String::from(""),
             },
             flipt::EvaluationConstraint {
-                r#type: common::ConstraintComparisonType::String,
+                r#type: flipt::ConstraintComparisonType::String,
                 property: String::from("fruit"),
                 operator: String::from("eq"),
                 value: String::from("apple"),
@@ -3065,7 +3064,7 @@ mod tests {
         let result = matches_constraints(
             &eval_context,
             &constrains,
-            &common::SegmentMatchType::Any,
+            &flipt::SegmentMatchType::Any,
             "",
         );
         assert!(result.is_ok());
