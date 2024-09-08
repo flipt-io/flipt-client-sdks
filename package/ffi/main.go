@@ -182,7 +182,7 @@ func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagg
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-python")).
 		WithDirectory("/src/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"**/*.rlib"},
+			Exclude: []string{"**/*.rlib", "*_musl"},
 		}).
 		WithFile("/src/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithWorkdir("/src").
@@ -314,7 +314,7 @@ func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 			Exclude: []string{"./node_modules/"},
 		}).
 		WithDirectory("/src/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"**/*.rlib"},
+			Exclude: []string{"**/*.rlib", "*_musl"},
 		}).
 		WithFile("/src/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithWorkdir("/src").
@@ -348,7 +348,7 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		WithWorkdir("/src").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-ruby")).
 		WithDirectory("/src/lib/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"**/*.rlib"},
+			Exclude: []string{"**/*.rlib", "*_musl"},
 		}).
 		WithFile("/src/lib/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithExec([]string{"bundle", "install"}).
@@ -408,7 +408,7 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	container := client.Container().From("gradle:8.5.0-jdk11").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-java")).
 		WithDirectory("/src/src/main/resources", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"**/*.rlib"},
+			Exclude: []string{"**/*.rlib", "*_musl"},
 		}).
 		WithFile("/src/main/resources/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithWorkdir("/src").
@@ -462,7 +462,7 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 			Exclude: []string{".gitignore", ".dart_tool/"},
 		}).
 		WithDirectory("/src/lib/src/ffi", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"**/*.rlib"},
+			Exclude: []string{"**/*.rlib", "*_musl"},
 		}).
 		WithWorkdir("/src").
 		WithExec([]string{"dart", "pub", "get"})
