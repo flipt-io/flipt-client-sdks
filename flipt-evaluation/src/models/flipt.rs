@@ -80,6 +80,7 @@ pub struct EvaluationConstraint {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[non_exhaustive]
 pub enum FlagType {
     #[serde(rename = "BOOLEAN_FLAG_TYPE")]
     Boolean,
@@ -90,6 +91,7 @@ pub enum FlagType {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[non_exhaustive]
 pub enum SegmentOperator {
     #[serde(rename = "AND_SEGMENT_OPERATOR")]
     And,
@@ -100,6 +102,7 @@ pub enum SegmentOperator {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[non_exhaustive]
 pub enum SegmentMatchType {
     #[serde(rename = "ALL_SEGMENT_MATCH_TYPE")]
     All,
@@ -110,6 +113,7 @@ pub enum SegmentMatchType {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[non_exhaustive]
 pub enum ConstraintComparisonType {
     #[serde(rename = "STRING_CONSTRAINT_COMPARISON_TYPE")]
     String,
@@ -128,6 +132,7 @@ pub enum ConstraintComparisonType {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[non_exhaustive]
 pub enum RolloutType {
     #[serde(rename = "SEGMENT_ROLLOUT_TYPE")]
     Segment,
@@ -140,6 +145,7 @@ pub enum RolloutType {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[non_exhaustive]
 pub enum EvaluationReason {
     #[serde(rename = "FLAG_DISABLED_EVALUATION_REASON")]
     FlagDisabled,
@@ -154,6 +160,7 @@ pub enum EvaluationReason {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[non_exhaustive]
 pub enum ErrorEvaluationReason {
     #[serde(rename = "UNKNOWN_ERROR_EVALUATION_REASON")]
     Unknown,
@@ -162,6 +169,7 @@ pub enum ErrorEvaluationReason {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[non_exhaustive]
 pub enum ResponseType {
     #[serde(rename = "VARIANT_EVALUATION_RESPONSE_TYPE")]
     Variant,

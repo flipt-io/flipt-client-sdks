@@ -6,3 +6,5 @@ edition = "2021"
 [dependencies]
 flipt-evaluation = { path = "../flipt-evaluation" }
 tokio = { version = "1.38.0", features = ["full"] }
+reqwest = { version = "0.12.2", features = ["json", "blocking"] }
+chrono = { version = "0.4.31", features = ["serde"] }
