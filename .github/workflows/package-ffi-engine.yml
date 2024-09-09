@@ -91,7 +91,7 @@ jobs:
 
       - name: Install cross from GitHub
         run: |
-          cargo install cross --git https://github.com/cross-rs/cross
+          which cross || cargo install cross --git https://github.com/cross-rs/cross
 
       - name: Build ${{ matrix.platform.name }}
         uses: actions-rs/cargo@v1
