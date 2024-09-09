@@ -33,7 +33,7 @@ var (
 	// defaultExclude is the default exclude for all builds to prevent
 	// unneccessary architecture support files from being copied into the
 	// build directory
-	defaultExclude = []string{"**/*.rlib", "*musl*", "*iOS*", "*Android*", "*wasm*"}
+	defaultExclude = []string{"**/*.rlib", "**/*.a", "**/*.d", "*musl*", "*iOS*", "*Android*", "*wasm*"}
 )
 
 func init() {
@@ -258,8 +258,8 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 			WithDirectory("/tmp/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{Exclude: defaultExclude})
 	} else {
 		repository = repository.
-			WithDirectory("/tmp/ext/linux_arm64", hostDirectory.Directory("tmp/linux_arm64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib"}}).
-			WithDirectory("/tmp/ext/linux_x86_64", hostDirectory.Directory("tmp/linux_x86_64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib"}})
+			WithDirectory("/tmp/ext/linux_arm64", hostDirectory.Directory("tmp/linux_arm64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}}).
+			WithDirectory("/tmp/ext/linux_x86_64", hostDirectory.Directory("tmp/linux_x86_64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}})
 	}
 
 	filtered := repository.
