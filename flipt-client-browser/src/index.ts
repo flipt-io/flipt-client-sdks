@@ -6,7 +6,7 @@ import {
   BatchResult,
   BooleanEvaluationResponse,
   BooleanResult,
-  EngineOpts,
+  EngineOpts as Options,
   EvaluationRequest,
   IFetcher,
   VariantEvaluationResponse,
@@ -26,46 +26,46 @@ export class FliptEvaluationClient {
   /**
    * Initialize the client
    * @param namespace - optional namespace to evaluate flags
-   * @param engine_opts - optional engine options
+   * @param options - optional client options
    * @returns {Promise<FliptEvaluationClient>}
    */
   static async init(
     namespace: string = 'default',
-    engine_opts: EngineOpts = {
+    options: Options = {
       url: 'http://localhost:8080',
       reference: ''
     }
   ): Promise<FliptEvaluationClient> {
     await init(await wasm());
 
-    let url = engine_opts.url ?? 'http://localhost:8080';
+    let url = options.url ?? 'http://localhost:8080';
     // trim trailing slash
     url = url.replace(/\/$/, '');
     url = `${url}/internal/v1/evaluation/snapshot/namespace/${namespace}`;
 
-    if (engine_opts.reference) {
-      url = `${url}?reference=${engine_opts.reference}`;
+    if (options.reference) {
+      url = `${url}?reference=${options.reference}`;
     }
 
     const headers = new Headers();
     headers.append('Accept', 'application/json');
     headers.append('x-flipt-accept-server-version', '1.47.0');
 
-    if (engine_opts.authentication) {
-      if ('client_token' in engine_opts.authentication) {
+    if (options.authentication) {
+      if ('client_token' in options.authentication) {
         headers.append(
           'Authorization',
-          `Bearer ${engine_opts.authentication.client_token}`
+          `Bearer ${options.authentication.client_token}`
         );
-      } else if ('jwt_token' in engine_opts.authentication) {
+      } else if ('jwt_token' in options.authentication) {
         headers.append(
           'Authorization',
-          `JWT ${engine_opts.authentication.jwt_token}`
+          `JWT ${options.authentication.jwt_token}`
         );
       }
     }
 
-    let fetcher = engine_opts.fetcher;
+    let fetcher = options.fetcher;
 
     if (!fetcher) {
       fetcher = async (opts?: { etag?: string }) => {
@@ -142,7 +142,9 @@ export class FliptEvaluationClient {
       context
     };
 
-    const result = this.engine.evaluate_variant(evaluation_request) as VariantResult;
+    const result = this.engine.evaluate_variant(
+      evaluation_request
+    ) as VariantResult;
 
     if (result.status === 'failure') {
       throw new Error(result.error_message);
@@ -169,7 +171,9 @@ export class FliptEvaluationClient {
       context
     };
 
-    const result = this.engine.evaluate_boolean(evaluation_request) as BooleanResult;
+    const result = this.engine.evaluate_boolean(
+      evaluation_request
+    ) as BooleanResult;
 
     if (result.status === 'failure') {
       throw new Error(result.error_message);

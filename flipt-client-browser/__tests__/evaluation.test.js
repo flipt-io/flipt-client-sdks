@@ -54,7 +54,9 @@ describe('FliptEvaluationClient', () => {
       client.evaluateVariant('nonexistent', 'someentity', {
         fizz: 'buzz'
       });
-    }).toThrow('invalid request: failed to get flag information default/nonexistent');
+    }).toThrow(
+      'invalid request: failed to get flag information default/nonexistent'
+    );
   });
 
   test('boolean failure', () => {
@@ -62,7 +64,9 @@ describe('FliptEvaluationClient', () => {
       client.evaluateVariant('nonexistent', 'someentity', {
         fizz: 'buzz'
       });
-    }).toThrow('invalid request: failed to get flag information default/nonexistent');
+    }).toThrow(
+      'invalid request: failed to get flag information default/nonexistent'
+    );
   });
 
   test('refresh', async () => {
