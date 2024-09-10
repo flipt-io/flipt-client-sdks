@@ -8,3 +8,6 @@ rpath = true
 
 [profile.release.package.flipt-engine-wasm]
 opt-level = "s"
+
+[profile.release.package.flipt-engine-ffi]
+opt-level = "z"

@@ -30,6 +30,10 @@ var (
 		"dart":    dartBuild,
 	}
 	sema = make(chan struct{}, 5)
+	// defaultExclude is the default exclude for all builds to prevent
+	// unneccessary architecture support files from being copied into the
+	// build directory
+	defaultExclude = []string{"**/*.rlib", "**/*.a", "**/*.d", "*musl*", "*iOS*", "*Android*", "*wasm*"}
 )
 
 func init() {
@@ -249,16 +253,13 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 		WithWorkdir("/src").
 		WithFile("/tmp/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h"))
 
-	defaultExclude := []string{"*.rlib"}
-
 	if buildOpts.libc == glibc {
-		exclude := append(defaultExclude, "*_musl")
 		repository = repository.
-			WithDirectory("/tmp/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{Exclude: exclude})
+			WithDirectory("/tmp/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{Exclude: defaultExclude})
 	} else {
 		repository = repository.
-			WithDirectory("/tmp/ext/linux_arm64", hostDirectory.Directory("tmp/linux_arm64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: defaultExclude}).
-			WithDirectory("/tmp/ext/linux_x86_64", hostDirectory.Directory("tmp/linux_x86_64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: defaultExclude})
+			WithDirectory("/tmp/ext/linux_arm64", hostDirectory.Directory("tmp/linux_arm64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}}).
+			WithDirectory("/tmp/ext/linux_x86_64", hostDirectory.Directory("tmp/linux_x86_64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}})
 	}
 
 	filtered := repository.
@@ -314,7 +315,7 @@ func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 			Exclude: []string{"./node_modules/"},
 		}).
 		WithDirectory("/src/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"**/*.rlib", "*_musl"},
+			Exclude: defaultExclude,
 		}).
 		WithFile("/src/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithWorkdir("/src").
@@ -348,7 +349,7 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		WithWorkdir("/src").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-ruby")).
 		WithDirectory("/src/lib/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"**/*.rlib", "*_musl"},
+			Exclude: defaultExclude,
 		}).
 		WithFile("/src/lib/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithExec([]string{"bundle", "install"}).
@@ -408,7 +409,7 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	container := client.Container().From("gradle:8.5.0-jdk11").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-java")).
 		WithDirectory("/src/src/main/resources", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"**/*.rlib", "*_musl"},
+			Exclude: defaultExclude,
 		}).
 		WithFile("/src/main/resources/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithWorkdir("/src").
@@ -462,7 +463,7 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 			Exclude: []string{".gitignore", ".dart_tool/"},
 		}).
 		WithDirectory("/src/lib/src/ffi", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"**/*.rlib", "*_musl"},
+			Exclude: defaultExclude,
 		}).
 		WithWorkdir("/src").
 		WithExec([]string{"dart", "pub", "get"})
