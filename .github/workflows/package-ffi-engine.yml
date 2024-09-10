@@ -1,7 +1,5 @@
 name: Package FFI Engine
 on:
-  pull_request:
-    branches: ["main"]
   push:
     tags: ["flipt-engine-ffi-v**"]
   workflow_dispatch:
@@ -98,13 +96,6 @@ jobs:
           tar -czvf flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz \
             target/${{ matrix.platform.target }}/release/libfliptengine.* \
             || true
-
-      - name: Upload Artifacts (Pull Request)
-        uses: actions/upload-artifact@v4
-        if: github.event_name == 'pull_request'
-        with:
-          name: flipt-engine-ffi-${{ matrix.platform.name }}
-          path: flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
 
       - name: Upload Release Assets (Tag)
         uses: softprops/action-gh-release@v2
