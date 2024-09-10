@@ -6,7 +6,7 @@ import {
   BatchResult,
   BooleanEvaluationResponse,
   BooleanResult,
-  EngineOpts as Options,
+  ClientOptions,
   EvaluationRequest,
   IFetcher,
   VariantEvaluationResponse,
@@ -31,7 +31,7 @@ export class FliptEvaluationClient {
    */
   static async init(
     namespace: string = 'default',
-    options: Options = {
+    options: ClientOptions = {
       url: 'http://localhost:8080',
       reference: ''
     }

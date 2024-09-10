@@ -1,9 +1,9 @@
-export interface IFetcherOpts {
+export interface IFetcherOptions {
   etag?: string;
 }
 
 export interface IFetcher {
-  (opts?: IFetcherOpts): Promise<Response>;
+  (opts?: IFetcherOptions): Promise<Response>;
 }
 
 export interface AuthenticationStrategy {}
@@ -16,7 +16,7 @@ export interface JWTAuthentication extends AuthenticationStrategy {
   jwt_token: string;
 }
 
-export interface EngineOpts {
+export interface ClientOptions {
   url?: string;
   authentication?: AuthenticationStrategy;
   reference?: string;
