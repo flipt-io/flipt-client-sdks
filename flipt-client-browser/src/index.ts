@@ -2,11 +2,14 @@ import init, { Engine } from '../dist/flipt_engine_wasm.js';
 import wasm from '../dist/flipt_engine_wasm_bg.wasm';
 
 import {
+  BatchEvaluationResponse,
   BatchResult,
+  BooleanEvaluationResponse,
   BooleanResult,
-  EngineOpts,
+  ClientOptions,
   EvaluationRequest,
   IFetcher,
+  VariantEvaluationResponse,
   VariantResult
 } from './models.js';
 
@@ -23,46 +26,46 @@ export class FliptEvaluationClient {
   /**
    * Initialize the client
    * @param namespace - optional namespace to evaluate flags
-   * @param engine_opts - optional engine options
+   * @param options - optional client options
    * @returns {Promise<FliptEvaluationClient>}
    */
   static async init(
     namespace: string = 'default',
-    engine_opts: EngineOpts = {
+    options: ClientOptions = {
       url: 'http://localhost:8080',
       reference: ''
     }
   ): Promise<FliptEvaluationClient> {
     await init(await wasm());
 
-    let url = engine_opts.url ?? 'http://localhost:8080';
+    let url = options.url ?? 'http://localhost:8080';
     // trim trailing slash
     url = url.replace(/\/$/, '');
     url = `${url}/internal/v1/evaluation/snapshot/namespace/${namespace}`;
 
-    if (engine_opts.reference) {
-      url = `${url}?reference=${engine_opts.reference}`;
+    if (options.reference) {
+      url = `${url}?reference=${options.reference}`;
     }
 
     const headers = new Headers();
     headers.append('Accept', 'application/json');
     headers.append('x-flipt-accept-server-version', '1.47.0');
 
-    if (engine_opts.authentication) {
-      if ('client_token' in engine_opts.authentication) {
+    if (options.authentication) {
+      if ('client_token' in options.authentication) {
         headers.append(
           'Authorization',
-          `Bearer ${engine_opts.authentication.client_token}`
+          `Bearer ${options.authentication.client_token}`
         );
-      } else if ('jwt_token' in engine_opts.authentication) {
+      } else if ('jwt_token' in options.authentication) {
         headers.append(
           'Authorization',
-          `JWT ${engine_opts.authentication.jwt_token}`
+          `JWT ${options.authentication.jwt_token}`
         );
       }
     }
 
-    let fetcher = engine_opts.fetcher;
+    let fetcher = options.fetcher;
 
     if (!fetcher) {
       fetcher = async (opts?: { etag?: string }) => {
@@ -126,20 +129,28 @@ export class FliptEvaluationClient {
    * @param flag_key - flag key to evaluate
    * @param entity_id - entity id to evaluate
    * @param context - optional evaluation context
-   * @returns {VariantResult}
+   * @returns {VariantEvaluationResponse}
    */
   public evaluateVariant(
     flag_key: string,
     entity_id: string,
     context: {}
-  ): VariantResult {
+  ): VariantEvaluationResponse {
     const evaluation_request: EvaluationRequest = {
       flag_key,
       entity_id,
       context
     };
 
-    return this.engine.evaluate_variant(evaluation_request) as VariantResult;
+    const result = this.engine.evaluate_variant(
+      evaluation_request
+    ) as VariantResult;
+
+    if (result.status === 'failure') {
+      throw new Error(result.error_message);
+    }
+
+    return result.result as VariantEvaluationResponse;
   }
 
   /**
@@ -147,28 +158,42 @@ export class FliptEvaluationClient {
    * @param flag_key - flag key to evaluate
    * @param entity_id - entity id to evaluate
    * @param context - optional evaluation context
-   * @returns {BooleanResult}
+   * @returns {BooleanEvaluationResponse}
    */
   public evaluateBoolean(
     flag_key: string,
     entity_id: string,
     context: {}
-  ): BooleanResult {
+  ): BooleanEvaluationResponse {
     const evaluation_request: EvaluationRequest = {
       flag_key,
       entity_id,
       context
     };
 
-    return this.engine.evaluate_boolean(evaluation_request) as BooleanResult;
+    const result = this.engine.evaluate_boolean(
+      evaluation_request
+    ) as BooleanResult;
+
+    if (result.status === 'failure') {
+      throw new Error(result.error_message);
+    }
+
+    return result.result as BooleanEvaluationResponse;
   }
 
   /**
    * Evaluate a batch of flag requests
    * @param requests evaluation requests
-   * @returns {BatchResult}
+   * @returns {BatchEvaluationResponse}
    */
-  public evaluateBatch(requests: EvaluationRequest[]): BatchResult {
-    return this.engine.evaluate_batch(requests);
+  public evaluateBatch(requests: EvaluationRequest[]): BatchEvaluationResponse {
+    const result = this.engine.evaluate_batch(requests) as BatchResult;
+
+    if (result.status === 'failure') {
+      throw new Error(result.error_message);
+    }
+
+    return result.result as BatchEvaluationResponse;
   }
 }
