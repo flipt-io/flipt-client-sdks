@@ -41,7 +41,7 @@ export class FliptEvaluationClient {
     url = `${url}/internal/v1/evaluation/snapshot/namespace/${namespace}`;
 
     if (engine_opts.reference) {
-      url = `${url}?ref=${engine_opts.reference}`;
+      url = `${url}?reference=${engine_opts.reference}`;
     }
 
     const headers = new Headers();
