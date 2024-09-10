@@ -2,11 +2,14 @@ import init, { Engine } from '../dist/flipt_engine_wasm.js';
 import wasm from '../dist/flipt_engine_wasm_bg.wasm';
 
 import {
+  BatchEvaluationResponse,
   BatchResult,
+  BooleanEvaluationResponse,
   BooleanResult,
   EngineOpts,
   EvaluationRequest,
   IFetcher,
+  VariantEvaluationResponse,
   VariantResult
 } from './models.js';
 
@@ -126,20 +129,26 @@ export class FliptEvaluationClient {
    * @param flag_key - flag key to evaluate
    * @param entity_id - entity id to evaluate
    * @param context - optional evaluation context
-   * @returns {VariantResult}
+   * @returns {VariantEvaluationResponse}
    */
   public evaluateVariant(
     flag_key: string,
     entity_id: string,
     context: {}
-  ): VariantResult {
+  ): VariantEvaluationResponse {
     const evaluation_request: EvaluationRequest = {
       flag_key,
       entity_id,
       context
     };
 
-    return this.engine.evaluate_variant(evaluation_request) as VariantResult;
+    const result = this.engine.evaluate_variant(evaluation_request) as VariantResult;
+
+    if (result.status === 'failure') {
+      throw new Error(result.error_message);
+    }
+
+    return result.result as VariantEvaluationResponse;
   }
 
   /**
@@ -147,28 +156,40 @@ export class FliptEvaluationClient {
    * @param flag_key - flag key to evaluate
    * @param entity_id - entity id to evaluate
    * @param context - optional evaluation context
-   * @returns {BooleanResult}
+   * @returns {BooleanEvaluationResponse}
    */
   public evaluateBoolean(
     flag_key: string,
     entity_id: string,
     context: {}
-  ): BooleanResult {
+  ): BooleanEvaluationResponse {
     const evaluation_request: EvaluationRequest = {
       flag_key,
       entity_id,
       context
     };
 
-    return this.engine.evaluate_boolean(evaluation_request) as BooleanResult;
+    const result = this.engine.evaluate_boolean(evaluation_request) as BooleanResult;
+
+    if (result.status === 'failure') {
+      throw new Error(result.error_message);
+    }
+
+    return result.result as BooleanEvaluationResponse;
   }
 
   /**
    * Evaluate a batch of flag requests
    * @param requests evaluation requests
-   * @returns {BatchResult}
+   * @returns {BatchEvaluationResponse}
    */
-  public evaluateBatch(requests: EvaluationRequest[]): BatchResult {
-    return this.engine.evaluate_batch(requests);
+  public evaluateBatch(requests: EvaluationRequest[]): BatchEvaluationResponse {
+    const result = this.engine.evaluate_batch(requests) as BatchResult;
+
+    if (result.status === 'failure') {
+      throw new Error(result.error_message);
+    }
+
+    return result.result as BatchEvaluationResponse;
   }
 }

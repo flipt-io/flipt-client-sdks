@@ -34,8 +34,8 @@ export interface VariantEvaluationResponse {
   segment_keys: string[];
   reason: string;
   flag_key: string;
-  variant_key: string;
-  variant_attachment: string;
+  variant_key?: string;
+  variant_attachment?: string;
   request_duration_millis: number;
   timestamp: string;
 }
