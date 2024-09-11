@@ -1,78 +1,123 @@
-import * as ffi from '@2060.io/ffi-napi';
-import { Pointer, allocCString } from '@2060.io/ref-napi';
-import * as os from 'os';
+import { Engine } from '../dist/flipt_engine_wasm.js';
+
 import {
   AuthenticationStrategy,
   BooleanResult,
   BatchResult,
-  EngineOpts,
+  ClientOptions,
   EvaluationRequest,
+  IFetcher,
   VariantResult,
-  Flag,
-  Result
 } from './models';
-import * as path from 'path';
 
-const libFiles: { [key: string]: string } = {
-  'darwin-arm64': 'darwin_arm64/libfliptengine.dylib',
-  'darwin-x64': 'darwin_x86_64/libfliptengine.dylib',
-  'linux-arm64': 'linux_arm64/libfliptengine.so',
-  'linux-x64': 'linux_x86_64/libfliptengine.so'
-};
-
-const platform = os.platform();
-const arch = os.arch();
-const key = `${platform}-${arch}`;
-
-const libfile = libFiles[key];
-
-if (!libfile) {
-  throw new Error(`Unsupported platform: ${platform}/${arch}`);
-}
-
-// get absolute path to libfliptengine
-const engineLibPath = path.join(__dirname, '..', 'ext', libfile);
-
-const engineLib = ffi.Library(engineLibPath, {
-  initialize_engine: ['void *', ['char **', 'string']],
-  evaluate_variant: ['char **', ['void *', 'string']],
-  evaluate_boolean: ['char **', ['void *', 'string']],
-  evaluate_batch: ['char **', ['void *', 'string']],
-  list_flags: ['char **', ['void *']],
-  destroy_engine: ['void', ['void *']],
-  destroy_string: ['void', ['char **']]
-});
 
 export class FliptEvaluationClient {
-  private engine: Pointer<unknown>;
+  private engine: Engine;
+  private fetcher: IFetcher;
+  private etag?: string;
+
+  private constructor(engine: Engine, fetcher: IFetcher) {
+    this.engine = engine;
+    this.fetcher = fetcher;
+  }
 
   /**
-   * Initializes a new instance of the engine with the specified options.
-   *
-   * @param namespace - An optional namespace string for the engine instance. If not provided,
-   * `default` namespace will be used.
-   *
-   * @param engine_opts - The optional options for configuring the engine. If not provided,
-   *                      default values will be used.
-   *
-   * @returns Flipt evaluation client
-   *
-   * @throws Error
-   * This exception is thrown if platform is not supported.
+   * Initialize the client
+   * @param namespace - optional namespace to evaluate flags
+   * @param options - optional client options
+   * @returns {Promise<FliptEvaluationClient>}
    */
-  public constructor(
-    namespace?: string,
-    engine_opts: EngineOpts<AuthenticationStrategy> = {
+  static async init(
+    namespace: string = 'default',
+    options: ClientOptions<AuthenticationStrategy> = {
       url: 'http://localhost:8080',
-      update_interval: 120,
       reference: ''
     }
-  ) {
-    const engine = engineLib.initialize_engine(
-      allocCString(namespace ?? 'default'),
-      allocCString(JSON.stringify(engine_opts))
-    );
-    this.engine = engine;
+  ): Promise<FliptEvaluationClient> {
+    let url = options.url ?? 'http://localhost:8080';
+    // trim trailing slash
+    url = url.replace(/\/$/, '');
+    url = `${url}/internal/v1/evaluation/snapshot/namespace/${namespace}`;
+
+    if (options.reference) {
+      url = `${url}?reference=${options.reference}`;
+    }
+
+    const headers = new Headers();
+    headers.append('Accept', 'application/json');
+    headers.append('x-flipt-accept-server-version', '1.47.0');
+
+    if (options.authentication) {
+      if ('client_token' in options.authentication) {
+        headers.append(
+          'Authorization',
+          `Bearer ${options.authentication.client_token}`
+        );
+      } else if ('jwt_token' in options.authentication) {
+        headers.append(
+          'Authorization',
+          `JWT ${options.authentication.jwt_token}`
+        );
+      }
+    }
+
+    let fetcher = options.fetcher;
+
+    if (!fetcher) {
+      fetcher = async (opts?: { etag?: string }) => {
+        if (opts && opts.etag) {
+          headers.append('If-None-Match', opts.etag);
+        }
+
+        const resp = await fetch(url, {
+          method: 'GET',
+          headers
+        });
+
+        // check for 304 status code
+        if (resp.status === 304) {
+          return resp;
+        }
+
+        // ok only checks for range 200-299
+        if (!resp.ok) {
+          throw new Error('Failed to fetch data');
+        }
+
+        return resp;
+      };
+    }
+
+    // should be no etag on first fetch
+    const resp = await fetcher();
+    if (!resp) {
+      throw new Error('Failed to fetch data');
+    }
+
+    const data = await resp.json();
+    const engine = new Engine(namespace, data);
+    const client = new FliptEvaluationClient(engine, fetcher);
+    return client;
+  }
+
+  /**
+   * Refresh the flags snapshot
+   * @returns void
+   */
+  public async refresh() {
+    const opts = { etag: this.etag };
+    const resp = await this.fetcher(opts);
+
+    if (resp.status === 304) {
+      let etag = resp.headers.get('etag');
+      if (etag) {
+        this.etag = etag;
+      }
+      return;
+    }
+
+    const data = await resp.json();
+    this.engine.snapshot(data);
   }
 
   /**
@@ -98,16 +143,15 @@ export class FliptEvaluationClient {
       context
     };
 
-    const response = engineLib.evaluate_variant(
-      this.engine,
-      allocCString(JSON.stringify(evaluation_request))
+    const response = this.engine.evaluate_variant(
+      evaluation_request
     );
 
     if (response === null) {
       throw new Error('Failed to evaluate variant');
     }
 
-    return JSON.parse(this.stringify(response));
+    return response;
   }
 
   /**
@@ -133,16 +177,15 @@ export class FliptEvaluationClient {
       context
     };
 
-    const response = engineLib.evaluate_boolean(
-      this.engine,
-      allocCString(JSON.stringify(evaluation_request))
+    const response = this.engine.evaluate_boolean(
+      evaluation_request
     );
 
     if (response === null) {
       throw new Error('Failed to evaluate boolean');
     }
 
-    return JSON.parse(this.stringify(response));
+    return response;
   }
 
   /**
@@ -156,47 +199,14 @@ export class FliptEvaluationClient {
    * This exception is thrown if unexpected error occurs.
    */
   public evaluateBatch(requests: EvaluationRequest[]): BatchResult {
-    const response = engineLib.evaluate_batch(
-      this.engine,
-      allocCString(JSON.stringify(requests))
+    const response = this.engine.evaluate_batch(
+      requests
     );
 
     if (response === null) {
       throw new Error('Failed to evaluate batch');
     }
 
-    return JSON.parse(this.stringify(response));
-  }
-
-  /**
-   * Retrieves flags.
-   *
-   * @returns {@link Result} the list of available flags in current namespace
-   */
-  public listFlags(): Result<Flag[]> {
-    const response = engineLib.list_flags(this.engine);
-    if (response === null) {
-      throw new Error('Failed to list flags');
-    }
-
-    return JSON.parse(this.stringify(response));
-  }
-
-  /**
-   * Frees memory allocated for the Flipt engine.
-   *
-   * It should be called when client is not in use anymore.
-   */
-  public close() {
-    engineLib.destroy_engine(this.engine);
-  }
-
-  /**
-   * Get the string from ffi pointer and deallocate the data
-   */
-  private stringify(response: Pointer<string>): string {
-    const value = Buffer.from(response.readCString()).toString('utf-8');
-    engineLib.destroy_string(response);
-    return value;
+    return response;
   }
 }

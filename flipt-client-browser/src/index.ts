@@ -11,7 +11,7 @@ import {
   IFetcher,
   VariantEvaluationResponse,
   VariantResult
-} from './models.js';
+} from './models';
 
 export class FliptEvaluationClient {
   private engine: Engine;

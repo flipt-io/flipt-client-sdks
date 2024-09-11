@@ -1,3 +1,11 @@
+export interface IFetcherOptions {
+  etag?: string;
+}
+
+export interface IFetcher {
+  (opts?: IFetcherOptions): Promise<Response>;
+}
+
 /**
  * Authentication strategy for the client.
  */
@@ -25,7 +33,7 @@ export interface JWTAuthentication extends AuthenticationStrategy {
   jwt_token: string;
 }
 
-export interface EngineOpts<T> {
+export interface ClientOptions<T> {
   /**
    * The URL of the upstream Flipt instance.
    *
@@ -49,6 +57,7 @@ export interface EngineOpts<T> {
    * @see {@link https://docs.flipt.io/guides/user/using-references}
    */
   reference?: string;
+  fetcher?: IFetcher;
 }
 
 export interface EvaluationRequest {

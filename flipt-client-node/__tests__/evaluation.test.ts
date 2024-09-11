@@ -5,7 +5,7 @@ describe('FliptEvaluationClient', () => {
   let authToken: string | undefined;
   let client: FliptEvaluationClient;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     fliptUrl = process.env['FLIPT_URL'];
     if (!fliptUrl) {
       console.error('please set the FLIPT_URL environment variable');
@@ -17,10 +17,8 @@ describe('FliptEvaluationClient', () => {
       console.error('please set the FLIPT_AUTH_TOKEN environment variable');
       process.exit(1);
     }
-  });
 
-  beforeEach(() => {
-    client = new FliptEvaluationClient('default', {
+    client = await FliptEvaluationClient.init('default', {
       url: fliptUrl,
       authentication: {
         client_token: authToken
@@ -28,16 +26,13 @@ describe('FliptEvaluationClient', () => {
     });
   });
 
-  afterEach(() => {
-    if (client) client.close();
-  });
 
   test('variant', () => {
     const variant = client.evaluateVariant('flag1', 'someentity', {
       fizz: 'buzz'
     });
 
-    expect(variant.error_message).toBeNull();
+    expect(variant.error_message).toBeUndefined();
     expect(variant.status).toEqual('success');
     expect(variant.result).toBeDefined();
     expect(variant.result?.flag_key).toEqual('flag1');
@@ -52,7 +47,7 @@ describe('FliptEvaluationClient', () => {
       fizz: 'buzz'
     });
 
-    expect(boolean.error_message).toBeNull();
+    expect(boolean.error_message).toBeUndefined();
     expect(boolean.status).toEqual('success');
     expect(boolean.result).toBeDefined();
     expect(boolean.result?.flag_key).toEqual('flag_boolean');
@@ -85,7 +80,7 @@ describe('FliptEvaluationClient', () => {
       }
     ]);
 
-    expect(batch.error_message).toBeNull();
+    expect(batch.error_message).toBeUndefined();
     expect(batch.status).toEqual('success');
     expect(batch.result).toBeDefined();
 
@@ -128,7 +123,7 @@ describe('FliptEvaluationClient', () => {
       fizz: 'buzz'
     });
 
-    expect(variant.result).toBeNull();
+    expect(variant.result).toBeUndefined();
     expect(variant.status).toEqual('failure');
     expect(variant.error_message).toEqual(
       'invalid request: failed to get flag information default/nonexistent'
@@ -140,18 +135,10 @@ describe('FliptEvaluationClient', () => {
       fizz: 'buzz'
     });
 
-    expect(boolean.result).toBeNull();
+    expect(boolean.result).toBeUndefined();
     expect(boolean.status).toEqual('failure');
     expect(boolean.error_message).toEqual(
       'invalid request: failed to get flag information default/nonexistent'
     );
-  });
-
-  test('list flags', () => {
-    const flags = client.listFlags();
-    expect(flags.error_message).toBeNull();
-    expect(flags.status).toEqual('success');
-    expect(flags.result).toBeDefined();
-    expect(flags.result?.length).toEqual(2);
   });
 });

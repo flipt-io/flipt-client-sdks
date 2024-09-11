@@ -134,7 +134,7 @@ func getTestDependencies(_ context.Context, client *dagger.Client, hostDirectory
 	rust = rust.
 		WithExec([]string{"cargo", "install", "wasm-pack"}). // Install wasm-pack
 		WithWorkdir("/src/flipt-engine-wasm").
-		WithExec([]string{"wasm-pack", "build", "--target", "web"}) // Build the wasm package
+		WithExec([]string{"wasm-pack", "build", "--target", "nodejs"}) // Build the wasm package
 
 	// Flipt
 	flipt := client.Container().From("flipt/flipt:latest").
@@ -202,17 +202,18 @@ func goTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container
 // nodeTests runs the node integration test suite against a container running Flipt.
 func nodeTests(ctx context.Context, client *dagger.Client, flipt *dagger.Container, args testArgs) error {
 	_, err := client.Pipeline("node").Container().From("node:21.2-bookworm").
-		WithWorkdir("/src").
-		// The node_modules should never be version controlled, but we will exclude it here
-		// just to be safe.
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{".node_modules/"},
+			Exclude: []string{".node_modules/", ".gitignore", "dist/"},
 		}).
-		WithFile(fmt.Sprintf("/src/ext/linux_%s/libfliptengine.so", args.arch), args.libFile).
+		WithDirectory("/src/dist", args.wasmDir, dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{".node_modules/", ".gitignore", "package.json", "README.md", "LICENSE"},
+		}).
+		WithWorkdir("/src").
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec([]string{"npm", "install"}).
+		WithExec([]string{"npm", "run", "build"}).
 		WithExec([]string{"npm", "test"}).
 		Sync(ctx)
 
