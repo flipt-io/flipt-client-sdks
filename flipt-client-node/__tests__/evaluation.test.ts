@@ -26,7 +26,6 @@ describe('FliptEvaluationClient', () => {
     });
   });
 
-
   test('variant', () => {
     const variant = client.evaluateVariant('flag1', 'someentity', {
       fizz: 'buzz'

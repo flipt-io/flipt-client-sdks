@@ -7,14 +7,14 @@ import {
   ClientOptions,
   EvaluationRequest,
   IFetcher,
-  VariantResult,
+  VariantResult
 } from './models';
-
 
 export class FliptEvaluationClient {
   private engine: Engine;
   private fetcher: IFetcher;
   private etag?: string;
+  private updateInterval?: NodeJS.Timeout;
 
   private constructor(engine: Engine, fetcher: IFetcher) {
     this.engine = engine;
@@ -31,7 +31,8 @@ export class FliptEvaluationClient {
     namespace: string = 'default',
     options: ClientOptions<AuthenticationStrategy> = {
       url: 'http://localhost:8080',
-      reference: ''
+      reference: '',
+      update_interval: 120000
     }
   ): Promise<FliptEvaluationClient> {
     let url = options.url ?? 'http://localhost:8080';
@@ -97,7 +98,26 @@ export class FliptEvaluationClient {
     const data = await resp.json();
     const engine = new Engine(namespace, data);
     const client = new FliptEvaluationClient(engine, fetcher);
+
+    if (options.update_interval && options.update_interval > 0) {
+      client.startAutoRefresh(options.update_interval);
+    }
+
     return client;
+  }
+
+  private startAutoRefresh(interval: number = 120000) {
+    this.stopAutoRefresh(); // Ensure we don't have multiple intervals running
+    this.updateInterval = setInterval(async () => {
+      await this.refresh();
+    }, interval);
+  }
+
+  private stopAutoRefresh() {
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+      this.updateInterval = undefined;
+    }
   }
 
   /**
@@ -143,9 +163,7 @@ export class FliptEvaluationClient {
       context
     };
 
-    const response = this.engine.evaluate_variant(
-      evaluation_request
-    );
+    const response = this.engine.evaluate_variant(evaluation_request);
 
     if (response === null) {
       throw new Error('Failed to evaluate variant');
@@ -177,9 +195,7 @@ export class FliptEvaluationClient {
       context
     };
 
-    const response = this.engine.evaluate_boolean(
-      evaluation_request
-    );
+    const response = this.engine.evaluate_boolean(evaluation_request);
 
     if (response === null) {
       throw new Error('Failed to evaluate boolean');
@@ -199,14 +215,16 @@ export class FliptEvaluationClient {
    * This exception is thrown if unexpected error occurs.
    */
   public evaluateBatch(requests: EvaluationRequest[]): BatchResult {
-    const response = this.engine.evaluate_batch(
-      requests
-    );
+    const response = this.engine.evaluate_batch(requests);
 
     if (response === null) {
       throw new Error('Failed to evaluate batch');
     }
 
     return response;
+  }
+
+  public close() {
+    this.stopAutoRefresh();
   }
 }
