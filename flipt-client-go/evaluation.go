@@ -106,7 +106,7 @@ func WithJWTAuthentication(token string) clientOption {
 }
 
 // EvaluateVariant performs evaluation for a variant flag.
-func (e *Client) EvaluateVariant(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantResult, error) {
+func (e *Client) EvaluateVariant(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantEvaluationResponse, error) {
 	ereq, err := json.Marshal(evaluationRequest{
 		NamespaceKey: e.namespace,
 		FlagKey:      flagKey,
@@ -131,15 +131,15 @@ func (e *Client) EvaluateVariant(_ context.Context, flagKey, entityID string, ev
 		return nil, err
 	}
 
-	if vr.Status == statusSuccess {
-		return vr, nil
+	if vr.Status != statusSuccess {
+		return nil, errors.New(vr.ErrorMessage)
 	}
 
-	return nil, errors.New(vr.ErrorMessage)
+	return vr.Result, nil
 }
 
 // EvaluateBoolean performs evaluation for a boolean flag.
-func (e *Client) EvaluateBoolean(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanResult, error) {
+func (e *Client) EvaluateBoolean(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanEvaluationResponse, error) {
 	ereq, err := json.Marshal(evaluationRequest{
 		NamespaceKey: e.namespace,
 		FlagKey:      flagKey,
@@ -164,15 +164,15 @@ func (e *Client) EvaluateBoolean(_ context.Context, flagKey, entityID string, ev
 		return nil, err
 	}
 
-	if br.Status == statusSuccess {
-		return br, nil
+	if br.Status != statusSuccess {
+		return nil, errors.New(br.ErrorMessage)
 	}
+	return br.Result, nil
 
-	return nil, errors.New(br.ErrorMessage)
 }
 
 // EvaluateBatch performs evaluation for a batch of flags.
-func (e *Client) EvaluateBatch(_ context.Context, requests []*EvaluationRequest) (*BatchResult, error) {
+func (e *Client) EvaluateBatch(_ context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
 	evaluationRequests := make([]*evaluationRequest, 0, len(requests))
 
 	for _, ir := range requests {
@@ -203,14 +203,14 @@ func (e *Client) EvaluateBatch(_ context.Context, requests []*EvaluationRequest)
 		return nil, err
 	}
 
-	if br.Status == statusSuccess {
-		return br, nil
+	if br.Status != statusSuccess {
+		return nil, errors.New(br.ErrorMessage)
 	}
 
-	return nil, errors.New(br.ErrorMessage)
+	return br.Result, nil
 }
 
-func (e *Client) ListFlags(_ context.Context) (*ListFlagsResult, error) {
+func (e *Client) ListFlags(_ context.Context) ([]Flag, error) {
 	flags := C.list_flags(e.engine)
 	defer C.destroy_string(flags)
 
@@ -222,11 +222,11 @@ func (e *Client) ListFlags(_ context.Context) (*ListFlagsResult, error) {
 		return nil, err
 	}
 
-	if fl.Status == statusSuccess {
-		return fl, nil
+	if fl.Status != statusSuccess {
+		return nil, errors.New(fl.ErrorMessage)
 	}
 
-	return nil, errors.New(fl.ErrorMessage)
+	return *fl.Result, nil
 }
 
 // Close cleans up the allocated engine as it was initialized in the constructor.
