@@ -22,14 +22,14 @@ import { FliptEvaluationClient } from '@flipt-io/flipt-client-browser';
 // {
 //  "url": "http://localhost:8080",
 //  "authentication": {
-//    "client_token": "secret"
+//    "clientToken": "secret"
 //  }
 // }
 //
 const fliptEvaluationClient = await FliptEvaluationClient.init('default', {
   url: 'http://localhost:8080',
   authentication: {
-    client_token
+    clientToken
   }
 });
 
@@ -69,7 +69,7 @@ The fetcher can be passed in as an argument to the `FliptEvaluationClient` initi
 const fliptEvaluationClient = await FliptEvaluationClient.init('default', {
   url: 'http://localhost:8080',
   authentication: {
-    client_token
+    clientToken
   },
   fetcher: customFetcher
 });

@@ -1,7 +1,16 @@
+/**
+ * Represents the options for a fetcher function.
+ */
 export interface IFetcherOptions {
+  /**
+   * ETag for the request.
+   */
   etag?: string;
 }
 
+/**
+ * Represents a function that fetches a response from a remote Flipt instance.
+ */
 export interface IFetcher {
   (opts?: IFetcherOptions): Promise<Response>;
 }
@@ -19,7 +28,7 @@ export interface ClientTokenAuthentication extends AuthenticationStrategy {
   /**
    * Flipt client token.
    */
-  client_token: string;
+  clientToken: string;
 }
 
 /**
@@ -30,7 +39,7 @@ export interface JWTAuthentication extends AuthenticationStrategy {
   /**
    * JWT token.
    */
-  jwt_token: string;
+  jwtToken: string;
 }
 
 export interface ClientOptions<T> {
@@ -44,7 +53,7 @@ export interface ClientOptions<T> {
    * The interval (seconds) in which to fetch new flag state.
    * @defaultValue `120` seconds.
    */
-  update_interval?: number;
+  updateInterval?: number;
   /**
    * The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication.
    *
@@ -60,15 +69,18 @@ export interface ClientOptions<T> {
   fetcher?: IFetcher;
 }
 
+/**
+ * Represents a request to evaluate a feature flag.
+ */
 export interface EvaluationRequest {
   /**
    * Feature flag key
    */
-  flag_key: string;
+  flagKey: string;
   /**
    * Entity identifier
    */
-  entity_id: string;
+  entityId: string;
   /**
    * Context information for flag evaluation
    *
@@ -110,17 +122,17 @@ export interface VariantEvaluationResponse {
   /** Indicates whether the feature flag evaluation resulted in a match. */
   match: boolean;
   /** List of segment keys that were used to determine the match. */
-  segment_keys: string[];
+  segmentKeys: string[];
   /** Reason for the result that occurred during the evaluation. */
   reason: string;
   /** Key of the feature flag that was being evaluated. */
-  flag_key: string;
+  flagKey: string;
   /** Variant key that was returned if the evaluation resulted in a match. */
-  variant_key: string;
+  variantKey: string;
   /** Additional data attached to the variant if the evaluation resulted in a match. */
-  variant_attachment: string;
+  variantAttachment: string;
   /** Duration of the request in milliseconds. */
-  request_duration_millis: number;
+  requestDurationMillis: number;
   /** Timestamp when the response was generated. */
   timestamp: string;
 }
@@ -132,11 +144,11 @@ export interface BooleanEvaluationResponse {
   /** Evaluation value of the flag. */
   enabled: boolean;
   /** Key of the feature flag that was being evaluated. */
-  flag_key: string;
+  flagKey: string;
   /** Reason for the result that occurred during the evaluation. */
   reason: string;
   /** Duration of the request in milliseconds. */
-  request_duration_millis: number;
+  requestDurationMillis: number;
   /** Timestamp when the response was generated. */
   timestamp: string;
 }
@@ -146,9 +158,9 @@ export interface BooleanEvaluationResponse {
  */
 export interface ErrorEvaluationResponse {
   /** Key of the feature flag that was being evaluated. */
-  flag_key: string;
+  flagKey: string;
   /** Key of the namespace in which the feature flag resides. */
-  namespace_key: string;
+  namespaceKey: string;
   /** Reason for the result that occurred during the evaluation. */
   reason: string;
 }
@@ -163,11 +175,11 @@ export interface EvaluationResponse {
    */
   type: string;
   /** Boolean evaluation response base on the type */
-  boolean_evaluation_response?: BooleanEvaluationResponse;
+  booleanEvaluationResponse?: BooleanEvaluationResponse;
   /** Variant evaluation response base on the type */
-  variant_evaluation_response?: VariantEvaluationResponse;
+  variantEvaluationResponse?: VariantEvaluationResponse;
   /** Error evaluation response base on the type*/
-  error_evaluation_response?: ErrorEvaluationResponse;
+  errorEvaluationResponse?: ErrorEvaluationResponse;
 }
 
 /**
@@ -177,7 +189,7 @@ export interface BatchEvaluationResponse {
   /** Array containing individual evaluation responses for each feature flag. */
   responses: EvaluationResponse[];
   /** Duration of the request in milliseconds. */
-  request_duration_millis: number;
+  requestDurationMillis: number;
 }
 
 /**
@@ -204,5 +216,5 @@ export interface Result<T> {
   /** Actual result of type T if the operation was successful. */
   result?: T;
   /** Error message describing the reason for failure, if applicable.*/
-  error_message: string;
+  errorMessage: string;
 }

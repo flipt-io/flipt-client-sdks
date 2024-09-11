@@ -9,11 +9,11 @@ export interface IFetcher {
 export interface AuthenticationStrategy {}
 
 export interface ClientTokenAuthentication extends AuthenticationStrategy {
-  client_token: string;
+  clientToken: string;
 }
 
 export interface JWTAuthentication extends AuthenticationStrategy {
-  jwt_token: string;
+  jwtToken: string;
 }
 
 export interface ClientOptions {
@@ -24,52 +24,52 @@ export interface ClientOptions {
 }
 
 export interface EvaluationRequest {
-  flag_key: string;
-  entity_id: string;
+  flagKey: string;
+  entityId: string;
   context: object;
 }
 
 export interface VariantEvaluationResponse {
   match: boolean;
-  segment_keys: string[];
+  segmentKeys: string[];
   reason: string;
-  flag_key: string;
-  variant_key?: string;
-  variant_attachment?: string;
-  request_duration_millis: number;
+  flagKey: string;
+  variantKey?: string;
+  variantAttachment?: string;
+  requestDurationMillis: number;
   timestamp: string;
 }
 
 export interface BooleanEvaluationResponse {
   enabled: boolean;
-  flag_key: string;
+  flagKey: string;
   reason: string;
-  request_duration_millis: number;
+  requestDurationMillis: number;
   timestamp: string;
 }
 
 export interface ErrorEvaluationResponse {
-  flag_key: string;
-  namespace_key: string;
+  flagKey: string;
+  namespaceKey: string;
   reason: string;
 }
 
 export interface EvaluationResponse {
   type: string;
-  boolean_evaluation_response?: BooleanEvaluationResponse;
-  variant_evaluation_response?: VariantEvaluationResponse;
-  error_evaluation_response?: ErrorEvaluationResponse;
+  booleanEvaluationResponse?: BooleanEvaluationResponse;
+  variantEvaluationResponse?: VariantEvaluationResponse;
+  errorEvaluationResponse?: ErrorEvaluationResponse;
 }
 
 export interface BatchEvaluationResponse {
   responses: EvaluationResponse[];
-  request_duration_millis: number;
+  requestDurationMillis: number;
 }
 
 export interface Result<T> {
   status: 'success' | 'failure';
   result?: T;
-  error_message: string;
+  errorMessage: string;
 }
 
 export interface VariantResult extends Result<VariantEvaluationResponse> {}

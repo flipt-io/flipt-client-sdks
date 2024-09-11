@@ -21,9 +21,13 @@ describe('FliptEvaluationClient', () => {
     client = await FliptEvaluationClient.init('default', {
       url: fliptUrl,
       authentication: {
-        client_token: authToken
+        clientToken: authToken
       }
     });
+  });
+
+  afterAll(() => {
+    client.close();
   });
 
   test('variant', () => {
@@ -31,14 +35,12 @@ describe('FliptEvaluationClient', () => {
       fizz: 'buzz'
     });
 
-    expect(variant.error_message).toBeUndefined();
-    expect(variant.status).toEqual('success');
-    expect(variant.result).toBeDefined();
-    expect(variant.result?.flag_key).toEqual('flag1');
-    expect(variant.result?.match).toEqual(true);
-    expect(variant.result?.reason).toEqual('MATCH_EVALUATION_REASON');
-    expect(variant.result?.segment_keys).toContain('segment1');
-    expect(variant.result?.variant_key).toContain('variant1');
+    expect(variant).toBeDefined();
+    expect(variant.flagKey).toEqual('flag1');
+    expect(variant.match).toEqual(true);
+    expect(variant.reason).toEqual('MATCH_EVALUATION_REASON');
+    expect(variant.segmentKeys).toContain('segment1');
+    expect(variant.variantKey).toContain('variant1');
   });
 
   test('boolean', () => {
@@ -46,97 +48,82 @@ describe('FliptEvaluationClient', () => {
       fizz: 'buzz'
     });
 
-    expect(boolean.error_message).toBeUndefined();
-    expect(boolean.status).toEqual('success');
-    expect(boolean.result).toBeDefined();
-    expect(boolean.result?.flag_key).toEqual('flag_boolean');
-    expect(boolean.result?.enabled).toEqual(true);
-    expect(boolean.result?.reason).toEqual('MATCH_EVALUATION_REASON');
+    expect(boolean.enabled).toEqual(true);
+    expect(boolean.reason).toEqual('MATCH_EVALUATION_REASON');
   });
 
   test('batch', () => {
     const batch = client.evaluateBatch([
       {
-        flag_key: 'flag1',
-        entity_id: 'someentity',
+        flagKey: 'flag1',
+        entityId: 'someentity',
         context: {
           fizz: 'buzz'
         }
       },
       {
-        flag_key: 'flag_boolean',
-        entity_id: 'someentity',
+        flagKey: 'flag_boolean',
+        entityId: 'someentity',
         context: {
           fizz: 'buzz'
         }
       },
       {
-        flag_key: 'notfound',
-        entity_id: 'someentity',
+        flagKey: 'notfound',
+        entityId: 'someentity',
         context: {
           fizz: 'buzz'
         }
       }
     ]);
 
-    expect(batch.error_message).toBeUndefined();
-    expect(batch.status).toEqual('success');
-    expect(batch.result).toBeDefined();
-
-    expect(batch.result?.responses).toHaveLength(3);
-    const variant = batch.result?.responses[0];
+    const variant = batch.responses[0];
     expect(variant?.type).toEqual('VARIANT_EVALUATION_RESPONSE_TYPE');
-    expect(variant?.variant_evaluation_response?.flag_key).toEqual('flag1');
-    expect(variant?.variant_evaluation_response?.match).toEqual(true);
-    expect(variant?.variant_evaluation_response?.reason).toEqual(
+    expect(variant?.variantEvaluationResponse?.flagKey).toEqual('flag1');
+    expect(variant?.variantEvaluationResponse?.match).toEqual(true);
+    expect(variant?.variantEvaluationResponse?.reason).toEqual(
       'MATCH_EVALUATION_REASON'
     );
-    expect(variant?.variant_evaluation_response?.segment_keys).toContain(
+    expect(variant?.variantEvaluationResponse?.segmentKeys).toContain(
       'segment1'
     );
-    expect(variant?.variant_evaluation_response?.variant_key).toContain(
+    expect(variant?.variantEvaluationResponse?.variantKey).toContain(
       'variant1'
     );
 
-    const boolean = batch.result?.responses[1];
+    const boolean = batch.responses[1];
     expect(boolean?.type).toEqual('BOOLEAN_EVALUATION_RESPONSE_TYPE');
-    expect(boolean?.boolean_evaluation_response?.flag_key).toEqual(
-      'flag_boolean'
-    );
-    expect(boolean?.boolean_evaluation_response?.enabled).toEqual(true);
-    expect(boolean?.boolean_evaluation_response?.reason).toEqual(
+    expect(boolean?.booleanEvaluationResponse?.flagKey).toEqual('flag_boolean');
+    expect(boolean?.booleanEvaluationResponse?.enabled).toEqual(true);
+    expect(boolean?.booleanEvaluationResponse?.reason).toEqual(
       'MATCH_EVALUATION_REASON'
     );
 
-    const error = batch.result?.responses[2];
+    const error = batch.responses[2];
     expect(error?.type).toEqual('ERROR_EVALUATION_RESPONSE_TYPE');
-    expect(error?.error_evaluation_response?.flag_key).toEqual('notfound');
-    expect(error?.error_evaluation_response?.namespace_key).toEqual('default');
-    expect(error?.error_evaluation_response?.reason).toEqual(
+    expect(error?.errorEvaluationResponse?.flagKey).toEqual('notfound');
+    expect(error?.errorEvaluationResponse?.namespaceKey).toEqual('default');
+    expect(error?.errorEvaluationResponse?.reason).toEqual(
       'NOT_FOUND_ERROR_EVALUATION_REASON'
     );
   });
 
   test('variant failure', () => {
-    const variant = client.evaluateVariant('nonexistent', 'someentity', {
-      fizz: 'buzz'
-    });
-
-    expect(variant.result).toBeUndefined();
-    expect(variant.status).toEqual('failure');
-    expect(variant.error_message).toEqual(
+    expect(() => {
+      client.evaluateVariant('nonexistent', 'someentity', {
+        fizz: 'buzz'
+      });
+    }).toThrow(
       'invalid request: failed to get flag information default/nonexistent'
     );
   });
 
   test('boolean failure', () => {
-    const boolean = client.evaluateVariant('nonexistent', 'someentity', {
-      fizz: 'buzz'
-    });
-
-    expect(boolean.result).toBeUndefined();
-    expect(boolean.status).toEqual('failure');
-    expect(boolean.error_message).toEqual(
+    expect(() => {
+      client.evaluateBoolean('nonexistent', 'someentity', {
+        fizz: 'buzz'
+      });
+    }).toThrow(
       'invalid request: failed to get flag information default/nonexistent'
     );
   });
