@@ -29,6 +29,8 @@ env:
   MAVEN_PUBLISH_REGISTRY_URL: ${{ secrets.MAVEN_PUBLISH_REGISTRY_URL }}
   PGP_PRIVATE_KEY: ${{ secrets.PGP_PRIVATE_KEY }}
   PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
+  GO_VERSION: "1.22"
+  DAGGER_VERSION: "0.12.3"
 
 jobs:
   build:
@@ -36,19 +38,18 @@ jobs:
     env:
       ENGINE_TAG: ${{ inputs.engine-tag }}
     steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.21.3"
+          go-version: ${{ env.GO_VERSION }}
           check-latest: true
           cache: true
 
       - name: Install Dagger
         run: |
           cd /usr/local
-          curl -L https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=$DAGGER_VERSION sh
+          curl -L https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=${{ env.DAGGER_VERSION }} sh
 
       - name: Get Latest Engine Version
         run: |

@@ -395,7 +395,7 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 
 	rename := map[string]string{
 		"linux_x86_64":  "linux-x86-64",
-		"linux_arm64":   "linux-arm",
+		"linux_arm64":   "linux-aarch64",
 		"darwin_x86_64": "darwin-x86-64",
 		"darwin_arm64":  "darwin-aarch64",
 	}
@@ -411,7 +411,6 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		WithDirectory("/src/src/main/resources", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
 			Exclude: defaultExclude,
 		}).
-		WithFile("/src/main/resources/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithWorkdir("/src").
 		WithExec([]string{"gradle", "-x", "test", "build"})
 
