@@ -23,7 +23,6 @@ This SDK currently supports the following OSes/architectures:
 - MacOS x86_64
 - MacOS arm64
 
-
 ### Glibc vs Musl
 
 Most Linux distributions use [Glibc](https://en.wikipedia.org/wiki/Glibc), but some distributions like Alpine Linux use [Musl](https://en.wikipedia.org/wiki/Musl). If you are using Alpine Linux, you will need to install the `musl` tagged version of the client.
@@ -52,7 +51,7 @@ import (
 )
 
 func main() {
-  evaluationClient, err := flipt.NewClient()
+  evaluationClient, err := flipt.NewEvaluationClient()
   if err != nil {
     log.Fatal(err)
   }
@@ -67,7 +66,7 @@ func main() {
     log.Fatal(err)
   }
 
-  fmt.Println(*variantResult.Result)
+  fmt.Println(*variantResult)
 }
 ```
 

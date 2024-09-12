@@ -83,7 +83,10 @@ module Flipt
       validate_evaluation_request(evaluation_request)
       resp, ptr = self.class.evaluate_variant(@engine, evaluation_request.to_json)
       ptr = FFI::AutoPointer.new(ptr, EvaluationClient.method(:destroy_string))
-      JSON.parse(resp)
+      data = JSON.parse(resp)
+      raise StandardError, data['error_message'] if data['status'] != 'success'
+
+      data['result']
     end
 
     # Evaluate a boolean flag for a given request
@@ -95,7 +98,10 @@ module Flipt
       validate_evaluation_request(evaluation_request)
       resp, ptr = self.class.evaluate_boolean(@engine, evaluation_request.to_json)
       ptr = FFI::AutoPointer.new(ptr, EvaluationClient.method(:destroy_string))
-      JSON.parse(resp)
+      data = JSON.parse(resp)
+      raise StandardError, data['error_message'] if data['status'] != 'success'
+
+      data['result']
     end
 
     # Evaluate a batch of flags for a given request
@@ -110,14 +116,20 @@ module Flipt
 
       resp, ptr = self.class.evaluate_batch(@engine, batch_evaluation_request.to_json)
       ptr = FFI::AutoPointer.new(ptr, EvaluationClient.method(:destroy_string))
-      JSON.parse(resp)
+      data = JSON.parse(resp)
+      raise StandardError, data['error_message'] if data['status'] != 'success'
+
+      data['result']
     end
 
     # List all flags in the namespace
     def list_flags
       resp, ptr = self.class.list_flags(@engine)
       ptr = FFI::AutoPointer.new(ptr, EvaluationClient.method(:destroy_string))
-      JSON.parse(resp)
+      data = JSON.parse(resp)
+      raise StandardError, data['error_message'] if data['status'] != 'success'
+
+      data['result']
     end
 
     private

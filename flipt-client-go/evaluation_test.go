@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	evaluationClient *flipt.Client
+	evaluationClient *flipt.EvaluationClient
 	fliptUrl         string
 	authToken        string
 )
@@ -28,14 +28,14 @@ func init() {
 	}
 
 	var err error
-	evaluationClient, err = flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
+	evaluationClient, err = flipt.NewEvaluationClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
 	if err != nil {
 		panic(err)
 	}
 }
 
 func TestInvalidAuthentication(t *testing.T) {
-	client, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication("invalid"))
+	client, err := flipt.NewEvaluationClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication("invalid"))
 	require.NoError(t, err)
 	_, err = client.EvaluateVariant(context.TODO(), "flag1", "someentity", map[string]string{
 		"fizz": "buzz",
@@ -49,10 +49,10 @@ func TestVariant(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	assert.True(t, variant.Result.Match)
-	assert.Equal(t, "flag1", variant.Result.FlagKey)
-	assert.Equal(t, "MATCH_EVALUATION_REASON", variant.Result.Reason)
-	assert.Contains(t, variant.Result.SegmentKeys, "segment1")
+	assert.True(t, variant.Match)
+	assert.Equal(t, "flag1", variant.FlagKey)
+	assert.Equal(t, "MATCH_EVALUATION_REASON", variant.Reason)
+	assert.Contains(t, variant.SegmentKeys, "segment1")
 }
 
 func TestBoolean(t *testing.T) {
@@ -61,9 +61,9 @@ func TestBoolean(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	assert.Equal(t, "flag_boolean", boolean.Result.FlagKey)
-	assert.True(t, boolean.Result.Enabled)
-	assert.Equal(t, "MATCH_EVALUATION_REASON", boolean.Result.Reason)
+	assert.Equal(t, "flag_boolean", boolean.FlagKey)
+	assert.True(t, boolean.Enabled)
+	assert.Equal(t, "MATCH_EVALUATION_REASON", boolean.Reason)
 }
 
 func TestBatch(t *testing.T) {
@@ -92,22 +92,22 @@ func TestBatch(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	assert.Len(t, batch.Result.Responses, 3)
+	assert.Len(t, batch.Responses, 3)
 
-	variant := batch.Result.Responses[0]
+	variant := batch.Responses[0]
 	assert.Equal(t, "VARIANT_EVALUATION_RESPONSE_TYPE", variant.Type)
 	assert.True(t, variant.VariantEvaluationResponse.Match)
 	assert.Equal(t, "flag1", variant.VariantEvaluationResponse.FlagKey)
 	assert.Equal(t, "MATCH_EVALUATION_REASON", variant.VariantEvaluationResponse.Reason)
 	assert.Contains(t, variant.VariantEvaluationResponse.SegmentKeys, "segment1")
 
-	boolean := batch.Result.Responses[1]
+	boolean := batch.Responses[1]
 	assert.Equal(t, "BOOLEAN_EVALUATION_RESPONSE_TYPE", boolean.Type)
 	assert.Equal(t, "flag_boolean", boolean.BooleanEvaluationResponse.FlagKey)
 	assert.True(t, boolean.BooleanEvaluationResponse.Enabled)
 	assert.Equal(t, "MATCH_EVALUATION_REASON", boolean.BooleanEvaluationResponse.Reason)
 
-	errorResponse := batch.Result.Responses[2]
+	errorResponse := batch.Responses[2]
 	assert.Equal(t, "ERROR_EVALUATION_RESPONSE_TYPE", errorResponse.Type)
 	assert.Equal(t, "notfound", errorResponse.ErrorEvaluationResponse.FlagKey)
 	assert.Equal(t, "default", errorResponse.ErrorEvaluationResponse.NamespaceKey)
@@ -119,7 +119,7 @@ func TestListFlags(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotEmpty(t, response)
-	assert.Equal(t, 2, len(*response.Result))
+	assert.Equal(t, 2, len(response))
 }
 
 func TestVariantFailure(t *testing.T) {
