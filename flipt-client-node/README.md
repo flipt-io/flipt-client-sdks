@@ -105,7 +105,7 @@ fliptEvaluationClient.refresh();
 
 ## ETag Support
 
-The default fetcher uses [ETag HTTP headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag) to reduce the number of requests to the Flipt instance. This is useful in scenarios where the flag state is not frequently updated and you want to reduce the load on the server.
+The default fetcher uses [ETag HTTP headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag) to reduce overhead building and sending previously observed snapshots. This is useful in scenarios where the flag state is not frequently updated and you want to reduce the load on the server.
 
 To disable ETag support, you can implement a [custom fetcher](#custom-fetcher) that does not use ETags.
 
