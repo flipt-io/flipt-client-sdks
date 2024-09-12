@@ -154,7 +154,6 @@ func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory
 		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
-		WithWorkdir("/src").
 		WithExec([]string{"cargo", "build", "-p", "flipt-engine-ffi", "--release"}) // Build the dynamic library
 }
 
@@ -185,9 +184,9 @@ func getWasmTestContainer(_ context.Context, client *dagger.Client, hostDirector
 func pythonTests(ctx context.Context, client *dagger.Client, t *testCase) error {
 	_, err := client.Pipeline("python").Container().From("python:3.11-bookworm").
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
+		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-python")).
 		WithFile(fmt.Sprintf("/src/ext/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
-		WithWorkdir("/src").
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -203,10 +202,10 @@ func goTests(ctx context.Context, client *dagger.Client, t *testCase) error {
 	_, err := client.Pipeline("go").Container().From("golang:1.21.3-bookworm").
 		WithExec([]string{"apt-get", "update"}).
 		WithExec([]string{"apt-get", "-y", "install", "build-essential"}).
-		WithFile(fmt.Sprintf("/src/ext/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
-		WithFile("/src/ext/flipt_engine.h", t.test.File(headerFile)).
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-go")).
+		WithFile(fmt.Sprintf("/src/ext/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
+		WithFile("/src/ext/flipt_engine.h", t.test.File(headerFile)).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -245,9 +244,9 @@ func nodeTests(ctx context.Context, client *dagger.Client, t *testCase) error {
 // rubyTests runs the ruby integration test suite against a container running Flipt.
 func rubyTests(ctx context.Context, client *dagger.Client, t *testCase) error {
 	_, err := client.Pipeline("ruby").Container().From("ruby:3.1-bookworm").
+		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-ruby")).
 		WithFile(fmt.Sprintf("/src/lib/ext/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
-		WithWorkdir("/src").
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -305,11 +304,11 @@ func browserTests(ctx context.Context, client *dagger.Client, t *testCase) error
 // dartTests runs the dart integration test suite against a container running Flipt.
 func dartTests(ctx context.Context, client *dagger.Client, t *testCase) error {
 	_, err := client.Pipeline("dart").Container().From("dart:stable").
+		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-dart"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", ".dart_tool/"},
 		}).
 		WithFile(fmt.Sprintf("/src/lib/src/ffi/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
-		WithWorkdir("/src").
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
