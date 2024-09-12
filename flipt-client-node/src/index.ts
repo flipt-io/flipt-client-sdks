@@ -79,16 +79,17 @@ export class FliptEvaluationClient {
         }
 
         if (!resp.ok) {
-          throw new Error('Failed to fetch data');
+          throw new Error(`Failed to fetch data: ${resp.statusText}`);
         }
 
         return resp;
       };
     }
 
+    // handle case if they pass in a custom fetcher that doesn't throw on non-2xx status codes
     const resp = await fetcher();
-    if (!resp) {
-      throw new Error('Failed to fetch data');
+    if (!resp.ok && resp.status !== 304) {
+      throw new Error(`Failed to fetch data: ${resp.statusText}`);
     }
 
     const data = await resp.json();
