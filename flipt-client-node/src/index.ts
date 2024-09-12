@@ -1,202 +1,266 @@
-import * as ffi from '@2060.io/ffi-napi';
-import { Pointer, allocCString } from '@2060.io/ref-napi';
-import * as os from 'os';
+import { Engine } from '../dist/flipt_engine_wasm.js';
+import { serialize, deserialize } from './utils';
+
 import {
   AuthenticationStrategy,
   BooleanResult,
   BatchResult,
-  EngineOpts,
+  ClientOptions,
   EvaluationRequest,
+  IFetcher,
   VariantResult,
-  Flag,
-  Result
+  VariantEvaluationResponse,
+  BooleanEvaluationResponse,
+  BatchEvaluationResponse,
+  ErrorEvaluationResponse,
+  EvaluationResponse
 } from './models';
-import * as path from 'path';
-
-const libFiles: { [key: string]: string } = {
-  'darwin-arm64': 'darwin_arm64/libfliptengine.dylib',
-  'darwin-x64': 'darwin_x86_64/libfliptengine.dylib',
-  'linux-arm64': 'linux_arm64/libfliptengine.so',
-  'linux-x64': 'linux_x86_64/libfliptengine.so'
-};
-
-const platform = os.platform();
-const arch = os.arch();
-const key = `${platform}-${arch}`;
-
-const libfile = libFiles[key];
-
-if (!libfile) {
-  throw new Error(`Unsupported platform: ${platform}/${arch}`);
-}
-
-// get absolute path to libfliptengine
-const engineLibPath = path.join(__dirname, '..', 'ext', libfile);
-
-const engineLib = ffi.Library(engineLibPath, {
-  initialize_engine: ['void *', ['char **', 'string']],
-  evaluate_variant: ['char **', ['void *', 'string']],
-  evaluate_boolean: ['char **', ['void *', 'string']],
-  evaluate_batch: ['char **', ['void *', 'string']],
-  list_flags: ['char **', ['void *']],
-  destroy_engine: ['void', ['void *']],
-  destroy_string: ['void', ['char **']]
-});
 
 export class FliptEvaluationClient {
-  private engine: Pointer<unknown>;
+  private engine: Engine;
+  private fetcher: IFetcher;
+  private etag?: string;
+  private updateInterval?: NodeJS.Timeout;
 
-  /**
-   * Initializes a new instance of the engine with the specified options.
-   *
-   * @param namespace - An optional namespace string for the engine instance. If not provided,
-   * `default` namespace will be used.
-   *
-   * @param engine_opts - The optional options for configuring the engine. If not provided,
-   *                      default values will be used.
-   *
-   * @returns Flipt evaluation client
-   *
-   * @throws Error
-   * This exception is thrown if platform is not supported.
-   */
-  public constructor(
-    namespace?: string,
-    engine_opts: EngineOpts<AuthenticationStrategy> = {
-      url: 'http://localhost:8080',
-      update_interval: 120,
-      reference: ''
-    }
-  ) {
-    const engine = engineLib.initialize_engine(
-      allocCString(namespace ?? 'default'),
-      allocCString(JSON.stringify(engine_opts))
-    );
+  private constructor(engine: Engine, fetcher: IFetcher) {
     this.engine = engine;
+    this.fetcher = fetcher;
   }
 
-  /**
-   * Performs evaluation for a variant flag.
-   *
-   * @param flag_key - Feature flag key. {@link EvaluationRequest.flag_key}
-   * @param entity_id - Entity identifier. {@link EvaluationRequest.entity_id}
-   * @param context - Context information for flag evaluation.  {@link EvaluationRequest.context}
-   *
-   * @returns {@link VariantResult} the result of evaluation
-   *
-   * @throws {@link Error}
-   * This exception is thrown if unexpected error occurs.
-   */
+  static async init(
+    namespace: string = 'default',
+    options: ClientOptions<AuthenticationStrategy> = {
+      url: 'http://localhost:8080',
+      reference: '',
+      updateInterval: 120
+    }
+  ): Promise<FliptEvaluationClient> {
+    let url = options.url ?? 'http://localhost:8080';
+    url = url.replace(/\/$/, '');
+    url = `${url}/internal/v1/evaluation/snapshot/namespace/${namespace}`;
+
+    if (options.reference) {
+      url = `${url}?reference=${options.reference}`;
+    }
+
+    const headers = new Headers();
+    headers.append('Accept', 'application/json');
+    headers.append('x-flipt-accept-server-version', '1.47.0');
+
+    if (options.authentication) {
+      if ('clientToken' in options.authentication) {
+        headers.append(
+          'Authorization',
+          `Bearer ${options.authentication.clientToken}`
+        );
+      } else if ('jwtToken' in options.authentication) {
+        headers.append(
+          'Authorization',
+          `JWT ${options.authentication.jwtToken}`
+        );
+      }
+    }
+
+    let fetcher = options.fetcher;
+
+    if (!fetcher) {
+      fetcher = async (opts?: { etag?: string }) => {
+        if (opts && opts.etag) {
+          headers.append('If-None-Match', opts.etag);
+        }
+
+        const resp = await fetch(url, {
+          method: 'GET',
+          headers
+        });
+
+        if (resp.status === 304) {
+          return resp;
+        }
+
+        if (!resp.ok) {
+          throw new Error(`Failed to fetch data: ${resp.statusText}`);
+        }
+
+        return resp;
+      };
+    }
+
+    // handle case if they pass in a custom fetcher that doesn't throw on non-2xx status codes
+    const resp = await fetcher();
+    if (!resp.ok && resp.status !== 304) {
+      throw new Error(`Failed to fetch data: ${resp.statusText}`);
+    }
+
+    const data = await resp.json();
+    const engine = new Engine(namespace, data);
+    const client = new FliptEvaluationClient(engine, fetcher);
+
+    if (options.updateInterval && options.updateInterval > 0) {
+      client.startAutoRefresh(options.updateInterval * 1000);
+    }
+
+    return client;
+  }
+
+  private startAutoRefresh(interval: number = 120_000) {
+    this.stopAutoRefresh();
+    this.updateInterval = setInterval(async () => {
+      await this.refresh();
+    }, interval);
+  }
+
+  private stopAutoRefresh() {
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+      this.updateInterval = undefined;
+    }
+  }
+
+  public async refresh() {
+    const opts = { etag: this.etag };
+    const resp = await this.fetcher(opts);
+
+    if (resp.status === 304) {
+      let etag = resp.headers.get('etag');
+      if (etag) {
+        this.etag = etag;
+      }
+      return;
+    }
+
+    const data = await resp.json();
+    this.engine.snapshot(data);
+  }
+
   public evaluateVariant(
-    flag_key: string,
-    entity_id: string,
+    flagKey: string,
+    entityId: string,
     context: {}
-  ): VariantResult {
-    const evaluation_request: EvaluationRequest = {
-      flag_key,
-      entity_id,
+  ): VariantEvaluationResponse {
+    const evaluationRequest: EvaluationRequest = {
+      flagKey,
+      entityId,
       context
     };
 
-    const response = engineLib.evaluate_variant(
-      this.engine,
-      allocCString(JSON.stringify(evaluation_request))
+    const result: VariantResult | null = this.engine.evaluate_variant(
+      serialize(evaluationRequest)
     );
 
-    if (response === null) {
+    if (result === null) {
       throw new Error('Failed to evaluate variant');
     }
 
-    return JSON.parse(this.stringify(response));
+    const variantResult = deserialize<VariantResult>(result);
+
+    if (variantResult.status === 'failure') {
+      throw new Error(variantResult.errorMessage);
+    }
+
+    if (!variantResult.result) {
+      throw new Error('Failed to evaluate variant');
+    }
+
+    return deserialize<VariantEvaluationResponse>(variantResult.result);
   }
 
-  /**
-   * Performs evaluation for a boolean flag.
-   *
-   * @param flag_key - Feature flag key. {@link EvaluationRequest.flag_key}
-   * @param entity_id - Entity identifier. {@link EvaluationRequest.entity_id}
-   * @param context - Context information for flag evaluation.  {@link EvaluationRequest.context}
-   *
-   * @returns {@link BooleanResult} the result of evaluation
-   *
-   * @throws {@link Error}
-   * This exception is thrown if unexpected error occurs.
-   */
   public evaluateBoolean(
-    flag_key: string,
-    entity_id: string,
+    flagKey: string,
+    entityId: string,
     context: {}
-  ): BooleanResult {
-    const evaluation_request: EvaluationRequest = {
-      flag_key,
-      entity_id,
+  ): BooleanEvaluationResponse {
+    const evaluationRequest: EvaluationRequest = {
+      flagKey,
+      entityId,
       context
     };
 
-    const response = engineLib.evaluate_boolean(
-      this.engine,
-      allocCString(JSON.stringify(evaluation_request))
+    const result: BooleanResult | null = this.engine.evaluate_boolean(
+      serialize(evaluationRequest)
     );
 
-    if (response === null) {
+    if (result === null) {
       throw new Error('Failed to evaluate boolean');
     }
 
-    return JSON.parse(this.stringify(response));
+    const booleanResult = deserialize<BooleanResult>(result);
+
+    if (booleanResult.status === 'failure') {
+      throw new Error(booleanResult.errorMessage);
+    }
+
+    if (!booleanResult.result) {
+      throw new Error('Failed to evaluate boolean');
+    }
+
+    return deserialize<BooleanEvaluationResponse>(booleanResult.result);
   }
 
-  /**
-   * Performs batch evaluation for bulk of flags.
-   *
-   * @param requests - array of evaluation requests {@link EvaluationRequest}.
-   *
-   * @returns {@link BatchResult}
-   *
-   * @throws {@link Error}
-   * This exception is thrown if unexpected error occurs.
-   */
-  public evaluateBatch(requests: EvaluationRequest[]): BatchResult {
-    const response = engineLib.evaluate_batch(
-      this.engine,
-      allocCString(JSON.stringify(requests))
-    );
+  public evaluateBatch(requests: EvaluationRequest[]): BatchEvaluationResponse {
+    const serializedRequests = requests.map(serialize);
+    const batchResult: BatchResult | null =
+      this.engine.evaluate_batch(serializedRequests);
 
-    if (response === null) {
+    if (batchResult === null) {
       throw new Error('Failed to evaluate batch');
     }
 
-    return JSON.parse(this.stringify(response));
-  }
-
-  /**
-   * Retrieves flags.
-   *
-   * @returns {@link Result} the list of available flags in current namespace
-   */
-  public listFlags(): Result<Flag[]> {
-    const response = engineLib.list_flags(this.engine);
-    if (response === null) {
-      throw new Error('Failed to list flags');
+    if (batchResult.status === 'failure') {
+      throw new Error(batchResult.errorMessage);
     }
 
-    return JSON.parse(this.stringify(response));
+    if (!batchResult.result) {
+      throw new Error('Failed to evaluate batch');
+    }
+
+    const responses = batchResult.result.responses
+      .map((response): EvaluationResponse | undefined => {
+        if (response.type === 'BOOLEAN_EVALUATION_RESPONSE_TYPE') {
+          const booleanResponse = deserialize<BooleanEvaluationResponse>(
+            // @ts-ignore
+            response.boolean_evaluation_response
+          );
+          return {
+            booleanEvaluationResponse: booleanResponse,
+            type: 'BOOLEAN_EVALUATION_RESPONSE_TYPE'
+          };
+        }
+        if (response.type === 'VARIANT_EVALUATION_RESPONSE_TYPE') {
+          const variantResponse = deserialize<VariantEvaluationResponse>(
+            // @ts-ignore
+            response.variant_evaluation_response
+          );
+          return {
+            variantEvaluationResponse: variantResponse,
+            type: 'VARIANT_EVALUATION_RESPONSE_TYPE'
+          };
+        }
+        if (response.type === 'ERROR_EVALUATION_RESPONSE_TYPE') {
+          const errorResponse = deserialize<ErrorEvaluationResponse>(
+            // @ts-ignore
+            response.error_evaluation_response
+          );
+          return {
+            errorEvaluationResponse: errorResponse,
+            type: 'ERROR_EVALUATION_RESPONSE_TYPE'
+          };
+        }
+        return undefined;
+      })
+      .filter(
+        (response): response is EvaluationResponse => response !== undefined
+      );
+
+    const requestDurationMillis = batchResult.result.requestDurationMillis;
+
+    return {
+      responses,
+      requestDurationMillis
+    };
   }
 
-  /**
-   * Frees memory allocated for the Flipt engine.
-   *
-   * It should be called when client is not in use anymore.
-   */
   public close() {
-    engineLib.destroy_engine(this.engine);
-  }
-
-  /**
-   * Get the string from ffi pointer and deallocate the data
-   */
-  private stringify(response: Pointer<string>): string {
-    const value = Buffer.from(response.readCString()).toString('utf-8');
-    engineLib.destroy_string(response);
-    return value;
+    this.stopAutoRefresh();
   }
 }
