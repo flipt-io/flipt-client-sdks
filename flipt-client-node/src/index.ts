@@ -217,7 +217,9 @@ export class FliptEvaluationClient {
       .map((response): EvaluationResponse | undefined => {
         if (response.type === 'BOOLEAN_EVALUATION_RESPONSE_TYPE') {
           // @ts-ignore
-          const booleanResponse = deserialize<BooleanEvaluationResponse>(response.boolean_evaluation_response);
+          const booleanResponse = deserialize<BooleanEvaluationResponse>(
+            response.boolean_evaluation_response
+          );
           return {
             booleanEvaluationResponse: booleanResponse,
             type: 'BOOLEAN_EVALUATION_RESPONSE_TYPE'
@@ -225,7 +227,9 @@ export class FliptEvaluationClient {
         }
         if (response.type === 'VARIANT_EVALUATION_RESPONSE_TYPE') {
           // @ts-ignore
-          const variantResponse = deserialize<VariantEvaluationResponse>(response.variant_evaluation_response);
+          const variantResponse = deserialize<VariantEvaluationResponse>(
+            response.variant_evaluation_response
+          );
           return {
             variantEvaluationResponse: variantResponse,
             type: 'VARIANT_EVALUATION_RESPONSE_TYPE'
@@ -233,7 +237,9 @@ export class FliptEvaluationClient {
         }
         if (response.type === 'ERROR_EVALUATION_RESPONSE_TYPE') {
           // @ts-ignore
-          const errorResponse = deserialize<ErrorEvaluationResponse>(response.error_evaluation_response);
+          const errorResponse = deserialize<ErrorEvaluationResponse>(
+            response.error_evaluation_response
+          );
           return {
             errorEvaluationResponse: errorResponse,
             type: 'ERROR_EVALUATION_RESPONSE_TYPE'
@@ -241,7 +247,9 @@ export class FliptEvaluationClient {
         }
         return undefined;
       })
-      .filter((response): response is EvaluationResponse => response !== undefined);
+      .filter(
+        (response): response is EvaluationResponse => response !== undefined
+      );
 
     const requestDurationMillis = batchResult.result.requestDurationMillis;
 
