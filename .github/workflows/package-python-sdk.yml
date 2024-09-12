@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 env:
   PYPI_API_KEY: ${{ secrets.PYPI_API_KEY }}

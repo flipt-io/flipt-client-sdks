@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 env:
   MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}

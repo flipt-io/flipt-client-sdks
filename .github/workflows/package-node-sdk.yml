@@ -11,8 +11,7 @@ env:
 
 jobs:
   build:
-    uses: ./.github/workflows/package-ffi-sdks.yml
+    uses: ./.github/workflows/package-wasm-sdks.yml
     with:
       sdks: node
-      engine-tag: "latest"
     secrets: inherit
