@@ -13,9 +13,10 @@ import (
 )
 
 var (
-	sdks string
-	push bool
-	tag  string
+	architecture string
+	sdks         string
+	push         bool
+	tag          string
 )
 
 func init() {
@@ -26,6 +27,11 @@ func init() {
 
 func main() {
 	flag.Parse()
+
+	architecture = "x86_64"
+	if strings.Contains(runtime.GOARCH, "arm64") || strings.Contains(runtime.GOARCH, "aarch64") {
+		architecture = "arm64"
+	}
 
 	if err := run(); err != nil {
 		log.Fatal(err)
@@ -63,11 +69,6 @@ func run() error {
 }
 
 func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
-	arch := "x86_64"
-	if strings.Contains(runtime.GOARCH, "arm64") || strings.Contains(runtime.GOARCH, "aarch64") {
-		arch = "arm64"
-	}
-
 	rust := client.Container().From("rust:1.74.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
@@ -77,7 +78,7 @@ func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml"))
 
-	if arch == "arm64" {
+	if architecture == "arm64" {
 		rust = rust.WithExec([]string{"apt-get", "update"}).
 			WithExec([]string{"apt-get", "-y", "install", "binaryen"})
 	}
@@ -110,11 +111,6 @@ func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 }
 
 func browserBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
-	arch := "x86_64"
-	if strings.Contains(runtime.GOARCH, "arm64") || strings.Contains(runtime.GOARCH, "aarch64") {
-		arch = "arm64"
-	}
-
 	rust := client.Container().From("rust:1.74.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
@@ -124,7 +120,7 @@ func browserBuild(ctx context.Context, client *dagger.Client, hostDirectory *dag
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml"))
 
-	if arch == "arm64" {
+	if architecture == "arm64" {
 		rust = rust.WithExec([]string{"apt-get", "update"}).
 			WithExec([]string{"apt-get", "-y", "install", "binaryen"})
 	}
