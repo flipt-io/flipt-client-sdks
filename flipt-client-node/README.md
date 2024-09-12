@@ -18,7 +18,7 @@ In your Node.js code you can import this client and use it as so:
 import { FliptEvaluationClient } from '@flipt-io/flipt-client';
 
 // namespace is the first positional argument and is optional here and will have a value of "default" if not specified.
-// engineOpts is the second positional argument and is also optional, the structure is:
+// options is the second positional argument and is also optional, the structure is:
 // {
 //  "url": "http://localhost:8080",
 //  "updateInterval": 120,
