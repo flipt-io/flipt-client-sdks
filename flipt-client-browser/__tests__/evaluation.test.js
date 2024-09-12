@@ -23,7 +23,7 @@ describe('FliptEvaluationClient', () => {
     client = await flipt.FliptEvaluationClient.init('default', {
       url: fliptUrl,
       authentication: {
-        clientToken: authToken
+        client_token: authToken
       }
     });
   });
@@ -33,11 +33,11 @@ describe('FliptEvaluationClient', () => {
       fizz: 'buzz'
     });
 
-    expect(variant.flagKey).toEqual('flag1');
+    expect(variant.flag_key).toEqual('flag1');
     expect(variant.match).toEqual(true);
     expect(variant.reason).toEqual('MATCH_EVALUATION_REASON');
-    expect(variant.segmentKeys).toContain('segment1');
-    expect(variant.variantKey).toContain('variant1');
+    expect(variant.segment_keys).toContain('segment1');
+    expect(variant.variant_key).toContain('variant1');
   });
 
   test('boolean', () => {
@@ -76,32 +76,32 @@ describe('FliptEvaluationClient', () => {
       fizz: 'buzz'
     });
 
-    expect(variant.flagKey).toEqual('flag1');
+    expect(variant.flag_key).toEqual('flag1');
     expect(variant.match).toEqual(true);
     expect(variant.reason).toEqual('MATCH_EVALUATION_REASON');
-    expect(variant.segmentKeys).toContain('segment1');
-    expect(variant.variantKey).toContain('variant1');
+    expect(variant.segment_keys).toContain('segment1');
+    expect(variant.variant_key).toContain('variant1');
   });
 
   test('batch', () => {
     const batch = client.evaluateBatch([
       {
-        flagKey: 'flag1',
-        entityId: 'someentity',
+        flag_key: 'flag1',
+        entity_id: 'someentity',
         context: {
           fizz: 'buzz'
         }
       },
       {
-        flagKey: 'flag_boolean',
-        entityId: 'someentity',
+        flag_key: 'flag_boolean',
+        entity_id: 'someentity',
         context: {
           fizz: 'buzz'
         }
       },
       {
-        flagKey: 'notfound',
-        entityId: 'someentity',
+        flag_key: 'notfound',
+        entity_id: 'someentity',
         context: {
           fizz: 'buzz'
         }
@@ -112,31 +112,33 @@ describe('FliptEvaluationClient', () => {
     const variant = batch.responses[0];
 
     expect(variant?.type).toEqual('VARIANT_EVALUATION_RESPONSE_TYPE');
-    expect(variant?.variantEvaluationResponse?.flagKey).toEqual('flag1');
-    expect(variant?.variantEvaluationResponse?.match).toEqual(true);
-    expect(variant?.variantEvaluationResponse?.reason).toEqual(
+    expect(variant?.variant_evaluation_response?.flag_key).toEqual('flag1');
+    expect(variant?.variant_evaluation_response?.match).toEqual(true);
+    expect(variant?.variant_evaluation_response?.reason).toEqual(
       'MATCH_EVALUATION_REASON'
     );
-    expect(variant?.variantEvaluationResponse?.segmentKeys).toContain(
+    expect(variant?.variant_evaluation_response?.segment_keys).toContain(
       'segment1'
     );
-    expect(variant?.variantEvaluationResponse?.variantKey).toContain(
+    expect(variant?.variant_evaluation_response?.variant_key).toContain(
       'variant1'
     );
 
     const boolean = batch.responses[1];
     expect(boolean?.type).toEqual('BOOLEAN_EVALUATION_RESPONSE_TYPE');
-    expect(boolean?.booleanEvaluationResponse?.flagKey).toEqual('flag_boolean');
-    expect(boolean?.booleanEvaluationResponse?.enabled).toEqual(true);
-    expect(boolean?.booleanEvaluationResponse?.reason).toEqual(
+    expect(boolean?.boolean_evaluation_response?.flag_key).toEqual(
+      'flag_boolean'
+    );
+    expect(boolean?.boolean_evaluation_response?.enabled).toEqual(true);
+    expect(boolean?.boolean_evaluation_response?.reason).toEqual(
       'MATCH_EVALUATION_REASON'
     );
 
     const error = batch.responses[2];
     expect(error?.type).toEqual('ERROR_EVALUATION_RESPONSE_TYPE');
-    expect(error?.errorEvaluationResponse?.flagKey).toEqual('notfound');
-    expect(error?.errorEvaluationResponse?.namespaceKey).toEqual('default');
-    expect(error?.errorEvaluationResponse?.reason).toEqual(
+    expect(error?.error_evaluation_response?.flag_key).toEqual('notfound');
+    expect(error?.error_evaluation_response?.namespace_key).toEqual('default');
+    expect(error?.error_evaluation_response?.reason).toEqual(
       'NOT_FOUND_ERROR_EVALUATION_REASON'
     );
   });

@@ -1,6 +1,6 @@
 import init, { Engine } from '../dist/flipt_engine_wasm.js';
 import wasm from '../dist/flipt_engine_wasm_bg.wasm';
-import { deserialize, serialize } from './utils';
+
 import {
   BatchEvaluationResponse,
   BatchResult,
@@ -11,7 +11,7 @@ import {
   IFetcher,
   VariantEvaluationResponse,
   VariantResult
-} from './models';
+} from './models.js';
 
 export class FliptEvaluationClient {
   private engine: Engine;
@@ -126,60 +126,60 @@ export class FliptEvaluationClient {
 
   /**
    * Evaluate a variant flag
-   * @param flagKey - flag key to evaluate
-   * @param entityId - entity id to evaluate
+   * @param flag_key - flag key to evaluate
+   * @param entity_id - entity id to evaluate
    * @param context - optional evaluation context
    * @returns {VariantEvaluationResponse}
    */
   public evaluateVariant(
-    flagKey: string,
-    entityId: string,
+    flag_key: string,
+    entity_id: string,
     context: {}
   ): VariantEvaluationResponse {
-    const evaluationRequest: EvaluationRequest = {
-      flagKey,
-      entityId,
+    const evaluation_request: EvaluationRequest = {
+      flag_key,
+      entity_id,
       context
     };
 
-    const result = this.engine.evaluate_variant(serialize(evaluationRequest));
+    const result = this.engine.evaluate_variant(
+      evaluation_request
+    ) as VariantResult;
 
-    const variantResult = deserialize<VariantResult>(result);
-
-    if (variantResult.status === 'failure') {
-      throw new Error(result.errorMessage);
+    if (result.status === 'failure') {
+      throw new Error(result.error_message);
     }
 
-    return deserialize<VariantEvaluationResponse>(variantResult.result);
+    return result.result as VariantEvaluationResponse;
   }
 
   /**
    * Evaluate a boolean flag
-   * @param flagKey - flag key to evaluate
-   * @param entityId - entity id to evaluate
+   * @param flag_key - flag key to evaluate
+   * @param entity_id - entity id to evaluate
    * @param context - optional evaluation context
    * @returns {BooleanEvaluationResponse}
    */
   public evaluateBoolean(
-    flagKey: string,
-    entityId: string,
+    flag_key: string,
+    entity_id: string,
     context: {}
   ): BooleanEvaluationResponse {
-    const evaluationRequest: EvaluationRequest = {
-      flagKey,
-      entityId,
+    const evaluation_request: EvaluationRequest = {
+      flag_key,
+      entity_id,
       context
     };
 
-    const result = this.engine.evaluate_boolean(serialize(evaluationRequest));
+    const result = this.engine.evaluate_boolean(
+      evaluation_request
+    ) as BooleanResult;
 
-    const booleanResult = deserialize<BooleanResult>(result);
-
-    if (booleanResult.status === 'failure') {
-      throw new Error(booleanResult.errorMessage);
+    if (result.status === 'failure') {
+      throw new Error(result.error_message);
     }
 
-    return deserialize<BooleanEvaluationResponse>(booleanResult.result);
+    return result.result as BooleanEvaluationResponse;
   }
 
   /**
@@ -188,14 +188,12 @@ export class FliptEvaluationClient {
    * @returns {BatchEvaluationResponse}
    */
   public evaluateBatch(requests: EvaluationRequest[]): BatchEvaluationResponse {
-    const result = this.engine.evaluate_batch(serialize(requests));
+    const result = this.engine.evaluate_batch(requests) as BatchResult;
 
-    const batchResult = deserialize<BatchResult>(result);
-
-    if (batchResult.status === 'failure') {
-      throw new Error(batchResult.errorMessage);
+    if (result.status === 'failure') {
+      throw new Error(result.error_message);
     }
 
-    return deserialize<BatchEvaluationResponse>(batchResult.result);
+    return result.result as BatchEvaluationResponse;
   }
 }
