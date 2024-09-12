@@ -1,0 +1,38 @@
+name: Package WASM SDKs
+on:
+  workflow_call:
+    inputs:
+      sdks:
+        description: "SDK(s) to build"
+        type: string
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  NPM_API_KEY: ${{ secrets.NPM_API_KEY }}
+  GO_VERSION: "1.22"
+  DAGGER_VERSION: "0.12.3"
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache: true
+
+      - name: Install Dagger
+        run: |
+          cd /usr/local
+          curl -L https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=${{ env.DAGGER_VERSION }} sh
+
+      - name: Build Individual SDK(s)
+        run: |
+          dagger run go run ./package/wasm --sdks=${{ inputs.sdks }} --push=true
