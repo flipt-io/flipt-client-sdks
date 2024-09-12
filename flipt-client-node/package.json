@@ -1,6 +1,6 @@
 {
   "name": "@flipt-io/flipt-client",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Flipt Client Evaluation SDK",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -8,8 +8,7 @@
   "author": "Flipt Devs <dev@flipt.io>",
   "license": "MIT",
   "files": [
-    "dist",
-    "ext"
+    "dist"
   ],
   "scripts": {
     "fmt": "prettier --config .prettierrc 'src/**/*.ts' --write",
