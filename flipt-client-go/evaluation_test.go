@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	evaluationClient *flipt.Client
+	evaluationClient *flipt.EvaluationClient
 	fliptUrl         string
 	authToken        string
 )
@@ -28,14 +28,14 @@ func init() {
 	}
 
 	var err error
-	evaluationClient, err = flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
+	evaluationClient, err = flipt.NewEvaluationClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
 	if err != nil {
 		panic(err)
 	}
 }
 
 func TestInvalidAuthentication(t *testing.T) {
-	client, err := flipt.NewClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication("invalid"))
+	client, err := flipt.NewEvaluationClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication("invalid"))
 	require.NoError(t, err)
 	_, err = client.EvaluateVariant(context.TODO(), "flag1", "someentity", map[string]string{
 		"fizz": "buzz",

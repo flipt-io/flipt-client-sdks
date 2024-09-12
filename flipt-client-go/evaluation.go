@@ -20,8 +20,8 @@ import (
 
 const statusSuccess = "success"
 
-// Client wraps the functionality of making variant and boolean evaluation of Flipt feature flags.
-type Client struct {
+// EvaluationClient wraps the functionality of making variant and boolean evaluation of Flipt feature flags.
+type EvaluationClient struct {
 	engine         unsafe.Pointer
 	namespace      string
 	url            string
@@ -30,9 +30,9 @@ type Client struct {
 	updateInterval int
 }
 
-// NewClient constructs a Client.
-func NewClient(opts ...clientOption) (*Client, error) {
-	client := &Client{
+// NewEvaluationClient constructs a Client.
+func NewEvaluationClient(opts ...clientOption) (*EvaluationClient, error) {
+	client := &EvaluationClient{
 		namespace: "default",
 	}
 
@@ -64,32 +64,32 @@ func NewClient(opts ...clientOption) (*Client, error) {
 }
 
 // clientOption adds additional configuration for Client parameters
-type clientOption func(*Client)
+type clientOption func(*EvaluationClient)
 
 // WithNamespace allows for specifying which namespace the clients wants to make evaluations from.
 func WithNamespace(namespace string) clientOption {
-	return func(c *Client) {
+	return func(c *EvaluationClient) {
 		c.namespace = namespace
 	}
 }
 
 // WithURL allows for configuring the URL of an upstream Flipt instance to fetch feature data.
 func WithURL(url string) clientOption {
-	return func(c *Client) {
+	return func(c *EvaluationClient) {
 		c.url = url
 	}
 }
 
 // WithUpdateInterval allows for specifying how often flag state data should be fetched from an upstream Flipt instance.
 func WithUpdateInterval(updateInterval int) clientOption {
-	return func(c *Client) {
+	return func(c *EvaluationClient) {
 		c.updateInterval = updateInterval
 	}
 }
 
 // WithClientTokenAuthentication allows authenticating with Flipt using a static client token.
 func WithClientTokenAuthentication(token string) clientOption {
-	return func(c *Client) {
+	return func(c *EvaluationClient) {
 		c.authentication = clientTokenAuthentication{
 			Token: token,
 		}
@@ -98,7 +98,7 @@ func WithClientTokenAuthentication(token string) clientOption {
 
 // WithJWTAuthentication allows authenticating with Flipt using a JSON Web Token.
 func WithJWTAuthentication(token string) clientOption {
-	return func(c *Client) {
+	return func(c *EvaluationClient) {
 		c.authentication = jwtAuthentication{
 			Token: token,
 		}
@@ -106,7 +106,7 @@ func WithJWTAuthentication(token string) clientOption {
 }
 
 // EvaluateVariant performs evaluation for a variant flag.
-func (e *Client) EvaluateVariant(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantEvaluationResponse, error) {
+func (e *EvaluationClient) EvaluateVariant(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantEvaluationResponse, error) {
 	ereq, err := json.Marshal(evaluationRequest{
 		NamespaceKey: e.namespace,
 		FlagKey:      flagKey,
@@ -139,7 +139,7 @@ func (e *Client) EvaluateVariant(_ context.Context, flagKey, entityID string, ev
 }
 
 // EvaluateBoolean performs evaluation for a boolean flag.
-func (e *Client) EvaluateBoolean(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanEvaluationResponse, error) {
+func (e *EvaluationClient) EvaluateBoolean(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanEvaluationResponse, error) {
 	ereq, err := json.Marshal(evaluationRequest{
 		NamespaceKey: e.namespace,
 		FlagKey:      flagKey,
@@ -172,7 +172,7 @@ func (e *Client) EvaluateBoolean(_ context.Context, flagKey, entityID string, ev
 }
 
 // EvaluateBatch performs evaluation for a batch of flags.
-func (e *Client) EvaluateBatch(_ context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
+func (e *EvaluationClient) EvaluateBatch(_ context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
 	evaluationRequests := make([]*evaluationRequest, 0, len(requests))
 
 	for _, ir := range requests {
@@ -210,7 +210,7 @@ func (e *Client) EvaluateBatch(_ context.Context, requests []*EvaluationRequest)
 	return br.Result, nil
 }
 
-func (e *Client) ListFlags(_ context.Context) ([]Flag, error) {
+func (e *EvaluationClient) ListFlags(_ context.Context) ([]Flag, error) {
 	flags := C.list_flags(e.engine)
 	defer C.destroy_string(flags)
 
@@ -230,7 +230,7 @@ func (e *Client) ListFlags(_ context.Context) ([]Flag, error) {
 }
 
 // Close cleans up the allocated engine as it was initialized in the constructor.
-func (e *Client) Close() error {
+func (e *EvaluationClient) Close() error {
 	// Destroy the engine to clean up allocated memory on dynamic library side.
 	C.destroy_engine(e.engine)
 	return nil

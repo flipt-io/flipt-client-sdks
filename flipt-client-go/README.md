@@ -51,7 +51,7 @@ import (
 )
 
 func main() {
-  evaluationClient, err := flipt.NewClient()
+  evaluationClient, err := flipt.NewEvaluationClient()
   if err != nil {
     log.Fatal(err)
   }
