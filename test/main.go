@@ -240,15 +240,15 @@ func javaTests(ctx context.Context, client *dagger.Client, flipt *dagger.Contain
 	path := "x86-64"
 
 	if args.arch == "arm64" {
-		path = "arm"
+		path = "aarch64"
 	}
 
 	_, err := client.Pipeline("java").Container().From("gradle:8.5.0-jdk11").
-		WithWorkdir("/src").
 		WithDirectory("/src", args.hostDir.Directory("flipt-client-java"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"./.idea/"},
+			Exclude: []string{"./.idea/", ".gradle/", "build/"},
 		}).
 		WithFile(fmt.Sprintf("/src/src/main/resources/linux-%s/libfliptengine.so", path), args.libFile).
+		WithWorkdir("/src").
 		WithServiceBinding("flipt", flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
