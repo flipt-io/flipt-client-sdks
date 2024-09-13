@@ -95,7 +95,8 @@ export class FliptEvaluationClient {
     }
 
     const data = await resp.json();
-    const engine = new Engine(namespace, data);
+    const engine = new Engine(namespace);
+    engine.snapshot(data);
     const client = new FliptEvaluationClient(engine, fetcher);
 
     if (options.updateInterval && options.updateInterval > 0) {

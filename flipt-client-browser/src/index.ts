@@ -100,7 +100,8 @@ export class FliptEvaluationClient {
 
     const data = await resp.json();
 
-    const engine = new Engine(namespace, data);
+    const engine = new Engine(namespace);
+    engine.snapshot(data);
     return new FliptEvaluationClient(engine, fetcher);
   }
 
