@@ -54,21 +54,9 @@ where
 #[wasm_bindgen]
 impl Engine {
     #[wasm_bindgen(constructor)]
-    pub fn new(namespace: &str, data: JsValue) -> Self {
+    pub fn new(namespace: &str) -> Self {
         console_error_panic_hook::set_once();
-        let doc: source::Document = match serde_wasm_bindgen::from_value(data) {
-            Ok(document) => document,
-            Err(e) => {
-                panic!("Invalid JSON: {}", e);
-            }
-        };
-
-        let store = match Snapshot::build(namespace, doc) {
-            Ok(s) => s,
-            Err(e) => {
-                panic!("Error building snapshot: {}", e);
-            }
-        };
+        let store = Snapshot::empty(namespace);
 
         Self {
             namespace: namespace.to_string(),
@@ -76,34 +64,31 @@ impl Engine {
         }
     }
 
-    pub fn snapshot(&mut self, data: JsValue) {
+    pub fn snapshot(&mut self, data: JsValue) -> Result<(), JsValue> {
         let doc: source::Document = match serde_wasm_bindgen::from_value(data) {
             Ok(document) => document,
             Err(e) => {
-                panic!("Invalid JSON: {}", e);
+                return Err(JsValue::from(e.to_string()));
             }
         };
 
         let store = match Snapshot::build(&self.namespace, doc) {
             Ok(s) => s,
             Err(e) => {
-                panic!("Error building snapshot: {}", e);
+                return Err(JsValue::from(e.to_string()));
             }
         };
 
         self.store = store;
+        Ok(())
     }
 
     pub fn evaluate_boolean(&self, request: JsValue) -> Result<JsValue, JsValue> {
-        let req: fliptevaluation::EvaluationRequest = match serde_wasm_bindgen::from_value(request)
-        {
-            Ok(r) => r,
-            Err(e) => {
-                panic!("Invalid JSON: {}", e);
-            }
-        };
-
-        let result = boolean_evaluation(&self.store, &self.namespace, &req);
+        let result: Result<fliptevaluation::BooleanEvaluationResponse, Error> =
+            match serde_wasm_bindgen::from_value(request) {
+                Ok(req) => boolean_evaluation(&self.store, &self.namespace, &req),
+                Err(e) => Err(Error::InvalidRequest(e.to_string())),
+            };
 
         let response = JsResponse::from(result);
 
@@ -111,15 +96,11 @@ impl Engine {
     }
 
     pub fn evaluate_variant(&self, request: JsValue) -> Result<JsValue, JsValue> {
-        let req: fliptevaluation::EvaluationRequest = match serde_wasm_bindgen::from_value(request)
-        {
-            Ok(r) => r,
-            Err(e) => {
-                panic!("Invalid JSON: {}", e);
-            }
-        };
-
-        let result = variant_evaluation(&self.store, &self.namespace, &req);
+        let result: Result<fliptevaluation::VariantEvaluationResponse, Error> =
+            match serde_wasm_bindgen::from_value(request) {
+                Ok(req) => variant_evaluation(&self.store, &self.namespace, &req),
+                Err(e) => Err(Error::InvalidRequest(e.to_string())),
+            };
 
         let response = JsResponse::from(result);
 
@@ -127,15 +108,11 @@ impl Engine {
     }
 
     pub fn evaluate_batch(&self, request: JsValue) -> Result<JsValue, JsValue> {
-        let req: Vec<fliptevaluation::EvaluationRequest> =
+        let result: Result<fliptevaluation::BatchEvaluationResponse, Error> =
             match serde_wasm_bindgen::from_value(request) {
-                Ok(r) => r,
-                Err(e) => {
-                    panic!("Invalid JSON: {}", e);
-                }
+                Ok(req) => batch_evaluation(&self.store, &self.namespace, req),
+                Err(e) => Err(Error::InvalidRequest(e.to_string())),
             };
-
-        let result = batch_evaluation(&self.store, &self.namespace, req);
 
         let response = JsResponse::from(result);
 
