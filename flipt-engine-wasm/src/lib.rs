@@ -3,7 +3,7 @@ use wasm_bindgen::prelude::*;
 
 use fliptevaluation::{
     batch_evaluation, boolean_evaluation, error::Error, models::source, store::Snapshot,
-    variant_evaluation,
+    store::Store, variant_evaluation,
 };
 use serde::{Deserialize, Serialize};
 
@@ -139,6 +139,12 @@ impl Engine {
 
         let response = JsResponse::from(result);
 
+        Ok(serde_wasm_bindgen::to_value(&response)?)
+    }
+
+    pub fn list_flags(&self) -> Result<JsValue, JsValue> {
+        let flags = self.store.list_flags(&self.namespace);
+        let response = JsResponse::from(Ok(flags));
         Ok(serde_wasm_bindgen::to_value(&response)?)
     }
 }

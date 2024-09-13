@@ -127,4 +127,10 @@ describe('FliptEvaluationClient', () => {
       'invalid request: failed to get flag information default/nonexistent'
     );
   });
+
+  test('list flags', () => {
+    const flags = client.listFlags();
+    expect(flags).toBeDefined();
+    expect(flags.length).toBe(2);
+  });
 });

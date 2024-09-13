@@ -210,6 +210,12 @@ export interface BooleanResult extends Result<BooleanEvaluationResponse> {}
  */
 export interface BatchResult extends Result<BatchEvaluationResponse> {}
 
+/**
+ * Represents a specialized result object for listing flags, extending
+ * the generic Result interface with a specific type ListFlagsResponse.
+ */
+export interface ListFlagsResult extends Result<Flag[]> {}
+
 export interface Result<T> {
   /** Status of the result - `success` or `failure`. */
   status: string;
