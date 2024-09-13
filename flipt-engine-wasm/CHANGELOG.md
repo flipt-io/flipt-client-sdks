@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.1](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-wasm-v0.1.0...flipt-engine-wasm-v0.1.1) (2024-09-13)
+
+
+### Features
+
+* add list flags to wasm/node SDK ([#381](https://github.com/flipt-io/flipt-client-sdks/issues/381)) ([7ac4f66](https://github.com/flipt-io/flipt-client-sdks/commit/7ac4f664e9333de1d7428440b61de6d0c043ed47))
+
+
+### Bug Fixes
+
+* **wasm:** prevent panic in the wasm ([#382](https://github.com/flipt-io/flipt-client-sdks/issues/382)) ([6b9ab25](https://github.com/flipt-io/flipt-client-sdks/commit/6b9ab2541596028455cba5ba0747372950b094be))
+
 ## [0.1.0](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-wasm-v0.0.3...flipt-engine-wasm-v0.1.0) (2024-04-10)
 
 ### Features
