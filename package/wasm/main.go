@@ -106,7 +106,22 @@ func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		WithExec([]string{"npm", "install"}).     // Install dependencies
 		WithExec([]string{"npm", "run", "build"}) // Build the node package
 
-	_, err = container.Sync(ctx)
+	if !push {
+		_, err = container.Sync(ctx)
+		return err
+	}
+
+	if os.Getenv("NPM_API_KEY") == "" {
+		return fmt.Errorf("NPM_API_KEY is not set")
+	}
+
+	npmAPIKeySecret := client.SetSecret("npm-api-key", os.Getenv("NPM_API_KEY"))
+
+	_, err = container.WithSecretVariable("NPM_TOKEN", npmAPIKeySecret).
+		WithExec([]string{"npm", "config", "set", "--", "//registry.npmjs.org/:_authToken", "${NPM_TOKEN}"}).
+		WithExec([]string{"npm", "publish", "--access", "public"}).
+		Sync(ctx)
+
 	return err
 }
 
