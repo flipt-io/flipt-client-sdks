@@ -19,3 +19,9 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md).
 ```bash
 wasm-pack build --target [bundler|nodejs|web]
 ```
+
+### Test
+
+```bash
+wasm-pack test --node
+```

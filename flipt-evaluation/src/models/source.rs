@@ -1,8 +1,8 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::flipt;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Document {
     pub namespace: Namespace,
@@ -21,14 +21,14 @@ impl Default for Document {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Namespace {
     pub key: String,
     pub name: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Flag {
     pub key: String,
@@ -41,7 +41,7 @@ pub struct Flag {
     pub default_variant: Option<Variant>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Variant {
     pub id: String,
@@ -49,7 +49,7 @@ pub struct Variant {
     pub attachment: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Rule {
     pub distributions: Vec<Distribution>,
@@ -57,7 +57,7 @@ pub struct Rule {
     pub segment_operator: flipt::SegmentOperator,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Distribution {
     pub variant_key: String,
@@ -65,7 +65,7 @@ pub struct Distribution {
     pub variant_attachment: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Rollout {
     pub description: Option<String>,
@@ -73,7 +73,7 @@ pub struct Rollout {
     pub threshold: Option<Threshold>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SegmentRule {
     pub segment_operator: Option<flipt::SegmentOperator>,
@@ -81,14 +81,14 @@ pub struct SegmentRule {
     pub segments: Vec<Segment>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Threshold {
     pub percentage: f32,
     pub value: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Segment {
     pub key: String,
@@ -96,7 +96,7 @@ pub struct Segment {
     pub constraints: Vec<SegmentConstraint>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SegmentConstraint {
     pub r#type: flipt::ConstraintComparisonType,

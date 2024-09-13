@@ -19,11 +19,15 @@ jobs:
           profile: minimal
           toolchain: 1.75.0
           override: true
-
       - name: Test
         uses: actions-rs/cargo@v1
         with:
           command: test
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+      - name: Test wasm
+        run: wasm-pack test --node
+        working-directory: flipt-engine-wasm
 
   lint:
     name: Lint
