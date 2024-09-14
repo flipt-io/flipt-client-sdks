@@ -29,6 +29,12 @@ export class FliptEvaluationClient {
     this.fetcher = fetcher;
   }
 
+  /**
+   * Initialize the client
+   * @param namespace - optional namespace to evaluate flags
+   * @param options - optional client options
+   * @returns {Promise<FliptEvaluationClient>}
+   */
   static async init(
     namespace: string = 'default',
     options: ClientOptions<AuthenticationStrategy> = {
@@ -120,6 +126,10 @@ export class FliptEvaluationClient {
     }
   }
 
+  /**
+   * Refresh the flags snapshot
+   * @returns void
+   */
   public async refresh() {
     const opts = { etag: this.etag };
     const resp = await this.fetcher(opts);
@@ -136,6 +146,13 @@ export class FliptEvaluationClient {
     this.engine.snapshot(data);
   }
 
+  /**
+   * Evaluate a variant flag
+   * @param flagKey - flag key to evaluate
+   * @param entityId - entity id to evaluate
+   * @param context - optional evaluation context
+   * @returns {VariantEvaluationResponse}
+   */
   public evaluateVariant(
     flagKey: string,
     entityId: string,
@@ -168,6 +185,13 @@ export class FliptEvaluationClient {
     return deserialize<VariantEvaluationResponse>(variantResult.result);
   }
 
+  /**
+   * Evaluate a boolean flag
+   * @param flagKey - flag key to evaluate
+   * @param entityId - entity id to evaluate
+   * @param context - optional evaluation context
+   * @returns {BooleanEvaluationResponse}
+   */
   public evaluateBoolean(
     flagKey: string,
     entityId: string,
@@ -200,6 +224,11 @@ export class FliptEvaluationClient {
     return deserialize<BooleanEvaluationResponse>(booleanResult.result);
   }
 
+  /**
+   * Evaluate a batch of flag requests
+   * @param requests evaluation requests
+   * @returns {BatchEvaluationResponse}
+   */
   public evaluateBatch(requests: EvaluationRequest[]): BatchEvaluationResponse {
     const serializedRequests = requests.map(serialize);
     const batchResult: BatchResult | null =

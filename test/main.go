@@ -223,13 +223,13 @@ func goTests(ctx context.Context, client *dagger.Client, t *testCase) error {
 // nodeTests runs the node integration test suite against a container running Flipt.
 func nodeTests(ctx context.Context, client *dagger.Client, t *testCase) error {
 	_, err := client.Pipeline("node").Container().From("node:21.2-bookworm").
+		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "dist/"},
 		}).
 		WithDirectory("/src/dist", t.test.Directory(wasmDir), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "package.json", "README.md", "LICENSE"},
 		}).
-		WithWorkdir("/src").
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -283,13 +283,13 @@ func javaTests(ctx context.Context, client *dagger.Client, t *testCase) error {
 // browserTests runs the browser integration test suite against a container running Flipt.
 func browserTests(ctx context.Context, client *dagger.Client, t *testCase) error {
 	_, err := client.Pipeline("browser").Container().From("node:21.2-bookworm").
+		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-browser"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "dist/"},
 		}).
 		WithDirectory("/src/dist", t.test.Directory(wasmDir), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "package.json", "README.md", "LICENSE"},
 		}).
-		WithWorkdir("/src").
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
