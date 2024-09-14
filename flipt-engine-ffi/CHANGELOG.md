@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.18](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.17...flipt-engine-ffi-v0.1.18) (2024-09-14)
+
+
+### Features
+
+* add dart client ([#351](https://github.com/flipt-io/flipt-client-sdks/issues/351)) ([2cd64f8](https://github.com/flipt-io/flipt-client-sdks/commit/2cd64f80e782eed30069694408ff524cbe66ae5e))
+
 ## [0.1.17](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.16...flipt-engine-ffi-v0.1.17) (2024-09-03)
 
 
