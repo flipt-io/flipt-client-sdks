@@ -140,4 +140,10 @@ describe('FliptEvaluationClient', () => {
       'NOT_FOUND_ERROR_EVALUATION_REASON'
     );
   });
+
+  test('list flags', () => {
+    const flags = client.listFlags();
+    expect(flags).toBeDefined();
+    expect(flags.length).toBe(2);
+  });
 });

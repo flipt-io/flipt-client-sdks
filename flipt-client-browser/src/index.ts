@@ -10,7 +10,9 @@ import {
   ErrorEvaluationResponse,
   EvaluationRequest,
   EvaluationResponse,
+  Flag,
   IFetcher,
+  ListFlagsResult,
   VariantEvaluationResponse,
   VariantResult
 } from './models.js';
@@ -268,5 +270,25 @@ export class FliptEvaluationClient {
       responses,
       requestDurationMillis
     };
+  }
+
+  public listFlags(): Flag[] {
+    const listFlagsResult: ListFlagsResult | null = this.engine.list_flags();
+
+    if (listFlagsResult === null) {
+      throw new Error('Failed to list flags');
+    }
+
+    const flags = deserialize<ListFlagsResult>(listFlagsResult);
+
+    if (flags.status === 'failure') {
+      throw new Error(flags.errorMessage);
+    }
+
+    if (!flags.result) {
+      throw new Error('Failed to list flags');
+    }
+
+    return flags.result.map(deserialize<Flag>);
   }
 }
