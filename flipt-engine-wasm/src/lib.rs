@@ -17,7 +17,7 @@ where
     error_message: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 enum Status {
     #[serde(rename = "success")]
     Success,
@@ -123,5 +123,73 @@ impl Engine {
         let flags = self.store.list_flags(&self.namespace);
         let response = JsResponse::from(Ok(flags));
         Ok(serde_wasm_bindgen::to_value(&response)?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use std::collections::HashMap;
+
+    use super::*;
+    use fliptevaluation::EvaluationRequest;
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    // wasm_bindgen_test_configure!(run_in_browser);
+
+    #[wasm_bindgen_test]
+    fn test_snapshot_with_valid_data() {
+        let mut engine = Engine::new("default");
+        let state = r#"
+        {
+         "namespace": { "key": "default"},
+         "flags": [
+             {
+             "key": "flag1",
+             "name": "flag1",
+             "description": "",
+             "enabled": false,
+             "type": "VARIANT_FLAG_TYPE",
+             "createdAt": "2024-09-13T19:37:18.723909Z",
+             "updatedAt": "2024-09-13T19:37:18.723909Z",
+             "rules": [],
+             "rollouts": []
+        }]}"#;
+
+        let document: source::Document = serde_json::from_str(state).expect("valid snapshot");
+        let data = serde_wasm_bindgen::to_value(&document).unwrap();
+        let result = engine.snapshot(data);
+        assert!(result.is_ok());
+        let flags = engine.list_flags();
+        assert!(flags.is_ok());
+
+        let eval_req = EvaluationRequest {
+            flag_key: "flag1".to_owned(),
+            entity_id: "one".to_owned(),
+            context: HashMap::new(),
+        };
+        let req = serde_wasm_bindgen::to_value(&eval_req).unwrap();
+        let js_value = engine.evaluate_variant(req.clone());
+        assert!(js_value.is_ok());
+
+        let result = engine.evaluate_boolean(req.clone());
+        assert!(result.is_ok());
+
+        let result = engine.evaluate_batch(req);
+        assert!(result.is_ok());
+    }
+
+    #[wasm_bindgen_test]
+    fn test_snapshot_with_invalid_data() {
+        let mut engine = Engine::new("default");
+        let result = engine.snapshot(JsValue::from_str(""));
+        assert!(result.is_err());
+        match result {
+            Ok(_) => panic!("Expected an error, but got Ok"),
+            Err(e) => assert_eq!(
+                e.as_string().unwrap(),
+                "Error: invalid type: string \"\", expected struct Document"
+            ),
+        }
     }
 }

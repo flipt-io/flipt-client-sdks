@@ -17,7 +17,7 @@ const DEFAULT_TOTAL_BUCKET_NUMBER: u32 = 1000;
 const DEFAULT_PERCENT_MULTIPIER: f32 = DEFAULT_TOTAL_BUCKET_NUMBER as f32 / DEFAULT_PERCENT;
 
 #[repr(C)]
-#[derive(Deserialize, Clone, PartialEq, Debug)]
+#[derive(Deserialize, Clone, PartialEq, Debug, Serialize)]
 pub struct EvaluationRequest {
     pub flag_key: String,
     pub entity_id: String,
