@@ -7,7 +7,9 @@ import {
   BooleanEvaluationResponse,
   BooleanResult,
   ClientOptions,
+  ErrorEvaluationResponse,
   EvaluationRequest,
+  EvaluationResponse,
   IFetcher,
   VariantEvaluationResponse,
   VariantResult
@@ -52,15 +54,15 @@ export class FliptEvaluationClient {
     headers.append('x-flipt-accept-server-version', '1.47.0');
 
     if (options.authentication) {
-      if ('client_token' in options.authentication) {
+      if ('clientToken' in options.authentication) {
         headers.append(
           'Authorization',
-          `Bearer ${options.authentication.client_token}`
+          `Bearer ${options.authentication.clientToken}`
         );
-      } else if ('jwt_token' in options.authentication) {
+      } else if ('jwtToken' in options.authentication) {
         headers.append(
           'Authorization',
-          `JWT ${options.authentication.jwt_token}`
+          `JWT ${options.authentication.jwtToken}`
         );
       }
     }
@@ -78,28 +80,25 @@ export class FliptEvaluationClient {
           headers
         });
 
-        // check for 304 status code
         if (resp.status === 304) {
           return resp;
         }
 
-        // ok only checks for range 200-299
         if (!resp.ok) {
-          throw new Error('Failed to fetch data');
+          throw new Error(`Failed to fetch data: ${resp.statusText}`);
         }
 
         return resp;
       };
     }
 
-    // should be no etag on first fetch
+    // handle case if they pass in a custom fetcher that doesn't throw on non-2xx status codes
     const resp = await fetcher();
-    if (!resp) {
-      throw new Error('Failed to fetch data');
+    if (!resp.ok && resp.status !== 304) {
+      throw new Error(`Failed to fetch data: ${resp.statusText}`);
     }
 
     const data = await resp.json();
-
     const engine = new Engine(namespace);
     engine.snapshot(data);
     return new FliptEvaluationClient(engine, fetcher);
@@ -143,12 +142,22 @@ export class FliptEvaluationClient {
       context
     };
 
-    const result = this.engine.evaluate_variant(serialize(evaluationRequest));
+    const result: VariantResult | null = this.engine.evaluate_variant(
+      serialize(evaluationRequest)
+    );
+
+    if (result === null) {
+      throw new Error('Failed to evaluate variant');
+    }
 
     const variantResult = deserialize<VariantResult>(result);
 
     if (variantResult.status === 'failure') {
-      throw new Error(result.errorMessage);
+      throw new Error(variantResult.errorMessage);
+    }
+
+    if (!variantResult.result) {
+      throw new Error('Failed to evaluate variant');
     }
 
     return deserialize<VariantEvaluationResponse>(variantResult.result);
@@ -172,12 +181,22 @@ export class FliptEvaluationClient {
       context
     };
 
-    const result = this.engine.evaluate_boolean(serialize(evaluationRequest));
+    const result: BooleanResult | null = this.engine.evaluate_boolean(
+      serialize(evaluationRequest)
+    );
+
+    if (result === null) {
+      throw new Error('Failed to evaluate boolean');
+    }
 
     const booleanResult = deserialize<BooleanResult>(result);
 
     if (booleanResult.status === 'failure') {
       throw new Error(booleanResult.errorMessage);
+    }
+
+    if (!booleanResult.result) {
+      throw new Error('Failed to evaluate boolean');
     }
 
     return deserialize<BooleanEvaluationResponse>(booleanResult.result);
@@ -189,14 +208,65 @@ export class FliptEvaluationClient {
    * @returns {BatchEvaluationResponse}
    */
   public evaluateBatch(requests: EvaluationRequest[]): BatchEvaluationResponse {
-    const result = this.engine.evaluate_batch(serialize(requests));
+    const serializedRequests = requests.map(serialize);
+    const batchResult: BatchResult | null =
+      this.engine.evaluate_batch(serializedRequests);
 
-    const batchResult = deserialize<BatchResult>(result);
+    if (batchResult === null) {
+      throw new Error('Failed to evaluate batch');
+    }
 
     if (batchResult.status === 'failure') {
       throw new Error(batchResult.errorMessage);
     }
 
-    return deserialize<BatchEvaluationResponse>(batchResult.result);
+    if (!batchResult.result) {
+      throw new Error('Failed to evaluate batch');
+    }
+
+    const responses = batchResult.result.responses
+      .map((response): EvaluationResponse | undefined => {
+        if (response.type === 'BOOLEAN_EVALUATION_RESPONSE_TYPE') {
+          const booleanResponse = deserialize<BooleanEvaluationResponse>(
+            // @ts-ignore
+            response.boolean_evaluation_response
+          );
+          return {
+            booleanEvaluationResponse: booleanResponse,
+            type: 'BOOLEAN_EVALUATION_RESPONSE_TYPE'
+          };
+        }
+        if (response.type === 'VARIANT_EVALUATION_RESPONSE_TYPE') {
+          const variantResponse = deserialize<VariantEvaluationResponse>(
+            // @ts-ignore
+            response.variant_evaluation_response
+          );
+          return {
+            variantEvaluationResponse: variantResponse,
+            type: 'VARIANT_EVALUATION_RESPONSE_TYPE'
+          };
+        }
+        if (response.type === 'ERROR_EVALUATION_RESPONSE_TYPE') {
+          const errorResponse = deserialize<ErrorEvaluationResponse>(
+            // @ts-ignore
+            response.error_evaluation_response
+          );
+          return {
+            errorEvaluationResponse: errorResponse,
+            type: 'ERROR_EVALUATION_RESPONSE_TYPE'
+          };
+        }
+        return undefined;
+      })
+      .filter(
+        (response): response is EvaluationResponse => response !== undefined
+      );
+
+    const requestDurationMillis = batchResult.result.requestDurationMillis;
+
+    return {
+      responses,
+      requestDurationMillis
+    };
   }
 }

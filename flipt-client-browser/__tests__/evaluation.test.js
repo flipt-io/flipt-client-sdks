@@ -19,7 +19,7 @@ describe('FliptEvaluationClient', () => {
     }
   });
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     client = await flipt.FliptEvaluationClient.init('default', {
       url: fliptUrl,
       authentication: {
