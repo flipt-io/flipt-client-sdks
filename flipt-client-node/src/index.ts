@@ -11,10 +11,15 @@ import {
   BatchEvaluationResponse,
   ErrorEvaluationResponse,
   EvaluationResponse,
-  Flag,
+  Flag
 } from './models';
 
-import { VariantResult, BooleanResult, BatchResult, ListFlagsResult } from './internal/models';
+import {
+  VariantResult,
+  BooleanResult,
+  BatchResult,
+  ListFlagsResult
+} from './internal/models';
 
 export class FliptEvaluationClient {
   private engine: Engine;

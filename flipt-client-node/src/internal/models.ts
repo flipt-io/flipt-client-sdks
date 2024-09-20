@@ -1,4 +1,9 @@
-import {Flag, VariantEvaluationResponse, BooleanEvaluationResponse, BatchEvaluationResponse } from "../models";
+import {
+  Flag,
+  VariantEvaluationResponse,
+  BooleanEvaluationResponse,
+  BatchEvaluationResponse
+} from '../models';
 /**
  * Represents a specialized result object for variant evaluation, extending
  * the generic Result interface with a specific type VariantEvaluationResponse.

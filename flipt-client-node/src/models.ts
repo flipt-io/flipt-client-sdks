@@ -191,4 +191,3 @@ export interface BatchEvaluationResponse {
   /** Duration of the request in milliseconds. */
   requestDurationMillis: number;
 }
-
