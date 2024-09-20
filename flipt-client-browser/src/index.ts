@@ -292,3 +292,5 @@ export class FliptEvaluationClient {
     return flags.result.map(deserialize<Flag>);
   }
 }
+
+export * from './models';

@@ -1,3 +1,5 @@
+
+
 import { Engine } from '../dist/flipt_engine_wasm.js';
 import { serialize, deserialize } from './utils';
 
@@ -316,3 +318,5 @@ export class FliptEvaluationClient {
     this.stopAutoRefresh();
   }
 }
+
+export * from './models';
