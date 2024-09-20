@@ -3,20 +3,18 @@ import { serialize, deserialize } from './utils';
 
 import {
   AuthenticationStrategy,
-  BooleanResult,
-  BatchResult,
   ClientOptions,
   EvaluationRequest,
   IFetcher,
-  VariantResult,
   VariantEvaluationResponse,
   BooleanEvaluationResponse,
   BatchEvaluationResponse,
   ErrorEvaluationResponse,
   EvaluationResponse,
   Flag,
-  ListFlagsResult
 } from './models';
+
+import { VariantResult, BooleanResult, BatchResult, ListFlagsResult } from './internal/models';
 
 export class FliptEvaluationClient {
   private engine: Engine;

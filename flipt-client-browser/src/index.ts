@@ -3,19 +3,17 @@ import wasm from '../dist/flipt_engine_wasm_bg.wasm';
 import { deserialize, serialize } from './utils';
 import {
   BatchEvaluationResponse,
-  BatchResult,
   BooleanEvaluationResponse,
-  BooleanResult,
   ClientOptions,
   ErrorEvaluationResponse,
   EvaluationRequest,
   EvaluationResponse,
   Flag,
   IFetcher,
-  ListFlagsResult,
   VariantEvaluationResponse,
-  VariantResult
-} from './models.js';
+} from './models';
+
+import { VariantResult, BooleanResult, BatchResult, ListFlagsResult } from './internal/models';
 
 export class FliptEvaluationClient {
   private engine: Engine;
