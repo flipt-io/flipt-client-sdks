@@ -1,0 +1,27 @@
+name: Package React SDK
+on:
+  push:
+    tags: ["flipt-client-react-**"]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: |
+          npm ci
+          npm run build
+          npm publish
+        working-directory: flipt-client-react
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_API_KEY }}
+

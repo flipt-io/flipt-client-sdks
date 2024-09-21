@@ -25,6 +25,7 @@ var (
 		"java":    javaTests,
 		"browser": browserTests,
 		"dart":    dartTests,
+		"react":   reactTests,
 	}
 	sema = make(chan struct{}, 5)
 )
@@ -106,7 +107,7 @@ func run() error {
 			switch lang {
 			case "node":
 				testCase.test = getWasmTestContainer(ctx, client, dir, "nodejs")
-			case "browser":
+			case "browser", "react":
 				testCase.test = getWasmTestContainer(ctx, client, dir, "web")
 			default:
 				testCase.test = getFFITestContainer(ctx, client, dir)
@@ -289,6 +290,24 @@ func browserTests(ctx context.Context, client *dagger.Client, t *testCase) error
 		}).
 		WithDirectory("/src/dist", t.test.Directory(wasmDir), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "package.json", "README.md", "LICENSE"},
+		}).
+		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
+		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
+		WithExec([]string{"npm", "install"}).
+		WithExec([]string{"npm", "run", "build"}).
+		WithExec([]string{"npm", "test"}).
+		Sync(ctx)
+
+	return err
+}
+
+// reactTests runs the react integration test suite against a container running Flipt.
+func reactTests(ctx context.Context, client *dagger.Client, t *testCase) error {
+	_, err := client.Pipeline("react").Container().From("node:21.2-bookworm").
+		WithWorkdir("/src").
+		WithDirectory("/src", t.dir.Directory("flipt-client-react"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{".node_modules/", ".gitignore", "dist/"},
 		}).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
