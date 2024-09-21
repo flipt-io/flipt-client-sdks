@@ -20,7 +20,7 @@ jobs:
       - run: |
           npm ci
           npm run build
-          npm publish
+          npm publish --access public
         working-directory: flipt-client-react
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_API_KEY }}
