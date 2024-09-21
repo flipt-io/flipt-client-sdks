@@ -17,8 +17,8 @@
     "import": "./dist/index.mjs"
   },
   "scripts": {
-    "fmt": "prettier --config .prettierrc 'src/**/*.@(ts|tsx|js)' --write",
-    "lint": "prettier --check src/**/*.@(ts|tsx|js)",
+    "fmt": "prettier --config .prettierrc 'src/**/*.@(ts|tsx|js)' '**/*.@(ts|tsx|js)' --write",
+    "lint": "prettier --check 'src/**/*.@(ts|tsx|js)' '**/*.@(ts|tsx|js)'",
     "test": "jest",
     "build": "rollup -c"
   },
