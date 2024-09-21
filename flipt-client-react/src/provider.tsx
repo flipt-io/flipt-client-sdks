@@ -207,3 +207,4 @@ export const useFlags = () => {
 };
 
 export * from './types';
+export type { FliptProviderProps };

@@ -1,3 +1,1 @@
-import { FliptProvider } from './provider';
-
-export { FliptProvider };
+export * from './provider';
