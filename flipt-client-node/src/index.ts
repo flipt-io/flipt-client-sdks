@@ -3,20 +3,23 @@ import { serialize, deserialize } from './utils';
 
 import {
   AuthenticationStrategy,
-  BooleanResult,
-  BatchResult,
   ClientOptions,
   EvaluationRequest,
   IFetcher,
-  VariantResult,
   VariantEvaluationResponse,
   BooleanEvaluationResponse,
   BatchEvaluationResponse,
   ErrorEvaluationResponse,
   EvaluationResponse,
-  Flag,
-  ListFlagsResult
+  Flag
 } from './models';
+
+import {
+  VariantResult,
+  BooleanResult,
+  BatchResult,
+  ListFlagsResult
+} from './internal/models';
 
 export class FliptEvaluationClient {
   private engine: Engine;
@@ -316,3 +319,5 @@ export class FliptEvaluationClient {
     this.stopAutoRefresh();
   }
 }
+
+export * from './models';
