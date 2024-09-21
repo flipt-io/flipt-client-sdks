@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import {
   FliptEvaluationClient,
-  ClientOptions,
   EvaluationRequest,
   BooleanEvaluationResponse,
   BatchEvaluationResponse,
   Flag,
   VariantEvaluationResponse,
 } from "@flipt-io/flipt-client-browser";
+import { FliptProviderProps } from "./types";
 
 interface FliptContextType {
   client: FliptEvaluationClient | null;
@@ -20,12 +20,6 @@ const FliptContext = createContext<FliptContextType>({
   isLoading: true,
   error: null,
 });
-
-interface FliptProviderProps {
-  namespace?: string;
-  options?: ClientOptions;
-  children: React.ReactNode;
-}
 
 export const FliptProvider: React.FC<FliptProviderProps> = ({
   namespace,
@@ -178,3 +172,5 @@ export const useFlags = () => {
 
   return { flags, isLoading, error: error || flagsError };
 };
+
+export * from "./types";
