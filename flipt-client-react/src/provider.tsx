@@ -1,13 +1,13 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
   FliptEvaluationClient,
   EvaluationRequest,
   BooleanEvaluationResponse,
   BatchEvaluationResponse,
   Flag,
-  VariantEvaluationResponse,
-} from "@flipt-io/flipt-client-browser";
-import { FliptProviderProps } from "./types";
+  VariantEvaluationResponse
+} from '@flipt-io/flipt-client-browser';
+import { FliptProviderProps } from './types';
 
 interface FliptContextType {
   client: FliptEvaluationClient | null;
@@ -18,13 +18,13 @@ interface FliptContextType {
 const FliptContext = createContext<FliptContextType>({
   client: null,
   isLoading: true,
-  error: null,
+  error: null
 });
 
 export const FliptProvider: React.FC<FliptProviderProps> = ({
   namespace,
   options,
-  children,
+  children
 }) => {
   const [client, setClient] = useState<FliptEvaluationClient | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,7 +35,7 @@ export const FliptProvider: React.FC<FliptProviderProps> = ({
       try {
         const fliptClient = await FliptEvaluationClient.init(
           namespace,
-          options,
+          options
         );
         setClient(fliptClient);
         setIsLoading(false);
@@ -43,7 +43,7 @@ export const FliptProvider: React.FC<FliptProviderProps> = ({
         setError(
           err instanceof Error
             ? err
-            : new Error("Failed to initialize Flipt client"),
+            : new Error('Failed to initialize Flipt client')
         );
         setIsLoading(false);
       }
@@ -66,7 +66,7 @@ export const useRefresh = () => {
 
   return React.useCallback(() => {
     if (error) {
-      console.error("Flipt client error:", error);
+      console.error('Flipt client error:', error);
       return;
     }
     client?.refresh();
@@ -76,11 +76,11 @@ export const useRefresh = () => {
 export const useVariantFlag = (
   flagKey: string,
   entityId: string,
-  context: {},
+  context: {}
 ) => {
   const { client, isLoading, error } = useFliptClient();
   const [flagValue, setFlagValue] = useState<VariantEvaluationResponse | null>(
-    null,
+    null
   );
   const [flagError, setFlagError] = useState<Error | null>(null);
 
@@ -93,7 +93,7 @@ export const useVariantFlag = (
         setFlagError(
           err instanceof Error
             ? err
-            : new Error("Failed to evaluate variant flag"),
+            : new Error('Failed to evaluate variant flag')
         );
       }
     }
@@ -105,11 +105,11 @@ export const useVariantFlag = (
 export const useBooleanFlag = (
   flagKey: string,
   entityId: string,
-  context: {},
+  context: {}
 ) => {
   const { client, isLoading, error } = useFliptClient();
   const [flagValue, setFlagValue] = useState<BooleanEvaluationResponse | null>(
-    null,
+    null
   );
   const [flagError, setFlagError] = useState<Error | null>(null);
 
@@ -122,7 +122,7 @@ export const useBooleanFlag = (
         setFlagError(
           err instanceof Error
             ? err
-            : new Error("Failed to evaluate boolean flag"),
+            : new Error('Failed to evaluate boolean flag')
         );
       }
     }
@@ -143,7 +143,7 @@ export const useBatchEvaluation = (requests: EvaluationRequest[]) => {
         setResults(batchResult);
       } catch (err) {
         setBatchError(
-          err instanceof Error ? err : new Error("Failed to evaluate batch"),
+          err instanceof Error ? err : new Error('Failed to evaluate batch')
         );
       }
     }
@@ -164,7 +164,7 @@ export const useFlags = () => {
         setFlags(flagList);
       } catch (err) {
         setFlagsError(
-          err instanceof Error ? err : new Error("Failed to list flags"),
+          err instanceof Error ? err : new Error('Failed to list flags')
         );
       }
     }
@@ -173,4 +173,4 @@ export const useFlags = () => {
   return { flags, isLoading, error: error || flagsError };
 };
 
-export * from "./types";
+export * from './types';

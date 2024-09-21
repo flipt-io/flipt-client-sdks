@@ -5,23 +5,23 @@
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
-  "scripts": {
-    "fmt": "prettier --config .prettierrc 'src/**/*.ts' --write",
-    "lint": "prettier --check src/**/*.ts",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "rollup -c"
-  },
   "author": "Flipt Devs <dev@flipt.io>",
   "license": "MIT",
+  "files": [
+    "dist",
+    "src"
+  ],
   "exports": {
     "types": "./dist/types/index.d.ts",
     "require": "./dist/index.cjs",
     "import": "./dist/index.mjs"
   },
-  "files": [
-    "dist",
-    "src"
-  ],
+  "scripts": {
+    "fmt": "prettier --config .prettierrc 'src/**/*.@(ts|tsx|js)' --write",
+    "lint": "prettier --check src/**/*.@(ts|tsx|js)",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "rollup -c"
+  },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^26.0.1",
     "@rollup/plugin-node-resolve": "^15.2.3",

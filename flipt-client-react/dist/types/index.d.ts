@@ -1,2 +1,2 @@
-import { FliptProvider } from "./provider";
+import { FliptProvider } from './provider';
 export { FliptProvider };
