@@ -132,24 +132,57 @@ export const useBooleanFlag = (
 };
 
 export const useBatchEvaluation = (requests: EvaluationRequest[]) => {
-  const { client, isLoading, error } = useFliptClient();
+  const {
+    client,
+    isLoading: clientLoading,
+    error: clientError
+  } = useFliptClient();
   const [results, setResults] = useState<BatchEvaluationResponse | null>(null);
   const [batchError, setBatchError] = useState<Error | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (client && !isLoading && !error) {
+    let isMounted = true;
+
+    const evaluateBatch = async () => {
+      if (!client || clientLoading || clientError) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
       try {
         const batchResult = client.evaluateBatch(requests);
-        setResults(batchResult);
+        if (isMounted) {
+          setResults(batchResult);
+          setBatchError(null);
+        }
       } catch (err) {
-        setBatchError(
-          err instanceof Error ? err : new Error('Failed to evaluate batch')
-        );
+        if (isMounted) {
+          setBatchError(
+            err instanceof Error ? err : new Error('Failed to evaluate batch')
+          );
+          setResults(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-    }
-  }, [client, isLoading, error, requests]);
+    };
 
-  return { results, isLoading, error: error || batchError };
+    evaluateBatch();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [client, clientLoading, clientError, JSON.stringify(requests)]);
+
+  return {
+    results,
+    isLoading: clientLoading || isLoading,
+    error: clientError || batchError
+  };
 };
 
 export const useFlags = () => {
