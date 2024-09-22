@@ -302,16 +302,14 @@ func browserTests(ctx context.Context, client *dagger.Client, t *testCase) error
 	return err
 }
 
-// reactTests runs the react integration test suite against a container running Flipt.
+// reactTests runs the react unit test suite against a mocked Flipt client.
+// this is because the react client simply uses the browser client under the hood
 func reactTests(ctx context.Context, client *dagger.Client, t *testCase) error {
 	_, err := client.Pipeline("react").Container().From("node:21.2-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-react"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "dist/"},
 		}).
-		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
-		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
-		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec([]string{"npm", "install"}).
 		WithExec([]string{"npm", "run", "build"}).
 		WithExec([]string{"npm", "test"}).

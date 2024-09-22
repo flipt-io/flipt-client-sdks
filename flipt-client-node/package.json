@@ -1,14 +1,24 @@
 {
   "name": "@flipt-io/flipt-client",
   "version": "0.10.1",
-  "description": "Flipt Client Evaluation SDK",
+  "description": "Flipt Client Evaluation SDK for Node.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "private": false,
   "author": "Flipt Devs <dev@flipt.io>",
   "license": "MIT",
   "files": [
     "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-client-node"
+  },
+  "keywords": [
+    "flipt",
+    "feature flags",
+    "feature toggles",
+    "nodejs",
+    "wasm"
   ],
   "scripts": {
     "fmt": "prettier --config .prettierrc 'src/**/*.ts' --write",
