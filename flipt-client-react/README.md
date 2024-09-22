@@ -179,7 +179,7 @@ function FeatureFlag({ flagKey, entityId, children }) {
           setIsEnabled(result.enabled);
         });
     }
-  }, [client, flagKey]);
+  }, [client, flagKey, entityId]);
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
