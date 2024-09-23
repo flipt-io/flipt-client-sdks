@@ -5,11 +5,20 @@
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
-  "private": false,
   "author": "Flipt Devs <dev@flipt.io>",
   "license": "MIT",
   "files": [
     "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-client-react"
+  },
+  "keywords": [
+    "flipt",
+    "feature flags",
+    "feature toggles",
+    "wasm"
   ],
   "scripts": {
     "fmt": "prettier --config .prettierrc 'src/**/*.ts' --write",

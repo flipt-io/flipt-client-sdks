@@ -1,6 +1,6 @@
 version: 2
 updates:
-  - package-ecosystem: "cargo"
+  - package-ecosystem: cargo
     directory: "/"
     schedule:
       interval: "weekly"
@@ -30,6 +30,16 @@ updates:
       # kodiak `merge.automerge_label`
       - "automerge"
 
+  - package-ecosystem: npm
+    directory: "/flipt-client-react"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      # kodiak `merge.automerge_label`
+      - "automerge"
+
   - package-ecosystem: pip
     directory: "/flipt-client-python"
     schedule:
@@ -50,7 +60,7 @@ updates:
       # kodiak `merge.automerge_label`
       - "automerge"
 
-  - package-ecosystem: "gradle"
+  - package-ecosystem: gradle
     directory: "/flipt-client-java"
     schedule:
       interval: weekly
@@ -60,7 +70,7 @@ updates:
       # kodiak `merge.automerge_label`
       - "automerge"
 
-  - package-ecosystem: "bundler"
+  - package-ecosystem: bundler
     directory: "/flipt-client-ruby"
     schedule:
       interval: weekly
@@ -70,7 +80,7 @@ updates:
       # kodiak `merge.automerge_label`
       - "automerge"
 
-  - package-ecosystem: "pub"
+  - package-ecosystem: pub
     directory: "/flipt-client-dart"
     schedule:
       interval: weekly
@@ -80,7 +90,7 @@ updates:
       # kodiak `merge.automerge_label`
       - "automerge"
 
-  - package-ecosystem: "cargo"
+  - package-ecosystem: cargo
     directory: "/flipt-engine-ffi"
     schedule:
       interval: "weekly"
@@ -90,7 +100,7 @@ updates:
       # kodiak `merge.automerge_label`
       - "automerge"
 
-  - package-ecosystem: "cargo"
+  - package-ecosystem: cargo
     directory: "/flipt-evaluation"
     schedule:
       interval: "weekly"
@@ -100,7 +110,7 @@ updates:
       # kodiak `merge.automerge_label`
       - "automerge"
 
-  - package-ecosystem: "cargo"
+  - package-ecosystem: cargo
     directory: "/flipt-engine-wasm"
     schedule:
       interval: "weekly"
@@ -110,7 +120,7 @@ updates:
       # kodiak `merge.automerge_label`
       - "automerge"
 
-  - package-ecosystem: "github-actions"
+  - package-ecosystem: github-actions
     # Workflow files stored in the
     # default location of `.github/workflows`
     directory: "/"

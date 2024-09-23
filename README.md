@@ -1,6 +1,5 @@
 # Flipt Client SDKs
 
-![Status: Stable](https://img.shields.io/badge/status-stable-green)
 [![GitHub license](https://img.shields.io/github/license/flipt-io/flipt-client-sdks)](https://github.com/flipt-io/flipt-client-sdks/blob/main/LICENSE)
 
 This repository centralizes the client-side SDKs for [Flipt](https://github.com/flipt-io/flipt).
@@ -13,7 +12,7 @@ Also, check out our introductory [blog post](https://www.flipt.io/blog/new-clien
 
 ## Versions
 
-There are two versions of the client SDKs:
+There are two architectures for the client SDKs:
 
 ### FFI
 
@@ -22,7 +21,7 @@ The [Foreign Function Interface (FFI)](https://en.wikipedia.org/wiki/Foreign_fun
 > [!IMPORTANT]
 > Our FFI SDKs fully support OSes that use the `glibc` implementation of the C standard library. We have beta support for versions of the SDKs that use the `musl` C library. See [this issue](https://github.com/flipt-io/flipt-client-sdks/issues/141) for which SDKs have versions that support `musl`.
 
-### Supported Architectures
+#### Supported Architectures
 
 The FFI-based SDKs are currently supported on the following OSes/architectures:
 
@@ -33,7 +32,7 @@ The FFI-based SDKs are currently supported on the following OSes/architectures:
 
 ### WASM
 
-The WebAssembly (WASM) version of the client SDKs is currently in beta. This version allows you to evaluate flags in the browser using WebAssembly which is OS and architecture agnostic.
+The [WebAssembly (WASM)](https://webassembly.org/) versions of the client SDKs allow you to evaluate flags in the browser and are OS and architecture agnostic.
 
 ## Architecture
 
@@ -53,13 +52,16 @@ We are constantly growing our list of supported languages.
 
 Currently, we support the following languages/platforms:
 
-1. [Go](./flipt-client-go) (FFI)
-1. [Python](./flipt-client-python) (FFI)
-1. [Ruby](./flipt-client-ruby) (FFI)
-1. [NodeJS](./flipt-client-node) (FFI)
-1. [Java](./flipt-client-java) (FFI)
-1. [JavaScript/Typescript (Browser)](./flipt-client-browser) (WASM)
-1. [Flutter/Dart](./flipt-client-dart) (FFI)
+| Language | Implementation |
+|----------|----------------|
+| [Go](./flipt-client-go)            | FFI            |
+| [Python](./flipt-client-python)    | FFI            |
+| [Ruby](./flipt-client-ruby)        | FFI            |
+| [NodeJS](./flipt-client-node)      | WASM           |
+| [Java](./flipt-client-java)        | FFI            |
+| [JavaScript (Browser)](./flipt-client-browser) | WASM |
+| [React Web (Browser)](./flipt-client-react) | WASM         |
+| [Flutter/Dart](./flipt-client-dart)      | FFI            |
 
 Documentation for each client can be found in the README of that client's directory.
 
@@ -76,6 +78,7 @@ Languages we would like to support but lack expertise in:
 
 1. [Kotlin](https://github.com/flipt-io/flipt-client-sdks/issues/264)
 1. [Swift](https://github.com/flipt-io/flipt-client-sdks/issues/263)
+1. [React Native](https://github.com/flipt-io/flipt-client-sdks/issues/345)
 
 Want to see a client in a language we don't support? [Open an issue](https://github.com/flipt-io/flipt-client-sdks/issues/new?assignees=&labels=new-language&projects=&template=new_language.yml) and let us know!
 
