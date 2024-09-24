@@ -58,7 +58,7 @@ jobs:
             jq -r ".[] | select(.tag_name | startswith(\"flipt-engine-ffi-\")) | .tag_name" | \
             sort -Vr | head -n 1 | sed "s/^flipt-engine-ffi-//")" >> $GITHUB_ENV
           fi
-     
+
       - name: Generate token
         id: generate_token
         uses: tibdex/github-app-token@v2
