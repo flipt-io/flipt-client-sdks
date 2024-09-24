@@ -2,9 +2,9 @@ targets:
   $default:
     sources:
       exclude:
-        - 'example/**'
+        - "example/**"
     builders:
       json_serializable:
         options:
-          explicit_to_json: true 
+          explicit_to_json: true
           field_rename: snake
