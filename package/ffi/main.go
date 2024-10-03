@@ -21,13 +21,14 @@ var (
 	tag       string
 	engineTag string
 	sdksToFn  = map[string]buildFn{
-		"python":  pythonBuild,
-		"go":      goBuild,
-		"go-musl": goMuslBuild,
-		"node":    nodeBuild,
-		"ruby":    rubyBuild,
-		"java":    javaBuild,
-		"dart":    dartBuild,
+		"python":    pythonBuild,
+		"go":        goBuild,
+		"go-musl":   goMuslBuild,
+		"node":      nodeBuild,
+		"ruby":      rubyBuild,
+		"java":      javaBuild,
+		"java-musl": javaMuslBuild,
+		"dart":      dartBuild,
 	}
 	sema = make(chan struct{}, 5)
 	// defaultExclude is the default exclude for all builds to prevent
@@ -377,6 +378,14 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 }
 
 func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts ...buildOptionsFn) error {
+	buildOpts := buildOptions{
+		libc: glibc,
+	}
+
+	for _, opt := range opts {
+		opt(&buildOpts)
+	}
+
 	// the directory structure of the tmp directory is as follows:
 	// tmp/linux_x86_64/
 	// tmp/linux_arm64/
@@ -394,25 +403,51 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	// we can do this on the host and then copy the files into the container
 
 	rename := map[string]string{
-		"linux_x86_64":  "linux-x86-64",
-		"linux_arm64":   "linux-aarch64",
-		"darwin_x86_64": "darwin-x86-64",
-		"darwin_arm64":  "darwin-aarch64",
+		"linux_x86_64":      "linux-x86-64",
+		"linux_arm64":       "linux-aarch64",
+		"darwin_x86_64":     "darwin-x86-64",
+		"darwin_arm64":      "darwin-aarch64",
+		"linux_arm64_musl":  "linux-aarch64",
+		"linux_x86_64_musl": "linux-x86-64",
 	}
 
 	for old, new := range rename {
+		// if the directory does not exist, skip it
+		if _, err := os.Stat(fmt.Sprintf("tmp/%s", old)); os.IsNotExist(err) {
+			continue
+		}
+
+		// remove directory if it exists
+		if err := os.RemoveAll(fmt.Sprintf("tmp/%s", new)); err != nil {
+			return err
+		}
+
 		if err := os.Rename(fmt.Sprintf("tmp/%s", old), fmt.Sprintf("tmp/%s", new)); err != nil {
 			return err
 		}
 	}
 
 	container := client.Container().From("gradle:8.5.0-jdk11").
-		WithDirectory("/src", hostDirectory.Directory("flipt-client-java")).
-		WithDirectory("/src/src/main/resources", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Exclude: defaultExclude,
-		}).
-		WithWorkdir("/src").
-		WithExec([]string{"gradle", "-x", "test", "build"})
+		WithDirectory("/src", hostDirectory.Directory("flipt-client-java"))
+
+	if buildOpts.libc == glibc {
+		container = container.
+			WithDirectory("/src/src/main/resources", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
+				Exclude: defaultExclude,
+			}).
+			WithWorkdir("/src").
+			WithExec([]string{"gradle", "-x", "test", "build"})
+	} else {
+		container = container.
+			WithDirectory("/src/src/main/resources/linux-aarch64", hostDirectory.Directory("tmp/linux-aarch64"), dagger.ContainerWithDirectoryOpts{
+				Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"},
+			}).
+			WithDirectory("/src/src/main/resources/linux-x86-64", hostDirectory.Directory("tmp/linux-x86-64"), dagger.ContainerWithDirectoryOpts{
+				Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"},
+			}).
+			WithWorkdir("/src").
+			WithExec([]string{"gradle", "-x", "test", "--build-file", "build.musl.gradle", "build"})
+	}
 
 	var err error
 
@@ -445,15 +480,23 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		pgpPassphrase    = client.SetSecret("pgp-passphrase", os.Getenv("PGP_PASSPHRASE"))
 	)
 
-	_, err = container.WithSecretVariable("MAVEN_USERNAME", mavenUsername).
+	container = container.WithSecretVariable("MAVEN_USERNAME", mavenUsername).
 		WithSecretVariable("MAVEN_PASSWORD", mavenPassword).
 		WithSecretVariable("MAVEN_PUBLISH_REGISTRY_URL", mavenRegistryUrl).
 		WithSecretVariable("PGP_PRIVATE_KEY", pgpPrivateKey).
-		WithSecretVariable("PGP_PASSPHRASE", pgpPassphrase).
-		WithExec([]string{"gradle", "publish"}).
-		Sync(ctx)
+		WithSecretVariable("PGP_PASSPHRASE", pgpPassphrase)
+
+	if buildOpts.libc == glibc {
+		_, err = container.WithExec([]string{"gradle", "publish"}).Sync(ctx)
+	} else {
+		_, err = container.WithExec([]string{"gradle", "-b", "build.musl.gradle", "publish"}).Sync(ctx)
+	}
 
 	return err
+}
+
+func javaMuslBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts ...buildOptionsFn) error {
+	return javaBuild(ctx, client, hostDirectory, append(opts, withMusl())...)
 }
 
 func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts ...buildOptionsFn) error {

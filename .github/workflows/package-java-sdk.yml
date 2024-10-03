@@ -1,7 +1,9 @@
 name: Package Java SDK
 on:
   push:
-    tags: ["flipt-client-java-**"]
+    tags:
+      - "flipt-client-java-**"
+      - "flipt-client-java-musl-**"
 
 permissions:
   contents: write
@@ -18,6 +20,6 @@ jobs:
   build:
     uses: ./.github/workflows/package-ffi-sdks.yml
     with:
-      sdks: java
+      sdks: ${{ startsWith(github.ref, 'refs/tags/flipt-client-java-musl-') && 'java-musl' || 'java' }}
       engine-tag: "latest"
     secrets: inherit
