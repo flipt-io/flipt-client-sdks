@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.19](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.18...flipt-engine-ffi-v0.1.19) (2024-10-03)
+
+
+### Features
+
+* build java musl lib ([#420](https://github.com/flipt-io/flipt-client-sdks/issues/420)) ([5a9b3fc](https://github.com/flipt-io/flipt-client-sdks/commit/5a9b3fcf0fc00aba237328c1f2ff22198a97268e))
+
 ## [0.1.18](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.17...flipt-engine-ffi-v0.1.18) (2024-09-14)
 
 ### Features
