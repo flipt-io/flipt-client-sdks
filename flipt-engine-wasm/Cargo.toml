@@ -6,6 +6,7 @@ authors = ["Flipt Devs <dev@flipt.io>"]
 license = "MIT"
 description = "Flipt WASM Client Engine"
 publish = false
+repository = "https://github.com/flipt-io/flipt-client-sdks"
 
 [lib]
 crate-type = ["cdylib"]
