@@ -12,7 +12,6 @@ libc = "0.2.150"
 serde = { version = "1.0.147", features = ["derive"] }
 serde_json = { version = "1.0.89", features = ["raw_value"] }
 reqwest = { version = "0.12.2", features = ["json", "blocking"] }
-tokio = { version = "1.33.0", features = ["full"] }
 native-tls = { version = "0.2", features = ["vendored"] }
 futures = "0.3"
 thiserror = "1.0.63"
@@ -27,3 +26,4 @@ mockito = "1.4.0"
 [lib]
 name = "fliptengine"
 crate-type = ["rlib", "dylib", "staticlib"]
+
