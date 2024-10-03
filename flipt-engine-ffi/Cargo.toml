@@ -6,6 +6,7 @@ authors = ["Flipt Devs <dev@flipt.io>"]
 license = "MIT"
 description = "Flipt FFI Client Engine"
 publish = false
+repository = "https://github.com/flipt-io/flipt-client-sdks"
 
 [dependencies]
 libc = "0.2.150"
