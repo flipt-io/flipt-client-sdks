@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Optional;
 
 public class FliptEvaluationClient {
+  private static final String STATUS_SUCCESS = "success";
   private final Pointer engine;
 
   private final ObjectMapper objectMapper;
@@ -38,12 +39,17 @@ public class FliptEvaluationClient {
   }
 
   private FliptEvaluationClient(String namespace, EngineOpts engineOpts)
-      throws JsonProcessingException {
+      throws EvaluationException {
 
     ObjectMapper objectMapper = new ObjectMapper();
     objectMapper.registerModule(new Jdk8Module());
 
-    String engineOptions = objectMapper.writeValueAsString(engineOpts);
+    String engineOptions;
+    try {
+      engineOptions = objectMapper.writeValueAsString(engineOpts);
+    } catch (JsonProcessingException e) {
+      throw new EvaluationException(e);
+    }
 
     Pointer engine = CLibrary.INSTANCE.initialize_engine(namespace, engineOptions);
 
@@ -89,7 +95,7 @@ public class FliptEvaluationClient {
       return this;
     }
 
-    public FliptEvaluationClient build() throws JsonProcessingException {
+    public FliptEvaluationClient build() throws EvaluationException {
       return new FliptEvaluationClient(
           namespace,
           new EngineOpts(
@@ -130,35 +136,55 @@ public class FliptEvaluationClient {
     }
   }
 
-  public Result<VariantEvaluationResponse> evaluateVariant(
-      String flagKey, String entityId, Map<String, String> context) throws JsonProcessingException {
+  public VariantEvaluationResponse evaluateVariant(
+      String flagKey, String entityId, Map<String, String> context) throws EvaluationException {
     InternalEvaluationRequest evaluationRequest =
         new InternalEvaluationRequest(flagKey, entityId, context);
 
-    String evaluationRequestSerialized = this.objectMapper.writeValueAsString(evaluationRequest);
+    String evaluationRequestSerialized;
+    try {
+      evaluationRequestSerialized = this.objectMapper.writeValueAsString(evaluationRequest);
+    } catch (JsonProcessingException e) {
+      throw new EvaluationException(e);
+    }
+
     Pointer value = CLibrary.INSTANCE.evaluate_variant(this.engine, evaluationRequestSerialized);
 
     TypeReference<Result<VariantEvaluationResponse>> typeRef =
         new TypeReference<Result<VariantEvaluationResponse>>() {};
 
-    return this.readValue(value, typeRef);
+    Result<VariantEvaluationResponse> resp = this.readValue(value, typeRef);
+    if (!FliptEvaluationClient.STATUS_SUCCESS.equals(resp.getStatus())) {
+      throw new EvaluationException(resp.getErrorMessage().get());
+    }
+    return resp.getResult().get();
   }
 
-  public Result<BooleanEvaluationResponse> evaluateBoolean(
-      String flagKey, String entityId, Map<String, String> context) throws JsonProcessingException {
+  public BooleanEvaluationResponse evaluateBoolean(
+      String flagKey, String entityId, Map<String, String> context) throws EvaluationException {
     InternalEvaluationRequest evaluationRequest =
         new InternalEvaluationRequest(flagKey, entityId, context);
 
-    String evaluationRequestSerialized = this.objectMapper.writeValueAsString(evaluationRequest);
+    String evaluationRequestSerialized;
+    try {
+      evaluationRequestSerialized = this.objectMapper.writeValueAsString(evaluationRequest);
+    } catch (JsonProcessingException e) {
+      throw new EvaluationException(e);
+    }
     Pointer value = CLibrary.INSTANCE.evaluate_boolean(this.engine, evaluationRequestSerialized);
 
     TypeReference<Result<BooleanEvaluationResponse>> typeRef =
         new TypeReference<Result<BooleanEvaluationResponse>>() {};
-    return this.readValue(value, typeRef);
+    Result<BooleanEvaluationResponse> resp = this.readValue(value, typeRef);
+
+    if (!FliptEvaluationClient.STATUS_SUCCESS.equals(resp.getStatus())) {
+      throw new EvaluationException(resp.getErrorMessage().get());
+    }
+    return resp.getResult().get();
   }
 
-  public Result<BatchEvaluationResponse> evaluateBatch(EvaluationRequest[] batchEvaluationRequests)
-      throws JsonProcessingException {
+  public BatchEvaluationResponse evaluateBatch(EvaluationRequest[] batchEvaluationRequests)
+      throws EvaluationException {
     ArrayList<InternalEvaluationRequest> evaluationRequests =
         new ArrayList<>(batchEvaluationRequests.length);
 
@@ -171,33 +197,48 @@ public class FliptEvaluationClient {
               batchEvaluationRequests[i].getContext()));
     }
 
-    String batchEvaluationRequestSerialized =
-        this.objectMapper.writeValueAsString(evaluationRequests.toArray());
+    String batchEvaluationRequestSerialized;
+    try {
+      batchEvaluationRequestSerialized =
+          this.objectMapper.writeValueAsString(evaluationRequests.toArray());
+    } catch (JsonProcessingException e) {
+      throw new EvaluationException(e);
+    }
     Pointer value = CLibrary.INSTANCE.evaluate_batch(this.engine, batchEvaluationRequestSerialized);
 
     TypeReference<Result<BatchEvaluationResponse>> typeRef =
         new TypeReference<Result<BatchEvaluationResponse>>() {};
 
-    return this.readValue(value, typeRef);
+    Result<BatchEvaluationResponse> resp = this.readValue(value, typeRef);
+    if (!FliptEvaluationClient.STATUS_SUCCESS.equals(resp.getStatus())) {
+      throw new EvaluationException(resp.getErrorMessage().get());
+    }
+    return resp.getResult().get();
   }
 
-  public Result<ArrayList<Flag>> listFlags() throws JsonProcessingException {
+  public ArrayList<Flag> listFlags() throws EvaluationException {
     Pointer value = CLibrary.INSTANCE.list_flags(this.engine);
 
     TypeReference<Result<ArrayList<Flag>>> typeRef =
         new TypeReference<Result<ArrayList<Flag>>>() {};
 
-    return this.readValue(value, typeRef);
+    Result<ArrayList<Flag>> resp = this.readValue(value, typeRef);
+    if (!FliptEvaluationClient.STATUS_SUCCESS.equals(resp.getStatus())) {
+      throw new EvaluationException(resp.getErrorMessage().get());
+    }
+    return resp.getResult().get();
   }
 
   public void close() {
     CLibrary.INSTANCE.destroy_engine(this.engine);
   }
 
-  private <T> T readValue(Pointer ptr, TypeReference<T> typeRef) throws JsonProcessingException {
+  private <T> T readValue(Pointer ptr, TypeReference<T> typeRef) throws EvaluationException {
     try {
       String value = ptr.getString(0, "UTF-8");
       return this.objectMapper.readValue(value, typeRef);
+    } catch (JsonProcessingException e) {
+      throw new EvaluationException(e);
     } finally {
       CLibrary.INSTANCE.destroy_string(ptr);
     }
