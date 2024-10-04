@@ -58,8 +58,9 @@ import io.flipt.client.models.*;
 
 public class Main {
     public static void main(String[] args) {
+        FliptEvaluationClient fliptClient = null;
         try {
-            FliptEvaluationClient fliptClient = FliptEvaluationClient.builder()
+            fliptClient = FliptEvaluationClient.builder()
                     .url("http://localhost:8080")
                     .authentication(new ClientTokenAuthentication("secret"))
                     .build();
