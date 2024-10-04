@@ -187,7 +187,7 @@ func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagg
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-python")).
 		WithDirectory("/src/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"**/*.rlib", "*_musl"},
+			Exclude: defaultExclude,
 		}).
 		WithFile("/src/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithWorkdir("/src").
@@ -260,7 +260,9 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 	} else {
 		repository = repository.
 			WithDirectory("/tmp/ext/linux_arm64", hostDirectory.Directory("tmp/linux_arm64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}}).
-			WithDirectory("/tmp/ext/linux_x86_64", hostDirectory.Directory("tmp/linux_x86_64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}})
+			WithDirectory("/tmp/ext/linux_x86_64", hostDirectory.Directory("tmp/linux_x86_64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}}).
+			WithDirectory("/tmp/ext/darwin_arm64", hostDirectory.Directory("tmp/darwin_arm64"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}}).
+			WithDirectory("/tmp/ext/darwin_x86_64", hostDirectory.Directory("tmp/darwin_x86_64"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}})
 	}
 
 	filtered := repository.
@@ -402,27 +404,42 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	// see: https://github.com/java-native-access/jna/blob/master/test/com/sun/jna/PlatformTest.java
 	// we can do this on the host and then copy the files into the container
 
-	rename := map[string]string{
-		"linux_x86_64":      "linux-x86-64",
-		"linux_arm64":       "linux-aarch64",
-		"darwin_x86_64":     "darwin-x86-64",
-		"darwin_arm64":      "darwin-aarch64",
-		"linux_arm64_musl":  "linux-aarch64",
-		"linux_x86_64_musl": "linux-x86-64",
+	type rename struct {
+		old string
+		new string
 	}
 
-	for old, new := range rename {
+	renameGlibc := []rename{
+		{old: "linux_x86_64", new: "linux-x86-64"},
+		{old: "linux_arm64", new: "linux-aarch64"},
+		{old: "darwin_x86_64", new: "darwin-x86-64"},
+		{old: "darwin_arm64", new: "darwin-aarch64"},
+	}
+
+	renameMusl := []rename{
+		{old: "linux_x86_64_musl", new: "linux-x86-64"},
+		{old: "linux_arm64_musl", new: "linux-aarch64"},
+		{old: "darwin_x86_64", new: "darwin-x86-64"},
+		{old: "darwin_arm64", new: "darwin-aarch64"},
+	}
+
+	renames := renameGlibc
+	if buildOpts.libc == musl {
+		renames = renameMusl
+	}
+
+	for _, rename := range renames {
 		// if the directory does not exist, skip it
-		if _, err := os.Stat(fmt.Sprintf("tmp/%s", old)); os.IsNotExist(err) {
+		if _, err := os.Stat(fmt.Sprintf("tmp/%s", rename.old)); os.IsNotExist(err) {
 			continue
 		}
 
 		// remove directory if it exists
-		if err := os.RemoveAll(fmt.Sprintf("tmp/%s", new)); err != nil {
+		if err := os.RemoveAll(fmt.Sprintf("tmp/%s", rename.new)); err != nil {
 			return err
 		}
 
-		if err := os.Rename(fmt.Sprintf("tmp/%s", old), fmt.Sprintf("tmp/%s", new)); err != nil {
+		if err := os.Rename(fmt.Sprintf("tmp/%s", rename.old), fmt.Sprintf("tmp/%s", rename.new)); err != nil {
 			return err
 		}
 	}
@@ -439,10 +456,7 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 			WithExec([]string{"gradle", "-x", "test", "build"})
 	} else {
 		container = container.
-			WithDirectory("/src/src/main/resources/linux-aarch64", hostDirectory.Directory("tmp/linux-aarch64"), dagger.ContainerWithDirectoryOpts{
-				Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"},
-			}).
-			WithDirectory("/src/src/main/resources/linux-x86-64", hostDirectory.Directory("tmp/linux-x86-64"), dagger.ContainerWithDirectoryOpts{
+			WithDirectory("/src/src/main/resources", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
 				Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"},
 			}).
 			WithWorkdir("/src").

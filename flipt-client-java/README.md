@@ -1,6 +1,7 @@
 # Flipt Client Java
 
-[![Maven Central](https://img.shields.io/maven-central/v/io.flipt/flipt-client-java)](https://central.sonatype.com/artifact/io.flipt/flipt-client-java)
+[![Maven Central](https://img.shields.io/maven-central/v/io.flipt/flipt-client-java?label=flipt-client-java)](https://central.sonatype.com/artifact/io.flipt/flipt-client-java)
+[![Maven Central (Musl)](https://img.shields.io/maven-central/v/io.flipt/flipt-client-java-musl?label=flipt-client-java-musl)](https://central.sonatype.com/artifact/io.flipt/flipt-client-java-musl)
 
 The `flipt-client-java` library contains the Java source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client.
 
@@ -33,9 +34,15 @@ Add the dependency in your `pom.xml`:
 This SDK currently supports the following OSes/architectures:
 
 - Linux x86_64
+- Linux x86_64 (musl)
 - Linux arm64
+- Linux arm64 (musl)
 - MacOS x86_64
 - MacOS arm64
+
+### Glibc vs Musl
+
+Most Linux distributions use [Glibc](https://en.wikipedia.org/wiki/Glibc), but some distributions like Alpine Linux use [Musl](https://en.wikipedia.org/wiki/Musl). If you are using Alpine Linux, you will need to install the `musl` version of the client.
 
 ## Usage
 
@@ -51,8 +58,9 @@ import io.flipt.client.models.*;
 
 public class Main {
     public static void main(String[] args) {
+        FliptEvaluationClient fliptClient = null;
         try {
-            FliptEvaluationClient fliptClient = FliptEvaluationClient.builder()
+            fliptClient = FliptEvaluationClient.builder()
                     .url("http://localhost:8080")
                     .authentication(new ClientTokenAuthentication("secret"))
                     .build();

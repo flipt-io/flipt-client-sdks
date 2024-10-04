@@ -52,16 +52,16 @@ We are constantly growing our list of supported languages.
 
 Currently, we support the following languages/platforms:
 
-| Language                                       | Implementation |
-| ---------------------------------------------- | -------------- |
-| [Go](./flipt-client-go)                        | FFI            |
-| [Python](./flipt-client-python)                | FFI            |
-| [Ruby](./flipt-client-ruby)                    | FFI            |
-| [NodeJS](./flipt-client-node)                  | WASM           |
-| [Java](./flipt-client-java)                    | FFI            |
-| [JavaScript (Browser)](./flipt-client-browser) | WASM           |
-| [React Web (Browser)](./flipt-client-react)    | WASM           |
-| [Flutter/Dart](./flipt-client-dart)            | FFI            |
+| Language                                       | Implementation | Glibc | Musl (Alpine) |
+| ---------------------------------------------- | -------------- | ----- | ------------- |
+| [Go](./flipt-client-go)                        | FFI            | ✅    | ✅            |
+| [Python](./flipt-client-python)                | FFI            | ✅    | ❌            |
+| [Ruby](./flipt-client-ruby)                    | FFI            | ✅    | ❌            |
+| [NodeJS](./flipt-client-node)                  | WASM           | N/A   | N/A           |
+| [Java](./flipt-client-java)                    | FFI            | ✅    | ✅            |
+| [JavaScript (Browser)](./flipt-client-browser) | WASM           | N/A   | N/A           |
+| [React Web (Browser)](./flipt-client-react)    | WASM           | N/A   | N/A           |
+| [Flutter/Dart](./flipt-client-dart)            | FFI            | ✅    | ❌            |
 
 Documentation for each client can be found in the README of that client's directory.
 
