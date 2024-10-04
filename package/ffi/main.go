@@ -407,8 +407,6 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		"linux_arm64":       "linux-aarch64",
 		"darwin_x86_64":     "darwin-x86-64",
 		"darwin_arm64":      "darwin-aarch64",
-		"linux_arm64_musl":  "linux-aarch64",
-		"linux_x86_64_musl": "linux-x86-64",
 	}
 
 	for old, new := range rename {
@@ -439,10 +437,10 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 			WithExec([]string{"gradle", "-x", "test", "build"})
 	} else {
 		container = container.
-			WithDirectory("/src/src/main/resources/linux-aarch64", hostDirectory.Directory("tmp/linux-aarch64"), dagger.ContainerWithDirectoryOpts{
+			WithDirectory("/src/src/main/resources/linux-aarch64", hostDirectory.Directory("tmp/linux_arm64_musl"), dagger.ContainerWithDirectoryOpts{
 				Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"},
 			}).
-			WithDirectory("/src/src/main/resources/linux-x86-64", hostDirectory.Directory("tmp/linux-x86-64"), dagger.ContainerWithDirectoryOpts{
+			WithDirectory("/src/src/main/resources/linux-x86-64", hostDirectory.Directory("tmp/linux_x86_64_musl"), dagger.ContainerWithDirectoryOpts{
 				Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"},
 			}).
 			WithWorkdir("/src").
