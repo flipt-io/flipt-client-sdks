@@ -30,14 +30,7 @@ public class TestFliptEvaluationClient {
     Map<String, String> context = new HashMap<>();
     context.put("fizz", "buzz");
 
-    Result<VariantEvaluationResponse> result =
-        fliptClient.evaluateVariant("flag1", "entity", context);
-
-    Assertions.assertEquals("success", result.getStatus());
-    Assertions.assertFalse(result.getErrorMessage().isPresent());
-    Assertions.assertTrue(result.getResult().isPresent());
-
-    VariantEvaluationResponse response = result.getResult().get();
+    VariantEvaluationResponse response = fliptClient.evaluateVariant("flag1", "entity", context);
 
     Assertions.assertEquals("flag1", response.getFlagKey());
     Assertions.assertTrue(response.isMatch());
@@ -51,14 +44,9 @@ public class TestFliptEvaluationClient {
     Map<String, String> context = new HashMap<>();
     context.put("fizz", "buzz");
 
-    Result<BooleanEvaluationResponse> result =
+    BooleanEvaluationResponse response =
         fliptClient.evaluateBoolean("flag_boolean", "entity", context);
 
-    Assertions.assertEquals("success", result.getStatus());
-    Assertions.assertFalse(result.getErrorMessage().isPresent());
-    Assertions.assertTrue(result.getResult().isPresent());
-
-    BooleanEvaluationResponse response = result.getResult().get();
     Assertions.assertEquals("flag_boolean", response.getFlagKey());
     Assertions.assertTrue(response.isEnabled());
     Assertions.assertEquals("MATCH_EVALUATION_REASON", response.getReason());
@@ -75,12 +63,7 @@ public class TestFliptEvaluationClient {
       new EvaluationRequest("notfound", "entity", context)
     };
 
-    Result<BatchEvaluationResponse> result = fliptClient.evaluateBatch(evalRequests);
-
-    Assertions.assertEquals("success", result.getStatus());
-    Assertions.assertFalse(result.getErrorMessage().isPresent());
-    Assertions.assertTrue(result.getResult().isPresent());
-    BatchEvaluationResponse response = result.getResult().get();
+    BatchEvaluationResponse response = fliptClient.evaluateBatch(evalRequests);
 
     Assertions.assertEquals(3, response.getResponses().length);
     Response[] responses = response.getResponses();
@@ -108,13 +91,7 @@ public class TestFliptEvaluationClient {
 
   @Test
   void testListFlags() throws Exception {
-    Result<ArrayList<Flag>> result = fliptClient.listFlags();
-
-    Assertions.assertEquals("success", result.getStatus());
-    Assertions.assertFalse(result.getErrorMessage().isPresent());
-    Assertions.assertTrue(result.getResult().isPresent());
-
-    ArrayList<Flag> flags = result.getResult().get();
+    ArrayList<Flag> flags = fliptClient.listFlags();
     Assertions.assertEquals(2, flags.size());
   }
 
