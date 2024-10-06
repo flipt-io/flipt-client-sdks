@@ -68,7 +68,7 @@ public class Main {
             Map<String, String> context = new HashMap<>();
             context.put("fizz", "buzz");
 
-            Result<VariantEvaluationResponse> result =
+            VariantEvaluationResponse response =
                     fliptClient.evaluateVariant("flag1", "entity", context);
         } catch (Exception e) {
             e.printStackTrace();
