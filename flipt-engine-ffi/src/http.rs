@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{mpsc, Arc};
+use std::thread;
 use std::time::Duration;
-use tokio::sync::mpsc;
 
 use reqwest::header::{self, HeaderMap};
 use serde::Deserialize;
@@ -147,23 +147,23 @@ impl HTTPFetcher {
 
     pub fn start(&mut self) -> mpsc::Receiver<Result<source::Document, Error>> {
         let running = Arc::new(AtomicBool::new(true));
-        let (tx, rx) = mpsc::channel(100);
+        let (tx, rx) = mpsc::channel();
         let mut fetcher = self.clone();
 
-        tokio::spawn(async move {
+        thread::spawn(move || {
             while running.load(Ordering::Relaxed) {
                 match fetcher.fetch() {
                     Ok(doc) => {
                         if let Some(doc) = doc {
-                            tx.send(Ok(doc)).await.unwrap();
+                            tx.send(Ok(doc)).unwrap();
                         }
                     }
                     Err(e) => {
-                        tx.send(Err(e)).await.unwrap();
+                        tx.send(Err(e)).unwrap();
                     }
                 }
 
-                tokio::time::sleep(fetcher.update_interval).await;
+                thread::sleep(fetcher.update_interval);
             }
         });
         rx
@@ -203,9 +203,17 @@ impl Fetcher for HTTPFetcher {
         let response = match self.http_client.get(url).headers(headers).send() {
             Ok(resp) => match resp.error_for_status() {
                 Ok(resp) => resp,
-                Err(e) => return Err(Error::Server(format!("response: {}", e))),
+                Err(e) => {
+                    // TODO: probably should retry a few times
+                    self.stop();
+                    return Err(Error::Server(format!("response: {}", e)));
+                }
             },
-            Err(e) => return Err(Error::Server(format!("failed to make request: {}", e))),
+            Err(e) => {
+                // TODO: probably should retry a few times
+                self.stop();
+                return Err(Error::Server(format!("failed to make request: {}", e)));
+            }
         };
 
         match response.status() {

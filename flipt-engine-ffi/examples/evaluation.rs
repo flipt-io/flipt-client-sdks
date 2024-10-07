@@ -1,35 +1,28 @@
 // cargo run --example evaluation
 
-// use fliptengine::{
-//     evaluator::Evaluator,
-//     http::{Authentication, HTTPFetcherBuilder},
-// };
-// use fliptevaluation::EvaluationRequest;
-// use std::collections::HashMap;
+use fliptengine::{
+    evaluator::Evaluator,
+    http::{Authentication, HTTPFetcherBuilder},
+};
+use fliptevaluation::EvaluationRequest;
+use std::collections::HashMap;
 
-// fn main() {
-//     let evaluator = Evaluator::new_snapshot_evaluator(
-//         "default".into(),
-//         HTTPFetcherBuilder::new("http://localhost:8080")
-//             .authentication(Authentication::with_client_token("secret".into()))
-//             .build(),
-//     )
-//     .unwrap();
+fn main() {
+    let fetcher = HTTPFetcherBuilder::new("http://localhost:8080", "default")
+        .authentication(Authentication::with_client_token("secret".into()))
+        .build();
+    let evaluator = Evaluator::new("default".into()).unwrap();
 
-//     let eng = fliptengine::Engine::new(evaluator, Default::default());
-//     let mut context: HashMap<String, String> = HashMap::new();
-//     context.insert("fizz".into(), "buzz".into());
+    let engine = fliptengine::Engine::new(fetcher, evaluator);
+    let mut context: HashMap<String, String> = HashMap::new();
+    context.insert("fizz".into(), "buzz".into());
 
-//     let thread = std::thread::spawn(move || loop {
-//         std::thread::sleep(std::time::Duration::from_millis(5000));
-//         let variant = eng.variant(&EvaluationRequest {
-//             flag_key: "flag1".into(),
-//             entity_id: "entity".into(),
-//             context: context.clone(),
-//         });
+    std::thread::sleep(std::time::Duration::from_millis(5000));
+    let variant = engine.variant(&EvaluationRequest {
+        flag_key: "flag1".into(),
+        entity_id: "entity".into(),
+        context: context.clone(),
+    });
 
-//         println!("variant key {:?}", variant.unwrap().variant_key);
-//     });
-
-//     thread.join().expect("current thread panicked");
-// }
+    println!("variant key {:?}", variant.unwrap().variant_key);
+}

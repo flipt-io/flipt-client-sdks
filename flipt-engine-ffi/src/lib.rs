@@ -1,17 +1,15 @@
-mod evaluator;
-mod http;
+pub mod evaluator;
+pub mod http;
 
 use evaluator::Evaluator;
-use http::{Authentication, HTTPFetcher, HTTPFetcherBuilder};
-use tokio::runtime::Runtime;
-
 use fliptevaluation::error::Error;
-use fliptevaluation::models::{flipt, source};
+use fliptevaluation::models::flipt;
 use fliptevaluation::store::Snapshot;
 use fliptevaluation::{
     BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
     VariantEvaluationResponse,
 };
+use http::{Authentication, HTTPFetcher, HTTPFetcherBuilder};
 use libc::c_void;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -19,6 +17,7 @@ use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::Duration;
 use thiserror::Error;
 
@@ -101,32 +100,28 @@ impl Default for EngineOpts {
 pub struct Engine {
     fetcher: HTTPFetcher,
     evaluator: Arc<Mutex<Evaluator<Snapshot>>>,
+    // Add a new field to store the thread handle
+    _update_thread: thread::JoinHandle<()>,
 }
 
 impl Engine {
     pub fn new(mut fetcher: HTTPFetcher, evaluator: Evaluator<Snapshot>) -> Self {
-        let runtime = Runtime::new().unwrap();
-
-        let mut rec = fetcher.start();
+        // Start the fetcher with the sender
+        let rx = fetcher.start();
         let evaluator = Arc::new(Mutex::new(evaluator));
         let evaluator_clone = evaluator.clone();
 
-        runtime.spawn(async move {
-            while let Some(doc) = rec.recv().await {
-                match doc {
-                    Ok(doc) => {
-                        evaluator_clone.lock().unwrap().replace_snapshot(doc);
-                    }
-                    // todo: handle error
-                    Err(_) => evaluator_clone
-                        .lock()
-                        .unwrap()
-                        .replace_snapshot(source::Document::default()),
-                }
+        let update_thread = thread::spawn(move || {
+            while let Ok(res) = rx.recv() {
+                evaluator_clone.lock().unwrap().replace_snapshot(res);
             }
         });
 
-        Self { fetcher, evaluator }
+        Self {
+            fetcher,
+            evaluator,
+            _update_thread: update_thread,
+        }
     }
 
     pub fn variant(

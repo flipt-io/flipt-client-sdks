@@ -30,12 +30,21 @@ impl Evaluator<Snapshot> {
         })
     }
 
-    pub fn replace_snapshot(&mut self, source: source::Document) {
+    pub fn replace_snapshot(&mut self, res: Result<source::Document, Error>) {
         let _w_lock = self.mtx.write().unwrap();
-        match Snapshot::build(&self.namespace, source) {
-            Ok(s) => {
-                self.store = s;
-                self.error = None;
+        match res {
+            Ok(doc) => {
+                match Snapshot::build(&self.namespace, doc) {
+                    Ok(s) => {
+                        self.store = s;
+                        self.error = None;
+                    }
+                    Err(err) => {
+                        // TODO: log::error!("error building snapshot: {}", e);
+                        self.store = Snapshot::empty(&self.namespace);
+                        self.error = Some(err);
+                    }
+                }
             }
             Err(err) => {
                 // TODO: log::error!("error building snapshot: {}", e);
@@ -117,6 +126,31 @@ mod tests {
     }
 
     #[test]
+    fn test_with_error() {
+        let expected_error = "unknown error: server error: can't connect";
+
+        let mut evaluator = Evaluator::new("namespace").expect("expect valid evaluator");
+        evaluator.replace_snapshot(Err(Error::Unknown(
+            "server error: can't connect".to_string(),
+        )));
+
+        let response = evaluator.list_flags();
+        assert_error_response(response, expected_error);
+        let requests = vec![];
+        let response = evaluator.batch(requests);
+        assert_error_response(response, expected_error);
+        let request = &EvaluationRequest {
+            flag_key: String::from("foo"),
+            entity_id: String::from("user@flipt.io"),
+            context: HashMap::new(),
+        };
+        let response = evaluator.boolean(request);
+        assert_error_response(response, expected_error);
+        let response = evaluator.variant(request);
+        assert_error_response(response, expected_error);
+    }
+
+    #[test]
     fn test_empty_snapshot() {
         let evaluator = Evaluator::new("namespace").expect("expect valid evaluator");
 
@@ -164,7 +198,7 @@ mod tests {
             flags: Vec::new(),
         };
 
-        evaluator.replace_snapshot(document);
+        evaluator.replace_snapshot(Ok(document));
         let response = evaluator.list_flags();
         match response {
             Err(err) => assert_eq!(
