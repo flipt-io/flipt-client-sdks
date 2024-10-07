@@ -117,8 +117,8 @@ mod tests {
     }
 
     #[test]
-    fn test_parser_with_empty_snapshot() {
-        let mut evaluator = Evaluator::new("namespace").expect("expect valid evaluator");
+    fn test_empty_snapshot() {
+        let evaluator = Evaluator::new("namespace").expect("expect valid evaluator");
 
         let response = evaluator.list_flags();
         match response {

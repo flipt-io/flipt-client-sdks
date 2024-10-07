@@ -1,3 +1,8 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::mpsc;
+
 use reqwest::header::{self, HeaderMap};
 use serde::Deserialize;
 
@@ -59,35 +64,35 @@ pub trait Fetcher: Send {
     fn fetch(&mut self) -> Result<Option<source::Document>, Error>;
 }
 
+#[derive(Clone)]
 pub struct HTTPFetcher {
     namespace: String,
     http_client: reqwest::blocking::Client,
-    http_url: String,
+    base_url: String,
     authentication: HeaderMap,
     reference: Option<String>,
     etag: Option<String>,
+    update_interval: Duration,
+    running: Arc<AtomicBool>,
 }
 
 pub struct HTTPFetcherBuilder {
     namespace: String,
-    http_url: String,
+    base_url: String,
     authentication: HeaderMap,
     reference: Option<String>,
+    update_interval: Duration,
 }
 
 impl HTTPFetcherBuilder {
-    pub fn new(http_url: &str) -> Self {
+    pub fn new(base_url: &str, namespace: &str) -> Self {
         Self {
-            namespace: "default".to_string(),
-            http_url: http_url.to_string(),
+            namespace: namespace.to_string(),
+            base_url: base_url.to_string(),
             authentication: HeaderMap::new(),
             reference: None,
+            update_interval: Duration::from_secs(120),
         }
-    }
-
-    pub fn namespace(mut self, namespace: &str) -> Self {
-        self.namespace = namespace.to_string();
-        self
     }
 
     pub fn authentication(mut self, authentication: Authentication) -> Self {
@@ -100,6 +105,11 @@ impl HTTPFetcherBuilder {
         self
     }
 
+    pub fn update_interval(mut self, update_interval: Duration) -> Self {
+        self.update_interval = update_interval;
+        self
+    }
+
     pub fn build(self) -> HTTPFetcher {
         HTTPFetcher {
             namespace: self.namespace,
@@ -107,30 +117,60 @@ impl HTTPFetcherBuilder {
                 .timeout(std::time::Duration::from_secs(10))
                 .build()
                 .unwrap(),
-            http_url: self.http_url,
+            base_url: self.base_url,
             authentication: self.authentication,
             reference: self.reference,
             etag: None,
+            update_interval: self.update_interval,
+            running: Arc::new(AtomicBool::new(false)),
         }
     }
 }
 
 impl HTTPFetcher {
-    fn url(&self, namespace: &str) -> String {
+    fn url(&self) -> String {
         match &self.reference {
             Some(reference) => {
                 format!(
                     "{}/internal/v1/evaluation/snapshot/namespace/{}?reference={}",
-                    self.http_url, namespace, reference,
+                    self.base_url, self.namespace, reference,
                 )
             }
             None => {
                 format!(
                     "{}/internal/v1/evaluation/snapshot/namespace/{}",
-                    self.http_url, namespace
+                    self.base_url, self.namespace
                 )
             }
         }
+    }
+
+    pub fn start(&mut self) -> mpsc::Receiver<Result<source::Document, Error>> {
+        let running = Arc::new(AtomicBool::new(true));
+        let (tx, rx) = mpsc::channel(100);
+        let mut fetcher = self.clone();
+
+        tokio::spawn(async move {
+            while running.load(Ordering::Relaxed) {
+                match fetcher.fetch() {
+                    Ok(doc) => {
+                        if let Some(doc) = doc {
+                            tx.send(Ok(doc)).await.unwrap();
+                        }
+                    }
+                    Err(e) => {
+                        tx.send(Err(e)).await.unwrap();
+                    }
+                }
+
+                tokio::time::sleep(fetcher.update_interval).await;
+            }
+        });
+        rx
+    }
+
+    pub fn stop(&mut self) {
+        self.running.store(false, Ordering::Relaxed);
     }
 }
 
@@ -159,7 +199,7 @@ impl Fetcher for HTTPFetcher {
             headers.insert(key, value.clone());
         }
 
-        let url = self.url(&self.namespace);
+        let url = self.url();
         let response = match self.http_client.get(url).headers(headers).send() {
             Ok(resp) => match resp.error_for_status() {
                 Ok(resp) => resp,
@@ -216,7 +256,7 @@ mod tests {
             .create();
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
             .authentication(Authentication::None)
             .build();
 
@@ -238,7 +278,7 @@ mod tests {
             .create();
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
             .authentication(Authentication::None)
             .build();
 
@@ -261,7 +301,7 @@ mod tests {
             .create();
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
             .authentication(Authentication::None)
             .build();
 
@@ -283,7 +323,7 @@ mod tests {
             .create();
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
             .authentication(Authentication::ClientToken("foo".to_string()))
             .build();
 
@@ -305,7 +345,7 @@ mod tests {
             .create();
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
             .authentication(Authentication::JwtToken("foo".to_string()))
             .build();
 
@@ -327,7 +367,7 @@ mod tests {
             .create();
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
             .authentication(Authentication::JwtToken("foo".to_string()))
             .build();
 
@@ -341,22 +381,22 @@ mod tests {
     fn test_http_fetcher_url() {
         use super::HTTPFetcherBuilder;
 
-        let fetcher = HTTPFetcherBuilder::new("http://localhost:8080")
+        let fetcher = HTTPFetcherBuilder::new("http://localhost:8080", "default")
             .authentication(Authentication::with_client_token("secret".into()))
             .reference("ref")
             .build();
 
         assert_eq!(
-            fetcher.url("default"),
+            fetcher.url(),
             "http://localhost:8080/internal/v1/evaluation/snapshot/namespace/default?reference=ref"
         );
 
-        let fetcher = HTTPFetcherBuilder::new("http://localhost:8080")
+        let fetcher = HTTPFetcherBuilder::new("http://localhost:8080", "default")
             .authentication(Authentication::with_client_token("secret".into()))
             .build();
 
         assert_eq!(
-            fetcher.url("default"),
+            fetcher.url(),
             "http://localhost:8080/internal/v1/evaluation/snapshot/namespace/default"
         );
     }

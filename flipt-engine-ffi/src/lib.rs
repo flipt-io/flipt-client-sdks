@@ -2,10 +2,11 @@ mod evaluator;
 mod http;
 
 use evaluator::Evaluator;
-use http::{Authentication, Fetcher, HTTPFetcherBuilder};
+use http::{Authentication, HTTPFetcher, HTTPFetcherBuilder};
+use tokio::runtime::Runtime;
 
 use fliptevaluation::error::Error;
-use fliptevaluation::models::flipt;
+use fliptevaluation::models::{flipt, source};
 use fliptevaluation::store::Snapshot;
 use fliptevaluation::{
     BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
@@ -18,6 +19,7 @@ use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use thiserror::Error;
 
 #[derive(Deserialize)]
@@ -81,7 +83,6 @@ fn result_to_json_ptr<T: Serialize>(result: Result<T, Error>) -> *mut c_char {
 pub struct EngineOpts {
     url: Option<String>,
     authentication: Option<Authentication>,
-    streaming: Option<bool>,
     update_interval: Option<u64>,
     reference: Option<String>,
 }
@@ -91,7 +92,6 @@ impl Default for EngineOpts {
         Self {
             url: Some("http://localhost:8080".into()),
             authentication: None,
-            streaming: Some(false),
             update_interval: Some(120),
             reference: None,
         }
@@ -99,36 +99,34 @@ impl Default for EngineOpts {
 }
 
 pub struct Engine {
-    pub opts: EngineOpts,
-    pub evaluator: Arc<Mutex<Evaluator<Snapshot>>>,
+    fetcher: HTTPFetcher,
+    evaluator: Arc<Mutex<Evaluator<Snapshot>>>,
 }
 
 impl Engine {
-    pub fn new(
-        opts: EngineOpts,
-        mut fetcher: Box<dyn Fetcher>,
-        evaluator: Evaluator<Snapshot>,
-    ) -> Self {
-        let streaming = opts.streaming.unwrap_or(false);
+    pub fn new(mut fetcher: HTTPFetcher, evaluator: Evaluator<Snapshot>) -> Self {
+        let runtime = Runtime::new().unwrap();
 
-        let engine = Self {
-            opts,
-            evaluator: Arc::new(Mutex::new(evaluator)),
-        };
+        let mut rec = fetcher.start();
+        let evaluator = Arc::new(Mutex::new(evaluator));
+        let evaluator_clone = evaluator.clone();
 
-        if !streaming {
-            let evaluator = engine.evaluator.clone();
-            let update_interval = engine.opts.update_interval.unwrap_or(120);
+        runtime.spawn(async move {
+            while let Some(doc) = rec.recv().await {
+                match doc {
+                    Ok(doc) => {
+                        evaluator_clone.lock().unwrap().replace_snapshot(doc);
+                    }
+                    // todo: handle error
+                    Err(_) => evaluator_clone
+                        .lock()
+                        .unwrap()
+                        .replace_snapshot(source::Document::default()),
+                }
+            }
+        });
 
-            std::thread::spawn(move || loop {
-                std::thread::sleep(std::time::Duration::from_secs(update_interval));
-                let mut lock = evaluator.lock().unwrap();
-                let doc = fetcher.as_mut().fetch().unwrap();
-                lock.replace_snapshot(doc.unwrap_or_default());
-            });
-        }
-
-        engine
+        Self { fetcher, evaluator }
     }
 
     pub fn variant(
@@ -202,8 +200,16 @@ pub unsafe extern "C" fn initialize_engine(
 
     let authentication = engine_opts.authentication.to_owned();
     let reference = engine_opts.reference.to_owned();
+    let update_interval = engine_opts.update_interval.to_owned();
 
-    let mut fetcher_builder = HTTPFetcherBuilder::new(&http_url).namespace(namespace);
+    let mut fetcher_builder = HTTPFetcherBuilder::new(&http_url, namespace);
+
+    fetcher_builder = match update_interval {
+        Some(update_interval) => {
+            fetcher_builder.update_interval(Duration::from_secs(update_interval))
+        }
+        None => fetcher_builder,
+    };
 
     fetcher_builder = match authentication {
         Some(authentication) => fetcher_builder.authentication(authentication),
@@ -215,10 +221,9 @@ pub unsafe extern "C" fn initialize_engine(
         None => fetcher_builder,
     };
 
-    // need to store fetcher on the heap because we dont know it's size at compile time
-    let fetcher = Box::new(fetcher_builder.build());
+    let fetcher = fetcher_builder.build();
     let evaluator = Evaluator::new(namespace).unwrap();
-    let engine = Engine::new(engine_opts, fetcher, evaluator);
+    let engine = Engine::new(fetcher, evaluator);
 
     Box::into_raw(Box::new(engine)) as *mut c_void
 }
@@ -336,7 +341,10 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
         return;
     }
 
-    drop(Box::from_raw(engine_ptr as *mut Engine));
+    let mut engine = Box::from_raw(engine_ptr as *mut Engine);
+    engine.fetcher.stop();
+
+    drop(engine);
 }
 
 /// # Safety
