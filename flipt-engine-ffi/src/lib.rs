@@ -1,8 +1,8 @@
-pub mod evaluator;
-pub mod http;
+mod evaluator;
+mod http;
 
 use evaluator::Evaluator;
-use http::{Authentication, HTTPParser, HTTPParserBuilder};
+use http::{Authentication, Fetcher, HTTPFetcherBuilder};
 
 use fliptevaluation::error::Error;
 use fliptevaluation::models::flipt;
@@ -81,6 +81,7 @@ fn result_to_json_ptr<T: Serialize>(result: Result<T, Error>) -> *mut c_char {
 pub struct EngineOpts {
     url: Option<String>,
     authentication: Option<Authentication>,
+    streaming: Option<bool>,
     update_interval: Option<u64>,
     reference: Option<String>,
 }
@@ -90,6 +91,7 @@ impl Default for EngineOpts {
         Self {
             url: Some("http://localhost:8080".into()),
             authentication: None,
+            streaming: Some(false),
             update_interval: Some(120),
             reference: None,
         }
@@ -98,30 +100,35 @@ impl Default for EngineOpts {
 
 pub struct Engine {
     pub opts: EngineOpts,
-    pub evaluator: Arc<Mutex<Evaluator<HTTPParser, Snapshot>>>,
+    pub evaluator: Arc<Mutex<Evaluator<Snapshot>>>,
 }
 
 impl Engine {
-    pub fn new(evaluator: Evaluator<HTTPParser, Snapshot>, opts: EngineOpts) -> Self {
-        let mut engine = Self {
+    pub fn new(
+        opts: EngineOpts,
+        mut fetcher: Box<dyn Fetcher>,
+        evaluator: Evaluator<Snapshot>,
+    ) -> Self {
+        let streaming = opts.streaming.unwrap_or(false);
+
+        let engine = Self {
             opts,
             evaluator: Arc::new(Mutex::new(evaluator)),
         };
 
-        engine.update();
+        if !streaming {
+            let evaluator = engine.evaluator.clone();
+            let update_interval = engine.opts.update_interval.unwrap_or(120);
+
+            std::thread::spawn(move || loop {
+                std::thread::sleep(std::time::Duration::from_secs(update_interval));
+                let mut lock = evaluator.lock().unwrap();
+                let doc = fetcher.as_mut().fetch().unwrap();
+                lock.replace_snapshot(doc.unwrap_or_default());
+            });
+        }
 
         engine
-    }
-
-    fn update(&mut self) {
-        let evaluator = self.evaluator.clone();
-        let update_interval = self.opts.update_interval.unwrap_or(120);
-
-        std::thread::spawn(move || loop {
-            std::thread::sleep(std::time::Duration::from_secs(update_interval));
-            let mut lock = evaluator.lock().unwrap();
-            lock.replace_snapshot();
-        });
     }
 
     pub fn variant(
@@ -196,22 +203,24 @@ pub unsafe extern "C" fn initialize_engine(
     let authentication = engine_opts.authentication.to_owned();
     let reference = engine_opts.reference.to_owned();
 
-    let mut parser_builder = HTTPParserBuilder::new(&http_url);
+    let mut fetcher_builder = HTTPFetcherBuilder::new(&http_url).namespace(namespace);
 
-    parser_builder = match authentication {
-        Some(authentication) => parser_builder.authentication(authentication),
-        None => parser_builder,
+    fetcher_builder = match authentication {
+        Some(authentication) => fetcher_builder.authentication(authentication),
+        None => fetcher_builder,
     };
 
-    parser_builder = match reference {
-        Some(reference) => parser_builder.reference(&reference),
-        None => parser_builder,
+    fetcher_builder = match reference {
+        Some(reference) => fetcher_builder.reference(&reference),
+        None => fetcher_builder,
     };
 
-    let parser = parser_builder.build();
-    let evaluator = Evaluator::new_snapshot_evaluator(namespace, parser).unwrap();
+    // need to store fetcher on the heap because we dont know it's size at compile time
+    let fetcher = Box::new(fetcher_builder.build());
+    let evaluator = Evaluator::new(namespace).unwrap();
+    let engine = Engine::new(engine_opts, fetcher, evaluator);
 
-    Box::into_raw(Box::new(Engine::new(evaluator, engine_opts))) as *mut c_void
+    Box::into_raw(Box::new(engine)) as *mut c_void
 }
 
 /// # Safety

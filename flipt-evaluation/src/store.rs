@@ -277,15 +277,50 @@ impl Store for Snapshot {
 
 #[cfg(test)]
 mod tests {
+    use std::{fs, path::PathBuf};
+
     use super::{Snapshot, Store};
-    use crate::models::flipt;
-    use crate::parser::Parser;
-    use crate::parser::TestParser;
+    use crate::{error::Error, models::flipt, models::source};
+
+    #[cfg(test)]
+    pub struct TestFetcher {
+        path: Option<String>,
+    }
+
+    #[cfg(test)]
+    impl TestFetcher {
+        pub fn new() -> Self {
+            Self { path: None }
+        }
+    }
+
+    #[cfg(test)]
+    impl TestFetcher {
+        fn fetch(&mut self, _: &str) -> Result<Option<source::Document>, Error> {
+            let f = match &self.path {
+                Some(path) => path.to_owned(),
+                None => {
+                    let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+                    d.push("src/testdata/state.json");
+                    d.display().to_string()
+                }
+            };
+
+            let state = fs::read_to_string(f).expect("file should have read correctly");
+
+            let document: source::Document = match serde_json::from_str(&state) {
+                Ok(document) => document,
+                Err(e) => return Err(Error::InvalidJSON(e.to_string())),
+            };
+
+            Ok(Some(document))
+        }
+    }
 
     #[test]
     fn test_snapshot() {
-        let mut tp = TestParser::new();
-        let doc = tp.parse("default").unwrap();
+        let mut tp = TestFetcher::new();
+        let doc = tp.fetch("default").unwrap();
 
         let snapshot = Snapshot::build("default", doc.unwrap()).unwrap();
 

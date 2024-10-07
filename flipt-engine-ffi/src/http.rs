@@ -3,7 +3,6 @@ use serde::Deserialize;
 
 use fliptevaluation::error::Error;
 use fliptevaluation::models::source;
-use fliptevaluation::parser::Parser;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -56,8 +55,12 @@ impl From<Authentication> for HeaderMap {
         }
     }
 }
+pub trait Fetcher: Send {
+    fn fetch(&mut self) -> Result<Option<source::Document>, Error>;
+}
 
-pub struct HTTPParser {
+pub struct HTTPFetcher {
+    namespace: String,
     http_client: reqwest::blocking::Client,
     http_url: String,
     authentication: HeaderMap,
@@ -65,19 +68,26 @@ pub struct HTTPParser {
     etag: Option<String>,
 }
 
-pub struct HTTPParserBuilder {
+pub struct HTTPFetcherBuilder {
+    namespace: String,
     http_url: String,
     authentication: HeaderMap,
     reference: Option<String>,
 }
 
-impl HTTPParserBuilder {
+impl HTTPFetcherBuilder {
     pub fn new(http_url: &str) -> Self {
         Self {
+            namespace: "default".to_string(),
             http_url: http_url.to_string(),
             authentication: HeaderMap::new(),
             reference: None,
         }
+    }
+
+    pub fn namespace(mut self, namespace: &str) -> Self {
+        self.namespace = namespace.to_string();
+        self
     }
 
     pub fn authentication(mut self, authentication: Authentication) -> Self {
@@ -90,8 +100,9 @@ impl HTTPParserBuilder {
         self
     }
 
-    pub fn build(self) -> HTTPParser {
-        HTTPParser {
+    pub fn build(self) -> HTTPFetcher {
+        HTTPFetcher {
+            namespace: self.namespace,
             http_client: reqwest::blocking::Client::builder()
                 .timeout(std::time::Duration::from_secs(10))
                 .build()
@@ -104,7 +115,7 @@ impl HTTPParserBuilder {
     }
 }
 
-impl HTTPParser {
+impl HTTPFetcher {
     fn url(&self, namespace: &str) -> String {
         match &self.reference {
             Some(reference) => {
@@ -123,8 +134,8 @@ impl HTTPParser {
     }
 }
 
-impl Parser for HTTPParser {
-    fn parse(&mut self, namespace: &str) -> Result<Option<source::Document>, Error> {
+impl Fetcher for HTTPFetcher {
+    fn fetch(&mut self) -> Result<Option<source::Document>, Error> {
         let mut headers = HeaderMap::new();
         headers.insert(
             reqwest::header::ACCEPT,
@@ -148,18 +159,15 @@ impl Parser for HTTPParser {
             headers.insert(key, value.clone());
         }
 
-        let response = match self
-            .http_client
-            .get(self.url(namespace))
-            .headers(headers)
-            .send()
-        {
+        let url = self.url(&self.namespace);
+        let response = match self.http_client.get(url).headers(headers).send() {
             Ok(resp) => match resp.error_for_status() {
                 Ok(resp) => resp,
                 Err(e) => return Err(Error::Server(format!("response: {}", e))),
             },
             Err(e) => return Err(Error::Server(format!("failed to make request: {}", e))),
         };
+
         match response.status() {
             // check if we have a 304 response
             reqwest::StatusCode::NOT_MODIFIED => Ok(None),
@@ -193,11 +201,11 @@ impl Parser for HTTPParser {
 #[cfg(test)]
 mod tests {
     use crate::http::Authentication;
-    use crate::http::HTTPParserBuilder;
-    use fliptevaluation::parser::Parser;
+    use crate::http::Fetcher;
+    use crate::http::HTTPFetcherBuilder;
 
     #[test]
-    fn test_http_parse() {
+    fn test_http_fetch() {
         let mut server = mockito::Server::new();
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
@@ -208,20 +216,20 @@ mod tests {
             .create();
 
         let url = server.url();
-        let mut parser = HTTPParserBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .build();
 
-        let result = parser.parse("default");
+        let result = fetcher.fetch();
 
         assert!(result.is_ok());
         mock.assert();
 
-        assert_eq!(parser.etag, Some("etag".to_string()));
+        assert_eq!(fetcher.etag, Some("etag".to_string()));
     }
 
     #[test]
-    fn test_http_parse_not_modified() {
+    fn test_http_fetch_not_modified() {
         let mut server = mockito::Server::new();
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
@@ -230,13 +238,13 @@ mod tests {
             .create();
 
         let url = server.url();
-        let mut parser = HTTPParserBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .build();
 
-        parser.etag = Some("etag".to_string());
+        fetcher.etag = Some("etag".to_string());
 
-        let result = parser.parse("default");
+        let result = fetcher.fetch();
 
         assert!(result.is_ok());
         assert!(result.unwrap().is_none());
@@ -245,7 +253,7 @@ mod tests {
     }
 
     #[test]
-    fn test_http_parse_error() {
+    fn test_http_fetch_error() {
         let mut server = mockito::Server::new();
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
@@ -253,18 +261,18 @@ mod tests {
             .create();
 
         let url = server.url();
-        let mut parser = HTTPParserBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .build();
 
-        let result = parser.parse("default");
+        let result = fetcher.fetch();
 
         assert!(!result.is_ok());
         mock.assert();
     }
 
     #[test]
-    fn test_http_parse_token_auth() {
+    fn test_http_fetch_token_auth() {
         let mut server = mockito::Server::new();
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
@@ -275,18 +283,18 @@ mod tests {
             .create();
 
         let url = server.url();
-        let mut parser = HTTPParserBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::ClientToken("foo".to_string()))
             .build();
 
-        let result = parser.parse("default");
+        let result = fetcher.fetch();
 
         assert!(result.is_ok());
         mock.assert();
     }
 
     #[test]
-    fn test_http_parse_jwt_auth() {
+    fn test_http_fetch_jwt_auth() {
         let mut server = mockito::Server::new();
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
@@ -297,18 +305,18 @@ mod tests {
             .create();
 
         let url = server.url();
-        let mut parser = HTTPParserBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::JwtToken("foo".to_string()))
             .build();
 
-        let result = parser.parse("default");
+        let result = fetcher.fetch();
 
         assert!(result.is_ok());
         mock.assert();
     }
 
     #[test]
-    fn test_http_parse_jwt_auth_failure() {
+    fn test_http_fetch_jwt_auth_failure() {
         let mut server = mockito::Server::new();
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
@@ -319,36 +327,36 @@ mod tests {
             .create();
 
         let url = server.url();
-        let mut parser = HTTPParserBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::JwtToken("foo".to_string()))
             .build();
 
-        let result = parser.parse("default");
+        let result = fetcher.fetch();
 
         assert!(result.is_err());
         mock.assert();
     }
 
     #[test]
-    fn test_http_parser_url() {
-        use super::HTTPParserBuilder;
+    fn test_http_fetcher_url() {
+        use super::HTTPFetcherBuilder;
 
-        let parser = HTTPParserBuilder::new("http://localhost:8080")
+        let fetcher = HTTPFetcherBuilder::new("http://localhost:8080")
             .authentication(Authentication::with_client_token("secret".into()))
             .reference("ref")
             .build();
 
         assert_eq!(
-            parser.url("default"),
+            fetcher.url("default"),
             "http://localhost:8080/internal/v1/evaluation/snapshot/namespace/default?reference=ref"
         );
 
-        let parser = HTTPParserBuilder::new("http://localhost:8080")
+        let fetcher = HTTPFetcherBuilder::new("http://localhost:8080")
             .authentication(Authentication::with_client_token("secret".into()))
             .build();
 
         assert_eq!(
-            parser.url("default"),
+            fetcher.url("default"),
             "http://localhost:8080/internal/v1/evaluation/snapshot/namespace/default"
         );
     }
