@@ -70,7 +70,8 @@ describe('FliptEvaluationClient', () => {
   });
 
   test('refresh', async () => {
-    await client.refresh();
+    const updated = await client.refresh();
+    expect(updated).toBeFalsy();
 
     const variant = client.evaluateVariant('flag1', 'someentity', {
       fizz: 'buzz'
