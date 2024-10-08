@@ -112,6 +112,7 @@ impl Engine {
         let update_thread = thread::spawn(move || loop {
             match rx.recv() {
                 Ok(res) => {
+                    println!("snapshot received: {:?}", res.as_ref().unwrap());
                     evaluator_clone.lock().unwrap().replace_snapshot(res);
                 }
                 Err(e) => {
@@ -221,7 +222,7 @@ pub unsafe extern "C" fn initialize_engine(
     };
 
     let fetcher = fetcher_builder.build();
-    let evaluator = Evaluator::new(namespace).unwrap();
+    let evaluator = Evaluator::new(namespace);
     let engine = Engine::new(fetcher, evaluator);
 
     Box::into_raw(Box::new(engine)) as *mut c_void

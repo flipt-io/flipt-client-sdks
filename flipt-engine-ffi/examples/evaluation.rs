@@ -11,7 +11,7 @@ fn main() {
     let fetcher = HTTPFetcherBuilder::new("http://localhost:8080", "default")
         .authentication(Authentication::with_client_token("secret".into()))
         .build();
-    let evaluator = Evaluator::new("default".into()).unwrap();
+    let evaluator = Evaluator::new("default".into());
 
     let engine = fliptengine::Engine::new(fetcher, evaluator);
     let mut context: HashMap<String, String> = HashMap::new();

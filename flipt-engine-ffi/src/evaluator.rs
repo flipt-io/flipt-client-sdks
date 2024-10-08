@@ -20,14 +20,14 @@ where
 }
 
 impl Evaluator<Snapshot> {
-    pub fn new(namespace: &str) -> Result<Self, Error> {
+    pub fn new(namespace: &str) -> Self {
         let snap = Snapshot::empty(namespace);
-        Ok(Self {
+        Self {
             namespace: namespace.to_string(),
             store: snap,
             mtx: Arc::new(RwLock::new(0)),
             error: None,
-        })
+        }
     }
 
     pub fn replace_snapshot(&mut self, res: Result<source::Document, Error>) {
@@ -126,7 +126,7 @@ mod tests {
     fn test_with_error() {
         let expected_error = "unknown error: server error: can't connect";
 
-        let mut evaluator = Evaluator::new("namespace").expect("expect valid evaluator");
+        let mut evaluator = Evaluator::new("namespace");
         evaluator.replace_snapshot(Err(Error::Unknown(
             "server error: can't connect".to_string(),
         )));
@@ -149,7 +149,7 @@ mod tests {
 
     #[test]
     fn test_empty_snapshot() {
-        let evaluator = Evaluator::new("namespace").expect("expect valid evaluator");
+        let evaluator = Evaluator::new("namespace");
 
         let response = evaluator.list_flags();
         match response {
