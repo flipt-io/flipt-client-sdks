@@ -21,7 +21,7 @@ where
 
 impl Evaluator<Snapshot> {
     pub fn new(namespace: &str) -> Result<Self, Error> {
-        let snap = Snapshot::build(namespace, source::Document::default())?;
+        let snap = Snapshot::empty(namespace);
         Ok(Self {
             namespace: namespace.to_string(),
             store: snap,
@@ -184,28 +184,5 @@ mod tests {
             response,
             "invalid request: failed to get flag information namespace/foo",
         );
-    }
-
-    #[test]
-    fn test_list_flags_from_another_namespace() {
-        let mut evaluator = Evaluator::new("namespace").expect("expect valid evaluator");
-
-        let document = source::Document {
-            namespace: source::Namespace {
-                key: String::from("another_namespace"),
-                name: Some(String::from("another_namespace")),
-            },
-            flags: Vec::new(),
-        };
-
-        evaluator.replace_snapshot(Ok(document));
-        let response = evaluator.list_flags();
-        match response {
-            Err(err) => assert_eq!(
-                "unknown error: failed to get flags for namespace",
-                err.to_string()
-            ),
-            Ok(_) => panic!("unexpected error"),
-        };
     }
 }

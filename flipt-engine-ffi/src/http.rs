@@ -277,7 +277,6 @@ impl HTTPFetcher {
             );
         }
 
-        // Add authentication headers
         for (key, value) in self.authentication.iter() {
             headers.insert(key, value.clone());
         }
