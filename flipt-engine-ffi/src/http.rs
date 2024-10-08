@@ -343,19 +343,22 @@ impl HTTPFetcher {
 
 #[cfg(test)]
 mod tests {
+    use mockito::Server;
+
     use crate::http::Authentication;
     use crate::http::HTTPFetcherBuilder;
 
     #[tokio::test]
     async fn test_http_fetch() {
-        let mut server = mockito::Server::new();
+        let mut server = Server::new_async().await;
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_header("etag", "etag")
             .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
-            .create();
+            .create_async()
+            .await;
 
         let url = server.url();
         let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
@@ -372,12 +375,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_http_fetch_not_modified() {
-        let mut server = mockito::Server::new();
+        let mut server = mockito::Server::new_async().await;
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
             .match_header("if-none-match", "etag")
             .with_status(304)
-            .create();
+            .create_async()
+            .await;
 
         let url = server.url();
         let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
@@ -396,11 +400,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_http_fetch_error() {
-        let mut server = mockito::Server::new();
+        let mut server = mockito::Server::new_async().await;
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
             .with_status(500)
-            .create();
+            .create_async()
+            .await;
 
         let url = server.url();
         let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
@@ -415,14 +420,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_http_fetch_token_auth() {
-        let mut server = mockito::Server::new();
+        let mut server = mockito::Server::new_async().await;
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
             .match_header("authorization", "Bearer foo")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
-            .create();
+            .create_async()
+            .await;
 
         let url = server.url();
         let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
@@ -437,14 +443,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_http_fetch_jwt_auth() {
-        let mut server = mockito::Server::new();
+        let mut server = mockito::Server::new_async().await;
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
             .match_header("authorization", "JWT foo")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
-            .create();
+            .create_async()
+            .await;
 
         let url = server.url();
         let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
@@ -459,14 +466,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_http_fetch_jwt_auth_failure() {
-        let mut server = mockito::Server::new();
+        let mut server = mockito::Server::new_async().await;
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
             .match_header("authorization", "JWT foo")
             .with_status(401)
             .with_header("content-type", "application/json")
             .with_body(r#"{"code":16,"message":"request was not authenticated","details":[]}"#)
-            .create();
+            .create_async()
+            .await;
 
         let url = server.url();
         let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
