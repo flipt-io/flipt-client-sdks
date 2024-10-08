@@ -170,7 +170,7 @@ impl HTTPFetcher {
                                     Ok(text) => text,
                                     Err(e) => {
                                         tx.send(Err(Error::Server(format!(
-                                            "failed to read response text: {}",
+                                            "failed to read response body: {}",
                                             e
                                         ))))
                                         .unwrap();
@@ -181,8 +181,8 @@ impl HTTPFetcher {
                                 let doc: source::Document = match serde_json::from_str(&text) {
                                     Ok(doc) => doc,
                                     Err(e) => {
-                                        tx.send(Err(Error::Server(format!(
-                                            "failed to parse response text: {}",
+                                        tx.send(Err(Error::InvalidJSON(format!(
+                                            "failed to parse response body: {}",
                                             e
                                         ))))
                                         .unwrap();
@@ -216,7 +216,17 @@ impl HTTPFetcher {
                                         if byte == b'\n' {
                                             let text = String::from_utf8_lossy(&buffer);
                                             let doc: source::Document =
-                                                serde_json::from_str(&text).unwrap();
+                                                match serde_json::from_str(&text) {
+                                                    Ok(doc) => doc,
+                                                    Err(e) => {
+                                                        tx.send(Err(Error::InvalidJSON(format!(
+                                                            "failed to parse response body: {}",
+                                                            e
+                                                        ))))
+                                                        .unwrap();
+                                                        continue;
+                                                    }
+                                                };
                                             tx.send(Ok(doc)).unwrap();
                                             buffer.clear();
                                         } else {
