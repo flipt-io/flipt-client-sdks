@@ -40,13 +40,11 @@ impl Evaluator<Snapshot> {
                 }
                 Err(err) => {
                     eprintln!("error building snapshot: {}", err);
-                    self.store = Snapshot::empty(&self.namespace);
                     self.error = Some(err);
                 }
             },
             Err(err) => {
                 eprintln!("error fetching snapshot: {}", err);
-                self.store = Snapshot::empty(&self.namespace);
                 self.error = Some(err);
             }
         }
