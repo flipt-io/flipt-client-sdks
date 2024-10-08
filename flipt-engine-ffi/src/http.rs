@@ -147,19 +147,19 @@ impl HTTPFetcherBuilder {
 }
 
 impl HTTPFetcher {
+    /// Start the fetcher and return a channel to receive updates on the snapshot changes
     pub fn start(&mut self) -> mpsc::Receiver<Result<source::Document, Error>> {
         self.running = Arc::new(AtomicBool::new(true));
         let (tx, rx) = mpsc::channel();
-        let mut fetcher = self.clone();
 
-        let mode = fetcher.mode.clone();
+        let mut fetcher = self.clone();
         let running = self.running.clone();
 
         thread::spawn(move || {
             let rt = Runtime::new().expect("Failed to create Tokio runtime");
             rt.block_on(async move {
                 while running.load(Ordering::Relaxed) {
-                    match mode {
+                    match fetcher.mode {
                         FetchMode::Polling => {
                             if let Err(e) = fetcher.handle_polling(&tx).await {
                                 eprintln!("Polling error: {}", e);
