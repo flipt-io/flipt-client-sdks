@@ -1,5 +1,5 @@
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Arc};
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -151,9 +151,11 @@ impl HTTPFetcher {
     pub fn start(&mut self) -> mpsc::Receiver<Result<source::Document, Error>> {
         self.running = Arc::new(AtomicBool::new(true));
         let (tx, rx) = mpsc::channel();
+        let tx = Arc::new(Mutex::new(Some(tx)));
 
         let mut fetcher = self.clone();
         let running = self.running.clone();
+        let tx_clone = tx.clone();
 
         thread::spawn(move || {
             let rt = Runtime::new().expect("Failed to create Tokio runtime");
@@ -161,20 +163,22 @@ impl HTTPFetcher {
                 while running.load(Ordering::Relaxed) {
                     match fetcher.mode {
                         FetchMode::Polling => {
-                            if let Err(e) = fetcher.handle_polling(&tx).await {
+                            if let Err(e) = fetcher.handle_polling(&tx_clone).await {
                                 eprintln!("Polling error: {}", e);
                                 break;
                             }
                             tokio::time::sleep(fetcher.update_interval).await;
                         }
                         FetchMode::Streaming => {
-                            if let Err(e) = fetcher.handle_streaming(&tx).await {
+                            if let Err(e) = fetcher.handle_streaming(&tx_clone).await {
                                 eprintln!("Streaming error: {}", e);
                                 break;
                             }
                         }
                     }
                 }
+                // Drop the sender when the loop ends
+                tx_clone.lock().unwrap().take();
             });
         });
         rx
@@ -283,7 +287,7 @@ impl HTTPFetcher {
 
     async fn handle_polling(
         &mut self,
-        sender: &mpsc::Sender<Result<source::Document, Error>>,
+        sender: &Arc<Mutex<Option<mpsc::Sender<Result<source::Document, Error>>>>>,
     ) -> Result<(), Error> {
         match self.fetch().await {
             Ok(Some(resp)) => {
@@ -304,7 +308,7 @@ impl HTTPFetcher {
 
     async fn handle_streaming(
         &mut self,
-        sender: &mpsc::Sender<Result<source::Document, Error>>,
+        sender: &Arc<Mutex<Option<mpsc::Sender<Result<source::Document, Error>>>>>,
     ) -> Result<(), Error> {
         match self.fetch_stream().await {
             Ok(Some(resp)) => {
@@ -341,12 +345,13 @@ impl HTTPFetcher {
 }
 
 fn send_result(
-    sender: &mpsc::Sender<Result<source::Document, Error>>,
+    sender: &Arc<Mutex<Option<mpsc::Sender<Result<source::Document, Error>>>>>,
     result: Result<source::Document, Error>,
 ) -> Result<(), Error> {
-    sender
-        .send(result)
-        .map_err(|_| Error::Server("Failed to send result".into()))?;
+    if let Some(tx) = sender.lock().unwrap().as_ref() {
+        tx.send(result)
+            .map_err(|_| Error::Server("Failed to send result".into()))?;
+    }
     Ok(())
 }
 
