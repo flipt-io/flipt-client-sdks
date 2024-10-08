@@ -33,21 +33,19 @@ impl Evaluator<Snapshot> {
     pub fn replace_snapshot(&mut self, res: Result<source::Document, Error>) {
         let _w_lock = self.mtx.write().unwrap();
         match res {
-            Ok(doc) => {
-                match Snapshot::build(&self.namespace, doc) {
-                    Ok(s) => {
-                        self.store = s;
-                        self.error = None;
-                    }
-                    Err(err) => {
-                        // TODO: log::error!("error building snapshot: {}", e);
-                        self.store = Snapshot::empty(&self.namespace);
-                        self.error = Some(err);
-                    }
+            Ok(doc) => match Snapshot::build(&self.namespace, doc) {
+                Ok(s) => {
+                    self.store = s;
+                    self.error = None;
                 }
-            }
+                Err(err) => {
+                    eprintln!("error building snapshot: {}", err);
+                    self.store = Snapshot::empty(&self.namespace);
+                    self.error = Some(err);
+                }
+            },
             Err(err) => {
-                // TODO: log::error!("error building snapshot: {}", e);
+                eprintln!("error fetching snapshot: {}", err);
                 self.store = Snapshot::empty(&self.namespace);
                 self.error = Some(err);
             }
