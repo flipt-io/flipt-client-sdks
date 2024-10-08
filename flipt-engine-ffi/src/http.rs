@@ -3,8 +3,9 @@ use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::Duration;
 
-use reqwest::blocking::Response;
+use futures_util::stream::StreamExt;
 use reqwest::header::{self, HeaderMap};
+use reqwest::Response;
 use serde::Deserialize;
 
 use fliptevaluation::error::Error;
@@ -61,20 +62,22 @@ impl From<Authentication> for HeaderMap {
         }
     }
 }
-pub trait Fetcher: Send {
-    fn fetch(&mut self) -> Result<Option<Response>, Error>;
+
+#[derive(Clone)]
+enum FetchMode {
+    Polling,
+    Streaming,
 }
 
 #[derive(Clone)]
 pub struct HTTPFetcher {
-    namespace: String,
-    http_client: reqwest::blocking::Client,
-    base_url: String,
+    http_client: reqwest::Client,
+    url: String,
     authentication: HeaderMap,
-    reference: Option<String>,
     etag: Option<String>,
     update_interval: Duration,
     running: Arc<AtomicBool>,
+    mode: FetchMode,
 }
 
 pub struct HTTPFetcherBuilder {
@@ -112,25 +115,7 @@ impl HTTPFetcherBuilder {
     }
 
     pub fn build(self) -> HTTPFetcher {
-        HTTPFetcher {
-            namespace: self.namespace,
-            http_client: reqwest::blocking::Client::builder()
-                .timeout(std::time::Duration::from_secs(10))
-                .build()
-                .unwrap(),
-            base_url: self.base_url,
-            authentication: self.authentication,
-            reference: self.reference,
-            etag: None,
-            update_interval: self.update_interval,
-            running: Arc::new(AtomicBool::new(false)),
-        }
-    }
-}
-
-impl HTTPFetcher {
-    fn url(&self) -> String {
-        match &self.reference {
+        let url = match &self.reference {
             Some(reference) => {
                 format!(
                     "{}/internal/v1/evaluation/snapshot/namespace/{}?reference={}",
@@ -143,52 +128,111 @@ impl HTTPFetcher {
                     self.base_url, self.namespace
                 )
             }
+        };
+
+        HTTPFetcher {
+            http_client: reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(10))
+                .build()
+                .unwrap(),
+            url,
+            authentication: self.authentication,
+            etag: None,
+            update_interval: self.update_interval,
+            running: Arc::new(AtomicBool::new(false)),
+            mode: FetchMode::Polling,
         }
     }
+}
 
+impl HTTPFetcher {
     pub fn start(&mut self) -> mpsc::Receiver<Result<source::Document, Error>> {
-        let running = Arc::new(AtomicBool::new(true));
+        self.running = Arc::new(AtomicBool::new(true));
         let (tx, rx) = mpsc::channel();
         let mut fetcher = self.clone();
 
-        thread::spawn(move || {
+        let mode = fetcher.mode.clone();
+        let running = self.running.clone();
+
+        thread::spawn(move || async move {
             while running.load(Ordering::Relaxed) {
-                match fetcher.fetch() {
-                    Ok(resp) => {
-                        // if no response then continue
-                        let ok = match resp {
-                            Some(resp) => resp,
-                            None => continue,
-                        };
+                match mode {
+                    FetchMode::Polling => {
+                        match fetcher.fetch().await {
+                            Ok(resp) => {
+                                // if no response then continue
+                                let ok = match resp {
+                                    Some(resp) => resp,
+                                    None => continue,
+                                };
 
-                        let text = match ok.text() {
-                            Ok(text) => text,
-                            Err(e) => {
-                                tx.send(Err(Error::Server(format!(
-                                    "failed to read response text: {}",
-                                    e
-                                ))))
-                                .unwrap();
-                                continue;
+                                let text = match ok.text().await {
+                                    Ok(text) => text,
+                                    Err(e) => {
+                                        tx.send(Err(Error::Server(format!(
+                                            "failed to read response text: {}",
+                                            e
+                                        ))))
+                                        .unwrap();
+                                        continue;
+                                    }
+                                };
+
+                                let doc: source::Document = match serde_json::from_str(&text) {
+                                    Ok(doc) => doc,
+                                    Err(e) => {
+                                        tx.send(Err(Error::Server(format!(
+                                            "failed to parse response text: {}",
+                                            e
+                                        ))))
+                                        .unwrap();
+                                        continue;
+                                    }
+                                };
+
+                                tx.send(Ok(doc)).unwrap();
                             }
-                        };
-
-                        let doc = match serde_json::from_str(&text) {
-                            Ok(doc) => doc,
                             Err(e) => {
-                                tx.send(Err(Error::InvalidJSON(e.to_string()))).unwrap();
-                                continue;
+                                tx.send(Err(e)).unwrap();
                             }
-                        };
-
-                        tx.send(Ok(doc)).unwrap();
+                        }
+                        thread::sleep(fetcher.update_interval);
                     }
-                    Err(e) => {
-                        tx.send(Err(e)).unwrap();
+
+                    FetchMode::Streaming => {
+                        match fetcher.fetch_stream().await {
+                            Ok(resp) => {
+                                // if no response then continue
+                                let ok = match resp {
+                                    Some(resp) => resp,
+                                    None => continue,
+                                };
+
+                                let mut stream = ok.bytes_stream();
+                                let mut buffer = Vec::new();
+
+                                while let Some(chunk) = stream.next().await {
+                                    for byte in chunk.unwrap() {
+                                        if byte == b'\n' {
+                                            let text = String::from_utf8_lossy(&buffer);
+                                            let doc: source::Document =
+                                                serde_json::from_str(&text).unwrap();
+                                            tx.send(Ok(doc)).unwrap();
+                                            buffer.clear();
+                                        } else {
+                                            buffer.push(byte);
+                                        }
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                tx.send(Err(e)).unwrap();
+                                // Optionally, revert to polling mode on stream error
+                                // fetcher.mode = FetchMode::Polling;
+                            }
+                        }
                     }
                 }
-
-                thread::sleep(fetcher.update_interval);
             }
         });
         rx
@@ -197,10 +241,8 @@ impl HTTPFetcher {
     pub fn stop(&mut self) {
         self.running.store(false, Ordering::Relaxed);
     }
-}
 
-impl Fetcher for HTTPFetcher {
-    fn fetch(&mut self) -> Result<Option<Response>, Error> {
+    fn build_headers(&self) -> HeaderMap {
         let mut headers = HeaderMap::new();
         headers.insert(
             reqwest::header::ACCEPT,
@@ -213,13 +255,11 @@ impl Fetcher for HTTPFetcher {
             ),
         );
 
-        // version (or higher) that we can accept from the server
         headers.insert(
             "X-Flipt-Accept-Server-Version",
             reqwest::header::HeaderValue::from_static("1.47.0"),
         );
 
-        // add etag / if-none-match header if we have one
         if let Some(etag) = &self.etag {
             headers.insert(
                 reqwest::header::IF_NONE_MATCH,
@@ -227,30 +267,44 @@ impl Fetcher for HTTPFetcher {
             );
         }
 
+        // Add authentication headers
         for (key, value) in self.authentication.iter() {
             headers.insert(key, value.clone());
         }
 
-        let url = self.url();
-        let response = match self.http_client.get(url).headers(headers).send() {
-            Ok(resp) => match resp.error_for_status() {
-                Ok(resp) => resp,
-                Err(e) => {
-                    // TODO: probably should retry a few times
-                    self.stop();
-                    return Err(Error::Server(format!("response: {}", e)));
-                }
-            },
-            Err(e) => {
-                // TODO: probably should retry a few times
+        headers
+    }
+
+    async fn fetch(&mut self) -> Result<Option<Response>, Error> {
+        let headers = self.build_headers();
+
+        let response = self
+            .http_client
+            .get(self.url.clone())
+            .headers(headers)
+            .send()
+            .await
+            .map_err(|e| {
                 self.stop();
-                return Err(Error::Server(format!("failed to make request: {}", e)));
-            }
-        };
+                Error::Server(format!("failed to make request: {}", e))
+            })?
+            .error_for_status()
+            .map_err(|e| {
+                self.stop();
+                Error::Server(format!("response: {}", e))
+            })?;
 
         match response.status() {
-            // check if we have a 304 response
             reqwest::StatusCode::NOT_MODIFIED => Ok(None),
+
+            reqwest::StatusCode::SEE_OTHER => {
+                if let Some(location) = response.headers().get(reqwest::header::LOCATION) {
+                    self.url = location.to_str().unwrap().to_string();
+                    self.mode = FetchMode::Streaming;
+                }
+                Ok(Some(response))
+            }
+
             reqwest::StatusCode::OK => {
                 // check if we have a new etag
                 if let Some(etag) = response.headers().get(reqwest::header::ETAG) {
@@ -259,23 +313,41 @@ impl Fetcher for HTTPFetcher {
 
                 Ok(Some(response))
             }
+
             _ => Err(Error::Server(format!(
                 "unexpected http response: {} {}",
                 response.status(),
-                response.text().unwrap_or("".to_string())
+                response.text().await.unwrap_or("".to_string())
             ))),
         }
+    }
+
+    async fn fetch_stream(&mut self) -> Result<Option<Response>, Error> {
+        self.http_client
+            .get(self.url.clone())
+            .headers(self.build_headers())
+            .send()
+            .await
+            .map_err(|e| {
+                self.stop();
+                Error::Server(format!("failed to make request: {}", e))
+            })?
+            .error_for_status()
+            .map_err(|e| {
+                self.stop();
+                Error::Server(format!("response: {}", e))
+            })
+            .map(Some)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::http::Authentication;
-    use crate::http::Fetcher;
     use crate::http::HTTPFetcherBuilder;
 
-    #[test]
-    fn test_http_fetch() {
+    #[tokio::test]
+    async fn test_http_fetch() {
         let mut server = mockito::Server::new();
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
@@ -290,7 +362,7 @@ mod tests {
             .authentication(Authentication::None)
             .build();
 
-        let result = fetcher.fetch();
+        let result = fetcher.fetch().await;
 
         assert!(result.is_ok());
         mock.assert();
@@ -298,8 +370,8 @@ mod tests {
         assert_eq!(fetcher.etag, Some("etag".to_string()));
     }
 
-    #[test]
-    fn test_http_fetch_not_modified() {
+    #[tokio::test]
+    async fn test_http_fetch_not_modified() {
         let mut server = mockito::Server::new();
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
@@ -314,7 +386,7 @@ mod tests {
 
         fetcher.etag = Some("etag".to_string());
 
-        let result = fetcher.fetch();
+        let result = fetcher.fetch().await;
 
         assert!(result.is_ok());
         assert!(result.unwrap().is_none());
@@ -322,8 +394,8 @@ mod tests {
         mock.assert();
     }
 
-    #[test]
-    fn test_http_fetch_error() {
+    #[tokio::test]
+    async fn test_http_fetch_error() {
         let mut server = mockito::Server::new();
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
@@ -335,14 +407,14 @@ mod tests {
             .authentication(Authentication::None)
             .build();
 
-        let result = fetcher.fetch();
+        let result = fetcher.fetch().await;
 
         assert!(!result.is_ok());
         mock.assert();
     }
 
-    #[test]
-    fn test_http_fetch_token_auth() {
+    #[tokio::test]
+    async fn test_http_fetch_token_auth() {
         let mut server = mockito::Server::new();
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
@@ -357,14 +429,14 @@ mod tests {
             .authentication(Authentication::ClientToken("foo".to_string()))
             .build();
 
-        let result = fetcher.fetch();
+        let result = fetcher.fetch().await;
 
         assert!(result.is_ok());
         mock.assert();
     }
 
-    #[test]
-    fn test_http_fetch_jwt_auth() {
+    #[tokio::test]
+    async fn test_http_fetch_jwt_auth() {
         let mut server = mockito::Server::new();
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
@@ -379,14 +451,14 @@ mod tests {
             .authentication(Authentication::JwtToken("foo".to_string()))
             .build();
 
-        let result = fetcher.fetch();
+        let result = fetcher.fetch().await;
 
         assert!(result.is_ok());
         mock.assert();
     }
 
-    #[test]
-    fn test_http_fetch_jwt_auth_failure() {
+    #[tokio::test]
+    async fn test_http_fetch_jwt_auth_failure() {
         let mut server = mockito::Server::new();
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
@@ -401,7 +473,7 @@ mod tests {
             .authentication(Authentication::JwtToken("foo".to_string()))
             .build();
 
-        let result = fetcher.fetch();
+        let result = fetcher.fetch().await;
 
         assert!(result.is_err());
         mock.assert();
@@ -417,7 +489,7 @@ mod tests {
             .build();
 
         assert_eq!(
-            fetcher.url(),
+            fetcher.url,
             "http://localhost:8080/internal/v1/evaluation/snapshot/namespace/default?reference=ref"
         );
 
@@ -426,7 +498,7 @@ mod tests {
             .build();
 
         assert_eq!(
-            fetcher.url(),
+            fetcher.url,
             "http://localhost:8080/internal/v1/evaluation/snapshot/namespace/default"
         );
     }
