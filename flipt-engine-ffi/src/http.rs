@@ -3,6 +3,7 @@ use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::Duration;
 
+use reqwest::blocking::Response;
 use reqwest::header::{self, HeaderMap};
 use serde::Deserialize;
 
@@ -61,7 +62,7 @@ impl From<Authentication> for HeaderMap {
     }
 }
 pub trait Fetcher: Send {
-    fn fetch(&mut self) -> Result<Option<source::Document>, Error>;
+    fn fetch(&mut self) -> Result<Option<Response>, Error>;
 }
 
 #[derive(Clone)]
@@ -153,10 +154,34 @@ impl HTTPFetcher {
         thread::spawn(move || {
             while running.load(Ordering::Relaxed) {
                 match fetcher.fetch() {
-                    Ok(doc) => {
-                        if let Some(doc) = doc {
-                            tx.send(Ok(doc)).unwrap();
-                        }
+                    Ok(resp) => {
+                        // if no response then continue
+                        let ok = match resp {
+                            Some(resp) => resp,
+                            None => continue,
+                        };
+
+                        let text = match ok.text() {
+                            Ok(text) => text,
+                            Err(e) => {
+                                tx.send(Err(Error::Server(format!(
+                                    "failed to read response text: {}",
+                                    e
+                                ))))
+                                .unwrap();
+                                continue;
+                            }
+                        };
+
+                        let doc = match serde_json::from_str(&text) {
+                            Ok(doc) => doc,
+                            Err(e) => {
+                                tx.send(Err(Error::InvalidJSON(e.to_string()))).unwrap();
+                                continue;
+                            }
+                        };
+
+                        tx.send(Ok(doc)).unwrap();
                     }
                     Err(e) => {
                         tx.send(Err(e)).unwrap();
@@ -175,12 +200,19 @@ impl HTTPFetcher {
 }
 
 impl Fetcher for HTTPFetcher {
-    fn fetch(&mut self) -> Result<Option<source::Document>, Error> {
+    fn fetch(&mut self) -> Result<Option<Response>, Error> {
         let mut headers = HeaderMap::new();
         headers.insert(
             reqwest::header::ACCEPT,
             reqwest::header::HeaderValue::from_static("application/json"),
         );
+        headers.append(
+            reqwest::header::ACCEPT,
+            reqwest::header::HeaderValue::from_static(
+                "application/vnd.flipt.io.snapshot.stream+json",
+            ),
+        );
+
         // version (or higher) that we can accept from the server
         headers.insert(
             "X-Flipt-Accept-Server-Version",
@@ -225,17 +257,7 @@ impl Fetcher for HTTPFetcher {
                     self.etag = Some(etag.to_str().unwrap().to_string());
                 }
 
-                let response_text = match response.text() {
-                    Ok(t) => t,
-                    Err(e) => {
-                        return Err(Error::Server(format!("failed to get response body: {}", e)))
-                    }
-                };
-
-                match serde_json::from_str(&response_text) {
-                    Ok(doc) => Ok(Some(doc)),
-                    Err(e) => Err(Error::InvalidJSON(e.to_string())),
-                }
+                Ok(Some(response))
             }
             _ => Err(Error::Server(format!(
                 "unexpected http response: {} {}",

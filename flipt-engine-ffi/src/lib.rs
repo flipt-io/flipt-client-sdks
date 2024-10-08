@@ -106,7 +106,6 @@ pub struct Engine {
 
 impl Engine {
     pub fn new(mut fetcher: HTTPFetcher, evaluator: Evaluator<Snapshot>) -> Self {
-        // Start the fetcher with the sender
         let rx = fetcher.start();
         let evaluator = Arc::new(Mutex::new(evaluator));
         let evaluator_clone = evaluator.clone();
