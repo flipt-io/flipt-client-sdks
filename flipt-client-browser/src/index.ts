@@ -106,27 +106,37 @@ export class FliptEvaluationClient {
     const data = await resp.json();
     const engine = new Engine(namespace);
     engine.snapshot(data);
-    return new FliptEvaluationClient(engine, fetcher);
+    const client = new FliptEvaluationClient(engine, fetcher);
+    client.storeEtag(resp);
+    return client;
+  }
+
+  /**
+   * Store etag from response for next requests
+   */
+  private storeEtag(resp: Response) {
+    let etag = resp.headers.get('etag');
+    if (etag) {
+      this.etag = etag;
+    }
   }
 
   /**
    * Refresh the flags snapshot
-   * @returns void
+   * @returns true if snapshot changed
    */
-  public async refresh() {
+  public async refresh(): Promise<boolean> {
     const opts = { etag: this.etag };
     const resp = await this.fetcher(opts);
 
     if (resp.status === 304) {
-      let etag = resp.headers.get('etag');
-      if (etag) {
-        this.etag = etag;
-      }
-      return;
+      this.storeEtag(resp);
+      return false;
     }
 
     const data = await resp.json();
     this.engine.snapshot(data);
+    return true;
   }
 
   /**
