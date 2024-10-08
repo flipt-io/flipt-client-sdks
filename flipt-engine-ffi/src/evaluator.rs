@@ -111,7 +111,6 @@ mod tests {
     use std::collections::HashMap;
 
     use super::*;
-    use fliptevaluation::models::source;
     use mockall::predicate::*;
 
     fn assert_error_response<T>(response: Result<T, Error>, expected_error: &str) {

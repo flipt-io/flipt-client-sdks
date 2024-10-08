@@ -100,7 +100,6 @@ impl Default for EngineOpts {
 pub struct Engine {
     fetcher: HTTPFetcher,
     evaluator: Arc<Mutex<Evaluator<Snapshot>>>,
-    // Add a new field to store the thread handle
     _update_thread: thread::JoinHandle<()>,
 }
 
@@ -110,9 +109,12 @@ impl Engine {
         let evaluator = Arc::new(Mutex::new(evaluator));
         let evaluator_clone = evaluator.clone();
 
-        let update_thread = thread::spawn(move || {
-            while let Ok(res) = rx.recv() {
+        let update_thread = thread::spawn(move || match rx.recv() {
+            Ok(res) => {
                 evaluator_clone.lock().unwrap().replace_snapshot(res);
+            }
+            Err(e) => {
+                println!("error receiving snapshot: {}", e);
             }
         });
 

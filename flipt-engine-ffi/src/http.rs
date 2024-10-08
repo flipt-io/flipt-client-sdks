@@ -7,6 +7,7 @@ use futures_util::stream::StreamExt;
 use reqwest::header::{self, HeaderMap};
 use reqwest::Response;
 use serde::Deserialize;
+use tokio::runtime::Runtime;
 
 use fliptevaluation::error::Error;
 use fliptevaluation::models::source;
@@ -154,96 +155,27 @@ impl HTTPFetcher {
         let mode = fetcher.mode.clone();
         let running = self.running.clone();
 
-        thread::spawn(move || async move {
-            while running.load(Ordering::Relaxed) {
-                match mode {
-                    FetchMode::Polling => {
-                        match fetcher.fetch().await {
-                            Ok(resp) => {
-                                // if no response then continue
-                                let ok = match resp {
-                                    Some(resp) => resp,
-                                    None => continue,
-                                };
-
-                                let text = match ok.text().await {
-                                    Ok(text) => text,
-                                    Err(e) => {
-                                        tx.send(Err(Error::Server(format!(
-                                            "failed to read response body: {}",
-                                            e
-                                        ))))
-                                        .unwrap();
-                                        continue;
-                                    }
-                                };
-
-                                let doc: source::Document = match serde_json::from_str(&text) {
-                                    Ok(doc) => doc,
-                                    Err(e) => {
-                                        tx.send(Err(Error::InvalidJSON(format!(
-                                            "failed to parse response body: {}",
-                                            e
-                                        ))))
-                                        .unwrap();
-                                        continue;
-                                    }
-                                };
-
-                                tx.send(Ok(doc)).unwrap();
+        thread::spawn(move || {
+            let rt = Runtime::new().expect("Failed to create Tokio runtime");
+            rt.block_on(async move {
+                while running.load(Ordering::Relaxed) {
+                    match mode {
+                        FetchMode::Polling => {
+                            if let Err(e) = fetcher.handle_polling(&tx).await {
+                                eprintln!("Polling error: {}", e);
+                                break;
                             }
-                            Err(e) => {
-                                tx.send(Err(e)).unwrap();
-                            }
+                            tokio::time::sleep(fetcher.update_interval).await;
                         }
-                        thread::sleep(fetcher.update_interval);
-                    }
-
-                    FetchMode::Streaming => {
-                        match fetcher.fetch_stream().await {
-                            Ok(resp) => {
-                                // if no response then continue
-                                let ok = match resp {
-                                    Some(resp) => resp,
-                                    None => continue,
-                                };
-
-                                let mut stream = ok.bytes_stream();
-                                let mut buffer = Vec::new();
-
-                                while let Some(chunk) = stream.next().await {
-                                    for byte in chunk.unwrap() {
-                                        if byte == b'\n' {
-                                            let text = String::from_utf8_lossy(&buffer);
-                                            let doc: source::Document =
-                                                match serde_json::from_str(&text) {
-                                                    Ok(doc) => doc,
-                                                    Err(e) => {
-                                                        tx.send(Err(Error::InvalidJSON(format!(
-                                                            "failed to parse response body: {}",
-                                                            e
-                                                        ))))
-                                                        .unwrap();
-                                                        continue;
-                                                    }
-                                                };
-                                            tx.send(Ok(doc)).unwrap();
-                                            buffer.clear();
-                                        } else {
-                                            buffer.push(byte);
-                                        }
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                tx.send(Err(e)).unwrap();
-                                // Optionally, revert to polling mode on stream error
-                                // fetcher.mode = FetchMode::Polling;
+                        FetchMode::Streaming => {
+                            if let Err(e) = fetcher.handle_streaming(&tx).await {
+                                eprintln!("Streaming error: {}", e);
+                                break;
                             }
                         }
                     }
                 }
-            }
+            });
         });
         rx
     }
@@ -348,6 +280,74 @@ impl HTTPFetcher {
             })
             .map(Some)
     }
+
+    async fn handle_polling(
+        &mut self,
+        sender: &mpsc::Sender<Result<source::Document, Error>>,
+    ) -> Result<(), Error> {
+        match self.fetch().await {
+            Ok(Some(resp)) => {
+                let text = resp
+                    .text()
+                    .await
+                    .map_err(|e| Error::Server(format!("failed to read response body: {}", e)))?;
+                let doc: source::Document = serde_json::from_str(&text).map_err(|e| {
+                    Error::InvalidJSON(format!("failed to parse response body: {}", e))
+                })?;
+                send_result(sender, Ok(doc))?;
+            }
+            Ok(None) => {}
+            Err(e) => send_result(sender, Err(e))?,
+        }
+        Ok(())
+    }
+
+    async fn handle_streaming(
+        &mut self,
+        sender: &mpsc::Sender<Result<source::Document, Error>>,
+    ) -> Result<(), Error> {
+        match self.fetch_stream().await {
+            Ok(Some(resp)) => {
+                let mut stream = resp.bytes_stream();
+                let mut buffer = Vec::new();
+
+                while let Some(chunk) = stream.next().await {
+                    let chunk = chunk.map_err(|e| {
+                        Error::Server(format!("failed to read stream chunk: {}", e))
+                    })?;
+                    for byte in chunk {
+                        if byte == b'\n' {
+                            let text = String::from_utf8_lossy(&buffer);
+                            let doc: source::Document =
+                                serde_json::from_str(&text).map_err(|e| {
+                                    Error::InvalidJSON(format!(
+                                        "failed to parse response body: {}",
+                                        e
+                                    ))
+                                })?;
+                            send_result(sender, Ok(doc))?;
+                            buffer.clear();
+                        } else {
+                            buffer.push(byte);
+                        }
+                    }
+                }
+            }
+            Ok(None) => {}
+            Err(e) => send_result(sender, Err(e))?,
+        }
+        Ok(())
+    }
+}
+
+fn send_result(
+    sender: &mpsc::Sender<Result<source::Document, Error>>,
+    result: Result<source::Document, Error>,
+) -> Result<(), Error> {
+    sender
+        .send(result)
+        .map_err(|_| Error::Server("Failed to send result".into()))?;
+    Ok(())
 }
 
 #[cfg(test)]
