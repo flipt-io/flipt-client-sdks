@@ -115,8 +115,8 @@ impl Engine {
                     println!("snapshot received: {:?}", res.as_ref().unwrap());
                     evaluator_clone.lock().unwrap().replace_snapshot(res);
                 }
-                Err(e) => {
-                    eprintln!("error receiving snapshot: {}", e);
+                Err(_) => {
+                    // this likely means the engine is shutting down
                     break;
                 }
             }
