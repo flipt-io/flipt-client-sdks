@@ -2,34 +2,28 @@
 
 use fliptengine::{
     evaluator::Evaluator,
-    http::{Authentication, HTTPParserBuilder},
+    http::{Authentication, HTTPFetcherBuilder},
 };
 use fliptevaluation::EvaluationRequest;
 use std::collections::HashMap;
 
 fn main() {
-    let evaluator = Evaluator::new_snapshot_evaluator(
-        "default".into(),
-        HTTPParserBuilder::new("http://localhost:8080")
-            .authentication(Authentication::with_client_token("secret".into()))
-            .build(),
-    )
-    .unwrap();
+    let namespace = "default";
+    let fetcher = HTTPFetcherBuilder::new("http://localhost:8080", namespace)
+        .authentication(Authentication::with_client_token("secret".into()))
+        .build();
+    let evaluator = Evaluator::new(namespace);
 
-    let eng = fliptengine::Engine::new(evaluator, Default::default());
+    let engine = fliptengine::Engine::new(namespace, fetcher, evaluator);
     let mut context: HashMap<String, String> = HashMap::new();
     context.insert("fizz".into(), "buzz".into());
 
-    let thread = std::thread::spawn(move || loop {
-        std::thread::sleep(std::time::Duration::from_millis(5000));
-        let variant = eng.variant(&EvaluationRequest {
-            flag_key: "flag1".into(),
-            entity_id: "entity".into(),
-            context: context.clone(),
-        });
-
-        println!("variant key {:?}", variant.unwrap().variant_key);
+    std::thread::sleep(std::time::Duration::from_millis(5000));
+    let variant = engine.variant(&EvaluationRequest {
+        flag_key: "flag1".into(),
+        entity_id: "entity".into(),
+        context: context.clone(),
     });
 
-    thread.join().expect("current thread panicked");
+    println!("variant key {:?}", variant.unwrap().variant_key);
 }
