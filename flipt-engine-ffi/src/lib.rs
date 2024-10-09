@@ -119,8 +119,7 @@ impl Engine {
                 evaluator_clone.lock().unwrap().replace_snapshot(snap);
             }
             Err(err) => {
-                // TODO: handle this
-                println!("error fetching snapshot: {}", err);
+                evaluator_clone.lock().unwrap().replace_snapshot(Err(err));
             }
         }
 
@@ -135,8 +134,7 @@ impl Engine {
                         evaluator_clone.lock().unwrap().replace_snapshot(snap);
                     }
                     Err(err) => {
-                        // TODO: handle this
-                        println!("error fetching snapshot: {}", err);
+                        evaluator_clone.lock().unwrap().replace_snapshot(Err(err));
                     }
                 }
             }
