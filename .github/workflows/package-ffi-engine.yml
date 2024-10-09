@@ -114,17 +114,24 @@ jobs:
         run: |
           strip -x target/${{ matrix.platform.target }}/release/libfliptengine.so
 
-      - run: |
+      - if: ${{ !startsWith(matrix.platform.name, 'Windows') }}
+        run: |
           tar -czvf flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz \
             target/${{ matrix.platform.target }}/release/libfliptengine.* \
+            || true
+
+      - if: startsWith(matrix.platform.name, 'Windows') }}
+        run: |
+          7z a -tzip flipt-engine-ffi-${{ matrix.platform.name }}.zip \
+            target\${{ matrix.platform.target }}\release\libfliptengine.* \
             || true
 
       - name: Upload To Pull Request (Pull Request)
         uses: actions/upload-artifact@v4
         if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'package/')
         with:
-          name: flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
-          path: flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
+          name: flipt-engine-ffi-${{ matrix.platform.name }}${{ startsWith(matrix.platform.name, 'Windows') && '.zip' || '.tar.gz' }}
+          path: flipt-engine-ffi-${{ matrix.platform.name }}${{ startsWith(matrix.platform.name, 'Windows') && '.zip' || '.tar.gz' }}
 
       - name: Upload Release Assets (Tag)
         uses: softprops/action-gh-release@v2
@@ -132,7 +139,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: |
-            flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
+            flipt-engine-ffi-${{ matrix.platform.name }}${{ startsWith(matrix.platform.name, 'Windows') && '.zip' || '.tar.gz' }}
 
       - name: Upload Release Assets (Workflow Dispatch)
         uses: softprops/action-gh-release@v2
@@ -140,4 +147,4 @@ jobs:
         with:
           tag_name: flipt-engine-ffi-${{ github.event.inputs.tag }}
           files: |
-            flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
+            flipt-engine-ffi-${{ matrix.platform.name }}${{ startsWith(matrix.platform.name, 'Windows') && '.zip' || '.tar.gz' }}
