@@ -1,13 +1,12 @@
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Arc, Mutex};
-use std::thread;
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::stream::StreamExt;
 use reqwest::header::{self, HeaderMap};
 use reqwest::Response;
 use serde::Deserialize;
-use tokio::runtime::Runtime;
+use tokio::sync::mpsc;
 
 use fliptevaluation::error::Error;
 use fliptevaluation::models::source;
@@ -150,37 +149,34 @@ impl HTTPFetcher {
     /// Start the fetcher and return a channel to receive updates on the snapshot changes
     pub fn start(&mut self) -> mpsc::Receiver<Result<source::Document, Error>> {
         self.running = Arc::new(AtomicBool::new(true));
-        let (tx, rx) = mpsc::channel();
-        let tx = Arc::new(Mutex::new(Some(tx)));
+        let (tx, rx) = mpsc::channel(100);
 
         let mut fetcher = self.clone();
         let running = self.running.clone();
-        let tx_clone = tx.clone();
 
-        thread::spawn(move || {
-            let rt = Runtime::new().expect("Failed to create Tokio runtime");
-            rt.block_on(async move {
-                while running.load(Ordering::Relaxed) {
-                    match fetcher.mode {
-                        FetchMode::Polling => {
-                            if let Err(e) = fetcher.handle_polling(&tx_clone).await {
-                                eprintln!("Polling error: {}", e);
-                                break;
-                            }
-                            tokio::time::sleep(fetcher.update_interval).await;
+        tokio::spawn(async move {
+            while running.load(Ordering::Relaxed) {
+                match fetcher.mode {
+                    FetchMode::Polling => {
+                        if let Err(e) = fetcher.handle_polling(&tx).await {
+                            // TODO: log error
+                            eprintln!("Polling error: {}", e);
+                            break;
                         }
-                        FetchMode::Streaming => {
-                            if let Err(e) = fetcher.handle_streaming(&tx_clone).await {
-                                eprintln!("Streaming error: {}", e);
-                                break;
-                            }
+                        tokio::time::sleep(fetcher.update_interval).await;
+                    }
+                    FetchMode::Streaming => {
+                        if let Err(e) = fetcher.handle_streaming(&tx).await {
+                            // TODO: log error
+                            eprintln!("Streaming error: {}", e);
+                            break;
                         }
                     }
                 }
-                // Drop the sender when the loop ends
-                tx_clone.lock().unwrap().take();
-            });
+            }
+            // The channel will be closed when tx is dropped at the end of this function
         });
+
         rx
     }
 
@@ -287,7 +283,7 @@ impl HTTPFetcher {
 
     async fn handle_polling(
         &mut self,
-        sender: &Arc<Mutex<Option<mpsc::Sender<Result<source::Document, Error>>>>>,
+        sender: &mpsc::Sender<Result<source::Document, Error>>,
     ) -> Result<(), Error> {
         match self.fetch().await {
             Ok(Some(resp)) => {
@@ -298,17 +294,23 @@ impl HTTPFetcher {
                 let doc: source::Document = serde_json::from_str(&text).map_err(|e| {
                     Error::InvalidJSON(format!("failed to parse response body: {}", e))
                 })?;
-                send_result(sender, Ok(doc))?;
+                sender
+                    .send(Ok(doc))
+                    .await
+                    .map_err(|_| Error::Server("Failed to send result".into()))?;
             }
             Ok(None) => {}
-            Err(e) => send_result(sender, Err(e))?,
+            Err(e) => sender
+                .send(Err(e))
+                .await
+                .map_err(|_| Error::Server("Failed to send error".into()))?,
         }
         Ok(())
     }
 
     async fn handle_streaming(
         &mut self,
-        sender: &Arc<Mutex<Option<mpsc::Sender<Result<source::Document, Error>>>>>,
+        sender: &mpsc::Sender<Result<source::Document, Error>>,
     ) -> Result<(), Error> {
         match self.fetch_stream().await {
             Ok(Some(resp)) => {
@@ -329,7 +331,10 @@ impl HTTPFetcher {
                                         e
                                     ))
                                 })?;
-                            send_result(sender, Ok(doc))?;
+                            sender
+                                .send(Ok(doc))
+                                .await
+                                .map_err(|_| Error::Server("Failed to send result".into()))?;
                             buffer.clear();
                         } else {
                             buffer.push(byte);
@@ -338,21 +343,13 @@ impl HTTPFetcher {
                 }
             }
             Ok(None) => {}
-            Err(e) => send_result(sender, Err(e))?,
+            Err(e) => sender
+                .send(Err(e))
+                .await
+                .map_err(|_| Error::Server("Failed to send error".into()))?,
         }
         Ok(())
     }
-}
-
-fn send_result(
-    sender: &Arc<Mutex<Option<mpsc::Sender<Result<source::Document, Error>>>>>,
-    result: Result<source::Document, Error>,
-) -> Result<(), Error> {
-    if let Some(tx) = sender.lock().unwrap().as_ref() {
-        tx.send(result)
-            .map_err(|_| Error::Server("Failed to send result".into()))?;
-    }
-    Ok(())
 }
 
 #[cfg(test)]

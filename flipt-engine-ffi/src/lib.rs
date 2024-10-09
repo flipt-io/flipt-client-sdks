@@ -17,9 +17,10 @@ use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::Duration;
 use thiserror::Error;
+use tokio::runtime::Runtime;
+use tokio::task::JoinHandle;
 
 #[derive(Deserialize)]
 struct FFIEvaluationRequest {
@@ -100,24 +101,32 @@ impl Default for EngineOpts {
 pub struct Engine {
     fetcher: HTTPFetcher,
     evaluator: Arc<Mutex<Evaluator<Snapshot>>>,
-    _update_thread: thread::JoinHandle<()>,
+    runtime: Runtime,
+    _update_handle: JoinHandle<()>,
 }
 
 impl Engine {
     pub fn new(mut fetcher: HTTPFetcher, evaluator: Evaluator<Snapshot>) -> Self {
-        let rx = fetcher.start();
+        let runtime = Runtime::new().expect("Failed to create Tokio runtime");
         let evaluator = Arc::new(Mutex::new(evaluator));
         let evaluator_clone = evaluator.clone();
 
-        let update_thread = thread::spawn(move || loop {
-            match rx.recv() {
-                Ok(res) => {
-                    println!("snapshot received: {:?}", res.as_ref().unwrap());
-                    evaluator_clone.lock().unwrap().replace_snapshot(res);
-                }
-                Err(_) => {
-                    // this likely means the engine is shutting down
-                    break;
+        let mut rx = runtime.block_on(async { fetcher.start() });
+
+        let update_handle = runtime.spawn(async move {
+            while let Some(res) = rx.recv().await {
+                match res {
+                    Ok(snapshot) => {
+                        evaluator_clone
+                            .lock()
+                            .unwrap()
+                            .replace_snapshot(Ok(snapshot));
+                    }
+                    Err(e) => {
+                        // likely means the engine is shutting down
+                        eprintln!("error receiving snapshot: {}", e);
+                        break;
+                    }
                 }
             }
         });
@@ -125,7 +134,8 @@ impl Engine {
         Self {
             fetcher,
             evaluator,
-            _update_thread: update_thread,
+            runtime,
+            _update_handle: update_handle,
         }
     }
 
@@ -344,7 +354,10 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
     let mut engine = Box::from_raw(engine_ptr as *mut Engine);
     engine.fetcher.stop();
 
-    drop(engine);
+    // Shutdown the runtime
+    engine.runtime.shutdown_background();
+
+    // The engine will be dropped here, cleaning up all resources
 }
 
 /// # Safety
