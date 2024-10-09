@@ -115,19 +115,7 @@ impl Engine {
 
         let update_handle = runtime.spawn(async move {
             while let Some(res) = rx.recv().await {
-                match res {
-                    Ok(snapshot) => {
-                        evaluator_clone
-                            .lock()
-                            .unwrap()
-                            .replace_snapshot(Ok(snapshot));
-                    }
-                    Err(e) => {
-                        // likely means the engine is shutting down
-                        println!("error receiving snapshot: {}", e);
-                        break;
-                    }
-                }
+                evaluator_clone.lock().unwrap().replace_snapshot(res);
             }
         });
 

@@ -31,6 +31,7 @@ impl Evaluator<Snapshot> {
     }
 
     pub fn replace_snapshot(&mut self, res: Result<source::Document, Error>) {
+        println!("replacing snapshot: {:?}", res);
         let _w_lock = self.mtx.write().unwrap();
         match res {
             Ok(doc) => match Snapshot::build(&self.namespace, doc) {
