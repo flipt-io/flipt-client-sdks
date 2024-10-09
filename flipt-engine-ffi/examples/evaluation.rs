@@ -13,7 +13,7 @@ fn main() {
         .build();
     let evaluator = Evaluator::new("default".into());
 
-    let engine = fliptengine::Engine::new(fetcher, evaluator);
+    let engine = fliptengine::Engine::new(fetcher, evaluator).unwrap();
     let mut context: HashMap<String, String> = HashMap::new();
     context.insert("fizz".into(), "buzz".into());
 

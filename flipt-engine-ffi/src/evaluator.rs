@@ -30,22 +30,16 @@ impl Evaluator<Snapshot> {
         }
     }
 
-    pub fn replace_snapshot(&mut self, res: Result<source::Document, Error>) {
+    pub fn replace_snapshot(&mut self, res: source::Document) {
         println!("replacing snapshot: {:?}", res);
         let _w_lock = self.mtx.write().unwrap();
-        match res {
-            Ok(doc) => match Snapshot::build(&self.namespace, doc) {
-                Ok(s) => {
-                    self.store = s;
-                    self.error = None;
-                }
-                Err(err) => {
-                    println!("error building snapshot: {}", err);
-                    self.error = Some(err);
-                }
-            },
+        match Snapshot::build(&self.namespace, res) {
+            Ok(s) => {
+                self.store = s;
+                self.error = None;
+            }
             Err(err) => {
-                println!("error fetching snapshot: {}", err);
+                println!("error building snapshot: {}", err);
                 self.error = Some(err);
             }
         }
@@ -119,31 +113,6 @@ mod tests {
                 panic!("expected error but got okay");
             }
         }
-    }
-
-    #[test]
-    fn test_with_error() {
-        let expected_error = "unknown error: server error: can't connect";
-
-        let mut evaluator = Evaluator::new("namespace");
-        evaluator.replace_snapshot(Err(Error::Unknown(
-            "server error: can't connect".to_string(),
-        )));
-
-        let response = evaluator.list_flags();
-        assert_error_response(response, expected_error);
-        let requests = vec![];
-        let response = evaluator.batch(requests);
-        assert_error_response(response, expected_error);
-        let request = &EvaluationRequest {
-            flag_key: String::from("foo"),
-            entity_id: String::from("user@flipt.io"),
-            context: HashMap::new(),
-        };
-        let response = evaluator.boolean(request);
-        assert_error_response(response, expected_error);
-        let response = evaluator.variant(request);
-        assert_error_response(response, expected_error);
     }
 
     #[test]

@@ -1,6 +1,7 @@
 pub mod evaluator;
 pub mod http;
 
+use anyhow::Result;
 use evaluator::Evaluator;
 use fliptevaluation::error::Error;
 use fliptevaluation::models::flipt;
@@ -9,7 +10,7 @@ use fliptevaluation::{
     BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
     VariantEvaluationResponse,
 };
-use http::{Authentication, HTTPFetcher, HTTPFetcherBuilder};
+use http::{Authentication, FetchOptions, HTTPFetcher, HTTPFetcherBuilder};
 use libc::c_void;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -51,6 +52,8 @@ enum Status {
 enum FFIError {
     #[error("error engine null pointer")]
     NullPointer,
+    #[error("error engine init: {0}")]
+    Init(String),
 }
 
 impl<T> From<Result<T, Error>> for FFIResponse<T>
@@ -106,25 +109,56 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn new(mut fetcher: HTTPFetcher, evaluator: Evaluator<Snapshot>) -> Self {
-        let runtime = Runtime::new().expect("Failed to create Tokio runtime");
+    pub fn new(mut fetcher: HTTPFetcher, evaluator: Evaluator<Snapshot>) -> anyhow::Result<Self> {
+        let runtime = Runtime::new()?;
         let evaluator = Arc::new(Mutex::new(evaluator));
         let evaluator_clone = evaluator.clone();
+
+        let initial_snapshot = runtime
+            .block_on(async {
+                fetcher
+                    .fetch(FetchOptions {
+                        support_streaming: false,
+                    })
+                    .await
+            })
+            .map_err(|e| FFIError::Init(e.to_string()))?;
+
+        let json = match initial_snapshot {
+            Some(resp) => runtime.block_on(async {
+                resp.text()
+                    .await
+                    .map_err(|e| Error::Server(format!("failed to read response body: {}", e)))
+            })?,
+            None => Err(FFIError::Init(
+                "failed to fetch initial snapshot".to_string(),
+            ))?,
+        };
+
+        let doc = serde_json::from_str(&json).map_err(|e| Error::InvalidJSON(e.to_string()))?;
+
+        evaluator.lock().unwrap().replace_snapshot(doc);
 
         let mut rx = runtime.block_on(async { fetcher.start() });
 
         let update_handle = runtime.spawn(async move {
             while let Some(res) = rx.recv().await {
-                evaluator_clone.lock().unwrap().replace_snapshot(res);
+                match res {
+                    Ok(doc) => evaluator_clone.lock().unwrap().replace_snapshot(doc),
+                    Err(err) => {
+                        // TODO: handle this
+                        println!("error fetching snapshot: {}", err);
+                    }
+                }
             }
         });
 
-        Self {
+        Ok(Self {
             fetcher,
             evaluator,
             runtime,
             _update_handle: update_handle,
-        }
+        })
     }
 
     pub fn variant(

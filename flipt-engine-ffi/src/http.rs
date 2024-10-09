@@ -145,6 +145,10 @@ impl HTTPFetcherBuilder {
     }
 }
 
+pub struct FetchOptions {
+    pub support_streaming: bool,
+}
+
 impl HTTPFetcher {
     /// Start the fetcher and return a channel to receive updates on the snapshot changes
     pub fn start(&mut self) -> mpsc::Receiver<Result<source::Document, Error>> {
@@ -184,18 +188,21 @@ impl HTTPFetcher {
         self.running.store(false, Ordering::Relaxed);
     }
 
-    fn build_headers(&self) -> HeaderMap {
+    fn build_headers(&self, options: FetchOptions) -> HeaderMap {
         let mut headers = HeaderMap::new();
         headers.insert(
             reqwest::header::ACCEPT,
             reqwest::header::HeaderValue::from_static("application/json"),
         );
-        headers.append(
-            reqwest::header::ACCEPT,
-            reqwest::header::HeaderValue::from_static(
-                "application/vnd.flipt.io.snapshot.stream+json",
-            ),
-        );
+
+        if options.support_streaming {
+            headers.append(
+                reqwest::header::ACCEPT,
+                reqwest::header::HeaderValue::from_static(
+                    "application/vnd.flipt.io.snapshot.stream+json",
+                ),
+            );
+        }
 
         headers.insert(
             "X-Flipt-Accept-Server-Version",
@@ -216,8 +223,8 @@ impl HTTPFetcher {
         headers
     }
 
-    async fn fetch(&mut self) -> Result<Option<Response>, Error> {
-        let headers = self.build_headers();
+    pub async fn fetch(&mut self, options: FetchOptions) -> Result<Option<Response>, Error> {
+        let headers = self.build_headers(options);
 
         let response = self
             .http_client
@@ -266,7 +273,9 @@ impl HTTPFetcher {
     async fn fetch_stream(&mut self) -> Result<Option<Response>, Error> {
         self.http_client
             .get(self.url.clone())
-            .headers(self.build_headers())
+            .headers(self.build_headers(FetchOptions {
+                support_streaming: true,
+            }))
             .send()
             .await
             .map_err(|e| {
@@ -285,13 +294,18 @@ impl HTTPFetcher {
         &mut self,
         sender: &mpsc::Sender<Result<source::Document, Error>>,
     ) -> Result<(), Error> {
-        match self.fetch().await {
+        match self
+            .fetch(FetchOptions {
+                support_streaming: true,
+            })
+            .await
+        {
             Ok(Some(resp)) => {
-                let text = resp
+                let json = resp
                     .text()
                     .await
                     .map_err(|e| Error::Server(format!("failed to read response body: {}", e)))?;
-                let doc: source::Document = serde_json::from_str(&text).map_err(|e| {
+                let doc: source::Document = serde_json::from_str(&json).map_err(|e| {
                     Error::InvalidJSON(format!("failed to parse response body: {}", e))
                 })?;
                 sender
@@ -357,6 +371,7 @@ mod tests {
     use mockito::Server;
 
     use crate::http::Authentication;
+    use crate::http::FetchOptions;
     use crate::http::HTTPFetcherBuilder;
 
     #[tokio::test]
@@ -376,7 +391,11 @@ mod tests {
             .authentication(Authentication::None)
             .build();
 
-        let result = fetcher.fetch().await;
+        let result = fetcher
+            .fetch(FetchOptions {
+                support_streaming: false,
+            })
+            .await;
 
         assert!(result.is_ok());
         mock.assert();
@@ -401,7 +420,11 @@ mod tests {
 
         fetcher.etag = Some("etag".to_string());
 
-        let result = fetcher.fetch().await;
+        let result = fetcher
+            .fetch(FetchOptions {
+                support_streaming: false,
+            })
+            .await;
 
         assert!(result.is_ok());
         assert!(result.unwrap().is_none());
@@ -423,7 +446,11 @@ mod tests {
             .authentication(Authentication::None)
             .build();
 
-        let result = fetcher.fetch().await;
+        let result = fetcher
+            .fetch(FetchOptions {
+                support_streaming: false,
+            })
+            .await;
 
         assert!(!result.is_ok());
         mock.assert();
@@ -446,7 +473,11 @@ mod tests {
             .authentication(Authentication::ClientToken("foo".to_string()))
             .build();
 
-        let result = fetcher.fetch().await;
+        let result = fetcher
+            .fetch(FetchOptions {
+                support_streaming: false,
+            })
+            .await;
 
         assert!(result.is_ok());
         mock.assert();
@@ -469,7 +500,11 @@ mod tests {
             .authentication(Authentication::JwtToken("foo".to_string()))
             .build();
 
-        let result = fetcher.fetch().await;
+        let result = fetcher
+            .fetch(FetchOptions {
+                support_streaming: false,
+            })
+            .await;
 
         assert!(result.is_ok());
         mock.assert();
@@ -492,7 +527,11 @@ mod tests {
             .authentication(Authentication::JwtToken("foo".to_string()))
             .build();
 
-        let result = fetcher.fetch().await;
+        let result = fetcher
+            .fetch(FetchOptions {
+                support_streaming: false,
+            })
+            .await;
 
         assert!(result.is_err());
         mock.assert();
