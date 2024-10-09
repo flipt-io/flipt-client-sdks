@@ -251,14 +251,6 @@ impl HTTPFetcher {
         match response.status() {
             reqwest::StatusCode::NOT_MODIFIED => Ok(None),
 
-            reqwest::StatusCode::SEE_OTHER => {
-                if let Some(location) = response.headers().get(reqwest::header::LOCATION) {
-                    self.url = location.to_str().unwrap().to_string();
-                    self.mode = FetchMode::Streaming;
-                }
-                Ok(Some(response))
-            }
-
             reqwest::StatusCode::OK => {
                 // check if we have a new etag
                 if let Some(etag) = response.headers().get(reqwest::header::ETAG) {
