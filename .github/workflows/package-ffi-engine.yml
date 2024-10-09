@@ -1,5 +1,8 @@
 name: Package FFI Engine
 on:
+  pull_request:
+    branches:
+      - main
   push:
     tags: ["flipt-engine-ffi-v**"]
   workflow_dispatch:
@@ -49,7 +52,7 @@ jobs:
 
           - name: Windows-x86_64
             os: windows-latest
-            target: x86_64-pc-windows-gnu
+            target: x86_64-pc-windows-msvc
             use_cross: false
 
           # - name: iOS-arm64
@@ -115,6 +118,13 @@ jobs:
           tar -czvf flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz \
             target/${{ matrix.platform.target }}/release/libfliptengine.* \
             || true
+
+      - name: Upload To Pull Request (Pull Request)
+        uses: actions/upload-artifact@v4
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'package/')
+        with:
+          name: flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
+          path: flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
 
       - name: Upload Release Assets (Tag)
         uses: softprops/action-gh-release@v2

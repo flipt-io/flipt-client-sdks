@@ -24,7 +24,6 @@ var (
 		"python":    pythonBuild,
 		"go":        goBuild,
 		"go-musl":   goMuslBuild,
-		"node":      nodeBuild,
 		"ruby":      rubyBuild,
 		"java":      javaBuild,
 		"java-musl": javaMuslBuild,
@@ -144,6 +143,7 @@ var (
 		"Darwin-x86_64":     "x86_64-apple-darwin",
 		"Linux-arm64-musl":  "aarch64-unknown-linux-musl",
 		"Linux-x86_64-musl": "x86_64-unknown-linux-musl",
+		"Windows-x86_64":    "x86_64-pc-windows-msvc",
 	}
 )
 
@@ -262,7 +262,9 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 			WithDirectory("/tmp/ext/linux_arm64", hostDirectory.Directory("tmp/linux_arm64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}}).
 			WithDirectory("/tmp/ext/linux_x86_64", hostDirectory.Directory("tmp/linux_x86_64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}}).
 			WithDirectory("/tmp/ext/darwin_arm64", hostDirectory.Directory("tmp/darwin_arm64"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}}).
-			WithDirectory("/tmp/ext/darwin_x86_64", hostDirectory.Directory("tmp/darwin_x86_64"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}})
+			WithDirectory("/tmp/ext/darwin_x86_64", hostDirectory.Directory("tmp/darwin_x86_64"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}}).
+			WithDirectory("/tmp/ext/windows_x86_64", hostDirectory.Directory("tmp/windows_x86_64"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}})
+
 	}
 
 	filtered := repository.
@@ -310,41 +312,6 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 
 func goMuslBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts ...buildOptionsFn) error {
 	return goBuild(ctx, client, hostDirectory, append(opts, withMusl())...)
-}
-
-func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts ...buildOptionsFn) error {
-	container := client.Container().From("node:21.2-bookworm").
-		WithDirectory("/src", hostDirectory.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{"./node_modules/"},
-		}).
-		WithDirectory("/src/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Exclude: defaultExclude,
-		}).
-		WithFile("/src/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
-		WithWorkdir("/src").
-		WithExec([]string{"npm", "install"}).
-		WithExec([]string{"npm", "run", "build"}).
-		WithExec([]string{"npm", "pack"})
-
-	var err error
-
-	if !push {
-		_, err = container.Sync(ctx)
-		return err
-	}
-
-	if os.Getenv("NPM_API_KEY") == "" {
-		return fmt.Errorf("NPM_API_KEY is not set")
-	}
-
-	npmAPIKeySecret := client.SetSecret("npm-api-key", os.Getenv("NPM_API_KEY"))
-
-	_, err = container.WithSecretVariable("NPM_TOKEN", npmAPIKeySecret).
-		WithExec([]string{"npm", "config", "set", "--", "//registry.npmjs.org/:_authToken", "${NPM_TOKEN}"}).
-		WithExec([]string{"npm", "publish", "--access", "public"}).
-		Sync(ctx)
-
-	return err
 }
 
 func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts ...buildOptionsFn) error {
@@ -414,6 +381,7 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		{old: "linux_arm64", new: "linux-aarch64"},
 		{old: "darwin_x86_64", new: "darwin-x86-64"},
 		{old: "darwin_arm64", new: "darwin-aarch64"},
+		{old: "windows_x86_64", new: "win32-x86-64"},
 	}
 
 	renameMusl := []rename{
@@ -421,6 +389,7 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		{old: "linux_arm64_musl", new: "linux-aarch64"},
 		{old: "darwin_x86_64", new: "darwin-x86-64"},
 		{old: "darwin_arm64", new: "darwin-aarch64"},
+		{old: "windows_x86_64", new: "win32-x86-64"},
 	}
 
 	renames := renameGlibc
