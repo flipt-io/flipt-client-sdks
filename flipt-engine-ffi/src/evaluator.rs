@@ -39,12 +39,12 @@ impl Evaluator<Snapshot> {
                     self.error = None;
                 }
                 Err(err) => {
-                    eprintln!("error building snapshot: {}", err);
+                    println!("error building snapshot: {}", err);
                     self.error = Some(err);
                 }
             },
             Err(err) => {
-                eprintln!("error fetching snapshot: {}", err);
+                println!("error fetching snapshot: {}", err);
                 self.error = Some(err);
             }
         }

@@ -160,7 +160,7 @@ impl HTTPFetcher {
                     FetchMode::Polling => {
                         if let Err(e) = fetcher.handle_polling(&tx).await {
                             // TODO: log error
-                            eprintln!("Polling error: {}", e);
+                            println!("Polling error: {}", e);
                             break;
                         }
                         tokio::time::sleep(fetcher.update_interval).await;
@@ -168,7 +168,7 @@ impl HTTPFetcher {
                     FetchMode::Streaming => {
                         if let Err(e) = fetcher.handle_streaming(&tx).await {
                             // TODO: log error
-                            eprintln!("Streaming error: {}", e);
+                            println!("Streaming error: {}", e);
                             break;
                         }
                     }

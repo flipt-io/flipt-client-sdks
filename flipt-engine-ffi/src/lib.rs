@@ -124,7 +124,7 @@ impl Engine {
                     }
                     Err(e) => {
                         // likely means the engine is shutting down
-                        eprintln!("error receiving snapshot: {}", e);
+                        println!("error receiving snapshot: {}", e);
                         break;
                     }
                 }
