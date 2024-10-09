@@ -117,13 +117,13 @@ jobs:
       - if: ${{ !startsWith(matrix.platform.name, 'Windows') }}
         run: |
           tar -czvf flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz \
-            target/${{ matrix.platform.target }}/release/fliptengine.* \
+            target/${{ matrix.platform.target }}/release/libfliptengine.* \
             || true
 
       - if: startsWith(matrix.platform.name, 'Windows')
         run: |
           7z a -tzip flipt-engine-ffi-${{ matrix.platform.name }}.zip `
-            target\${{ matrix.platform.target }}\release\libfliptengine.* `
+            target\${{ matrix.platform.target }}\release\fliptengine.* `
             || true
 
       - name: Upload To Pull Request (Pull Request)
