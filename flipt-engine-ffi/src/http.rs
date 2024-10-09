@@ -192,7 +192,7 @@ impl HTTPFetcher {
             Err(_) => {
                 // No runtime exists, create a new one
                 let runtime = tokio::runtime::Runtime::new()
-                    .map_err(|e| Error::Server(format!("Failed to create runtime: {}", e)))?;
+                    .map_err(|e| Error::Server(format!("failed to create runtime: {}", e)))?;
                 runtime.block_on(self.initial_fetch_async())
             }
         }
@@ -244,9 +244,9 @@ impl HTTPFetcher {
             .headers(headers)
             .send()
             .await
-            .map_err(|e| Error::Server(format!("Failed to make request: {}", e)))?
+            .map_err(|e| Error::Server(format!("failed to make request: {}", e)))?
             .error_for_status()
-            .map_err(|e| Error::Server(format!("Response: {}", e)))?;
+            .map_err(|e| Error::Server(format!("response: {}", e)))?;
 
         match response.status() {
             reqwest::StatusCode::NOT_MODIFIED => Ok(None),
@@ -269,7 +269,7 @@ impl HTTPFetcher {
             }
 
             _ => Err(Error::Server(format!(
-                "Unexpected http response: {} {}",
+                "unexpected http response: {} {}",
                 response.status(),
                 response.text().await.unwrap_or("".to_string())
             ))),
@@ -284,9 +284,9 @@ impl HTTPFetcher {
             }))
             .send()
             .await
-            .map_err(|e| Error::Server(format!("Failed to make request: {}", e)))?
+            .map_err(|e| Error::Server(format!("failed to make request: {}", e)))?
             .error_for_status()
-            .map_err(|e| Error::Server(format!("Response: {}", e)))
+            .map_err(|e| Error::Server(format!("response: {}", e)))
             .map(Some)
     }
 
@@ -299,9 +299,9 @@ impl HTTPFetcher {
                 let json = resp
                     .text()
                     .await
-                    .map_err(|e| Error::Server(format!("Failed to read response body: {}", e)))?;
+                    .map_err(|e| Error::Server(format!("failed to read response body: {}", e)))?;
                 let doc: source::Document = serde_json::from_str(&json).map_err(|e| {
-                    Error::InvalidJSON(format!("Failed to parse response body: {}", e))
+                    Error::InvalidJSON(format!("failed to parse response body: {}", e))
                 })?;
                 Ok(doc)
             }
@@ -312,7 +312,7 @@ impl HTTPFetcher {
         sender
             .send(result)
             .await
-            .map_err(|_| Error::Server("Failed to send result".into()))
+            .map_err(|_| Error::Server("failed to send result".into()))
     }
 
     async fn handle_streaming(
@@ -326,7 +326,7 @@ impl HTTPFetcher {
 
                 while let Some(chunk) = stream.next().await {
                     let chunk = chunk.map_err(|e| {
-                        Error::Server(format!("Failed to read stream chunk: {}", e))
+                        Error::Server(format!("failed to read stream chunk: {}", e))
                     })?;
 
                     for byte in chunk {
@@ -335,7 +335,7 @@ impl HTTPFetcher {
                             let doc: source::Document =
                                 serde_json::from_str(&text).map_err(|e| {
                                     Error::InvalidJSON(format!(
-                                        "Failed to parse response body: {}",
+                                        "failed to parse response body: {}",
                                         e
                                     ))
                                 })?;
@@ -343,7 +343,7 @@ impl HTTPFetcher {
                             sender
                                 .send(Ok(doc))
                                 .await
-                                .map_err(|_| Error::Server("Failed to send result".into()))?;
+                                .map_err(|_| Error::Server("failed to send result".into()))?;
                             buffer.clear();
                         } else {
                             buffer.push(byte);
@@ -361,7 +361,7 @@ impl HTTPFetcher {
             Err(e) => sender
                 .send(Err(e))
                 .await
-                .map_err(|_| Error::Server("Failed to send error".into())),
+                .map_err(|_| Error::Server("failed to send error".into())),
         }
     }
 
@@ -373,15 +373,15 @@ impl HTTPFetcher {
                 let body = resp
                     .text()
                     .await
-                    .map_err(|e| Error::Server(format!("Failed to read response body: {}", e)))?;
+                    .map_err(|e| Error::Server(format!("failed to read response body: {}", e)))?;
 
                 let document: source::Document = serde_json::from_str(&body).map_err(|e| {
-                    Error::InvalidJSON(format!("Failed to parse response body: {}", e))
+                    Error::InvalidJSON(format!("failed to parse response body: {}", e))
                 })?;
 
                 Ok(document)
             }
-            None => Err(Error::Server("No data received from server".into())),
+            None => Err(Error::Server("no data received from server".into())),
         }
     }
 }

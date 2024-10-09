@@ -107,7 +107,7 @@ impl Engine {
     pub fn new(namespace: &str, mut fetcher: HTTPFetcher, evaluator: Evaluator<Snapshot>) -> Self {
         let stop_signal = Arc::new(AtomicBool::new(false));
 
-        let runtime = Runtime::new().expect("Failed to create runtime");
+        let runtime = Runtime::new().expect("failed to create runtime");
 
         let evaluator = Arc::new(Mutex::new(evaluator));
         let evaluator_clone = evaluator.clone();
