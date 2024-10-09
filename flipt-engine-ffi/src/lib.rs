@@ -2,6 +2,7 @@ pub mod evaluator;
 pub mod http;
 
 use evaluator::Evaluator;
+use fliptevaluation::error::Error;
 use fliptevaluation::models::flipt;
 use fliptevaluation::store::Snapshot;
 use fliptevaluation::{
@@ -52,11 +53,11 @@ enum FFIError {
     NullPointer,
 }
 
-impl<T> From<Result<T, anyhow::Error>> for FFIResponse<T>
+impl<T> From<Result<T, Error>> for FFIResponse<T>
 where
     T: Serialize,
 {
-    fn from(value: Result<T, anyhow::Error>) -> Self {
+    fn from(value: Result<T, Error>) -> Self {
         match value {
             Ok(result) => FFIResponse {
                 status: Status::Success,
@@ -72,7 +73,7 @@ where
     }
 }
 
-fn result_to_json_ptr<T: Serialize>(result: Result<T, anyhow::Error>) -> *mut c_char {
+fn result_to_json_ptr<T: Serialize>(result: Result<T, Error>) -> *mut c_char {
     let ffi_response: FFIResponse<T> = result.into();
     let json_string = serde_json::to_string(&ffi_response).unwrap();
     CString::new(json_string).unwrap().into_raw()
@@ -150,38 +151,38 @@ impl Engine {
     pub fn variant(
         &self,
         evaluation_request: &EvaluationRequest,
-    ) -> anyhow::Result<VariantEvaluationResponse> {
+    ) -> Result<VariantEvaluationResponse, Error> {
         let binding = self.evaluator.clone();
         let lock = binding.lock().unwrap();
 
-        lock.variant(evaluation_request).map_err(|e| e.into())
+        lock.variant(evaluation_request)
     }
 
     pub fn boolean(
         &self,
         evaluation_request: &EvaluationRequest,
-    ) -> anyhow::Result<BooleanEvaluationResponse> {
+    ) -> Result<BooleanEvaluationResponse, Error> {
         let binding = self.evaluator.clone();
         let lock = binding.lock().unwrap();
 
-        lock.boolean(evaluation_request).map_err(|e| e.into())
+        lock.boolean(evaluation_request)
     }
 
     pub fn batch(
         &self,
         batch_evaluation_request: Vec<EvaluationRequest>,
-    ) -> anyhow::Result<BatchEvaluationResponse> {
+    ) -> Result<BatchEvaluationResponse, Error> {
         let binding = self.evaluator.clone();
         let lock = binding.lock().unwrap();
 
-        lock.batch(batch_evaluation_request).map_err(|e| e.into())
+        lock.batch(batch_evaluation_request)
     }
 
-    pub fn list_flags(&self) -> anyhow::Result<Vec<flipt::Flag>> {
+    pub fn list_flags(&self) -> Result<Vec<flipt::Flag>, Error> {
         let binding = self.evaluator.clone();
         let lock = binding.lock().unwrap();
 
-        lock.list_flags().map_err(|e| e.into())
+        lock.list_flags()
     }
 }
 
@@ -189,9 +190,9 @@ impl Engine {
 ///
 /// This function should not be called unless an Engine is initiated. It provides a helper
 /// utility to retrieve an Engine instance for evaluation use.
-unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> anyhow::Result<&'a mut Engine> {
+unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, FFIError> {
     if engine_ptr.is_null() {
-        Err(anyhow::anyhow!(FFIError::NullPointer))
+        Err(FFIError::NullPointer)
     } else {
         Ok(unsafe { &mut *(engine_ptr as *mut Engine) })
     }

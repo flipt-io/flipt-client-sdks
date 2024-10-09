@@ -163,14 +163,14 @@ impl HTTPFetcher {
             while !stop_signal.load(Ordering::Relaxed) {
                 match fetcher.mode {
                     FetchMode::Polling => {
-                        if let Err(_) = fetcher.handle_polling(&tx).await {
+                        if (fetcher.handle_polling(&tx).await).is_err() {
                             // TODO: log error
                             break;
                         }
                         tokio::time::sleep(fetcher.update_interval).await;
                     }
                     FetchMode::Streaming => {
-                        if let Err(_) = fetcher.handle_streaming(&tx).await {
+                        if (fetcher.handle_streaming(&tx).await).is_err() {
                             // TODO: log error
                             break;
                         }
