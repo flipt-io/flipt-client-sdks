@@ -1,27 +1,25 @@
 pub mod evaluator;
 pub mod http;
 
-use anyhow::Result;
 use evaluator::Evaluator;
-use fliptevaluation::error::Error;
 use fliptevaluation::models::flipt;
 use fliptevaluation::store::Snapshot;
 use fliptevaluation::{
     BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
     VariantEvaluationResponse,
 };
-use http::{Authentication, FetchOptions, HTTPFetcher, HTTPFetcherBuilder};
+use http::{Authentication, HTTPFetcher, HTTPFetcherBuilder};
 use libc::c_void;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::runtime::Runtime;
-use tokio::task::JoinHandle;
 
 #[derive(Deserialize)]
 struct FFIEvaluationRequest {
@@ -52,15 +50,13 @@ enum Status {
 enum FFIError {
     #[error("error engine null pointer")]
     NullPointer,
-    #[error("error engine init: {0}")]
-    Init(String),
 }
 
-impl<T> From<Result<T, Error>> for FFIResponse<T>
+impl<T> From<Result<T, anyhow::Error>> for FFIResponse<T>
 where
     T: Serialize,
 {
-    fn from(value: Result<T, Error>) -> Self {
+    fn from(value: Result<T, anyhow::Error>) -> Self {
         match value {
             Ok(result) => FFIResponse {
                 status: Status::Success,
@@ -76,7 +72,7 @@ where
     }
 }
 
-fn result_to_json_ptr<T: Serialize>(result: Result<T, Error>) -> *mut c_char {
+fn result_to_json_ptr<T: Serialize>(result: Result<T, anyhow::Error>) -> *mut c_char {
     let ffi_response: FFIResponse<T> = result.into();
     let json_string = serde_json::to_string(&ffi_response).unwrap();
     CString::new(json_string).unwrap().into_raw()
@@ -102,49 +98,42 @@ impl Default for EngineOpts {
 }
 
 pub struct Engine {
-    fetcher: HTTPFetcher,
     evaluator: Arc<Mutex<Evaluator<Snapshot>>>,
     runtime: Runtime,
-    _update_handle: JoinHandle<()>,
+    stop_signal: Arc<AtomicBool>,
 }
 
 impl Engine {
-    pub fn new(mut fetcher: HTTPFetcher, evaluator: Evaluator<Snapshot>) -> anyhow::Result<Self> {
-        let runtime = Runtime::new()?;
+    pub fn new(namespace: &str, mut fetcher: HTTPFetcher, evaluator: Evaluator<Snapshot>) -> Self {
+        let stop_signal = Arc::new(AtomicBool::new(false));
+
+        let runtime = Runtime::new().expect("Failed to create runtime");
+
         let evaluator = Arc::new(Mutex::new(evaluator));
         let evaluator_clone = evaluator.clone();
 
-        let initial_snapshot = runtime
-            .block_on(async {
-                fetcher
-                    .fetch(FetchOptions {
-                        support_streaming: false,
-                    })
-                    .await
-            })
-            .map_err(|e| FFIError::Init(e.to_string()))?;
+        let initial_snapshot = fetcher.initial_fetch();
+        match initial_snapshot {
+            Ok(doc) => {
+                let snap = Snapshot::build(namespace, doc);
+                evaluator_clone.lock().unwrap().replace_snapshot(snap);
+            }
+            Err(err) => {
+                // TODO: handle this
+                println!("error fetching snapshot: {}", err);
+            }
+        }
 
-        let json = match initial_snapshot {
-            Some(resp) => runtime.block_on(async {
-                resp.text()
-                    .await
-                    .map_err(|e| Error::Server(format!("failed to read response body: {}", e)))
-            })?,
-            None => Err(FFIError::Init(
-                "failed to fetch initial snapshot".to_string(),
-            ))?,
-        };
+        let mut rx = runtime.block_on(async { fetcher.start(stop_signal.clone()) });
 
-        let doc = serde_json::from_str(&json).map_err(|e| Error::InvalidJSON(e.to_string()))?;
-
-        evaluator.lock().unwrap().replace_snapshot(doc);
-
-        let mut rx = runtime.block_on(async { fetcher.start() });
-
-        let update_handle = runtime.spawn(async move {
+        let namespace_clone = namespace.to_string();
+        runtime.spawn(async move {
             while let Some(res) = rx.recv().await {
                 match res {
-                    Ok(doc) => evaluator_clone.lock().unwrap().replace_snapshot(doc),
+                    Ok(doc) => {
+                        let snap = Snapshot::build(&namespace_clone, doc);
+                        evaluator_clone.lock().unwrap().replace_snapshot(snap);
+                    }
                     Err(err) => {
                         // TODO: handle this
                         println!("error fetching snapshot: {}", err);
@@ -153,49 +142,48 @@ impl Engine {
             }
         });
 
-        Ok(Self {
-            fetcher,
+        Self {
             evaluator,
             runtime,
-            _update_handle: update_handle,
-        })
+            stop_signal,
+        }
     }
 
     pub fn variant(
         &self,
         evaluation_request: &EvaluationRequest,
-    ) -> Result<VariantEvaluationResponse, Error> {
+    ) -> anyhow::Result<VariantEvaluationResponse> {
         let binding = self.evaluator.clone();
         let lock = binding.lock().unwrap();
 
-        lock.variant(evaluation_request)
+        lock.variant(evaluation_request).map_err(|e| e.into())
     }
 
     pub fn boolean(
         &self,
         evaluation_request: &EvaluationRequest,
-    ) -> Result<BooleanEvaluationResponse, Error> {
+    ) -> anyhow::Result<BooleanEvaluationResponse> {
         let binding = self.evaluator.clone();
         let lock = binding.lock().unwrap();
 
-        lock.boolean(evaluation_request)
+        lock.boolean(evaluation_request).map_err(|e| e.into())
     }
 
     pub fn batch(
         &self,
         batch_evaluation_request: Vec<EvaluationRequest>,
-    ) -> Result<BatchEvaluationResponse, Error> {
+    ) -> anyhow::Result<BatchEvaluationResponse> {
         let binding = self.evaluator.clone();
         let lock = binding.lock().unwrap();
 
-        lock.batch(batch_evaluation_request)
+        lock.batch(batch_evaluation_request).map_err(|e| e.into())
     }
 
-    pub fn list_flags(&self) -> Result<Vec<flipt::Flag>, Error> {
+    pub fn list_flags(&self) -> anyhow::Result<Vec<flipt::Flag>> {
         let binding = self.evaluator.clone();
         let lock = binding.lock().unwrap();
 
-        lock.list_flags()
+        lock.list_flags().map_err(|e| e.into())
     }
 }
 
@@ -203,9 +191,9 @@ impl Engine {
 ///
 /// This function should not be called unless an Engine is initiated. It provides a helper
 /// utility to retrieve an Engine instance for evaluation use.
-unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, FFIError> {
+unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> anyhow::Result<&'a mut Engine> {
     if engine_ptr.is_null() {
-        Err(FFIError::NullPointer)
+        Err(anyhow::anyhow!(FFIError::NullPointer))
     } else {
         Ok(unsafe { &mut *(engine_ptr as *mut Engine) })
     }
@@ -255,7 +243,7 @@ pub unsafe extern "C" fn initialize_engine(
 
     let fetcher = fetcher_builder.build();
     let evaluator = Evaluator::new(namespace);
-    let engine = Engine::new(fetcher, evaluator);
+    let engine = Engine::new(namespace, fetcher, evaluator);
 
     Box::into_raw(Box::new(engine)) as *mut c_void
 }
@@ -373,8 +361,8 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
         return;
     }
 
-    let mut engine = Box::from_raw(engine_ptr as *mut Engine);
-    engine.fetcher.stop();
+    let engine = Box::from_raw(engine_ptr as *mut Engine);
+    engine.stop_signal.store(true, Ordering::Relaxed);
 
     // Shutdown the runtime
     engine.runtime.shutdown_background();

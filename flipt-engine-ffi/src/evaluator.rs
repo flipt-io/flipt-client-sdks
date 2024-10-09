@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 use fliptevaluation::{
     batch_evaluation, boolean_evaluation,
     error::Error,
-    models::{flipt, source},
+    models::flipt,
     store::{Snapshot, Store},
     variant_evaluation, BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
     VariantEvaluationResponse,
@@ -30,16 +30,14 @@ impl Evaluator<Snapshot> {
         }
     }
 
-    pub fn replace_snapshot(&mut self, res: source::Document) {
-        println!("replacing snapshot: {:?}", res);
+    pub fn replace_snapshot(&mut self, res: Result<Snapshot, Error>) {
         let _w_lock = self.mtx.write().unwrap();
-        match Snapshot::build(&self.namespace, res) {
-            Ok(s) => {
-                self.store = s;
+        match res {
+            Ok(snap) => {
+                self.store = snap;
                 self.error = None;
             }
             Err(err) => {
-                println!("error building snapshot: {}", err);
                 self.error = Some(err);
             }
         }
@@ -47,8 +45,7 @@ impl Evaluator<Snapshot> {
 
     pub fn list_flags(&self) -> Result<Vec<flipt::Flag>, Error> {
         let _r_lock = self.mtx.read().unwrap();
-        if self.error.is_some() {
-            let error = self.error.as_ref().expect("valid error");
+        if let Some(error) = &self.error {
             return Err(error.clone());
         }
         match self.store.list_flags(&self.namespace) {
@@ -65,8 +62,7 @@ impl Evaluator<Snapshot> {
         evaluation_request: &EvaluationRequest,
     ) -> Result<VariantEvaluationResponse, Error> {
         let _r_lock = self.mtx.read().unwrap();
-        if self.error.is_some() {
-            let error = self.error.as_ref().expect("valid error");
+        if let Some(error) = &self.error {
             return Err(error.clone());
         }
         variant_evaluation(&self.store, &self.namespace, evaluation_request)
@@ -77,8 +73,7 @@ impl Evaluator<Snapshot> {
         evaluation_request: &EvaluationRequest,
     ) -> Result<BooleanEvaluationResponse, Error> {
         let _r_lock = self.mtx.read().unwrap();
-        if self.error.is_some() {
-            let error = self.error.as_ref().expect("valid error");
+        if let Some(error) = &self.error {
             return Err(error.clone());
         }
         boolean_evaluation(&self.store, &self.namespace, evaluation_request)
@@ -89,8 +84,7 @@ impl Evaluator<Snapshot> {
         requests: Vec<EvaluationRequest>,
     ) -> Result<BatchEvaluationResponse, Error> {
         let _r_lock = self.mtx.read().unwrap();
-        if self.error.is_some() {
-            let error = self.error.as_ref().expect("valid error");
+        if let Some(error) = &self.error {
             return Err(error.clone());
         }
         batch_evaluation(&self.store, &self.namespace, requests)

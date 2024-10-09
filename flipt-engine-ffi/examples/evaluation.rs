@@ -8,12 +8,13 @@ use fliptevaluation::EvaluationRequest;
 use std::collections::HashMap;
 
 fn main() {
-    let fetcher = HTTPFetcherBuilder::new("http://localhost:8080", "default")
+    let namespace = "default";
+    let fetcher = HTTPFetcherBuilder::new("http://localhost:8080", namespace)
         .authentication(Authentication::with_client_token("secret".into()))
         .build();
-    let evaluator = Evaluator::new("default".into());
+    let evaluator = Evaluator::new(namespace);
 
-    let engine = fliptengine::Engine::new(fetcher, evaluator).unwrap();
+    let engine = fliptengine::Engine::new(namespace, fetcher, evaluator);
     let mut context: HashMap<String, String> = HashMap::new();
     context.insert("fizz".into(), "buzz".into());
 
