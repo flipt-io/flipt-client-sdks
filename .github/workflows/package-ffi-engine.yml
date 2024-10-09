@@ -117,7 +117,7 @@ jobs:
       - if: ${{ !startsWith(matrix.platform.name, 'Windows') }}
         run: |
           tar -czvf flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz \
-            target/${{ matrix.platform.target }}/release/libfliptengine.* \
+            target/${{ matrix.platform.target }}/release/fliptengine.* \
             || true
 
       - if: startsWith(matrix.platform.name, 'Windows')
