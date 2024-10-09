@@ -244,9 +244,9 @@ impl HTTPFetcher {
             .headers(headers)
             .send()
             .await
-            .map_err(|e| Error::Server(format!("failed to make request: {}", e)))?
+            .map_err(|e| Error::Server(format!("Failed to make request: {}", e)))?
             .error_for_status()
-            .map_err(|e| Error::Server(format!("response: {}", e)))?;
+            .map_err(|e| Error::Server(format!("Response: {}", e)))?;
 
         match response.status() {
             reqwest::StatusCode::NOT_MODIFIED => Ok(None),
@@ -269,7 +269,7 @@ impl HTTPFetcher {
             }
 
             _ => Err(Error::Server(format!(
-                "unexpected http response: {} {}",
+                "Unexpected http response: {} {}",
                 response.status(),
                 response.text().await.unwrap_or("".to_string())
             ))),
@@ -284,9 +284,9 @@ impl HTTPFetcher {
             }))
             .send()
             .await
-            .map_err(|e| Error::Server(format!("failed to make request: {}", e)))?
+            .map_err(|e| Error::Server(format!("Failed to make request: {}", e)))?
             .error_for_status()
-            .map_err(|e| Error::Server(format!("response: {}", e)))
+            .map_err(|e| Error::Server(format!("Response: {}", e)))
             .map(Some)
     }
 
@@ -294,52 +294,52 @@ impl HTTPFetcher {
         &mut self,
         sender: &mpsc::Sender<Result<source::Document, Error>>,
     ) -> Result<(), Error> {
-        match self.fetch().await {
+        let result = match self.fetch().await {
             Ok(Some(resp)) => {
                 let json = resp
                     .text()
                     .await
-                    .map_err(|e| Error::Server(format!("failed to read response body: {}", e)))?;
+                    .map_err(|e| Error::Server(format!("Failed to read response body: {}", e)))?;
                 let doc: source::Document = serde_json::from_str(&json).map_err(|e| {
-                    Error::InvalidJSON(format!("failed to parse response body: {}", e))
+                    Error::InvalidJSON(format!("Failed to parse response body: {}", e))
                 })?;
-                sender
-                    .send(Ok(doc))
-                    .await
-                    .map_err(|_| Error::Server("Failed to send result".into()))?;
+                Ok(doc)
             }
-            Ok(None) => {}
-            Err(e) => sender
-                .send(Err(e))
-                .await
-                .map_err(|_| Error::Server("Failed to send error".into()))?,
-        }
-        Ok(())
+            Ok(None) => return Ok(()),
+            Err(e) => Err(e),
+        };
+
+        sender
+            .send(result)
+            .await
+            .map_err(|_| Error::Server("Failed to send result".into()))
     }
 
     async fn handle_streaming(
         &mut self,
         sender: &mpsc::Sender<Result<source::Document, Error>>,
     ) -> Result<(), Error> {
-        match self.fetch_stream().await {
+        let result = match self.fetch_stream().await {
             Ok(Some(resp)) => {
                 let mut stream = resp.bytes_stream();
                 let mut buffer = Vec::new();
 
                 while let Some(chunk) = stream.next().await {
                     let chunk = chunk.map_err(|e| {
-                        Error::Server(format!("failed to read stream chunk: {}", e))
+                        Error::Server(format!("Failed to read stream chunk: {}", e))
                     })?;
+
                     for byte in chunk {
                         if byte == b'\n' {
                             let text = String::from_utf8_lossy(&buffer);
                             let doc: source::Document =
                                 serde_json::from_str(&text).map_err(|e| {
                                     Error::InvalidJSON(format!(
-                                        "failed to parse response body: {}",
+                                        "Failed to parse response body: {}",
                                         e
                                     ))
                                 })?;
+
                             sender
                                 .send(Ok(doc))
                                 .await
@@ -350,14 +350,19 @@ impl HTTPFetcher {
                         }
                     }
                 }
+                Ok(())
             }
-            Ok(None) => {}
+            Ok(None) => Ok(()),
+            Err(e) => Err(e),
+        };
+
+        match result {
+            Ok(_) => Ok(()),
             Err(e) => sender
                 .send(Err(e))
                 .await
-                .map_err(|_| Error::Server("Failed to send error".into()))?,
+                .map_err(|_| Error::Server("Failed to send error".into())),
         }
-        Ok(())
     }
 
     async fn initial_fetch_async(&mut self) -> FetchResult {
@@ -386,6 +391,7 @@ mod tests {
     use mockito::Server;
 
     use crate::http::Authentication;
+    use crate::http::FetchMode;
     use crate::http::HTTPFetcherBuilder;
 
     #[tokio::test]
@@ -549,6 +555,38 @@ mod tests {
             fetcher.url,
             "http://localhost:8080/internal/v1/evaluation/snapshot/namespace/default"
         );
+    }
+
+    #[tokio::test]
+    async fn test_http_fetch_stream() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .with_status(200)
+            .with_header(
+                "content-type",
+                "application/vnd.flipt.io.snapshot.stream+json",
+            )
+            .with_chunked_body(|w| {
+                w.write_all(b"{\"namespace\": {\"key\": \"default\"}, \"flags\":[]}\n")?;
+                w.write_all(
+                    b"{\"namespace\": {\"key\": \"default\"}, \"flags\":[{\"key\": \"new_flag\"}]}\n",
+                )?;
+                Ok(())
+            })
+            .create_async()
+            .await;
+
+        let url = server.url();
+        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
+            .authentication(Authentication::None)
+            .build();
+
+        fetcher.mode = FetchMode::Streaming;
+        let result = fetcher.fetch_stream().await;
+
+        assert!(result.is_ok());
+        mock.assert();
     }
 
     #[test]
