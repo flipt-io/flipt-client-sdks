@@ -21,7 +21,6 @@ var (
 	push      bool
 	tag       string
 	engineTag string
-	verbose   bool
 	sdksToFn  = map[string]buildFn{
 		"python":    pythonBuild,
 		"go":        goBuild,
@@ -57,6 +56,7 @@ type libc string
 const (
 	glibc libc = "glibc"
 	musl  libc = "musl"
+	both  libc = "both"
 )
 
 type buildOptions struct {
@@ -145,10 +145,10 @@ var (
 	packages = []pkg{
 		{id: "Linux-arm64", target: "aarch64-unknown-linux-gnu", ext: "tar.gz", libc: glibc},
 		{id: "Linux-x86_64", target: "x86_64-unknown-linux-gnu", ext: "tar.gz", libc: glibc},
-		{id: "Darwin-arm64", target: "aarch64-apple-darwin", ext: "tar.gz", libc: glibc},
-		{id: "Darwin-x86_64", target: "x86_64-apple-darwin", ext: "tar.gz", libc: glibc},
 		{id: "Linux-arm64-musl", target: "aarch64-unknown-linux-musl", ext: "tar.gz", libc: musl},
 		{id: "Linux-x86_64-musl", target: "x86_64-unknown-linux-musl", ext: "tar.gz", libc: musl},
+		{id: "Darwin-arm64", target: "aarch64-apple-darwin", ext: "tar.gz", libc: both},
+		{id: "Darwin-x86_64", target: "x86_64-apple-darwin", ext: "tar.gz", libc: both},
 		// {id: "Windows-x86_64", target: "x86_64-pc-windows-msvc", ext: "zip", libc: glibc},
 	}
 )
@@ -197,30 +197,39 @@ func downloadFFI(ctx context.Context, client *dagger.Client) error {
 	for _, pkg := range packages {
 		pkg := pkg
 		var (
-			// normalize the package id to be used in the directory name
-			out = strings.TrimSuffix(strings.ToLower(strings.ReplaceAll(pkg.id, "-", "_")), fmt.Sprintf("_%s", pkg.libc))
+			out = strings.TrimSuffix(strings.ToLower(strings.ReplaceAll(pkg.id, "-", "_")), "_musl")
 			url = fmt.Sprintf("https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-%s/flipt-engine-ffi-%s.%s", engineTag, pkg.id, pkg.ext)
 		)
 
 		container := client.Container().From("debian:bookworm-slim").
 			WithExec([]string{"apt-get", "update"}).
 			WithExec([]string{"apt-get", "install", "-y", "wget", "p7zip-full"}).
-			WithExec(args("mkdir -p /tmp/dl/%s", pkg.libc)).
-			WithExec(args("wget %s -O /tmp/dl/%s/%s.%s", url, pkg.libc, pkg.id, pkg.ext)).
-			WithExec(args("mkdir -p /tmp/%s/%s", pkg.libc, out)).
-			WithExec(args("mkdir -p /out/%s/%s", pkg.libc, out))
+			WithExec(args("mkdir -p /tmp/dl")).
+			WithExec(args("wget %s -O /tmp/dl/%s.%s", url, pkg.id, pkg.ext)).
+			WithExec(args("mkdir -p /tmp/%s", out)).
+			WithExec(args("mkdir -p /out/glibc/%s /out/musl/%s", out, out))
 
 		if pkg.ext == "tar.gz" {
-			container = container.WithExec(args("tar xzf /tmp/dl/%s/%s.%s -C /tmp/%s/%s", pkg.libc, pkg.id, pkg.ext, pkg.libc, out))
+			container = container.WithExec(args("tar xzf /tmp/dl/%s.%s -C /tmp/%s", pkg.id, pkg.ext, out))
 		} else {
-			container = container.WithExec(args("7z x /tmp/dl/%s/%s.%s -o/tmp/%s/%s", pkg.libc, pkg.id, pkg.ext, pkg.libc, out))
+			container = container.WithExec(args("7z x /tmp/dl/%s.%s -o/tmp/%s", pkg.id, pkg.ext, out))
+		}
+
+		var cmd []string
+		switch pkg.libc {
+		case both:
+			cmd = []string{"sh", "-c", fmt.Sprintf("cp -r /tmp/%s/target/%s/release/* /out/glibc/%s && cp -r /tmp/%s/target/%s/release/* /out/musl/%s", out, pkg.target, out, out, pkg.target, out)}
+		case musl:
+			cmd = []string{"sh", "-c", fmt.Sprintf("mv /tmp/%s/target/%s/release/* /out/musl/%s", out, pkg.target, out)}
+		default: // glibc
+			cmd = []string{"sh", "-c", fmt.Sprintf("mv /tmp/%s/target/%s/release/* /out/glibc/%s", out, pkg.target, out)}
 		}
 
 		dir := container.
-			WithExec([]string{"sh", "-c", "mv /tmp/" + string(pkg.libc) + "/" + out + "/target/" + pkg.target + "/release/* /out/" + string(pkg.libc) + "/" + out}).
+			WithExec(cmd).
 			Directory("/out")
 
-		_, err := dir.Export(ctx, "./tmp/"+string(pkg.libc)+"/"+out)
+		_, err := dir.Export(ctx, "tmp")
 		if err != nil {
 			return err
 		}
@@ -420,24 +429,34 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	}
 
 	for _, rename := range renames {
+		tmp := fmt.Sprintf("tmp/%s/%s", buildOpts.libc, rename.old)
 		// if the directory does not exist, skip it
-		if _, err := os.Stat(fmt.Sprintf("tmp/%s/%s", buildOpts.libc, rename.old)); os.IsNotExist(err) {
+		if _, err := os.Stat(tmp); os.IsNotExist(err) {
 			continue
 		}
 
+		// staging directory to copy the files into
+		stg := fmt.Sprintf("staging/%s/%s", buildOpts.libc, rename.new)
+
 		// remove directory if it exists
-		if err := os.RemoveAll(fmt.Sprintf("tmp/%s/%s", buildOpts.libc, rename.new)); err != nil {
+		if err := os.RemoveAll(stg); err != nil {
 			return err
 		}
 
-		if err := os.Rename(fmt.Sprintf("tmp/%s/%s", buildOpts.libc, rename.old), fmt.Sprintf("tmp/%s/%s", buildOpts.libc, rename.new)); err != nil {
+		// create the directory
+		if err := os.MkdirAll(stg, 0o755); err != nil {
+			return err
+		}
+
+		// copy the directory to the staging directory
+		if err := exec.Command("sh", "-c", fmt.Sprintf("cp -r %s/* %s/", tmp, stg)).Run(); err != nil {
 			return err
 		}
 	}
 
 	container := client.Container().From("gradle:8.5.0-jdk11").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-java")).
-		WithDirectory("/src/src/main/resources", hostDirectory.Directory("tmp/"+string(buildOpts.libc)), dagger.ContainerWithDirectoryOpts{
+		WithDirectory("/src/src/main/resources", hostDirectory.Directory("staging/"+string(buildOpts.libc)), dagger.ContainerWithDirectoryOpts{
 			Include: defaultInclude,
 		}).
 		WithWorkdir("/src")
