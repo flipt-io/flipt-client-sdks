@@ -5,8 +5,7 @@ on:
       engine-tag:
         description: "Engine tag to build"
         type: string
-        required: true
-        default: "latest"
+        required: false
       sdks:
         description: "SDK(s) to build"
         type: string
@@ -51,14 +50,6 @@ jobs:
           cd /usr/local
           curl -L https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=${{ env.DAGGER_VERSION }} sh
 
-      - name: Get Latest Engine Version
-        run: |
-          if [ "${{ inputs.engine-tag }}" == "latest" ]; then
-            echo "ENGINE_TAG=$(curl -s "https://api.github.com/repos/flipt-io/flipt-client-sdks/releases" | \
-            jq -r ".[] | select(.tag_name | startswith(\"flipt-engine-ffi-\")) | .tag_name" | \
-            sort -Vr | head -n 1 | sed "s/^flipt-engine-ffi-//")" >> $GITHUB_ENV
-          fi
-
       - name: Generate token
         id: generate_token
         uses: tibdex/github-app-token@v2
@@ -81,4 +72,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
-          dagger run go run ./package/ffi --sdks=${{ inputs.sdks }} --push=true --tag=${{ inputs.tag }} --engine-tag=${{ env.ENGINE_TAG }}
+          dagger run go run ./package/ffi --sdks=${{ inputs.sdks }} --push=true --tag=${{ inputs.tag }} --engine-tag=${{ inputs.engine-tag }}

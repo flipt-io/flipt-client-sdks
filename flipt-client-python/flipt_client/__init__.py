@@ -34,6 +34,7 @@ class FliptEvaluationClient:
             "Linux-x86_64": "linux_x86_64/libfliptengine.so",
             "Linux-arm64": "linux_arm64/libfliptengine.so",
             "Linux-aarch64": "linux_arm64/libfliptengine.so",
+            "Windows-x86_64": "windows_x86_64/fliptengine.dll",
         }
 
         platform_name = platform.system()
