@@ -59,6 +59,10 @@ class FliptEvaluationClient {
             ? 'darwin_arm64'
             : 'darwin_x86_64';
         break;
+      case 'windows':
+        libraryName = 'fliptengine.dll';
+        platformDir = 'windows_x86_64';
+        break;
       default:
         throw UnsupportedError(
             'Unsupported platform: ${Platform.operatingSystem}');
