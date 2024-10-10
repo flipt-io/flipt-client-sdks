@@ -9,7 +9,7 @@ use fliptevaluation::{
     BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
     VariantEvaluationResponse,
 };
-use http::{Authentication, HTTPFetcher, HTTPFetcherBuilder};
+use http::{Authentication, FetchMode, HTTPFetcher, HTTPFetcherBuilder};
 use libc::c_void;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -84,6 +84,7 @@ pub struct EngineOpts {
     url: Option<String>,
     authentication: Option<Authentication>,
     update_interval: Option<u64>,
+    fetch_mode: Option<FetchMode>,
     reference: Option<String>,
 }
 
@@ -94,6 +95,7 @@ impl Default for EngineOpts {
             authentication: None,
             update_interval: Some(120),
             reference: None,
+            fetch_mode: Some(FetchMode::default()),
         }
     }
 }
@@ -220,6 +222,7 @@ pub unsafe extern "C" fn initialize_engine(
     let authentication = engine_opts.authentication.to_owned();
     let reference = engine_opts.reference.to_owned();
     let update_interval = engine_opts.update_interval.to_owned();
+    let fetch_mode = engine_opts.fetch_mode.to_owned();
 
     let mut fetcher_builder = HTTPFetcherBuilder::new(&http_url, namespace);
 
@@ -232,6 +235,11 @@ pub unsafe extern "C" fn initialize_engine(
 
     fetcher_builder = match authentication {
         Some(authentication) => fetcher_builder.authentication(authentication),
+        None => fetcher_builder,
+    };
+
+    fetcher_builder = match fetch_mode {
+        Some(fetch_mode) => fetcher_builder.mode(fetch_mode),
         None => fetcher_builder,
     };
 

@@ -64,8 +64,12 @@ impl From<Authentication> for HeaderMap {
     }
 }
 
-#[derive(Clone)]
-enum FetchMode {
+#[derive(Debug, Clone, Default, Deserialize)]
+#[cfg_attr(test, derive(PartialEq))]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum FetchMode {
+    #[default]
     Polling,
     Streaming,
 }
@@ -86,6 +90,7 @@ pub struct HTTPFetcherBuilder {
     authentication: HeaderMap,
     reference: Option<String>,
     update_interval: Duration,
+    mode: FetchMode,
 }
 
 impl HTTPFetcherBuilder {
@@ -96,6 +101,7 @@ impl HTTPFetcherBuilder {
             authentication: HeaderMap::new(),
             reference: None,
             update_interval: Duration::from_secs(120),
+            mode: FetchMode::default(),
         }
     }
 
@@ -114,23 +120,32 @@ impl HTTPFetcherBuilder {
         self
     }
 
+    pub fn mode(mut self, mode: FetchMode) -> Self {
+        self.mode = mode;
+        self
+    }
+
     pub fn build(self) -> HTTPFetcher {
-        let url = match &self.reference {
-            Some(reference) => {
-                format!(
-                    "{}/internal/v1/evaluation/snapshot/namespace/{}?reference={}",
-                    self.base_url, self.namespace, reference,
-                )
-            }
-            None => {
-                format!(
-                    "{}/internal/v1/evaluation/snapshot/namespace/{}",
-                    self.base_url, self.namespace
-                )
+        let url = match &self.mode {
+            FetchMode::Polling => match &self.reference {
+                Some(reference) => {
+                    format!(
+                        "{}/internal/v1/evaluation/snapshot/namespace/{}?reference={}",
+                        self.base_url, self.namespace, reference
+                    )
+                }
+                None => {
+                    format!(
+                        "{}/internal/v1/evaluation/snapshot/namespace/{}",
+                        self.base_url, self.namespace
+                    )
+                }
+            },
+            FetchMode::Streaming => {
+                // TODO: build the streaming url
+                todo!()
             }
         };
-
-        // TODO: build the streaming url and set it instead if streaming is requested
 
         HTTPFetcher {
             http_client: reqwest::Client::builder()
