@@ -9,6 +9,7 @@ import (
 	"log"
 	"maps"
 	"os"
+	"os/exec"
 	"strings"
 
 	"dagger.io/dagger"
@@ -20,6 +21,7 @@ var (
 	push      bool
 	tag       string
 	engineTag string
+	verbose   bool
 	sdksToFn  = map[string]buildFn{
 		"python":    pythonBuild,
 		"go":        goBuild,
@@ -30,10 +32,9 @@ var (
 		"dart":      dartBuild,
 	}
 	sema = make(chan struct{}, 5)
-	// defaultExclude is the default exclude for all builds to prevent
-	// unneccessary architecture support files from being copied into the
-	// build directory
-	defaultExclude = []string{"**/*.rlib", "**/*.a", "**/*.d", "*musl*", "*iOS*", "*Android*", "*wasm*"}
+	// defaultInclude is the default include for all builds to copy over the
+	// ffi files into the build directory without unecessary files
+	defaultInclude = []string{"**/*.so", "**/*.dylib", "**/*.dll"}
 )
 
 func init() {
@@ -100,12 +101,10 @@ func run() error {
 
 	defer client.Close()
 
-	if engineTag != "" {
-		// download the pre-build libraries for each platform to local tmp directory
-		// to be be used later to copy into the sdk directories
-		if err := downloadFFI(ctx, client); err != nil {
-			return err
-		}
+	// download the pre-build libraries for each platform to local tmp directory
+	// to be be used later to copy into the sdk directories
+	if err := downloadFFI(ctx, client); err != nil {
+		return err
 	}
 
 	dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
@@ -135,15 +134,22 @@ func take(fn func() error) func() error {
 	}
 }
 
+type pkg struct {
+	id     string
+	target string
+	ext    string
+	libc   libc
+}
+
 var (
-	packages = map[string]string{
-		"Linux-arm64":       "aarch64-unknown-linux-gnu",
-		"Linux-x86_64":      "x86_64-unknown-linux-gnu",
-		"Darwin-arm64":      "aarch64-apple-darwin",
-		"Darwin-x86_64":     "x86_64-apple-darwin",
-		"Linux-arm64-musl":  "aarch64-unknown-linux-musl",
-		"Linux-x86_64-musl": "x86_64-unknown-linux-musl",
-		"Windows-x86_64":    "x86_64-pc-windows-msvc",
+	packages = []pkg{
+		{id: "Linux-arm64", target: "aarch64-unknown-linux-gnu", ext: "tar.gz", libc: glibc},
+		{id: "Linux-x86_64", target: "x86_64-unknown-linux-gnu", ext: "tar.gz", libc: glibc},
+		{id: "Darwin-arm64", target: "aarch64-apple-darwin", ext: "tar.gz", libc: glibc},
+		{id: "Darwin-x86_64", target: "x86_64-apple-darwin", ext: "tar.gz", libc: glibc},
+		{id: "Linux-arm64-musl", target: "aarch64-unknown-linux-musl", ext: "tar.gz", libc: musl},
+		{id: "Linux-x86_64-musl", target: "x86_64-unknown-linux-musl", ext: "tar.gz", libc: musl},
+		// {id: "Windows-x86_64", target: "x86_64-pc-windows-msvc", ext: "zip", libc: glibc},
 	}
 )
 
@@ -151,29 +157,70 @@ func args(args string, a ...any) []string {
 	return strings.Split(fmt.Sprintf(args, a...), " ")
 }
 
-func downloadFFI(ctx context.Context, client *dagger.Client) error {
-	if engineTag == "" {
-		return fmt.Errorf("ENGINE_TAG is not set")
+func getLatestEngineTag() (string, error) {
+	// check if jq is installed
+	if _, err := exec.LookPath("jq"); err != nil {
+		return "", fmt.Errorf("jq is not installed")
 	}
 
-	for pkg, target := range packages {
+	// check if curl is installed
+	if _, err := exec.LookPath("curl"); err != nil {
+		return "", fmt.Errorf("curl is not installed")
+	}
+
+	// use github api to get the latest release of the ffi engine
+	cmd := exec.Command("sh", "-c", `
+		curl -s "https://api.github.com/repos/flipt-io/flipt-client-sdks/releases" | 
+		jq -r '.[] | select(.tag_name | startswith("flipt-engine-ffi-")) | .tag_name' | 
+		sort -Vr | 
+		head -n 1 | 
+		sed "s/^flipt-engine-ffi-//"
+	`)
+
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get latest engine tag: %w", err)
+	}
+
+	return strings.TrimSpace(string(output)), nil
+}
+
+func downloadFFI(ctx context.Context, client *dagger.Client) error {
+	var err error
+	if engineTag == "" {
+		engineTag, err = getLatestEngineTag()
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, pkg := range packages {
+		pkg := pkg
 		var (
-			out = strings.ToLower(strings.ReplaceAll(pkg, "-", "_"))
-			url = fmt.Sprintf("https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-%s/flipt-engine-ffi-%s.tar.gz", engineTag, pkg)
+			// normalize the package id to be used in the directory name
+			out = strings.TrimSuffix(strings.ToLower(strings.ReplaceAll(pkg.id, "-", "_")), fmt.Sprintf("_%s", pkg.libc))
+			url = fmt.Sprintf("https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-%s/flipt-engine-ffi-%s.%s", engineTag, pkg.id, pkg.ext)
 		)
 
 		container := client.Container().From("debian:bookworm-slim").
 			WithExec([]string{"apt-get", "update"}).
-			WithExec([]string{"apt-get", "install", "-y", "wget"}).
-			WithExec([]string{"mkdir", "-p", "/tmp/dl"}).
-			WithExec(args("wget %s -O /tmp/dl/%s.tar.gz", url, pkg)).
-			WithExec(args("mkdir -p /tmp/%s", out)).
-			WithExec(args("mkdir -p /out/%s", out)).
-			WithExec(args("tar -xzf /tmp/dl/%s.tar.gz -C /tmp/%s", pkg, out)).
-			WithExec([]string{"sh", "-c", "mv /tmp/" + out + "/target/" + target + "/release/* /out/" + out}).
+			WithExec([]string{"apt-get", "install", "-y", "wget", "p7zip-full"}).
+			WithExec(args("mkdir -p /tmp/dl/%s", pkg.libc)).
+			WithExec(args("wget %s -O /tmp/dl/%s/%s.%s", url, pkg.libc, pkg.id, pkg.ext)).
+			WithExec(args("mkdir -p /tmp/%s/%s", pkg.libc, out)).
+			WithExec(args("mkdir -p /out/%s/%s", pkg.libc, out))
+
+		if pkg.ext == "tar.gz" {
+			container = container.WithExec(args("tar xzf /tmp/dl/%s/%s.%s -C /tmp/%s/%s", pkg.libc, pkg.id, pkg.ext, pkg.libc, out))
+		} else {
+			container = container.WithExec(args("7z x /tmp/dl/%s/%s.%s -o/tmp/%s/%s", pkg.libc, pkg.id, pkg.ext, pkg.libc, out))
+		}
+
+		dir := container.
+			WithExec([]string{"sh", "-c", "mv /tmp/" + string(pkg.libc) + "/" + out + "/target/" + pkg.target + "/release/* /out/" + string(pkg.libc) + "/" + out}).
 			Directory("/out")
 
-		_, err := container.Export(ctx, "./tmp/")
+		_, err := dir.Export(ctx, "./tmp/"+string(pkg.libc)+"/"+out)
 		if err != nil {
 			return err
 		}
@@ -186,8 +233,8 @@ func pythonBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagg
 	container := client.Container().From("python:3.11-bookworm").
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-python")).
-		WithDirectory("/src/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Exclude: defaultExclude,
+		WithDirectory("/src/ext", hostDirectory.Directory("tmp/glibc"), dagger.ContainerWithDirectoryOpts{
+			Include: defaultInclude,
 		}).
 		WithFile("/src/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithWorkdir("/src").
@@ -252,20 +299,8 @@ func goBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.D
 	repository := git.
 		WithExec([]string{"git", "clone", "https://github.com/flipt-io/flipt-client-sdks.git", "/src"}).
 		WithWorkdir("/src").
-		WithFile("/tmp/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h"))
-
-	if buildOpts.libc == glibc {
-		repository = repository.
-			WithDirectory("/tmp/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{Exclude: defaultExclude})
-	} else {
-		repository = repository.
-			WithDirectory("/tmp/ext/linux_arm64", hostDirectory.Directory("tmp/linux_arm64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}}).
-			WithDirectory("/tmp/ext/linux_x86_64", hostDirectory.Directory("tmp/linux_x86_64_musl"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}}).
-			WithDirectory("/tmp/ext/darwin_arm64", hostDirectory.Directory("tmp/darwin_arm64"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}}).
-			WithDirectory("/tmp/ext/darwin_x86_64", hostDirectory.Directory("tmp/darwin_x86_64"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}}).
-			WithDirectory("/tmp/ext/windows_x86_64", hostDirectory.Directory("tmp/windows_x86_64"), dagger.ContainerWithDirectoryOpts{Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"}})
-
-	}
+		WithFile("/tmp/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
+		WithDirectory("/tmp/ext", hostDirectory.Directory("tmp/"+string(buildOpts.libc)), dagger.ContainerWithDirectoryOpts{Include: defaultInclude})
 
 	filtered := repository.
 		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").
@@ -318,8 +353,8 @@ func rubyBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	container := client.Container().From("ruby:3.1-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-ruby")).
-		WithDirectory("/src/lib/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Exclude: defaultExclude,
+		WithDirectory("/src/lib/ext", hostDirectory.Directory("tmp/glibc"), dagger.ContainerWithDirectoryOpts{
+			Include: defaultInclude,
 		}).
 		WithFile("/src/lib/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithExec([]string{"bundle", "install"}).
@@ -376,7 +411,7 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		new string
 	}
 
-	renameGlibc := []rename{
+	renames := []rename{
 		{old: "linux_x86_64", new: "linux-x86-64"},
 		{old: "linux_arm64", new: "linux-aarch64"},
 		{old: "darwin_x86_64", new: "darwin-x86-64"},
@@ -384,51 +419,33 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		{old: "windows_x86_64", new: "win32-x86-64"},
 	}
 
-	renameMusl := []rename{
-		{old: "linux_x86_64_musl", new: "linux-x86-64"},
-		{old: "linux_arm64_musl", new: "linux-aarch64"},
-		{old: "darwin_x86_64", new: "darwin-x86-64"},
-		{old: "darwin_arm64", new: "darwin-aarch64"},
-		{old: "windows_x86_64", new: "win32-x86-64"},
-	}
-
-	renames := renameGlibc
-	if buildOpts.libc == musl {
-		renames = renameMusl
-	}
-
 	for _, rename := range renames {
 		// if the directory does not exist, skip it
-		if _, err := os.Stat(fmt.Sprintf("tmp/%s", rename.old)); os.IsNotExist(err) {
+		if _, err := os.Stat(fmt.Sprintf("tmp/%s/%s", buildOpts.libc, rename.old)); os.IsNotExist(err) {
 			continue
 		}
 
 		// remove directory if it exists
-		if err := os.RemoveAll(fmt.Sprintf("tmp/%s", rename.new)); err != nil {
+		if err := os.RemoveAll(fmt.Sprintf("tmp/%s/%s", buildOpts.libc, rename.new)); err != nil {
 			return err
 		}
 
-		if err := os.Rename(fmt.Sprintf("tmp/%s", rename.old), fmt.Sprintf("tmp/%s", rename.new)); err != nil {
+		if err := os.Rename(fmt.Sprintf("tmp/%s/%s", buildOpts.libc, rename.old), fmt.Sprintf("tmp/%s/%s", buildOpts.libc, rename.new)); err != nil {
 			return err
 		}
 	}
 
 	container := client.Container().From("gradle:8.5.0-jdk11").
-		WithDirectory("/src", hostDirectory.Directory("flipt-client-java"))
+		WithDirectory("/src", hostDirectory.Directory("flipt-client-java")).
+		WithDirectory("/src/src/main/resources", hostDirectory.Directory("tmp/"+string(buildOpts.libc)), dagger.ContainerWithDirectoryOpts{
+			Include: defaultInclude,
+		}).
+		WithWorkdir("/src")
 
 	if buildOpts.libc == glibc {
-		container = container.
-			WithDirectory("/src/src/main/resources", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-				Exclude: defaultExclude,
-			}).
-			WithWorkdir("/src").
-			WithExec([]string{"gradle", "-x", "test", "build"})
+		container = container.WithExec([]string{"gradle", "-x", "test", "build"})
 	} else {
 		container = container.
-			WithDirectory("/src/src/main/resources", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-				Exclude: []string{"**/*.rlib", "**/*.a", "**/*.d"},
-			}).
-			WithWorkdir("/src").
 			WithExec([]string{"gradle", "-x", "test", "--build-file", "build.musl.gradle", "build"})
 	}
 
@@ -487,8 +504,8 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-dart"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", ".dart_tool/"},
 		}).
-		WithDirectory("/src/lib/src/ffi", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Exclude: defaultExclude,
+		WithDirectory("/src/lib/src/ffi", hostDirectory.Directory("tmp/glibc"), dagger.ContainerWithDirectoryOpts{
+			Include: defaultInclude,
 		}).
 		WithWorkdir("/src").
 		WithExec([]string{"dart", "pub", "get"})
