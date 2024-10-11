@@ -85,7 +85,7 @@ export class FliptEvaluationClient {
           headers
         });
 
-        if (!resp.ok) {
+        if (!resp.ok && resp.status !== 304) {
           throw new Error(`Failed to fetch data: ${resp.statusText}`);
         }
 
