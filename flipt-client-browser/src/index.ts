@@ -85,10 +85,6 @@ export class FliptEvaluationClient {
           headers
         });
 
-        if (resp.status === 304) {
-          return resp;
-        }
-
         if (!resp.ok) {
           throw new Error(`Failed to fetch data: ${resp.statusText}`);
         }
@@ -99,7 +95,7 @@ export class FliptEvaluationClient {
 
     // handle case if they pass in a custom fetcher that doesn't throw on non-2xx status codes
     const resp = await fetcher();
-    if (!resp.ok && resp.status !== 304) {
+    if (!resp.ok) {
       throw new Error(`Failed to fetch data: ${resp.statusText}`);
     }
 
@@ -129,10 +125,12 @@ export class FliptEvaluationClient {
     const opts = { etag: this.etag };
     const resp = await this.fetcher(opts);
 
-    if (resp.status === 304) {
-      this.storeEtag(resp);
+    let etag = resp.headers.get('etag');
+    if (this.etag && this.etag === etag) {
       return false;
     }
+
+    this.storeEtag(resp);
 
     const data = await resp.json();
     this.engine.snapshot(data);
