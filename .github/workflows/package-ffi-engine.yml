@@ -1,5 +1,8 @@
 name: Package FFI Engine
 on:
+  pull_request:
+    branches:
+      - main
   push:
     tags: ["flipt-engine-ffi-v**"]
   workflow_dispatch:
@@ -47,15 +50,20 @@ jobs:
             target: x86_64-apple-darwin
             use_cross: false
 
-          - name: iOS-arm64
-            os: macos-latest
-            target: aarch64-apple-ios
+          - name: Windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
             use_cross: false
 
-          - name: Android-arm64
-            os: ubuntu-latest
-            target: aarch64-linux-android
-            use_cross: true
+          # - name: iOS-arm64
+          #   os: macos-latest
+          #   target: aarch64-apple-ios
+          #   use_cross: false
+
+          # - name: Android-arm64
+          #   os: ubuntu-latest
+          #   target: aarch64-linux-android
+          #   use_cross: true
 
     runs-on: ${{ matrix.platform.os }}
 
@@ -106,10 +114,24 @@ jobs:
         run: |
           strip -x target/${{ matrix.platform.target }}/release/libfliptengine.so
 
-      - run: |
+      - if: ${{ !startsWith(matrix.platform.name, 'Windows') }}
+        run: |
           tar -czvf flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz \
             target/${{ matrix.platform.target }}/release/libfliptengine.* \
             || true
+
+      - if: startsWith(matrix.platform.name, 'Windows')
+        run: |
+          7z a -tzip flipt-engine-ffi-${{ matrix.platform.name }}.zip `
+            target\${{ matrix.platform.target }}\release\fliptengine.* `
+            || true
+
+      - name: Upload To Pull Request (Pull Request)
+        uses: actions/upload-artifact@v4
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'package/')
+        with:
+          name: flipt-engine-ffi-${{ matrix.platform.name }}${{ startsWith(matrix.platform.name, 'Windows') && '.zip' || '.tar.gz' }}
+          path: flipt-engine-ffi-${{ matrix.platform.name }}${{ startsWith(matrix.platform.name, 'Windows') && '.zip' || '.tar.gz' }}
 
       - name: Upload Release Assets (Tag)
         uses: softprops/action-gh-release@v2
@@ -117,7 +139,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: |
-            flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
+            flipt-engine-ffi-${{ matrix.platform.name }}${{ startsWith(matrix.platform.name, 'Windows') && '.zip' || '.tar.gz' }}
 
       - name: Upload Release Assets (Workflow Dispatch)
         uses: softprops/action-gh-release@v2
@@ -125,4 +147,4 @@ jobs:
         with:
           tag_name: flipt-engine-ffi-${{ github.event.inputs.tag }}
           files: |
-            flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
+            flipt-engine-ffi-${{ matrix.platform.name }}${{ startsWith(matrix.platform.name, 'Windows') && '.zip' || '.tar.gz' }}
