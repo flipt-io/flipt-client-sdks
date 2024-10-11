@@ -57,7 +57,7 @@ type libc string
 const (
 	glibc libc = "glibc"
 	musl  libc = "musl"
-	both  libc = "both"
+	both  libc = "both" // both should really be n/a or 'doesnt matter'
 )
 
 type buildOptions struct {
