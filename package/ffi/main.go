@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"maps"
 	"os"
@@ -56,7 +57,7 @@ type libc string
 const (
 	glibc libc = "glibc"
 	musl  libc = "musl"
-	both  libc = "both"
+	both  libc = "both" // both should really be n/a or 'doesnt matter'
 )
 
 type buildOptions struct {
@@ -149,7 +150,7 @@ var (
 		{id: "Linux-x86_64-musl", target: "x86_64-unknown-linux-musl", ext: "tar.gz", libc: musl},
 		{id: "Darwin-arm64", target: "aarch64-apple-darwin", ext: "tar.gz", libc: both},
 		{id: "Darwin-x86_64", target: "x86_64-apple-darwin", ext: "tar.gz", libc: both},
-		{id: "Windows-x86_64", target: "x86_64-pc-windows-msvc", ext: "zip", libc: glibc},
+		{id: "Windows-x86_64", target: "x86_64-pc-windows-msvc", ext: "zip", libc: both},
 	}
 )
 
@@ -220,9 +221,9 @@ func downloadFFI(ctx context.Context, client *dagger.Client) error {
 		case both:
 			cmd = []string{"sh", "-c", fmt.Sprintf("cp -r /tmp/%s/target/%s/release/* /out/glibc/%s && cp -r /tmp/%s/target/%s/release/* /out/musl/%s", out, pkg.target, out, out, pkg.target, out)}
 		case musl:
-			cmd = []string{"sh", "-c", fmt.Sprintf("mv /tmp/%s/target/%s/release/* /out/musl/%s", out, pkg.target, out)}
+			cmd = []string{"sh", "-c", fmt.Sprintf("cp -r /tmp/%s/target/%s/release/* /out/musl/%s", out, pkg.target, out)}
 		default: // glibc
-			cmd = []string{"sh", "-c", fmt.Sprintf("mv /tmp/%s/target/%s/release/* /out/glibc/%s", out, pkg.target, out)}
+			cmd = []string{"sh", "-c", fmt.Sprintf("cp -r /tmp/%s/target/%s/release/* /out/glibc/%s", out, pkg.target, out)}
 		}
 
 		dir := container.
@@ -430,8 +431,10 @@ func javaBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 
 	for _, rename := range renames {
 		tmp := fmt.Sprintf("tmp/%s/%s", buildOpts.libc, rename.old)
-		// if the directory does not exist, skip it
-		if _, err := os.Stat(tmp); os.IsNotExist(err) {
+		// if the directory does not exist or is empty, skip it
+		if isEmpty, err := isDirEmptyOrNotExist(tmp); err != nil {
+			return fmt.Errorf("error checking directory %s: %w", tmp, err)
+		} else if isEmpty {
 			continue
 		}
 
@@ -550,4 +553,21 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 		Sync(ctx)
 
 	return err
+}
+
+func isDirEmptyOrNotExist(path string) (bool, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return true, nil
+		}
+		return false, err
+	}
+	defer f.Close()
+
+	_, err = f.Readdirnames(1)
+	if err == io.EOF {
+		return true, nil
+	}
+	return false, err
 }
