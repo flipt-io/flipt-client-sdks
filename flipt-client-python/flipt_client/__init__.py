@@ -6,7 +6,7 @@ import platform
 from .models import (
     BatchResult,
     BooleanResult,
-    EngineOpts,
+    ClientOptions,
     EvaluationRequest,
     ListFlagsResult,
     VariantResult,
@@ -24,7 +24,7 @@ class InternalEvaluationRequest(BaseModel):
 
 class FliptEvaluationClient:
     def __init__(
-        self, namespace: str = "default", engine_opts: EngineOpts = EngineOpts()
+        self, namespace: str = "default", opts: ClientOptions = ClientOptions()
     ):
         # Mapping of platform-architecture combinations to their respective library file paths
         lib_files = {
@@ -80,11 +80,11 @@ class FliptEvaluationClient:
 
         ns = namespace.encode("utf-8")
 
-        engine_opts_serialized = engine_opts.model_dump_json(exclude_none=True).encode(
+        client_opts_serialized = opts.model_dump_json(exclude_none=True).encode(
             "utf-8"
         )
 
-        self.engine = self.ffi_core.initialize_engine(ns, engine_opts_serialized)
+        self.engine = self.ffi_core.initialize_engine(ns, client_opts_serialized)
 
     def __del__(self):
         if hasattr(self, "engine") and self.engine is not None:

@@ -42,7 +42,7 @@ func NewEvaluationClient(opts ...clientOption) (*EvaluationClient, error) {
 		opt(client)
 	}
 
-	engOpts := &EngineOpts[any]{
+	engOpts := &clientOpts[any]{
 		URL:            client.url,
 		UpdateInterval: client.updateInterval,
 		Authentication: &client.authentication,

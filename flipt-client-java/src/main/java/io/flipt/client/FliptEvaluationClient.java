@@ -38,20 +38,20 @@ public class FliptEvaluationClient {
     void destroy_string(Pointer str);
   }
 
-  private FliptEvaluationClient(String namespace, EngineOpts engineOpts)
+  private FliptEvaluationClient(String namespace, ClientOptions clientOptions)
       throws EvaluationException {
 
     ObjectMapper objectMapper = new ObjectMapper();
     objectMapper.registerModule(new Jdk8Module());
 
-    String engineOptions;
+    String clientOptionsSerialized;
     try {
-      engineOptions = objectMapper.writeValueAsString(engineOpts);
+      clientOptionsSerialized = objectMapper.writeValueAsString(clientOptions);
     } catch (JsonProcessingException e) {
       throw new EvaluationException(e);
     }
 
-    Pointer engine = CLibrary.INSTANCE.initialize_engine(namespace, engineOptions);
+    Pointer engine = CLibrary.INSTANCE.initialize_engine(namespace, clientOptionsSerialized);
 
     this.objectMapper = objectMapper;
     this.engine = engine;
@@ -67,6 +67,7 @@ public class FliptEvaluationClient {
     private AuthenticationStrategy authentication;
     private String reference;
     private Duration updateInterval;
+    private FetchMode fetchMode = FetchMode.POLLING;
 
     public FliptEvaluationClientBuilder() {}
 
@@ -95,14 +96,20 @@ public class FliptEvaluationClient {
       return this;
     }
 
+    public FliptEvaluationClientBuilder fetchMode(FetchMode fetchMode) {
+      this.fetchMode = fetchMode;
+      return this;
+    }
+
     public FliptEvaluationClient build() throws EvaluationException {
       return new FliptEvaluationClient(
           namespace,
-          new EngineOpts(
+          new ClientOptions(
               Optional.of(url),
               Optional.ofNullable(updateInterval),
               Optional.ofNullable(authentication),
-              Optional.ofNullable(reference)));
+              Optional.ofNullable(reference),
+              Optional.ofNullable(fetchMode)));
     }
   }
 

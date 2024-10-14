@@ -5,18 +5,26 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Duration;
 import java.util.Optional;
 
+public enum FetchMode {
+  @JsonProperty("polling")
+  POLLING,
+  @JsonProperty("streaming")
+  STREAMING
+}
+
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
-public class EngineOpts {
+class ClientOptions {
   private final Optional<String> url;
   private final Optional<Long> updateInterval;
   private final Optional<AuthenticationStrategy> authentication;
   private final Optional<String> reference;
-
-  public EngineOpts(
+  private final Optional<FetchMode> fetchMode;
+  ClientOptions(
       Optional<String> url,
       Optional<Duration> updateInterval,
       Optional<AuthenticationStrategy> authentication,
-      Optional<String> reference) {
+      Optional<String> reference,
+      Optional<FetchMode> fetchMode) {
     this.url = url;
     this.authentication = authentication;
     this.reference = reference;
@@ -27,6 +35,7 @@ public class EngineOpts {
     }
 
     this.updateInterval = setUpdateInterval;
+    this.fetchMode = fetchMode;
   }
 
   @JsonProperty("url")
@@ -47,5 +56,10 @@ public class EngineOpts {
   @JsonProperty("reference")
   public Optional<String> getReference() {
     return reference;
+  }
+
+  @JsonProperty("fetch_mode")
+  public Optional<FetchMode> getFetchMode() {
+    return fetchMode;
   }
 }

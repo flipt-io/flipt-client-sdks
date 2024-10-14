@@ -3,7 +3,7 @@ import unittest
 from flipt_client import FliptEvaluationClient
 from flipt_client.models import (
     ClientTokenAuthentication,
-    EngineOpts,
+    ClientOptions,
     EvaluationRequest,
 )
 
@@ -19,7 +19,7 @@ class TestFliptEvaluationClient(unittest.TestCase):
             raise Exception("FLIPT_AUTH_TOKEN not set")
 
         self.flipt_client = FliptEvaluationClient(
-            engine_opts=EngineOpts(
+            opts=ClientOptions(
                 url=engine_url,
                 authentication=ClientTokenAuthentication(client_token=auth_token),
             )
