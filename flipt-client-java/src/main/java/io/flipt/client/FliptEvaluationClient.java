@@ -21,7 +21,7 @@ public class FliptEvaluationClient {
   private final ObjectMapper objectMapper;
 
   public interface CLibrary extends Library {
-    CLibrary INSTANCE = (CLibrary) Native.load("fliptengine", CLibrary.class);
+    CLibrary INSTANCE = Native.load("fliptengine", CLibrary.class);
 
     Pointer initialize_engine(String namespace, String opts);
 
