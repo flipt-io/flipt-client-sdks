@@ -18,3 +18,4 @@ tmp
 .envrc
 .vscode
 staging
+*.h

@@ -29,6 +29,7 @@ type EvaluationClient struct {
 	authentication any
 	ref            string
 	updateInterval int
+	fetchMode      FetchMode
 }
 
 // NewEvaluationClient constructs a Client.
@@ -46,6 +47,7 @@ func NewEvaluationClient(opts ...clientOption) (*EvaluationClient, error) {
 		UpdateInterval: client.updateInterval,
 		Authentication: &client.authentication,
 		Reference:      client.ref,
+		FetchMode:      client.fetchMode,
 	}
 
 	b, err := json.Marshal(engOpts)
@@ -103,6 +105,13 @@ func WithJWTAuthentication(token string) clientOption {
 		c.authentication = jwtAuthentication{
 			Token: token,
 		}
+	}
+}
+
+// WithFetchMode allows for specifying the fetch mode for the Flipt client.
+func WithFetchMode(fetchMode FetchMode) clientOption {
+	return func(c *EvaluationClient) {
+		c.fetchMode = fetchMode
 	}
 }
 

@@ -21,11 +21,19 @@ type jwtAuthentication struct {
 	Token string `json:"jwt_token"`
 }
 
+type FetchMode string
+
+const (
+	FetchModeStreaming FetchMode = "streaming"
+	FetchModePolling   FetchMode = "polling"
+)
+
 type EngineOpts[T any] struct {
-	URL            string `json:"url,omitempty"`
-	Authentication *T     `json:"authentication,omitempty"`
-	UpdateInterval int    `json:"update_interval,omitempty"`
-	Reference      string `json:"reference,omitempty"`
+	URL            string    `json:"url,omitempty"`
+	Authentication *T        `json:"authentication,omitempty"`
+	UpdateInterval int       `json:"update_interval,omitempty"`
+	Reference      string    `json:"reference,omitempty"`
+	FetchMode      FetchMode `json:"fetch_mode,omitempty"`
 }
 
 type Flag struct {

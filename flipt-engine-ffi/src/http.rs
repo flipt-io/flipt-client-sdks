@@ -77,16 +77,18 @@ pub enum FetchMode {
 #[derive(Clone)]
 pub struct HTTPFetcher {
     http_client: reqwest::Client,
-    url: String,
+    base_url: String,
+    namespace: String,
     authentication: HeaderMap,
     etag: Option<String>,
+    reference: Option<String>,
     update_interval: Duration,
     mode: FetchMode,
 }
 
 pub struct HTTPFetcherBuilder {
-    namespace: String,
     base_url: String,
+    namespace: String,
     authentication: HeaderMap,
     reference: Option<String>,
     update_interval: Duration,
@@ -96,8 +98,8 @@ pub struct HTTPFetcherBuilder {
 impl HTTPFetcherBuilder {
     pub fn new(base_url: &str, namespace: &str) -> Self {
         Self {
-            namespace: namespace.to_string(),
             base_url: base_url.to_string(),
+            namespace: namespace.to_string(),
             authentication: HeaderMap::new(),
             reference: None,
             update_interval: Duration::from_secs(120),
@@ -126,43 +128,20 @@ impl HTTPFetcherBuilder {
     }
 
     pub fn build(self) -> HTTPFetcher {
-        let url = match &self.mode {
-            FetchMode::Polling => match &self.reference {
-                Some(reference) => {
-                    format!(
-                        "{}/internal/v1/evaluation/snapshot/namespace/{}?reference={}",
-                        self.base_url, self.namespace, reference
-                    )
-                }
-                None => {
-                    format!(
-                        "{}/internal/v1/evaluation/snapshot/namespace/{}",
-                        self.base_url, self.namespace
-                    )
-                }
-            },
-            FetchMode::Streaming => {
-                // TODO: build the streaming url
-                todo!()
-            }
-        };
-
         HTTPFetcher {
+            base_url: self.base_url,
+            namespace: self.namespace,
             http_client: reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(10))
                 .build()
                 .unwrap(),
-            url,
             authentication: self.authentication,
             etag: None,
+            reference: self.reference,
             update_interval: self.update_interval,
-            mode: FetchMode::Polling,
+            mode: self.mode,
         }
     }
-}
-
-pub struct FetchOptions {
-    pub support_streaming: bool,
 }
 
 type FetchResult = Result<source::Document, Error>;
@@ -213,21 +192,12 @@ impl HTTPFetcher {
         }
     }
 
-    fn build_headers(&self, options: FetchOptions) -> HeaderMap {
+    fn build_headers(&self) -> HeaderMap {
         let mut headers = HeaderMap::new();
         headers.insert(
             reqwest::header::ACCEPT,
             reqwest::header::HeaderValue::from_static("application/json"),
         );
-
-        if options.support_streaming {
-            headers.append(
-                reqwest::header::ACCEPT,
-                reqwest::header::HeaderValue::from_static(
-                    "application/vnd.flipt.io.snapshot.stream+json",
-                ),
-            );
-        }
 
         headers.insert(
             "X-Flipt-Accept-Server-Version",
@@ -249,13 +219,26 @@ impl HTTPFetcher {
     }
 
     async fn fetch(&mut self) -> Result<Option<Response>, Error> {
-        let headers = self.build_headers(FetchOptions {
-            support_streaming: false,
-        });
+        let headers = self.build_headers();
+
+        let url = match &self.reference {
+            Some(reference) => {
+                format!(
+                    "{}/internal/v1/evaluation/snapshot/namespace/{}?reference={}",
+                    self.base_url, self.namespace, reference
+                )
+            }
+            None => {
+                format!(
+                    "{}/internal/v1/evaluation/snapshot/namespace/{}",
+                    self.base_url, self.namespace
+                )
+            }
+        };
 
         let response = self
             .http_client
-            .get(self.url.clone())
+            .get(url)
             .headers(headers)
             .send()
             .await
@@ -284,11 +267,14 @@ impl HTTPFetcher {
     }
 
     async fn fetch_stream(&mut self) -> Result<Option<Response>, Error> {
+        let url = format!(
+            "{}/internal/v1/evaluation/snapshots?[]namespaces={}",
+            self.base_url, self.namespace
+        );
+
         self.http_client
-            .get(self.url.clone())
-            .headers(self.build_headers(FetchOptions {
-                support_streaming: true,
-            }))
+            .get(url)
+            .headers(self.build_headers())
             .send()
             .await
             .map_err(|e| Error::Server(format!("failed to make request: {}", e)))?
@@ -538,30 +524,6 @@ mod tests {
 
         assert!(result.is_err());
         mock.assert();
-    }
-
-    #[test]
-    fn test_http_fetcher_url() {
-        use super::HTTPFetcherBuilder;
-
-        let fetcher = HTTPFetcherBuilder::new("http://localhost:8080", "default")
-            .authentication(Authentication::with_client_token("secret".into()))
-            .reference("ref")
-            .build();
-
-        assert_eq!(
-            fetcher.url,
-            "http://localhost:8080/internal/v1/evaluation/snapshot/namespace/default?reference=ref"
-        );
-
-        let fetcher = HTTPFetcherBuilder::new("http://localhost:8080", "default")
-            .authentication(Authentication::with_client_token("secret".into()))
-            .build();
-
-        assert_eq!(
-            fetcher.url,
-            "http://localhost:8080/internal/v1/evaluation/snapshot/namespace/default"
-        );
     }
 
     #[tokio::test]
