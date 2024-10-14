@@ -219,8 +219,6 @@ impl HTTPFetcher {
     }
 
     async fn fetch(&mut self) -> Result<Option<Response>, Error> {
-        let headers = self.build_headers();
-
         let url = match &self.reference {
             Some(reference) => {
                 format!(
@@ -239,7 +237,7 @@ impl HTTPFetcher {
         let response = self
             .http_client
             .get(url)
-            .headers(headers)
+            .headers(self.build_headers())
             .send()
             .await
             .map_err(|e| Error::Server(format!("failed to make request: {}", e)))?
@@ -530,11 +528,11 @@ mod tests {
     async fn test_http_fetch_stream() {
         let mut server = Server::new_async().await;
         let mock = server
-            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .mock("GET", "/internal/v1/evaluation/snapshots?[]namespaces=default")
             .with_status(200)
             .with_header(
                 "content-type",
-                "application/vnd.flipt.io.snapshot.stream+json",
+                "application/json",
             )
             .with_chunked_body(|w| {
                 w.write_all(b"{\"namespace\": {\"key\": \"default\"}, \"flags\":[]}\n")?;
@@ -549,9 +547,9 @@ mod tests {
         let url = server.url();
         let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
             .authentication(Authentication::None)
+            .mode(FetchMode::Streaming)
             .build();
 
-        fetcher.mode = FetchMode::Streaming;
         let result = fetcher.fetch_stream().await;
 
         assert!(result.is_ok());
