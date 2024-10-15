@@ -5,6 +5,9 @@ use std::time::Duration;
 use futures_util::stream::StreamExt;
 use reqwest::header::{self, HeaderMap};
 use reqwest::Response;
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
+use reqwest_retry::policies::ExponentialBackoff;
+use reqwest_retry::RetryTransientMiddleware;
 use serde::Deserialize;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
@@ -76,7 +79,7 @@ pub enum FetchMode {
 
 #[derive(Clone)]
 pub struct HTTPFetcher {
-    http_client: reqwest::Client,
+    http_client: ClientWithMiddleware,
     base_url: String,
     namespace: String,
     authentication: HeaderMap,
@@ -138,10 +141,13 @@ impl HTTPFetcherBuilder {
     }
 
     pub fn build(self) -> HTTPFetcher {
+        let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
         HTTPFetcher {
             base_url: self.base_url,
             namespace: self.namespace,
-            http_client: reqwest::Client::builder().build().unwrap(),
+            http_client: ClientBuilder::new(reqwest::Client::new())
+                .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+                .build(),
             authentication: self.authentication,
             etag: None,
             reference: self.reference,
@@ -293,16 +299,19 @@ impl HTTPFetcher {
         sender: &mpsc::Sender<Result<source::Document, Error>>,
     ) -> Result<(), Error> {
         let result = match self.fetch().await {
-            Ok(Some(resp)) => {
-                let json = resp
-                    .text()
-                    .await
-                    .map_err(|e| Error::Server(format!("failed to read response body: {}", e)))?;
-                let doc: source::Document = serde_json::from_str(&json).map_err(|e| {
-                    Error::InvalidJSON(format!("failed to parse response body: {}", e))
-                })?;
-                Ok(doc)
-            }
+            Ok(Some(resp)) => match resp.text().await {
+                Ok(json) => match serde_json::from_str(&json) {
+                    Ok(doc) => Ok(doc),
+                    Err(e) => Err(Error::InvalidJSON(format!(
+                        "failed to parse response body: {}",
+                        e
+                    ))),
+                },
+                Err(e) => Err(Error::Server(format!(
+                    "failed to read response body: {}",
+                    e
+                ))),
+            },
             Ok(None) => return Ok(()),
             Err(e) => Err(e),
         };
@@ -317,55 +326,77 @@ impl HTTPFetcher {
         &mut self,
         sender: &mpsc::Sender<Result<source::Document, Error>>,
     ) -> Result<(), Error> {
-        let result =
-            match self.fetch_stream().await {
-                Ok(Some(resp)) => {
-                    let mut stream = resp.bytes_stream();
-                    let mut buffer = Vec::new();
+        let stream_result = self.fetch_stream().await;
 
-                    while let Some(bytes) = stream.next().await {
-                        let chunk = bytes.map_err(|e| {
-                            Error::Server(format!("failed to read stream chunk: {}", e))
-                        })?;
+        match stream_result {
+            Ok(Some(resp)) => {
+                let mut stream = resp.bytes_stream();
+                let mut buffer = Vec::new();
 
-                        for byte in chunk {
-                            if byte == b'\n' {
-                                let text = String::from_utf8_lossy(&buffer);
-                                let stream_chunk: StreamChunk = serde_json::from_str(&text)
-                                    .map_err(|e| {
-                                        Error::InvalidJSON(format!(
-                                            "failed to parse response body: {}",
-                                            e
-                                        ))
+                while let Some(bytes) = stream.next().await {
+                    let chunk = match bytes {
+                        Ok(chunk) => chunk,
+                        Err(e) => {
+                            let err = Error::Server(format!("failed to read stream chunk: {}", e));
+                            sender
+                                .send(Err(err.clone()))
+                                .await
+                                .map_err(|_| Error::Server("failed to send error".into()))?;
+                            continue; // Continue to the next iteration instead of returning
+                        }
+                    };
+
+                    for byte in chunk {
+                        if byte == b'\n' {
+                            let text = String::from_utf8_lossy(&buffer);
+                            let parse_result: Result<StreamChunk, Error> =
+                                serde_json::from_str(&text).map_err(|e| {
+                                    Error::InvalidJSON(format!(
+                                        "failed to parse response body: {}",
+                                        e
+                                    ))
+                                });
+
+                            match parse_result {
+                                Ok(stream_chunk) => {
+                                    match stream_chunk.result.namespaces.into_iter().next() {
+                                        Some((_, doc)) => {
+                                            sender.send(Ok(doc)).await.map_err(|_| {
+                                                Error::Server("failed to send result".into())
+                                            })?;
+                                        }
+                                        None => {
+                                            let err = Error::Server(
+                                                "no data received from server".into(),
+                                            );
+                                            sender.send(Err(err)).await.map_err(|_| {
+                                                Error::Server("failed to send error".into())
+                                            })?;
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    sender.send(Err(e)).await.map_err(|_| {
+                                        Error::Server("failed to send error".into())
                                     })?;
-
-                                let (_, doc) =
-                                    stream_chunk.result.namespaces.into_iter().next().ok_or(
-                                        Error::Server("no data received from server".into()),
-                                    )?;
-
-                                sender
-                                    .send(Ok(doc))
-                                    .await
-                                    .map_err(|_| Error::Server("failed to send result".into()))?;
-                                buffer.clear();
-                            } else {
-                                buffer.push(byte);
+                                }
                             }
+                            buffer.clear();
+                        } else {
+                            buffer.push(byte);
                         }
                     }
-                    Ok(())
                 }
-                Ok(None) => Ok(()),
-                Err(e) => Err(e),
-            };
-
-        match result {
-            Ok(_) => Ok(()),
-            Err(e) => sender
-                .send(Err(e))
-                .await
-                .map_err(|_| Error::Server("failed to send error".into())),
+                Ok(())
+            }
+            Ok(None) => Ok(()),
+            Err(e) => {
+                sender
+                    .send(Err(e.clone()))
+                    .await
+                    .map_err(|_| Error::Server("failed to send error".into()))?;
+                Ok(()) // Return Ok after sending the error through the channel
+            }
         }
     }
 
