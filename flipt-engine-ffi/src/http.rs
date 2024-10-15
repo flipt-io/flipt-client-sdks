@@ -95,6 +95,16 @@ pub struct HTTPFetcherBuilder {
     mode: FetchMode,
 }
 
+#[derive(Deserialize)]
+struct StreamChunk {
+    result: StreamResult,
+}
+
+#[derive(Deserialize)]
+struct StreamResult {
+    namespaces: std::collections::HashMap<String, source::Document>,
+}
+
 impl HTTPFetcherBuilder {
     pub fn new(base_url: &str, namespace: &str) -> Self {
         Self {
@@ -131,10 +141,7 @@ impl HTTPFetcherBuilder {
         HTTPFetcher {
             base_url: self.base_url,
             namespace: self.namespace,
-            http_client: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(10))
-                .build()
-                .unwrap(),
+            http_client: reqwest::Client::builder().build().unwrap(),
             authentication: self.authentication,
             etag: None,
             reference: self.reference,
@@ -157,14 +164,14 @@ impl HTTPFetcher {
             while !stop_signal.load(Ordering::Relaxed) {
                 match fetcher.mode {
                     FetchMode::Polling => {
-                        if (fetcher.handle_polling(&tx).await).is_err() {
+                        if fetcher.handle_polling(&tx).await.is_err() {
                             // TODO: log error
                             break;
                         }
                         tokio::time::sleep(fetcher.update_interval).await;
                     }
                     FetchMode::Streaming => {
-                        if (fetcher.handle_streaming(&tx).await).is_err() {
+                        if fetcher.handle_streaming(&tx).await.is_err() {
                             // TODO: log error
                             break;
                         }
@@ -310,42 +317,48 @@ impl HTTPFetcher {
         &mut self,
         sender: &mpsc::Sender<Result<source::Document, Error>>,
     ) -> Result<(), Error> {
-        let result = match self.fetch_stream().await {
-            Ok(Some(resp)) => {
-                let mut stream = resp.bytes_stream();
-                let mut buffer = Vec::new();
+        let result =
+            match self.fetch_stream().await {
+                Ok(Some(resp)) => {
+                    let mut stream = resp.bytes_stream();
+                    let mut buffer = Vec::new();
 
-                while let Some(chunk) = stream.next().await {
-                    let chunk = chunk.map_err(|e| {
-                        Error::Server(format!("failed to read stream chunk: {}", e))
-                    })?;
+                    while let Some(bytes) = stream.next().await {
+                        let chunk = bytes.map_err(|e| {
+                            Error::Server(format!("failed to read stream chunk: {}", e))
+                        })?;
 
-                    for byte in chunk {
-                        if byte == b'\n' {
-                            let text = String::from_utf8_lossy(&buffer);
-                            let doc: source::Document =
-                                serde_json::from_str(&text).map_err(|e| {
-                                    Error::InvalidJSON(format!(
-                                        "failed to parse response body: {}",
-                                        e
-                                    ))
-                                })?;
+                        for byte in chunk {
+                            if byte == b'\n' {
+                                let text = String::from_utf8_lossy(&buffer);
+                                let stream_chunk: StreamChunk = serde_json::from_str(&text)
+                                    .map_err(|e| {
+                                        Error::InvalidJSON(format!(
+                                            "failed to parse response body: {}",
+                                            e
+                                        ))
+                                    })?;
 
-                            sender
-                                .send(Ok(doc))
-                                .await
-                                .map_err(|_| Error::Server("failed to send result".into()))?;
-                            buffer.clear();
-                        } else {
-                            buffer.push(byte);
+                                let (_, doc) =
+                                    stream_chunk.result.namespaces.into_iter().next().ok_or(
+                                        Error::Server("no data received from server".into()),
+                                    )?;
+
+                                sender
+                                    .send(Ok(doc))
+                                    .await
+                                    .map_err(|_| Error::Server("failed to send result".into()))?;
+                                buffer.clear();
+                            } else {
+                                buffer.push(byte);
+                            }
                         }
                     }
+                    Ok(())
                 }
-                Ok(())
-            }
-            Ok(None) => Ok(()),
-            Err(e) => Err(e),
-        };
+                Ok(None) => Ok(()),
+                Err(e) => Err(e),
+            };
 
         match result {
             Ok(_) => Ok(()),
