@@ -80,9 +80,7 @@ class FliptEvaluationClient:
 
         ns = namespace.encode("utf-8")
 
-        client_opts_serialized = opts.model_dump_json(exclude_none=True).encode(
-            "utf-8"
-        )
+        client_opts_serialized = opts.model_dump_json(exclude_none=True).encode("utf-8")
 
         self.engine = self.ffi_core.initialize_engine(ns, client_opts_serialized)
 
