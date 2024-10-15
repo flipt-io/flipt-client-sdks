@@ -67,7 +67,7 @@ module Flipt
       end
 
       fetch_mode = opts.fetch(:fetch_mode, :polling)
-      unless [:polling, :streaming].include?(fetch_mode)
+      unless %i[polling streaming].include?(fetch_mode)
         raise ArgumentError, 'invalid fetch mode'
       end
 
