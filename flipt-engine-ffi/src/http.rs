@@ -485,6 +485,7 @@ mod tests {
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
             .with_status(500)
+            .expect_at_most(4)
             .create_async()
             .await;
 
