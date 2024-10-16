@@ -6,13 +6,13 @@ import java.time.Duration;
 import java.util.Optional;
 
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
-public class EngineOpts {
+public class ClientOptions {
   private final Optional<String> url;
   private final Optional<Long> updateInterval;
   private final Optional<AuthenticationStrategy> authentication;
   private final Optional<String> reference;
 
-  public EngineOpts(
+  public ClientOptions(
       Optional<String> url,
       Optional<Duration> updateInterval,
       Optional<AuthenticationStrategy> authentication,

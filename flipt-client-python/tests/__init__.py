@@ -3,15 +3,15 @@ import unittest
 from flipt_client import FliptEvaluationClient
 from flipt_client.models import (
     ClientTokenAuthentication,
-    EngineOpts,
+    ClientOptions,
     EvaluationRequest,
 )
 
 
 class TestFliptEvaluationClient(unittest.TestCase):
     def setUp(self) -> None:
-        engine_url = os.environ.get("FLIPT_URL")
-        if engine_url is None:
+        url = os.environ.get("FLIPT_URL")
+        if url is None:
             raise Exception("FLIPT_URL not set")
 
         auth_token = os.environ.get("FLIPT_AUTH_TOKEN")
@@ -19,8 +19,8 @@ class TestFliptEvaluationClient(unittest.TestCase):
             raise Exception("FLIPT_AUTH_TOKEN not set")
 
         self.flipt_client = FliptEvaluationClient(
-            engine_opts=EngineOpts(
-                url=engine_url,
+            opts=ClientOptions(
+                url=url,
                 authentication=ClientTokenAuthentication(client_token=auth_token),
             )
         )
@@ -29,29 +29,23 @@ class TestFliptEvaluationClient(unittest.TestCase):
         variant = self.flipt_client.evaluate_variant(
             "flag1", "someentity", {"fizz": "buzz"}
         )
-        self.assertIsNone(variant.error_message)
-        self.assertEqual("success", variant.status)
-        self.assertEqual("flag1", variant.result.flag_key)
-        self.assertTrue(variant.result.match)
-        self.assertEqual("MATCH_EVALUATION_REASON", variant.result.reason)
-        self.assertEqual("variant1", variant.result.variant_key)
-        self.assertIn("segment1", variant.result.segment_keys)
+        self.assertEqual("flag1", variant.flag_key)
+        self.assertTrue(variant.match)
+        self.assertEqual("MATCH_EVALUATION_REASON", variant.reason)
+        self.assertEqual("variant1", variant.variant_key)
+        self.assertIn("segment1", variant.segment_keys)
 
     def test_boolean(self):
         boolean = self.flipt_client.evaluate_boolean(
             "flag_boolean", "someentity", {"fizz": "buzz"}
         )
-        self.assertIsNone(boolean.error_message)
-        self.assertEqual("success", boolean.status)
-        self.assertTrue(boolean.result.enabled)
-        self.assertEqual("flag_boolean", boolean.result.flag_key)
-        self.assertEqual("MATCH_EVALUATION_REASON", boolean.result.reason)
+        self.assertTrue(boolean.enabled)
+        self.assertEqual("flag_boolean", boolean.flag_key)
+        self.assertEqual("MATCH_EVALUATION_REASON", boolean.reason)
 
     def test_list_flags(self):
         flags = self.flipt_client.list_flags()
-        self.assertIsNone(flags.error_message)
-        self.assertEqual("success", flags.status)
-        self.assertEqual(2, len(flags.result))
+        self.assertEqual(2, len(flags))
 
     def test_batch(self):
         batch = self.flipt_client.evaluate_batch(
@@ -74,71 +68,62 @@ class TestFliptEvaluationClient(unittest.TestCase):
             ]
         )
 
-        self.assertIsNone(batch.error_message)
-        self.assertEqual("success", batch.status)
-        self.assertEqual(3, len(batch.result.responses))
+        self.assertEqual(3, len(batch.responses))
 
-        variant = batch.result.responses[0]
-        self.assertEqual("VARIANT_EVALUATION_RESPONSE_TYPE", variant.type)
-        self.assertEqual("flag1", variant.variant_evaluation_response.flag_key)
-        self.assertTrue(variant.variant_evaluation_response.match)
-        self.assertEqual(
-            "MATCH_EVALUATION_REASON", variant.variant_evaluation_response.reason
-        )
-        self.assertEqual("variant1", variant.variant_evaluation_response.variant_key)
-        self.assertIn("segment1", variant.variant_evaluation_response.segment_keys)
+        variant_response = batch.responses[0]
+        self.assertEqual("VARIANT_EVALUATION_RESPONSE_TYPE", variant_response.type)
+        variant = variant_response.variant_evaluation_response
+        self.assertEqual("flag1", variant.flag_key)
+        self.assertTrue(variant.match)
+        self.assertEqual("MATCH_EVALUATION_REASON", variant.reason)
+        self.assertEqual("variant1", variant.variant_key)
+        self.assertIn("segment1", variant.segment_keys)
 
-        boolean = batch.result.responses[1]
-        self.assertEqual("BOOLEAN_EVALUATION_RESPONSE_TYPE", boolean.type)
-        self.assertTrue(boolean.boolean_evaluation_response.enabled)
-        self.assertEqual("flag_boolean", boolean.boolean_evaluation_response.flag_key)
-        self.assertEqual(
-            "MATCH_EVALUATION_REASON", boolean.boolean_evaluation_response.reason
-        )
+        boolean_response = batch.responses[1]
+        self.assertEqual("BOOLEAN_EVALUATION_RESPONSE_TYPE", boolean_response.type)
+        boolean = boolean_response.boolean_evaluation_response
+        self.assertTrue(boolean.enabled)
+        self.assertEqual("flag_boolean", boolean.flag_key)
+        self.assertEqual("MATCH_EVALUATION_REASON", boolean.reason)
 
-        error = batch.result.responses[2]
-        self.assertEqual("ERROR_EVALUATION_RESPONSE_TYPE", error.type)
-        self.assertEqual("notfound", error.error_evaluation_response.flag_key)
-        self.assertEqual("default", error.error_evaluation_response.namespace_key)
-        self.assertEqual(
-            "NOT_FOUND_ERROR_EVALUATION_REASON", error.error_evaluation_response.reason
-        )
+        error_response = batch.responses[2]
+        self.assertEqual("ERROR_EVALUATION_RESPONSE_TYPE", error_response.type)
+        error = error_response.error_evaluation_response
+        self.assertEqual("notfound", error.flag_key)
+        self.assertEqual("default", error.namespace_key)
+        self.assertEqual("NOT_FOUND_ERROR_EVALUATION_REASON", error.reason)
 
     def test_failure_variant(self):
-        variant = self.flipt_client.evaluate_variant(
-            "nonexistent", "someentity", {"fizz": "buzz"}
-        )
-        self.assertIsNone(variant.result)
+        with self.assertRaises(Exception) as context:
+            self.flipt_client.evaluate_variant(
+                "nonexistent", "someentity", {"fizz": "buzz"}
+            )
+
         self.assertEqual(
-            variant.error_message,
             "invalid request: failed to get flag information default/nonexistent",
+            str(context.exception),
         )
-        self.assertEqual("failure", variant.status)
 
     def test_failure_boolean(self):
-        boolean = self.flipt_client.evaluate_boolean(
-            "nonexistent", "someentity", {"fizz": "buzz"}
-        )
-        self.assertIsNone(boolean.result)
+        with self.assertRaises(Exception) as context:
+            self.flipt_client.evaluate_boolean(
+                "nonexistent", "someentity", {"fizz": "buzz"}
+            )
+
         self.assertEqual(
-            boolean.error_message,
+            str(context.exception),
             "invalid request: failed to get flag information default/nonexistent",
         )
-        self.assertEqual("failure", boolean.status)
 
     def test_variant_no_context(self):
         variant = self.flipt_client.evaluate_variant("flag1", "someentity")
-        self.assertIsNone(variant.error_message)
-        self.assertEqual("success", variant.status)
-        self.assertEqual("flag1", variant.result.flag_key)
-        self.assertFalse(variant.result.match)
+        self.assertEqual("flag1", variant.flag_key)
+        self.assertFalse(variant.match)
 
     def test_boolean_no_context(self):
         boolean = self.flipt_client.evaluate_boolean("flag_boolean", "someentity")
-        self.assertIsNone(boolean.error_message)
-        self.assertEqual("success", boolean.status)
-        self.assertTrue(boolean.result.enabled)
-        self.assertEqual("flag_boolean", boolean.result.flag_key)
+        self.assertTrue(boolean.enabled)
+        self.assertEqual("flag_boolean", boolean.flag_key)
 
 
 if __name__ == "__main__":
