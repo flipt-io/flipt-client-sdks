@@ -1,7 +1,18 @@
 import React from 'react';
 import { render, act, renderHook, waitFor } from '@testing-library/react';
-import { FliptProvider, useFliptClient, useFliptContext } from './index';
-import { FliptEvaluationClient } from '@flipt-io/flipt-client-browser';
+import {
+  FliptProvider,
+  FliptClientHook,
+  useFliptVariant,
+  useFliptBoolean,
+  useFliptSelector
+} from './index';
+import {
+  BatchEvaluationResponse,
+  BooleanEvaluationResponse,
+  FliptEvaluationClient,
+  VariantEvaluationResponse
+} from '@flipt-io/flipt-client-browser';
 
 // Mock the FliptEvaluationClient
 jest.mock('@flipt-io/flipt-client-browser', () => ({
@@ -23,7 +34,11 @@ describe('FliptProvider', () => {
 
     (FliptEvaluationClient.init as jest.Mock).mockResolvedValue(mockClient);
 
-    let renderedContext: ReturnType<typeof useFliptClient> | undefined;
+    let renderedContext: string | undefined;
+
+    let gotClient: FliptEvaluationClient | null = null;
+    let gotIsLoading: boolean = true;
+    let gotError: Error | null | undefined = undefined;
 
     await act(async () => {
       render(
@@ -37,23 +52,30 @@ describe('FliptProvider', () => {
     });
 
     function TestComponent() {
-      renderedContext = useFliptContext();
+      renderedContext = useFliptSelector((client, isLoading, error) => {
+        gotClient = client;
+        gotIsLoading = isLoading;
+        gotError = error;
+        return 'loaded';
+      });
       return null;
     }
 
     expect(FliptEvaluationClient.init).toHaveBeenCalledWith('test', {
       url: 'http://localhost:8080'
     });
-    expect(renderedContext!.client).toBe(mockClient);
-    expect(renderedContext!.isLoading).toBe(false);
-    expect(renderedContext!.error).toBe(null);
+    expect(gotClient).toBe(mockClient);
+    expect(gotIsLoading).toBe(false);
+    expect(gotError).toBe(null);
   });
 });
 
 describe('useFliptContext', () => {
   it('evaluates a variant flag', async () => {
     const mockClient = {
-      evaluateVariant: jest.fn().mockReturnValue({ variant: 'test-variant' })
+      evaluateVariant: jest.fn().mockReturnValue({
+        variantKey: 'test-variant'
+      } as VariantEvaluationResponse)
     };
 
     (FliptEvaluationClient.init as jest.Mock).mockResolvedValue(mockClient);
@@ -67,20 +89,17 @@ describe('useFliptContext', () => {
       </FliptProvider>
     );
 
-    const { result } = renderHook(() => useFliptContext(), { wrapper });
+    const { result } = renderHook(
+      () => useFliptVariant('test-flag', 'fallback', 'user-1'),
+      { wrapper }
+    );
 
     await waitFor(
       () => {
-        expect(result.current.client).toEqual(mockClient);
+        expect(result.current).toEqual('test-variant');
       },
       { timeout: 1000 }
     );
-
-    expect(result.current.isLoading).toBe(false);
-    expect(result.current.error).toBe(null);
-
-    // Call evaluateVariant on the client
-    await result?.current?.client?.evaluateVariant('test-flag', 'user-1', {});
 
     // Assert that the mock client's evaluateVariant was called with the correct arguments
     expect(mockClient.evaluateVariant).toHaveBeenCalledWith(
@@ -93,7 +112,9 @@ describe('useFliptContext', () => {
 
 it('evaluates a boolean flag', async () => {
   const mockClient = {
-    evaluateBoolean: jest.fn().mockReturnValue({ enabled: true })
+    evaluateBoolean: jest
+      .fn()
+      .mockReturnValue({ enabled: true } as BooleanEvaluationResponse)
   };
 
   (FliptEvaluationClient.init as jest.Mock).mockResolvedValue(mockClient);
@@ -104,20 +125,17 @@ it('evaluates a boolean flag', async () => {
     </FliptProvider>
   );
 
-  const { result } = renderHook(() => useFliptContext(), { wrapper });
+  const { result } = renderHook(
+    () => useFliptBoolean('test-flag', false, 'user-1'),
+    { wrapper }
+  );
 
   await waitFor(
     () => {
-      expect(result.current.client).toEqual(mockClient);
+      expect(result.current).toEqual(true);
     },
     { timeout: 1000 }
   );
-
-  expect(result.current.isLoading).toBe(false);
-  expect(result.current.error).toBe(null);
-
-  // Call evaluateBoolean on the client
-  await result?.current?.client?.evaluateBoolean('test-flag', 'user-1', {});
 
   // Assert that the mock client's evaluateBoolean was called with the correct arguments
   expect(mockClient.evaluateBoolean).toHaveBeenCalledWith(
@@ -131,10 +149,19 @@ it('evaluates multiple flags in batch', async () => {
   const mockClient = {
     evaluateBatch: jest.fn().mockReturnValue({
       responses: [
-        { flagKey: 'flag1', variant: 'variant1' },
-        { flagKey: 'flag2', enabled: true }
+        {
+          type: 'VARIANT_EVALUATION_RESPONSE_TYPE',
+          variantEvaluationResponse: {
+            flagKey: 'flag1',
+            variantKey: 'variant1'
+          }
+        },
+        {
+          type: 'BOOLEAN_EVALUATION_RESPONSE_TYPE',
+          booleanEvaluationResponse: { flagKey: 'flag2', enabled: true }
+        }
       ]
-    })
+    } as BatchEvaluationResponse)
   };
 
   (FliptEvaluationClient.init as jest.Mock).mockResolvedValue(mockClient);
@@ -145,23 +172,29 @@ it('evaluates multiple flags in batch', async () => {
     </FliptProvider>
   );
 
-  const { result } = renderHook(() => useFliptContext(), { wrapper });
+  const { result } = renderHook(
+    () =>
+      useFliptSelector((client) => {
+        // Call evaluateBatch on the client
+        const values = client?.evaluateBatch([
+          { context: {}, entityId: 'user-1', flagKey: 'flag1' },
+          { context: {}, entityId: 'user-1', flagKey: 'flag2' }
+        ]);
+        return (
+          values?.responses[0].variantEvaluationResponse?.variantKey +
+          '-' +
+          values?.responses[1].booleanEvaluationResponse?.enabled
+        );
+      }),
+    { wrapper }
+  );
 
   await waitFor(
     () => {
-      expect(result.current.client).toEqual(mockClient);
+      expect(result.current).toEqual('variant1-true');
     },
     { timeout: 1000 }
   );
-
-  expect(result.current.isLoading).toBe(false);
-  expect(result.current.error).toBe(null);
-
-  // Call evaluateBatch on the client
-  await result?.current?.client?.evaluateBatch([
-    { context: {}, entityId: 'user-1', flagKey: 'flag1' },
-    { context: {}, entityId: 'user-1', flagKey: 'flag2' }
-  ]);
 
   // Assert that the mock client's evaluateBatch was called with the correct arguments
   expect(mockClient.evaluateBatch).toHaveBeenCalledWith([
@@ -186,20 +219,25 @@ it('fetches all flags', async () => {
     </FliptProvider>
   );
 
-  const { result } = renderHook(() => useFliptContext(), { wrapper });
+  const { result } = renderHook(
+    () =>
+      useFliptSelector((client) => {
+        return client
+          ?.listFlags()
+          .map((f) => f.key)
+          .join('-');
+      }),
+    {
+      wrapper
+    }
+  );
 
   await waitFor(
     () => {
-      expect(result.current.client).toEqual(mockClient);
+      expect(result.current).toEqual('flag1-flag2');
     },
     { timeout: 1000 }
   );
-
-  expect(result.current.isLoading).toBe(false);
-  expect(result.current.error).toBe(null);
-
-  // Call listFlags on the client
-  await result?.current?.client?.listFlags();
 
   // Assert that the mock client's listFlags was called
   expect(mockClient.listFlags).toHaveBeenCalled();
