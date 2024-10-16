@@ -70,22 +70,25 @@ class TestFliptEvaluationClient(unittest.TestCase):
 
         self.assertEqual(3, len(batch.responses))
 
-        variant = batch.responses[0]
-        self.assertEqual("VARIANT_EVALUATION_RESPONSE_TYPE", variant.type)
+        variant_response = batch.responses[0]
+        self.assertEqual("VARIANT_EVALUATION_RESPONSE_TYPE", variant_response.type)
+        variant = variant_response.variant_evaluation_response
         self.assertEqual("flag1", variant.flag_key)
         self.assertTrue(variant.match)
         self.assertEqual("MATCH_EVALUATION_REASON", variant.reason)
         self.assertEqual("variant1", variant.variant_key)
         self.assertIn("segment1", variant.segment_keys)
 
-        boolean = batch.responses[1]
-        self.assertEqual("BOOLEAN_EVALUATION_RESPONSE_TYPE", boolean.type)
+        boolean_response = batch.responses[1]
+        self.assertEqual("BOOLEAN_EVALUATION_RESPONSE_TYPE", boolean_response.type)
+        boolean = boolean_response.boolean_evaluation_response
         self.assertTrue(boolean.enabled)
         self.assertEqual("flag_boolean", boolean.flag_key)
         self.assertEqual("MATCH_EVALUATION_REASON", boolean.reason)
 
-        error = batch.responses[2]
-        self.assertEqual("ERROR_EVALUATION_RESPONSE_TYPE", error.type)
+        error_response = batch.responses[2]
+        self.assertEqual("ERROR_EVALUATION_RESPONSE_TYPE", error_response.type)
+        error = error_response.error_evaluation_response
         self.assertEqual("notfound", error.flag_key)
         self.assertEqual("default", error.namespace_key)
         self.assertEqual("NOT_FOUND_ERROR_EVALUATION_REASON", error.reason)
