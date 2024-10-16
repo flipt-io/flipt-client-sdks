@@ -101,9 +101,16 @@ This state is pulled from the Flipt instance on instantiation and every `update_
 
 To update the flag state manually, you can call the `refresh` method on the `FliptEvaluationClient` class.
 
+> [!NOTE]
+> The `refresh` method returns a boolean indicating whether the flag state changed.
+
 ```typescript
 // Refresh the flag state
-fliptEvaluationClient.refresh();
+let changed = await fliptEvaluationClient.refresh();
+
+if (changed) {
+  // Do something
+}
 ```
 
 ## ETag Support
