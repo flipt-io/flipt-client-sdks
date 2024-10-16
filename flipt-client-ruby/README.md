@@ -19,6 +19,7 @@ This SDK currently supports the following OSes/architectures:
 - MacOS x86_64
 - MacOS arm64
 - Windows x86_64
+
 ### Using System Libffi
 
 If you are experiencing segfaults when using this gem, you may need to configure `ffi` to use the system libffi instead of the bundled one.
