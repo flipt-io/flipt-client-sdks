@@ -1,6 +1,6 @@
 name: flipt_client
 description: Flipt Client Evaluation SDK for Dart
-version: 0.1.0
+version: 0.2.0
 homepage: https://flipt.io
 
 environment:
@@ -23,3 +23,4 @@ flutter:
     - lib/src/ffi/linux_arm64/libfliptengine.so
     - lib/src/ffi/darwin_x86_64/libfliptengine.dylib
     - lib/src/ffi/darwin_arm64/libfliptengine.dylib
+    - lib/src/ffi/windows_x86_64/fliptengine.dll
