@@ -21,7 +21,7 @@ class JWTAuthentication(AuthenticationStrategy):
     jwt_token: str
 
 
-class EngineOpts(BaseModel):
+class ClientOptions(BaseModel):
     url: Optional[str] = None
     update_interval: Optional[int] = None
     authentication: Optional[AuthenticationStrategy] = None

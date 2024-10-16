@@ -41,14 +41,14 @@ func NewEvaluationClient(opts ...clientOption) (*EvaluationClient, error) {
 		opt(client)
 	}
 
-	engOpts := &EngineOpts[any]{
+	clientOpts := &clientOptions[any]{
 		URL:            client.url,
 		UpdateInterval: client.updateInterval,
 		Authentication: &client.authentication,
 		Reference:      client.ref,
 	}
 
-	b, err := json.Marshal(engOpts)
+	b, err := json.Marshal(clientOpts)
 	if err != nil {
 		return nil, err
 	}

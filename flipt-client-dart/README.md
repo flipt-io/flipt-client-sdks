@@ -23,9 +23,10 @@ This SDK currently supports the following OSes/architectures:
 - Linux arm64
 - MacOS x86_64
 - MacOS arm64
+- Windows x86_64
 
 > [!IMPORTANT]
-> This SDK currently only supports desktop platforms (MacOS and Linux).
+> This SDK currently only supports desktop platforms (MacOS, Linux, Windows).
 > We are working on adding support for mobile platforms such as iOS and Android.
 
 ## Usage
