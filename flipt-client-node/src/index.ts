@@ -89,7 +89,7 @@ export class FliptEvaluationClient {
           return resp;
         }
 
-        if (!resp.ok) {
+        if (!resp.ok && resp.status !== 304) {
           throw new Error(`Failed to fetch data: ${resp.statusText}`);
         }
 
@@ -99,7 +99,7 @@ export class FliptEvaluationClient {
 
     // handle case if they pass in a custom fetcher that doesn't throw on non-2xx status codes
     const resp = await fetcher();
-    if (!resp.ok && resp.status !== 304) {
+    if (!resp.ok) {
       throw new Error(`Failed to fetch data: ${resp.statusText}`);
     }
 
@@ -107,7 +107,7 @@ export class FliptEvaluationClient {
     const engine = new Engine(namespace);
     engine.snapshot(data);
     const client = new FliptEvaluationClient(engine, fetcher);
-
+    client.storeEtag(resp);
     if (options.updateInterval && options.updateInterval > 0) {
       client.startAutoRefresh(options.updateInterval * 1000);
     }
@@ -115,6 +115,21 @@ export class FliptEvaluationClient {
     return client;
   }
 
+  /**
+   * Store etag from response for next requests
+   */
+  private storeEtag(resp: Response) {
+    let etag = resp.headers.get('etag');
+    if (etag) {
+      this.etag = etag;
+    }
+  }
+
+  /**
+   * Start the auto refresh interval
+   * @param interval - optional interval in milliseconds
+   * @returns void
+   */
   private startAutoRefresh(interval: number = 120_000) {
     this.stopAutoRefresh();
     this.updateInterval = setInterval(async () => {
@@ -122,6 +137,10 @@ export class FliptEvaluationClient {
     }, interval);
   }
 
+  /**
+   * Stop the auto refresh interval
+   * @returns void
+   */
   private stopAutoRefresh() {
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
@@ -131,22 +150,22 @@ export class FliptEvaluationClient {
 
   /**
    * Refresh the flags snapshot
-   * @returns void
+   * @returns {boolean} true if snapshot changed
    */
-  public async refresh() {
+  public async refresh(): Promise<boolean> {
     const opts = { etag: this.etag };
     const resp = await this.fetcher(opts);
 
-    if (resp.status === 304) {
-      let etag = resp.headers.get('etag');
-      if (etag) {
-        this.etag = etag;
-      }
-      return;
+    let etag = resp.headers.get('etag');
+    if (this.etag && this.etag === etag) {
+      return false;
     }
+
+    this.storeEtag(resp);
 
     const data = await resp.json();
     this.engine.snapshot(data);
+    return true;
   }
 
   /**
