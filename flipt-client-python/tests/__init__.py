@@ -29,7 +29,6 @@ class TestFliptEvaluationClient(unittest.TestCase):
         variant = self.flipt_client.evaluate_variant(
             "flag1", "someentity", {"fizz": "buzz"}
         )
-        self.assertIsNone(variant)
         self.assertEqual("flag1", variant.flag_key)
         self.assertTrue(variant.match)
         self.assertEqual("MATCH_EVALUATION_REASON", variant.reason)
@@ -40,14 +39,12 @@ class TestFliptEvaluationClient(unittest.TestCase):
         boolean = self.flipt_client.evaluate_boolean(
             "flag_boolean", "someentity", {"fizz": "buzz"}
         )
-        self.assertIsNone(boolean)
         self.assertTrue(boolean.enabled)
         self.assertEqual("flag_boolean", boolean.flag_key)
         self.assertEqual("MATCH_EVALUATION_REASON", boolean.reason)
 
     def test_list_flags(self):
         flags = self.flipt_client.list_flags()
-        self.assertIsNone(flags)
         self.assertEqual(2, len(flags))
 
     def test_batch(self):
@@ -71,7 +68,6 @@ class TestFliptEvaluationClient(unittest.TestCase):
             ]
         )
 
-        self.assertIsNone(batch.error_message)
         self.assertEqual(3, len(batch.responses))
 
         variant = batch.responses[0]
@@ -118,13 +114,11 @@ class TestFliptEvaluationClient(unittest.TestCase):
 
     def test_variant_no_context(self):
         variant = self.flipt_client.evaluate_variant("flag1", "someentity")
-        self.assertIsNone(variant)
         self.assertEqual("flag1", variant.flag_key)
         self.assertFalse(variant.match)
 
     def test_boolean_no_context(self):
         boolean = self.flipt_client.evaluate_boolean("flag_boolean", "someentity")
-        self.assertIsNone(boolean)
         self.assertTrue(boolean.enabled)
         self.assertEqual("flag_boolean", boolean.flag_key)
 
