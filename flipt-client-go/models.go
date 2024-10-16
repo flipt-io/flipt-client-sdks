@@ -28,7 +28,7 @@ const (
 	FetchModePolling   FetchMode = "polling"
 )
 
-type clientOpts[T any] struct {
+type clientOptions[T any] struct {
 	URL            string    `json:"url,omitempty"`
 	Authentication *T        `json:"authentication,omitempty"`
 	UpdateInterval int       `json:"update_interval,omitempty"`

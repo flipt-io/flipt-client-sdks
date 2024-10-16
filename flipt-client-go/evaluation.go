@@ -42,7 +42,7 @@ func NewEvaluationClient(opts ...clientOption) (*EvaluationClient, error) {
 		opt(client)
 	}
 
-	engOpts := &clientOpts[any]{
+	clientOpts := &clientOptions[any]{
 		URL:            client.url,
 		UpdateInterval: client.updateInterval,
 		Authentication: &client.authentication,
@@ -50,7 +50,7 @@ func NewEvaluationClient(opts ...clientOption) (*EvaluationClient, error) {
 		FetchMode:      client.fetchMode,
 	}
 
-	b, err := json.Marshal(engOpts)
+	b, err := json.Marshal(clientOpts)
 	if err != nil {
 		return nil, err
 	}

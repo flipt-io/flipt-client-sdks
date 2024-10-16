@@ -4,11 +4,15 @@ import os
 import platform
 
 from .models import (
+    BatchEvaluationResponse,
     BatchResult,
+    BooleanEvaluationResponse,
     BooleanResult,
     ClientOptions,
     EvaluationRequest,
+    FlagList,
     ListFlagsResult,
+    VariantEvaluationResponse,
     VariantResult,
 )
 
@@ -90,7 +94,7 @@ class FliptEvaluationClient:
 
     def evaluate_variant(
         self, flag_key: str, entity_id: str, context: dict = {}
-    ) -> VariantResult:
+    ) -> VariantEvaluationResponse:
         response = self.ffi_core.evaluate_variant(
             self.engine,
             serialize_evaluation_request(
@@ -101,11 +105,15 @@ class FliptEvaluationClient:
         bytes_returned = ctypes.cast(response, ctypes.c_char_p).value
         variant_result = VariantResult.model_validate_json(bytes_returned)
         self.ffi_core.destroy_string(response)
-        return variant_result
+
+        if variant_result.status != "success":
+            raise Exception(variant_result.error_message)
+
+        return variant_result.result
 
     def evaluate_boolean(
         self, flag_key: str, entity_id: str, context: dict = {}
-    ) -> BooleanResult:
+    ) -> BooleanEvaluationResponse:
         response = self.ffi_core.evaluate_boolean(
             self.engine,
             serialize_evaluation_request(
@@ -116,9 +124,15 @@ class FliptEvaluationClient:
         bytes_returned = ctypes.cast(response, ctypes.c_char_p).value
         boolean_result = BooleanResult.model_validate_json(bytes_returned)
         self.ffi_core.destroy_string(response)
-        return boolean_result
 
-    def evaluate_batch(self, requests: List[EvaluationRequest]) -> BatchResult:
+        if boolean_result.status != "success":
+            raise Exception(boolean_result.error_message)
+
+        return boolean_result.result
+
+    def evaluate_batch(
+        self, requests: List[EvaluationRequest]
+    ) -> BatchEvaluationResponse:
         evaluation_requests = []
 
         for r in requests:
@@ -144,15 +158,23 @@ class FliptEvaluationClient:
         bytes_returned = ctypes.cast(response, ctypes.c_char_p).value
         batch_result = BatchResult.model_validate_json(bytes_returned)
         self.ffi_core.destroy_string(response)
-        return batch_result
 
-    def list_flags(self) -> ListFlagsResult:
+        if batch_result.status != "success":
+            raise Exception(batch_result.error_message)
+
+        return batch_result.result
+
+    def list_flags(self) -> FlagList:
         response = self.ffi_core.list_flags(self.engine)
 
         bytes_returned = ctypes.cast(response, ctypes.c_char_p).value
         result = ListFlagsResult.model_validate_json(bytes_returned)
         self.ffi_core.destroy_string(response)
-        return result
+
+        if result.status != "success":
+            raise Exception(result.error_message)
+
+        return result.result
 
 
 def serialize_evaluation_request(
