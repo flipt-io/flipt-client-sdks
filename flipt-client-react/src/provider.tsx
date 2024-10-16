@@ -14,5 +14,7 @@ export const FliptProvider: React.FC<{
     };
   }, [store]);
 
-  return <FliptContext.Provider value={store}>{children}</FliptContext.Provider>;
+  return (
+    <FliptContext.Provider value={store}>{children}</FliptContext.Provider>
+  );
 };

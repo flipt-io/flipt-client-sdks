@@ -1,5 +1,13 @@
-import { useContext, useSyncExternalStore, useCallback, createContext } from 'react';
-import { FliptEvaluationClient, ClientOptions } from '@flipt-io/flipt-client-browser';
+import {
+  useContext,
+  useSyncExternalStore,
+  useCallback,
+  createContext
+} from 'react';
+import {
+  FliptEvaluationClient,
+  ClientOptions
+} from '@flipt-io/flipt-client-browser';
 
 export interface FliptClientHook {
   client: FliptEvaluationClient | null;
@@ -13,7 +21,10 @@ export interface FliptStore extends FliptClientHook {
   detach: () => void;
 }
 
-export const configureStore = (namespace: string, options: ClientOptions): FliptStore => {
+export const configureStore = (
+  namespace: string,
+  options: ClientOptions
+): FliptStore => {
   const listeners = new Set<() => void>();
   const subscribe = (listener: () => void): (() => void) => {
     listeners.add(listener);
@@ -38,12 +49,17 @@ export const configureStore = (namespace: string, options: ClientOptions): Flipt
       mounted = false;
       clearInterval(intervalId);
       intervalId = undefined;
-    },
+    }
   };
   const interval = options.updateInterval || 0;
 
   const setupPolling = () => {
-    if (interval > 0 && mounted && store.client !== null && intervalId === undefined) {
+    if (
+      interval > 0 &&
+      mounted &&
+      store.client !== null &&
+      intervalId === undefined
+    ) {
       intervalId = setInterval(() => {
         if (typeof window !== 'undefined' && navigator.onLine) {
           store.client?.refresh().then((updated) => {
@@ -83,7 +99,11 @@ export const useFliptContext = (): FliptClientHook => {
 };
 
 export const useFliptSelector = <T>(
-  selector: (client: FliptEvaluationClient | null, isLoading: boolean, error: Error | null) => T
+  selector: (
+    client: FliptEvaluationClient | null,
+    isLoading: boolean,
+    error: Error | null
+  ) => T
 ): T => {
   const store = useContext(FliptContext);
   if (store === null) {
@@ -91,7 +111,10 @@ export const useFliptSelector = <T>(
   }
   return useSyncExternalStore(
     store.subscribe,
-    useCallback(() => selector(store.client, store.isLoading, store.error), [store, selector])
+    useCallback(
+      () => selector(store.client, store.isLoading, store.error),
+      [store, selector]
+    )
   );
 };
 
