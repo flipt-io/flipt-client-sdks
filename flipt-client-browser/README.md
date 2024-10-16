@@ -86,9 +86,16 @@ The `FliptEvaluationClient` class pulls flag state from the Flipt instance at th
 
 To update the flag state, you can call the `refresh` method on the `FliptEvaluationClient` class.
 
+> [!NOTE]
+> The `refresh` method returns a boolean indicating whether the flag state changed.
+
 ```typescript
 // Refresh the flag state
-fliptEvaluationClient.refresh();
+let changed = await fliptEvaluationClient.refresh();
+
+if (changed) {
+  // Do something
+}
 ```
 
 ## ETag Support
