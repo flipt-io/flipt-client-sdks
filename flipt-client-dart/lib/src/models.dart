@@ -2,6 +2,14 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'models.g.dart';
 
+enum FetchMode {
+  @JsonValue('polling')
+  polling,
+  @JsonValue('streaming')
+  streaming,
+}
+
+/// Options for the Flipt client
 @JsonSerializable()
 class Options {
   final String? url;
@@ -9,11 +17,15 @@ class Options {
   final int? updateInterval;
   final Map<String, dynamic>? authentication;
 
+  /// Note: Streaming is currently only supported when using the SDK with Flipt Cloud (https://flipt.io/cloud).
+  final FetchMode? fetchMode;
+
   Options({
     this.url = 'http://localhost:8080',
     this.reference,
     this.updateInterval = 120,
     this.authentication,
+    this.fetchMode = FetchMode.polling,
   });
 
   factory Options.fromJson(Map<String, dynamic> json) =>
@@ -25,6 +37,7 @@ class Options {
     String? url,
     String? reference,
     int? updateInterval,
+    FetchMode? fetchMode,
   }) {
     return Options(
       url: url,
@@ -33,6 +46,7 @@ class Options {
       authentication: {
         'client_token': token,
       },
+      fetchMode: fetchMode,
     );
   }
 
@@ -41,6 +55,7 @@ class Options {
     String? url,
     String? reference,
     int? updateInterval,
+    FetchMode? fetchMode,
   }) {
     return Options(
       url: url,
@@ -49,6 +64,7 @@ class Options {
       authentication: {
         'jwt_token': token,
       },
+      fetchMode: fetchMode,
     );
   }
 }

@@ -5,7 +5,6 @@ use web_time::Instant;
 
 pub mod error;
 pub mod models;
-pub mod parser;
 pub mod store;
 
 use crate::error::Error;

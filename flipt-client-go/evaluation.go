@@ -29,6 +29,7 @@ type EvaluationClient struct {
 	authentication any
 	ref            string
 	updateInterval int
+	fetchMode      FetchMode
 }
 
 // NewEvaluationClient constructs a Client.
@@ -46,6 +47,7 @@ func NewEvaluationClient(opts ...clientOption) (*EvaluationClient, error) {
 		UpdateInterval: client.updateInterval,
 		Authentication: &client.authentication,
 		Reference:      client.ref,
+		FetchMode:      client.fetchMode,
 	}
 
 	b, err := json.Marshal(clientOpts)
@@ -103,6 +105,14 @@ func WithJWTAuthentication(token string) clientOption {
 		c.authentication = jwtAuthentication{
 			Token: token,
 		}
+	}
+}
+
+// WithFetchMode allows for specifying the fetch mode for the Flipt client (e.g. polling, streaming).
+// Note: Streaming is currently only supported when using the SDK with Flipt Cloud (https://flipt.io/cloud).
+func WithFetchMode(fetchMode FetchMode) clientOption {
+	return func(c *EvaluationClient) {
+		c.fetchMode = fetchMode
 	}
 }
 

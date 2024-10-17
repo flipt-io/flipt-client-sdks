@@ -1,3 +1,4 @@
+from enum import Enum
 from pydantic import BaseModel, RootModel
 from typing import List, Optional
 
@@ -21,11 +22,17 @@ class JWTAuthentication(AuthenticationStrategy):
     jwt_token: str
 
 
+class FetchMode(Enum):
+    POLLING = "polling"
+    STREAMING = "streaming"
+
+
 class ClientOptions(BaseModel):
     url: Optional[str] = None
     update_interval: Optional[int] = None
     authentication: Optional[AuthenticationStrategy] = None
     reference: Optional[str] = None
+    fetch_mode: Optional[FetchMode] = None
 
 
 class VariantEvaluationResponse(BaseModel):

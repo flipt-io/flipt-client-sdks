@@ -27,3 +27,6 @@ Style/Documentation:
   Exclude:
     - "spec/**/*"
     - "test/**/*"
+
+Style/IfUnlessModifier:
+  Enabled: false
