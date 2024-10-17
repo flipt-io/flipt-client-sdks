@@ -97,7 +97,8 @@ The `useFliptSelector` hook allows the direct access to the Flipt client so that
 
 This is useful for more complex evaluations or in cases where the Flipt client other methods should be called.
 
-> [!CAUTION] `flipt-client-react` heavily depends on the `useSyncExternalStore` and it has the same [caveats](https://react.dev/reference/react/useSyncExternalStore#caveats)
+> [!CAUTION]
+> `flipt-client-react` heavily depends on the `useSyncExternalStore` and it has the same [caveats](https://react.dev/reference/react/useSyncExternalStore#caveats)
 
 ```tsx
 import { useFliptSelector } from '@flipt-io/flipt-client-react';
