@@ -36,3 +36,11 @@ export interface Result<T> {
   /** Error message describing the reason for failure, if applicable.*/
   errorMessage: string;
 }
+
+export interface StreamChunk {
+  result: StreamResult;
+}
+
+export interface StreamResult {
+  namespaces: Record<string, any>;
+}
