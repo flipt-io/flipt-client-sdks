@@ -108,7 +108,8 @@ func WithJWTAuthentication(token string) clientOption {
 	}
 }
 
-// WithFetchMode allows for specifying the fetch mode for the Flipt client.
+// WithFetchMode allows for specifying the fetch mode for the Flipt client (e.g. polling, streaming).
+// Note: Streaming is currently only supported when using the SDK with Flipt Cloud (https://flipt.io/cloud).
 func WithFetchMode(fetchMode FetchMode) clientOption {
 	return func(c *EvaluationClient) {
 		c.fetchMode = fetchMode

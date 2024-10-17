@@ -9,13 +9,17 @@ enum FetchMode {
   streaming,
 }
 
+/// Options for the Flipt client
 @JsonSerializable()
 class Options {
   final String? url;
   final String? reference;
   final int? updateInterval;
   final Map<String, dynamic>? authentication;
+
+  /// Note: Streaming is currently only supported when using the SDK with Flipt Cloud (https://flipt.io/cloud).
   final FetchMode? fetchMode;
+
   Options({
     this.url = 'http://localhost:8080',
     this.reference,

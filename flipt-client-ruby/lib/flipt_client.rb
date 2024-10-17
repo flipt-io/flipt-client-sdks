@@ -55,7 +55,8 @@ module Flipt
     # @option opts [AuthenticationStrategy] :authentication strategy to authenticate with Flipt
     # @option opts [Integer] :update_interval interval in seconds to update the cache
     # @option opts [String] :reference reference to use for namespace data
-    # @option opts [Symbol] :fetch_mode fetch mode to use for the client (:polling or :streaming)
+    # @option opts [Symbol] :fetch_mode fetch mode to use for the client (:polling or :streaming).
+    #   Note: Streaming is currently only supported when using the SDK with Flipt Cloud (https://flipt.io/cloud).
     def initialize(namespace = 'default', opts = {})
       @namespace = namespace
 

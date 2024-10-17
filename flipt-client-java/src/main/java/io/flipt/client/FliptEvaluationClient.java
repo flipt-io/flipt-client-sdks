@@ -61,6 +61,9 @@ public class FliptEvaluationClient {
     return new FliptEvaluationClientBuilder();
   }
 
+  /**
+   * FliptEvaluationClientBuilder is a builder for creating a FliptEvaluationClient.
+   */
   public static final class FliptEvaluationClientBuilder {
     private String namespace = "default";
     private String url = "http://localhost:8080";
@@ -71,36 +74,79 @@ public class FliptEvaluationClient {
 
     public FliptEvaluationClientBuilder() {}
 
+    /**
+     * url sets the URL for the Flipt server.
+     *
+     * @param url the URL for the Flipt server
+     * @return the FliptEvaluationClientBuilder
+     */
     public FliptEvaluationClientBuilder url(String url) {
       this.url = url;
       return this;
     }
 
+    /**
+     * namespace sets the namespace for the Flipt server.
+     *
+     * @param namespace the namespace for the Flipt server
+     * @return the FliptEvaluationClientBuilder
+     */
     public FliptEvaluationClientBuilder namespace(String namespace) {
       this.namespace = namespace;
       return this;
     }
 
+    /**
+     * authentication sets the authentication strategy for the Flipt server.
+     *
+     * @param authentication the authentication strategy for the Flipt server
+     * @return the FliptEvaluationClientBuilder
+     */
     public FliptEvaluationClientBuilder authentication(AuthenticationStrategy authentication) {
       this.authentication = authentication;
       return this;
     }
 
+    /**
+     * updateInterval sets the update interval for the Flipt server.
+     *
+     * @param updateInterval the update interval for the Flipt server
+     * @return the FliptEvaluationClientBuilder
+     */
     public FliptEvaluationClientBuilder updateInterval(Duration updateInterval) {
       this.updateInterval = updateInterval;
       return this;
     }
 
+    /**
+     * reference sets the reference for the Flipt server.
+     *
+     * @param reference the reference for the Flipt server
+     * @return the FliptEvaluationClientBuilder
+     */
     public FliptEvaluationClientBuilder reference(String reference) {
       this.reference = reference;
       return this;
     }
 
+    /**
+     * fetchMode sets the fetch mode for the Flipt server.
+     * Note: Streaming is currently only supported when using the SDK with Flipt Cloud (https://flipt.io/cloud).
+     *
+     * @param fetchMode the fetch mode for the Flipt server
+     * @return the FliptEvaluationClientBuilder
+     */
     public FliptEvaluationClientBuilder fetchMode(FetchMode fetchMode) {
       this.fetchMode = fetchMode;
       return this;
     }
 
+    /**
+     * build builds a new FliptEvaluationClient.
+     *
+     * @return the FliptEvaluationClient
+     * @throws EvaluationException if the FliptEvaluationClient could not be built
+     */
     public FliptEvaluationClient build() throws EvaluationException {
       return new FliptEvaluationClient(
           namespace,
@@ -143,6 +189,15 @@ public class FliptEvaluationClient {
     }
   }
 
+  /**
+   * evaluateVariant evaluates a variant flag.
+   *
+   * @param flagKey the key for the flag to evaluate
+   * @param entityId the ID for the entity to evaluate
+   * @param context the context for the evaluation
+   * @return the evaluation response
+   * @throws EvaluationException if the evaluation failed
+   */
   public VariantEvaluationResponse evaluateVariant(
       String flagKey, String entityId, Map<String, String> context) throws EvaluationException {
     InternalEvaluationRequest evaluationRequest =
@@ -167,6 +222,15 @@ public class FliptEvaluationClient {
     return resp.getResult().get();
   }
 
+  /**
+   * evaluateBoolean evaluates a boolean flag.
+   *
+   * @param flagKey the key for the flag to evaluate
+   * @param entityId the ID for the entity to evaluate
+   * @param context the context for the evaluation
+   * @return the evaluation response
+   * @throws EvaluationException if the evaluation failed
+   */
   public BooleanEvaluationResponse evaluateBoolean(
       String flagKey, String entityId, Map<String, String> context) throws EvaluationException {
     InternalEvaluationRequest evaluationRequest =
@@ -190,6 +254,13 @@ public class FliptEvaluationClient {
     return resp.getResult().get();
   }
 
+  /**
+   * evaluateBatch evaluates a batch of flags.
+   *
+   * @param batchEvaluationRequests the batch of flags to evaluate
+   * @return the evaluation response
+   * @throws EvaluationException if the evaluation failed
+   */
   public BatchEvaluationResponse evaluateBatch(EvaluationRequest[] batchEvaluationRequests)
       throws EvaluationException {
     ArrayList<InternalEvaluationRequest> evaluationRequests =
@@ -223,6 +294,12 @@ public class FliptEvaluationClient {
     return resp.getResult().get();
   }
 
+  /**
+   * listFlags lists all flags in the namespace.
+   *
+   * @return the list of flags
+   * @throws EvaluationException if the list of flags could not be retrieved
+   */
   public ArrayList<Flag> listFlags() throws EvaluationException {
     Pointer value = CLibrary.INSTANCE.list_flags(this.engine);
 
@@ -236,6 +313,9 @@ public class FliptEvaluationClient {
     return resp.getResult().get();
   }
 
+  /**
+   * close closes the FliptEvaluationClient.
+   */
   public void close() {
     CLibrary.INSTANCE.destroy_engine(this.engine);
   }

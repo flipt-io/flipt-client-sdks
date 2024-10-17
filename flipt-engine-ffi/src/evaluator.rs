@@ -144,4 +144,40 @@ mod tests {
             "invalid request: failed to get flag information namespace/foo",
         );
     }
+
+    #[test]
+    fn test_replace_snapshot() {
+        let mut evaluator = Evaluator::new("namespace");
+        let snapshot = Snapshot::empty("namespace");
+        evaluator.replace_snapshot(Ok(snapshot.clone()));
+        assert_eq!(evaluator.store, snapshot);
+    }
+
+    #[test]
+    fn test_replace_snapshot_error() {
+        let mut evaluator = Evaluator::new("namespace");
+        evaluator.replace_snapshot(Err(Error::Unknown("error".to_string())));
+
+        let response = evaluator.list_flags();
+        assert_error_response(response, "unknown error: error");
+
+        let request = &EvaluationRequest {
+            flag_key: String::from("foo"),
+            entity_id: String::from("user@flipt.io"),
+            context: HashMap::new(),
+        };
+        let response = evaluator.boolean(request);
+        assert_error_response(response, "unknown error: error");
+
+        let response = evaluator.variant(request);
+        assert_error_response(response, "unknown error: error");
+
+        let requests = vec![EvaluationRequest {
+            flag_key: String::from("foo"),
+            entity_id: String::from("user@flipt.io"),
+            context: HashMap::new(),
+        }];
+        let response = evaluator.batch(requests);
+        assert_error_response(response, "unknown error: error");
+    }
 }

@@ -27,10 +27,12 @@ pub trait Store {
     ) -> Option<Vec<flipt::EvaluationRollout>>;
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct Snapshot {
     namespace: Namespace,
 }
 
+#[derive(Debug, PartialEq, Clone)]
 struct Namespace {
     _key: String,
     flags: HashMap<String, flipt::Flag>,

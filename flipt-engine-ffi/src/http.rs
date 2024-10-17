@@ -455,6 +455,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_http_fetch_with_reference() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock(
+                "GET",
+                "/internal/v1/evaluation/snapshot/namespace/default?reference=123",
+            )
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_header("etag", "etag")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .create_async()
+            .await;
+
+        let url = server.url();
+        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
+            .reference("123")
+            .build();
+
+        let result = fetcher.fetch().await;
+
+        assert!(result.is_ok());
+        mock.assert();
+
+        assert_eq!(fetcher.etag, Some("etag".to_string()));
+    }
+
+    #[tokio::test]
     async fn test_http_fetch_not_modified() {
         let mut server = mockito::Server::new_async().await;
         let mock = server
@@ -596,6 +624,27 @@ mod tests {
             .build();
 
         let result = fetcher.fetch_stream().await;
+
+        assert!(result.is_ok());
+        mock.assert();
+    }
+
+    #[test]
+    fn test_initial_fetch() {
+        let mut server = Server::new();
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .create();
+
+        let url = server.url();
+        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
+            .authentication(Authentication::None)
+            .build();
+
+        let result = fetcher.initial_fetch();
 
         assert!(result.is_ok());
         mock.assert();

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct Flag {
     pub key: String,
     pub enabled: bool,
@@ -10,14 +10,14 @@ pub struct Flag {
     pub default_variant: Option<Variant>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct Variant {
     pub id: String,
     pub key: String,
     pub attachment: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Constraint {
     pub segment_key: String,
     pub r#type: ConstraintComparisonType,
@@ -26,7 +26,7 @@ pub struct Constraint {
     pub value: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct EvaluationRule {
     pub id: String,
     pub flag_key: String,
@@ -35,7 +35,7 @@ pub struct EvaluationRule {
     pub segment_operator: SegmentOperator,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct EvaluationDistribution {
     pub rule_id: String,
     pub rollout: f32,
@@ -43,7 +43,7 @@ pub struct EvaluationDistribution {
     pub variant_attachment: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct EvaluationRollout {
     pub rollout_type: RolloutType,
     pub rank: usize,
@@ -51,13 +51,13 @@ pub struct EvaluationRollout {
     pub threshold: Option<RolloutThreshold>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RolloutThreshold {
     pub percentage: f32,
     pub value: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RolloutSegment {
     pub value: bool,
     pub segment_operator: SegmentOperator,
