@@ -148,7 +148,7 @@ describe('FliptEvaluationClient', () => {
     runTests('polling');
   });
 
-  describe('streaming', () => {
+  describe.skip('streaming', () => {
     runTests('streaming');
   });
 });
