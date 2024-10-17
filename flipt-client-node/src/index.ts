@@ -11,23 +11,30 @@ import {
   BatchEvaluationResponse,
   ErrorEvaluationResponse,
   EvaluationResponse,
-  Flag
+  Flag,
+  IFetcherOptions
 } from './models';
 
 import {
   VariantResult,
   BooleanResult,
   BatchResult,
-  ListFlagsResult
+  ListFlagsResult,
+  StreamChunk
 } from './internal/models';
 
 export class FliptEvaluationClient {
+  private namespace: string;
   private engine: Engine;
   private fetcher: IFetcher;
+
   private etag?: string;
   private updateInterval?: NodeJS.Timeout;
+  private abortController?: AbortController;
+  private isStreaming: boolean = false;
 
-  private constructor(engine: Engine, fetcher: IFetcher) {
+  private constructor(namespace: string, engine: Engine, fetcher: IFetcher) {
+    this.namespace = namespace;
     this.engine = engine;
     this.fetcher = fetcher;
   }
@@ -43,13 +50,14 @@ export class FliptEvaluationClient {
     options: ClientOptions<AuthenticationStrategy> = {
       url: 'http://localhost:8080',
       reference: '',
-      updateInterval: 120
+      updateInterval: 120,
+      fetchMode: 'polling'
     }
   ): Promise<FliptEvaluationClient> {
-    let url = options.url ?? 'http://localhost:8080';
-    url = url.replace(/\/$/, '');
-    url = `${url}/internal/v1/evaluation/snapshot/namespace/${namespace}`;
+    let baseUrl = options.url ?? 'http://localhost:8080';
+    baseUrl = baseUrl.replace(/\/$/, '');
 
+    let url = `${baseUrl}/internal/v1/evaluation/snapshot/namespace/${namespace}`;
     if (options.reference) {
       url = `${url}?reference=${options.reference}`;
     }
@@ -75,14 +83,15 @@ export class FliptEvaluationClient {
     let fetcher = options.fetcher;
 
     if (!fetcher) {
-      fetcher = async (opts?: { etag?: string }) => {
+      fetcher = async (url: string, opts?: IFetcherOptions) => {
         if (opts && opts.etag) {
           headers.append('If-None-Match', opts.etag);
         }
 
         const resp = await fetch(url, {
           method: 'GET',
-          headers
+          headers,
+          signal: opts?.signal
         });
 
         if (resp.status === 304) {
@@ -98,7 +107,8 @@ export class FliptEvaluationClient {
     }
 
     // handle case if they pass in a custom fetcher that doesn't throw on non-2xx status codes
-    const resp = await fetcher();
+    // do initial fetch to snapshot url
+    const resp = await fetcher(url);
     if (!resp.ok) {
       throw new Error(`Failed to fetch data: ${resp.statusText}`);
     }
@@ -106,10 +116,20 @@ export class FliptEvaluationClient {
     const data = await resp.json();
     const engine = new Engine(namespace);
     engine.snapshot(data);
-    const client = new FliptEvaluationClient(engine, fetcher);
+
+    const client = new FliptEvaluationClient(namespace, engine, fetcher);
     client.storeEtag(resp);
-    if (options.updateInterval && options.updateInterval > 0) {
-      client.startAutoRefresh(options.updateInterval * 1000);
+
+    switch (options.fetchMode) {
+      case 'polling':
+        if (options.updateInterval && options.updateInterval > 0) {
+          client.startPollingUpdates(url, options.updateInterval * 1000);
+        }
+        break;
+      case 'streaming':
+        url = `${baseUrl}/internal/v1/evaluation/snapshots?[]namespaces=${namespace}`;
+        client.startStreamingUpdates(url);
+        break;
     }
 
     return client;
@@ -117,6 +137,8 @@ export class FliptEvaluationClient {
 
   /**
    * Store etag from response for next requests
+   * @param resp - response to store etag from
+   * @returns void
    */
   private storeEtag(resp: Response) {
     let etag = resp.headers.get('etag');
@@ -127,13 +149,14 @@ export class FliptEvaluationClient {
 
   /**
    * Start the auto refresh interval
+   * @param url - url to refresh
    * @param interval - optional interval in milliseconds
    * @returns void
    */
-  private startAutoRefresh(interval: number = 120_000) {
-    this.stopAutoRefresh();
+  private startPollingUpdates(url: string, interval: number = 120_000) {
+    this.stopPollingUpdates();
     this.updateInterval = setInterval(async () => {
-      await this.refresh();
+      await this.refresh(url);
     }, interval);
   }
 
@@ -141,7 +164,7 @@ export class FliptEvaluationClient {
    * Stop the auto refresh interval
    * @returns void
    */
-  private stopAutoRefresh() {
+  private stopPollingUpdates() {
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
       this.updateInterval = undefined;
@@ -149,12 +172,77 @@ export class FliptEvaluationClient {
   }
 
   /**
+   * Start the streaming updates
+   * @param url - url to stream updates from
+   * @returns void
+   */
+  private async startStreamingUpdates(url: string) {
+    this.stopStreamingUpdates();
+    this.abortController = new AbortController();
+    this.isStreaming = true;
+
+    try {
+      const response = await this.fetcher(url, {
+        signal: this.abortController.signal
+      });
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (this.isStreaming) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.trim()) {
+            const data = JSON.parse(line) as StreamChunk;
+            this.engine.snapshot(data.result.namespaces[this.namespace]);
+          }
+        }
+      }
+    } catch (error) {
+      // check if error has name property
+      if (
+        error &&
+        typeof error === 'object' &&
+        'name' in error &&
+        error.name === 'AbortError'
+      ) {
+        // abort is expected when the client is closed
+      } else {
+        throw error;
+      }
+    } finally {
+      this.isStreaming = false;
+    }
+  }
+
+  /**
+   * Stop the streaming updates
+   * @returns void
+   */
+  private stopStreamingUpdates() {
+    this.isStreaming = false;
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = undefined;
+    }
+  }
+
+  /**
    * Refresh the flags snapshot
+   * @param url - url to refresh
    * @returns {boolean} true if snapshot changed
    */
-  public async refresh(): Promise<boolean> {
+  public async refresh(url: string): Promise<boolean> {
     const opts = { etag: this.etag };
-    const resp = await this.fetcher(opts);
+    const resp = await this.fetcher(url, opts);
 
     let etag = resp.headers.get('etag');
     if (this.etag && this.etag === etag) {
@@ -334,8 +422,20 @@ export class FliptEvaluationClient {
     return flags.result.map(deserialize<Flag>);
   }
 
-  public close() {
-    this.stopAutoRefresh();
+  public async close() {
+    this.stopPollingUpdates();
+    if (this.isStreaming) {
+      this.stopStreamingUpdates();
+      // Wait for the streaming to actually complete
+      await new Promise<void>((resolve) => {
+        const checkInterval = setInterval(() => {
+          if (!this.isStreaming) {
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 100);
+      });
+    }
   }
 }
 

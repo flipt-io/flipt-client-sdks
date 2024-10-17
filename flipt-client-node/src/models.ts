@@ -6,13 +6,17 @@ export interface IFetcherOptions {
    * ETag for the request.
    */
   etag?: string;
+  /**
+   * Abort signal for the request.
+   */
+  signal?: AbortSignal;
 }
 
 /**
  * Represents a function that fetches a response from a remote Flipt instance.
  */
 export interface IFetcher {
-  (opts?: IFetcherOptions): Promise<Response>;
+  (url: string, opts?: IFetcherOptions): Promise<Response>;
 }
 
 /**
@@ -42,7 +46,9 @@ export interface JWTAuthentication extends AuthenticationStrategy {
   jwtToken: string;
 }
 
-export interface ClientOptions<T> {
+export type FetchMode = 'polling' | 'streaming';
+
+export interface ClientOptions<T extends AuthenticationStrategy> {
   /**
    * The URL of the upstream Flipt instance.
    *
@@ -66,7 +72,18 @@ export interface ClientOptions<T> {
    * @see {@link https://docs.flipt.io/guides/user/using-references}
    */
   reference?: string;
+  /**
+   * The fetcher to use when fetching flag state. If not provided, the client will default to a default fetcher.
+   */
   fetcher?: IFetcher;
+  /**
+   * The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
+   * @defaultValue `polling`
+   *
+   * @remarks
+   * Note: Streaming is currently only supported when using the SDK with Flipt Cloud (https://flipt.io/cloud).
+   */
+  fetchMode?: FetchMode;
 }
 
 /**
