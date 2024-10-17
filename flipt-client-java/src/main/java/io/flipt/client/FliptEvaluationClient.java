@@ -61,9 +61,7 @@ public class FliptEvaluationClient {
     return new FliptEvaluationClientBuilder();
   }
 
-  /**
-   * FliptEvaluationClientBuilder is a builder for creating a FliptEvaluationClient.
-   */
+  /** FliptEvaluationClientBuilder is a builder for creating a FliptEvaluationClient. */
   public static final class FliptEvaluationClientBuilder {
     private String namespace = "default";
     private String url = "http://localhost:8080";
@@ -130,8 +128,8 @@ public class FliptEvaluationClient {
     }
 
     /**
-     * fetchMode sets the fetch mode for the Flipt server.
-     * Note: Streaming is currently only supported when using the SDK with Flipt Cloud (https://flipt.io/cloud).
+     * fetchMode sets the fetch mode for the Flipt server. Note: Streaming is currently only
+     * supported when using the SDK with Flipt Cloud (https://flipt.io/cloud).
      *
      * @param fetchMode the fetch mode for the Flipt server
      * @return the FliptEvaluationClientBuilder
@@ -313,9 +311,7 @@ public class FliptEvaluationClient {
     return resp.getResult().get();
   }
 
-  /**
-   * close closes the FliptEvaluationClient.
-   */
+  /** close closes the FliptEvaluationClient. */
   public void close() {
     CLibrary.INSTANCE.destroy_engine(this.engine);
   }
