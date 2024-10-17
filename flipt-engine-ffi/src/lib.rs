@@ -2,8 +2,6 @@ pub mod evaluator;
 pub mod http;
 
 use evaluator::Evaluator;
-use http::{Authentication, HTTPParser, HTTPParserBuilder};
-
 use fliptevaluation::error::Error;
 use fliptevaluation::models::flipt;
 use fliptevaluation::store::Snapshot;
@@ -11,14 +9,18 @@ use fliptevaluation::{
     BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
     VariantEvaluationResponse,
 };
+use http::{Authentication, FetchMode, HTTPFetcher, HTTPFetcherBuilder};
 use libc::c_void;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use thiserror::Error;
+use tokio::runtime::Runtime;
 
 #[derive(Deserialize)]
 struct FFIEvaluationRequest {
@@ -82,6 +84,7 @@ pub struct EngineOpts {
     url: Option<String>,
     authentication: Option<Authentication>,
     update_interval: Option<u64>,
+    fetch_mode: Option<FetchMode>,
     reference: Option<String>,
 }
 
@@ -92,36 +95,59 @@ impl Default for EngineOpts {
             authentication: None,
             update_interval: Some(120),
             reference: None,
+            fetch_mode: Some(FetchMode::default()),
         }
     }
 }
 
 pub struct Engine {
-    pub opts: EngineOpts,
-    pub evaluator: Arc<Mutex<Evaluator<HTTPParser, Snapshot>>>,
+    evaluator: Arc<Mutex<Evaluator<Snapshot>>>,
+    runtime: Runtime,
+    stop_signal: Arc<AtomicBool>,
 }
 
 impl Engine {
-    pub fn new(evaluator: Evaluator<HTTPParser, Snapshot>, opts: EngineOpts) -> Self {
-        let mut engine = Self {
-            opts,
-            evaluator: Arc::new(Mutex::new(evaluator)),
-        };
+    pub fn new(namespace: &str, mut fetcher: HTTPFetcher, evaluator: Evaluator<Snapshot>) -> Self {
+        let stop_signal = Arc::new(AtomicBool::new(false));
 
-        engine.update();
+        let runtime = Runtime::new().expect("failed to create runtime");
 
-        engine
-    }
+        let evaluator = Arc::new(Mutex::new(evaluator));
+        let evaluator_clone = evaluator.clone();
 
-    fn update(&mut self) {
-        let evaluator = self.evaluator.clone();
-        let update_interval = self.opts.update_interval.unwrap_or(120);
+        let initial_snapshot = fetcher.initial_fetch();
+        match initial_snapshot {
+            Ok(doc) => {
+                let snap = Snapshot::build(namespace, doc);
+                evaluator_clone.lock().unwrap().replace_snapshot(snap);
+            }
+            Err(err) => {
+                evaluator_clone.lock().unwrap().replace_snapshot(Err(err));
+            }
+        }
 
-        std::thread::spawn(move || loop {
-            std::thread::sleep(std::time::Duration::from_secs(update_interval));
-            let mut lock = evaluator.lock().unwrap();
-            lock.replace_snapshot();
+        let mut rx = runtime.block_on(async { fetcher.start(stop_signal.clone()) });
+
+        let namespace_clone = namespace.to_string();
+        runtime.spawn(async move {
+            while let Some(res) = rx.recv().await {
+                match res {
+                    Ok(doc) => {
+                        let snap = Snapshot::build(&namespace_clone, doc);
+                        evaluator_clone.lock().unwrap().replace_snapshot(snap);
+                    }
+                    Err(err) => {
+                        evaluator_clone.lock().unwrap().replace_snapshot(Err(err));
+                    }
+                }
+            }
         });
+
+        Self {
+            evaluator,
+            runtime,
+            stop_signal,
+        }
     }
 
     pub fn variant(
@@ -195,23 +221,38 @@ pub unsafe extern "C" fn initialize_engine(
 
     let authentication = engine_opts.authentication.to_owned();
     let reference = engine_opts.reference.to_owned();
+    let update_interval = engine_opts.update_interval.to_owned();
+    let fetch_mode = engine_opts.fetch_mode.to_owned();
 
-    let mut parser_builder = HTTPParserBuilder::new(&http_url);
+    let mut fetcher_builder = HTTPFetcherBuilder::new(&http_url, namespace);
 
-    parser_builder = match authentication {
-        Some(authentication) => parser_builder.authentication(authentication),
-        None => parser_builder,
+    fetcher_builder = match update_interval {
+        Some(update_interval) => {
+            fetcher_builder.update_interval(Duration::from_secs(update_interval))
+        }
+        None => fetcher_builder,
     };
 
-    parser_builder = match reference {
-        Some(reference) => parser_builder.reference(&reference),
-        None => parser_builder,
+    fetcher_builder = match authentication {
+        Some(authentication) => fetcher_builder.authentication(authentication),
+        None => fetcher_builder,
     };
 
-    let parser = parser_builder.build();
-    let evaluator = Evaluator::new_snapshot_evaluator(namespace, parser).unwrap();
+    fetcher_builder = match fetch_mode {
+        Some(fetch_mode) => fetcher_builder.mode(fetch_mode),
+        None => fetcher_builder,
+    };
 
-    Box::into_raw(Box::new(Engine::new(evaluator, engine_opts))) as *mut c_void
+    fetcher_builder = match reference {
+        Some(reference) => fetcher_builder.reference(&reference),
+        None => fetcher_builder,
+    };
+
+    let fetcher = fetcher_builder.build();
+    let evaluator = Evaluator::new(namespace);
+    let engine = Engine::new(namespace, fetcher, evaluator);
+
+    Box::into_raw(Box::new(engine)) as *mut c_void
 }
 
 /// # Safety
@@ -327,7 +368,13 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
         return;
     }
 
-    drop(Box::from_raw(engine_ptr as *mut Engine));
+    let engine = Box::from_raw(engine_ptr as *mut Engine);
+    engine.stop_signal.store(true, Ordering::Relaxed);
+
+    // Shutdown the runtime
+    engine.runtime.shutdown_background();
+
+    // The engine will be dropped here, cleaning up all resources
 }
 
 /// # Safety
