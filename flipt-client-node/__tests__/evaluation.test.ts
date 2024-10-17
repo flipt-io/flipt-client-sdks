@@ -37,7 +37,7 @@ describe('FliptEvaluationClient', () => {
       }
     });
 
-    test('variant', async () => {
+    test('variant', () => {
       const variant = client.evaluateVariant('flag1', 'someentity', {
         fizz: 'buzz'
       });
