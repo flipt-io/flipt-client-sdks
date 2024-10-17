@@ -1,0 +1,95 @@
+using System.Text.Json.Serialization;
+
+namespace FliptClient.Models
+{
+    public class VariantEvaluationResponse
+    {
+        [JsonPropertyName("flag_key")]
+        public string FlagKey { get; set; }
+
+        [JsonPropertyName("match")]
+        public bool Match { get; set; }
+
+        [JsonPropertyName("segment_keys")]
+        public List<string> SegmentKeys { get; set; }
+
+        [JsonPropertyName("reason")]
+        public string Reason { get; set; }
+
+        [JsonPropertyName("variant_key")]
+        public string VariantKey { get; set; }
+
+        [JsonPropertyName("variant_attachment")]
+        public string? VariantAttachment { get; set; }
+    }
+
+    public class BooleanEvaluationResponse
+    {
+        [JsonPropertyName("flag_key")]
+        public string FlagKey { get; set; }
+
+        [JsonPropertyName("enabled")]
+        public bool Enabled { get; set; }
+
+        [JsonPropertyName("reason")]
+        public string Reason { get; set; }
+    }
+
+    public class BatchEvaluationResponse
+    {
+        [JsonPropertyName("request_id")]
+        public required string RequestId { get; set; }
+
+        [JsonPropertyName("responses")]
+        public required Response[] Responses { get; set; }
+
+        [JsonPropertyName("request_duration_millis")]
+        public float RequestDurationMillis { get; set; }
+    }
+
+
+    public class Response
+    {
+        [JsonPropertyName("type")]
+        public ResponseType Type { get; set; }
+
+        [JsonPropertyName("boolean_response")]
+        public BooleanEvaluationResponse? BooleanResponse { get; set; }
+
+        [JsonPropertyName("variant_response")]
+        public VariantEvaluationResponse? VariantResponse { get; set; }
+
+        [JsonPropertyName("error_response")]
+        public ErrorEvaluationResponse? ErrorResponse { get; set; }
+    }
+
+
+    public class ErrorEvaluationResponse
+    {
+        [JsonPropertyName("flag_key")]
+        public string? FlagKey { get; set; }
+
+        [JsonPropertyName("namespace_key")]
+        public string? NamespaceKey { get; set; }
+
+        [JsonPropertyName("reason")]
+        public string? Reason { get; set; }
+    }
+
+    public class Result<T>
+    {
+        [JsonPropertyName("status")]
+        public string Status { get; set; }
+
+        [JsonPropertyName("result")]
+        public T? Result { get; set; }
+
+        [JsonPropertyName("error_message")]
+        public string? ErrorMessage { get; set; }
+    }
+
+    public class VariantResult : Result<VariantEvaluationResponse> { }
+    public class BooleanResult : Result<BooleanEvaluationResponse> { }
+    public class BatchResult : Result<BatchEvaluationResponse> { }
+    // public class ListFlagsResult : Result<List<Flag>> { }
+}
