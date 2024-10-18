@@ -18,6 +18,9 @@ There are three ways to use the Flipt React SDK.
 2. Use the `useFliptVariant` hook for variant evaluation in a functional component that is wrapped in a `FliptProvider`.
 3. Use the `useFliptSelector` hook for custom evaluation in a functional component that is wrapped in a `FliptProvider`.
 
+> [!TIP]
+> Looking for NextJS support? Check out our [NextJS examples](https://github.com/flipt-io/flipt/tree/main/examples/nextjs) in the main Flipt repo.
+
 ### FliptProvider
 
 First, wrap your application or a part of it with the `FliptProvider`:
