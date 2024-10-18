@@ -10,9 +10,6 @@ The Flipt React SDK provides a convenient way to integrate [Flipt](https://flipt
 npm install @flipt-io/flipt-client-react
 ```
 
-> [!IMPORTANT]
-> The Flipt React SDK does not currently work with Next.js App Router because Next.js App Router does not support WASM dependencies. See [this issue](https://github.com/vercel/next.js/issues/55537) for more information.
-
 ## Usage
 
 There are three ways to use the Flipt React SDK.
