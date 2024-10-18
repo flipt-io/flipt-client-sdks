@@ -48,7 +48,6 @@ export const configureStore = (
 
   const listeners = new Set<() => void>();
   const notify = () => {
-    console.log('Notifying listeners, isLoading:', storeRef.current.isLoading);
     listeners.forEach((l) => l());
   };
   let intervalId: any;
@@ -79,13 +78,11 @@ export const configureStore = (
     let isMounted = true;
 
     const initializeClient = async () => {
-      console.log('Initializing client...');
       try {
         const { FliptEvaluationClient } = await import('@flipt-io/flipt-client-browser');
         const client = await FliptEvaluationClient.init(namespace, options);
         
         if (isMounted) {
-          console.log('Client initialized, updating store...');
           storeRef.current.client = client;
           storeRef.current.isLoading = false;
           setupPolling();
@@ -135,7 +132,6 @@ export const useFliptSelector = <T>(
   
   const selectorWrapper = useCallback(
     () => {
-      console.log('useFliptSelector called, isLoading:', store.isLoading);
       return selector(store.client, store.isLoading, store.error);
     },
     [store, selector]
@@ -155,7 +151,6 @@ export const useFliptBoolean = (
   context: Record<string, string> = {}
 ): boolean => {
   const result = useFliptSelector((client, isLoading, error) => {
-    console.log('useFliptBoolean selector, isLoading:', isLoading);
     if (client && !isLoading && !error) {
       try {
         return client.evaluateBoolean(flagKey, entityId, context).enabled;
@@ -176,7 +171,6 @@ export const useFliptVariant = (
   context: Record<string, string> = {}
 ): string => {
   const result = useFliptSelector((client, isLoading, error) => {
-    console.log('useFliptVariant selector, isLoading:', isLoading);
     if (client && !isLoading && !error) {
       try {
         return client.evaluateVariant(flagKey, entityId, context).variantKey;
