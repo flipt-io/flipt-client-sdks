@@ -27,6 +27,19 @@ export const configureStore = (
   namespace: string,
   options: ClientOptions
 ): FliptStore => {
+  if (typeof window === 'undefined') {
+    console.error('FliptClient React not supported on the server');
+    // Return a dummy store for server-side rendering
+    return {
+      client: null,
+      isLoading: true,
+      error: null,
+      subscribe: () => () => {},
+      attach: () => {},
+      detach: () => {}
+    };
+  }
+
   const storeRef = useRef<FliptStore>({
     client: null,
     isLoading: true,
@@ -79,9 +92,11 @@ export const configureStore = (
 
     const initializeClient = async () => {
       try {
-        const { FliptEvaluationClient } = await import('@flipt-io/flipt-client-browser');
+        const { FliptEvaluationClient } = await import(
+          '@flipt-io/flipt-client-browser'
+        );
         const client = await FliptEvaluationClient.init(namespace, options);
-        
+
         if (isMounted) {
           storeRef.current.client = client;
           storeRef.current.isLoading = false;
@@ -129,13 +144,10 @@ export const useFliptSelector = <T>(
   if (store === null) {
     throw new Error('useFliptSelector must be used within a FliptProvider');
   }
-  
-  const selectorWrapper = useCallback(
-    () => {
-      return selector(store.client, store.isLoading, store.error);
-    },
-    [store, selector]
-  );
+
+  const selectorWrapper = useCallback(() => {
+    return selector(store.client, store.isLoading, store.error);
+  }, [store, selector]);
 
   return useSyncExternalStore(
     store.subscribe,
