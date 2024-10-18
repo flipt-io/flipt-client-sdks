@@ -15,7 +15,7 @@ npm install @flipt-io/flipt-client-react
 
 ## Usage
 
-There are two ways to use the Flipt React SDK.
+There are three ways to use the Flipt React SDK.
 
 1. Use the `useFliptBoolean` hook for boolean evaluation in a functional component that is wrapped in a `FliptProvider`.
 2. Use the `useFliptVariant` hook for variant evaluation in a functional component that is wrapped in a `FliptProvider`.
@@ -53,7 +53,7 @@ import { useFliptBoolean } from '@flipt-io/flipt-client-react';
 
 function MyComponent() {
   const result = useFliptBoolean('my-flag', false, 'user-123', {
-    /*additional context*/
+    // additional context
   });
   const handleCheckFlag = async () => {
     console.log('Flag evaluation result:', result);
@@ -77,7 +77,7 @@ import { useFliptVariant } from '@flipt-io/flipt-client-react';
 
 function MyComponent() {
   const result = useFliptVariant('my-flag', 'fallback', 'user-123', {
-    /*additional context*/
+    // additional context
   });
   const handleCheckFlag = async () => {
     console.log('Flag evaluation result:', result);
@@ -100,13 +100,14 @@ This is useful for more complex evaluations or in cases where you wish to call o
 > [!CAUTION]
 > `flipt-client-react` heavily depends on the `useSyncExternalStore` which has some [caveats](https://react.dev/reference/react/useSyncExternalStore#caveats)
 
+
 ```tsx
 import { useFliptSelector } from '@flipt-io/flipt-client-react';
 
 function MyComponent() {
   const result = useFliptSelector((client, isLoading, error) => {
     const result = client?.evaluateBoolean('my-flag', 'user-123', {
-      /* additional context */
+      // additional context
     });
     console.log('Flag evaluation internals:', result, isLoading, error);
     return result?.enabled;
@@ -153,9 +154,10 @@ Here's a more complete example of how to use the Flipt React SDK in your applica
 import React from 'react';
 import { FliptProvider, useFliptBoolean } from '@flipt-io/flipt-client-react';
 
+// A custom component that renders its children if the feature flag is enabled
 function FeatureFlag({ flagKey, entityId, children }) {
   const isEnabled = useFliptBoolean('flagKey', false, entityId, {
-    /*additional context*/
+    // additional context
   });
   return isEnabled ? children : null;
 }
@@ -164,6 +166,7 @@ function App() {
   return (
     <FliptProvider options={{ url: 'https://your-flipt-instance.com' }}>
       <h1>My App</h1>
+      {/* Will render the children if the feature flag evaluation results in true */}
       <FeatureFlag flagKey="new-feature" entityId="user-123">
         <div>This is a new feature!</div>
       </FeatureFlag>

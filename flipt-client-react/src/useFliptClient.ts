@@ -2,9 +2,11 @@ import {
   useContext,
   useSyncExternalStore,
   useCallback,
-  createContext
+  createContext,
+  useEffect,
+  useRef
 } from 'react';
-import {
+import type {
   FliptEvaluationClient,
   ClientOptions
 } from '@flipt-io/flipt-client-browser';
@@ -25,22 +27,14 @@ export const configureStore = (
   namespace: string,
   options: ClientOptions
 ): FliptStore => {
-  const listeners = new Set<() => void>();
-  const subscribe = (listener: () => void): (() => void) => {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  };
-  const notify = () => {
-    listeners.forEach((l) => l());
-  };
-  let intervalId: any;
-  let mounted: boolean = false;
-
-  const store: FliptStore = {
+  const storeRef = useRef<FliptStore>({
     client: null,
     isLoading: true,
     error: null,
-    subscribe,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     attach: () => {
       mounted = true;
       setupPolling();
@@ -50,19 +44,28 @@ export const configureStore = (
       clearInterval(intervalId);
       intervalId = undefined;
     }
+  });
+
+  const listeners = new Set<() => void>();
+  const notify = () => {
+    console.log('Notifying listeners, isLoading:', storeRef.current.isLoading);
+    listeners.forEach((l) => l());
   };
+  let intervalId: any;
+  let mounted: boolean = false;
+
   const interval = options.updateInterval || 0;
 
   const setupPolling = () => {
     if (
       interval > 0 &&
       mounted &&
-      store.client !== null &&
+      storeRef.current.client !== null &&
       intervalId === undefined
     ) {
       intervalId = setInterval(() => {
         if (typeof window !== 'undefined' && navigator.onLine) {
-          store.client?.refresh().then((updated) => {
+          storeRef.current.client?.refresh().then((updated) => {
             if (updated) {
               notify();
             }
@@ -72,20 +75,40 @@ export const configureStore = (
     }
   };
 
-  FliptEvaluationClient.init(namespace, options)
-    .then((client) => {
-      store.client = client;
-      setupPolling();
-    })
-    .catch((err: Error) => {
-      store.error = err;
-    })
-    .finally(() => {
-      store.isLoading = false;
-      notify();
-    });
+  useEffect(() => {
+    let isMounted = true;
 
-  return store;
+    const initializeClient = async () => {
+      console.log('Initializing client...');
+      try {
+        const { FliptEvaluationClient } = await import('@flipt-io/flipt-client-browser');
+        const client = await FliptEvaluationClient.init(namespace, options);
+        
+        if (isMounted) {
+          console.log('Client initialized, updating store...');
+          storeRef.current.client = client;
+          storeRef.current.isLoading = false;
+          setupPolling();
+          notify();
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error('Error initializing client:', err);
+          storeRef.current.error = err as Error;
+          storeRef.current.isLoading = false;
+          notify();
+        }
+      }
+    };
+
+    initializeClient();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [namespace, options]);
+
+  return storeRef.current;
 };
 
 export const FliptContext = createContext<FliptStore | null>(null);
@@ -109,12 +132,19 @@ export const useFliptSelector = <T>(
   if (store === null) {
     throw new Error('useFliptSelector must be used within a FliptProvider');
   }
+  
+  const selectorWrapper = useCallback(
+    () => {
+      console.log('useFliptSelector called, isLoading:', store.isLoading);
+      return selector(store.client, store.isLoading, store.error);
+    },
+    [store, selector]
+  );
+
   return useSyncExternalStore(
     store.subscribe,
-    useCallback(
-      () => selector(store.client, store.isLoading, store.error),
-      [store, selector]
-    )
+    selectorWrapper,
+    selectorWrapper
   );
 };
 
@@ -125,6 +155,7 @@ export const useFliptBoolean = (
   context: Record<string, string> = {}
 ): boolean => {
   const result = useFliptSelector((client, isLoading, error) => {
+    console.log('useFliptBoolean selector, isLoading:', isLoading);
     if (client && !isLoading && !error) {
       try {
         return client.evaluateBoolean(flagKey, entityId, context).enabled;
@@ -145,11 +176,12 @@ export const useFliptVariant = (
   context: Record<string, string> = {}
 ): string => {
   const result = useFliptSelector((client, isLoading, error) => {
+    console.log('useFliptVariant selector, isLoading:', isLoading);
     if (client && !isLoading && !error) {
       try {
         return client.evaluateVariant(flagKey, entityId, context).variantKey;
       } catch (e) {
-        console.error(`Error evaluating boolean flag ${flagKey}:`, e);
+        console.error(`Error evaluating variant flag ${flagKey}:`, e);
       }
     }
     return fallback;
