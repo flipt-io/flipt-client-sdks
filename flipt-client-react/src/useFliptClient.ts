@@ -4,7 +4,8 @@ import {
   useCallback,
   createContext,
   useEffect,
-  useRef
+  useRef,
+  useMemo
 } from 'react';
 import type {
   FliptEvaluationClient,
@@ -23,23 +24,10 @@ export interface FliptStore extends FliptClientHook {
   detach: () => void;
 }
 
-export const configureStore = (
+export const useStore = (
   namespace: string,
   options: ClientOptions
 ): FliptStore => {
-  if (typeof window === 'undefined') {
-    console.error('FliptClient React not supported on the server');
-    // Return a dummy store for server-side rendering
-    return {
-      client: null,
-      isLoading: true,
-      error: null,
-      subscribe: () => () => {},
-      attach: () => {},
-      detach: () => {}
-    };
-  }
-
   const storeRef = useRef<FliptStore>({
     client: null,
     isLoading: true,
@@ -49,43 +37,63 @@ export const configureStore = (
       return () => listeners.delete(listener);
     },
     attach: () => {
-      mounted = true;
+      mountedRef.current = true;
       setupPolling();
     },
     detach: () => {
-      mounted = false;
-      clearInterval(intervalId);
-      intervalId = undefined;
+      mountedRef.current = false;
+      clearInterval(intervalIdRef.current);
+      intervalIdRef.current = undefined;
     }
   });
 
-  const listeners = new Set<() => void>();
-  const notify = () => {
+  const listeners = useMemo(() => new Set<() => void>(), []);
+
+  const notify = useCallback(() => {
     listeners.forEach((l) => l());
-  };
-  let intervalId: any;
-  let mounted: boolean = false;
+  }, [listeners]);
+
+  const intervalIdRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const mountedRef = useRef<boolean>(false);
 
   const interval = options.updateInterval || 0;
 
-  const setupPolling = () => {
+  const setupPolling = useCallback(() => {
     if (
       interval > 0 &&
-      mounted &&
+      mountedRef.current &&
       storeRef.current.client !== null &&
-      intervalId === undefined
+      intervalIdRef.current === undefined
     ) {
-      intervalId = setInterval(() => {
-        if (typeof window !== 'undefined' && navigator.onLine) {
-          storeRef.current.client?.refresh().then((updated) => {
-            if (updated) {
+      intervalIdRef.current = setInterval(() => {
+        if (typeof window !== 'undefined' && navigator.onLine && storeRef.current.client) {
+          storeRef.current.client.refresh()
+            .then((updated) => {
+              if (updated) {
+                notify();
+              }
+            })
+            .catch((error) => {
+              console.error('Error refreshing client:', error);
+              storeRef.current.error = error;
               notify();
-            }
-          });
+            });
         }
       }, interval);
     }
-  };
+  }, [interval, notify]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+      if (intervalIdRef.current) {
+        clearInterval(intervalIdRef.current);
+        intervalIdRef.current = undefined;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -113,12 +121,19 @@ export const configureStore = (
       }
     };
 
-    initializeClient();
+    initializeClient().catch((err) => {
+      console.error('Unhandled error in initializeClient:', err);
+      if (isMounted) {
+        storeRef.current.error = err as Error;
+        storeRef.current.isLoading = false;
+        notify();
+      }
+    });
 
     return () => {
       isMounted = false;
     };
-  }, [namespace, options]);
+  }, [namespace, options, notify, setupPolling]);
 
   return storeRef.current;
 };
