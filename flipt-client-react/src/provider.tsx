@@ -1,26 +1,20 @@
-import React, { createContext, useContext } from 'react';
-import { useFliptClient } from './useFliptClient';
-
-const FliptContext = createContext<ReturnType<typeof useFliptClient> | null>(
-  null
-);
+import React, { useState, useEffect } from 'react';
+import { FliptContext, configureStore } from './useFliptClient';
 
 export const FliptProvider: React.FC<{
   children: React.ReactNode;
   namespace: string;
-  options: { url: string };
+  options: { url: string; updateInterval?: number };
 }> = ({ children, namespace, options }) => {
-  const fliptState = useFliptClient(namespace, options);
+  const [store] = useState(configureStore(namespace, options));
+  useEffect(() => {
+    store.attach();
+    return () => {
+      store.detach();
+    };
+  }, [store]);
 
   return (
-    <FliptContext.Provider value={fliptState}>{children}</FliptContext.Provider>
+    <FliptContext.Provider value={store}>{children}</FliptContext.Provider>
   );
-};
-
-export const useFliptContext = (): ReturnType<typeof useFliptClient> => {
-  const context = useContext(FliptContext);
-  if (context === null) {
-    throw new Error('useFliptContext must be used within a FliptProvider');
-  }
-  return context;
 };

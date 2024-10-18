@@ -17,8 +17,9 @@ npm install @flipt-io/flipt-client-react
 
 There are two ways to use the Flipt React SDK.
 
-1. Use the `useFliptContext` hook in a functional component that is wrapped in a `FliptProvider`.
-2. Use the `useFliptClient` hook in a functional component that is **not** wrapped in a `FliptProvider`.
+1. Use the `useFliptBoolean` hook for boolean evaluation in a functional component that is wrapped in a `FliptProvider`.
+2. Use the `useFliptVariant` hook for variant evaluation in a functional component that is wrapped in a `FliptProvider`.
+3. Use the `useFliptSelector` hook for custom evaluation in a functional component that is wrapped in a `FliptProvider`.
 
 ### FliptProvider
 
@@ -42,33 +43,19 @@ function App() {
 }
 ```
 
-#### useFliptContext Hook
+#### useFliptBoolean Hook
 
-The `useFliptContext` hook is a convenience hook that returns the Flipt client so that it can be used in a functional component that is wrapped in a `FliptProvider`.
+The `useFliptBoolean` hook simplifies the process of evaluating a boolean feature flag. This hook must be used within a functional component that is wrapped by the `FliptProvider` context.
+A default value is returned if the feature flag cannot be evaluated at the current time (e.g., due to network issues or missing data).
 
 ```tsx
-import { useFliptContext } from '@flipt-io/flipt-client-react';
+import { useFliptBoolean } from '@flipt-io/flipt-client-react';
 
 function MyComponent() {
-  const { client, loading, error } = useFliptContext();
-
-  if (loading) {
-    return <div>Loading Flipt client...</div>;
-  }
-
-  if (error) {
-    return <div>Error initializing Flipt client: {error.message}</div>;
-  }
-
-  // Use the client to evaluate flags
+  const result = useFliptBoolean('my-flag', false, 'user-123', {
+    /*additional context*/
+  });
   const handleCheckFlag = async () => {
-    const result = await client.evaluateBoolean({
-      flagKey: 'my-flag',
-      entityId: 'user-123',
-      context: {
-        /* additional context */
-      }
-    });
     console.log('Flag evaluation result:', result);
   };
 
@@ -80,41 +67,53 @@ function MyComponent() {
 }
 ```
 
-This is useful for evalating flags throughtout your application without having to initialize the Flipt client in each component.
+#### useFliptVariant Hook
 
-### useFliptClient Hook
-
-The `useFliptClient` hook is similar to the `useFliptContext` hook but it returns the Flipt client so that it can be used in a functional component that is **not** wrapped in a `FliptProvider`.
-
-This is useful for one-off evaluations or in cases where the Flipt client is not needed in the component tree.
+The `useFliptVariant` hook simplifies the process of evaluating a variant feature flag. This hook must be used within a functional component that is wrapped by the `FliptProvider` context.
+A default value is returned if the feature flag cannot be evaluated at the current time (e.g., due to network issues or missing data).
 
 ```tsx
-import { useFliptClient } from '@flipt-io/flipt-client-react';
+import { useFliptVariant } from '@flipt-io/flipt-client-react';
 
 function MyComponent() {
-  const { client, loading, error } = useFliptClient(
-    namespace: 'default',
-    options: {
-      url: 'https://your-flipt-instance.com',
-      // Add other configuration options as needed
-    }
+  const result = useFliptVariant('my-flag', 'fallback', 'user-123', {
+    /*additional context*/
+  });
+  const handleCheckFlag = async () => {
+    console.log('Flag evaluation result:', result);
+  };
+
+  return (
+    <div>
+      <button onClick={handleCheckFlag}>Check Flag</button>
+    </div>
   );
+}
+```
 
-  if (loading) {
-    return <div>Loading Flipt client...</div>;
-  }
+### useFliptSelector Hook
 
-  if (error) {
-    return <div>Error initializing Flipt client: {error.message}</div>;
-  }
+The `useFliptSelector` hook allows direct access to the Flipt client so that it can be used in a functional component that is wrapped in a `FliptProvider`.
+
+This is useful for more complex evaluations or in cases where you wish to call other methods on the Flipt client.
+
+> [!CAUTION]
+> `flipt-client-react` heavily depends on the `useSyncExternalStore` which has some [caveats](https://react.dev/reference/react/useSyncExternalStore#caveats)
+
+```tsx
+import { useFliptSelector } from '@flipt-io/flipt-client-react';
+
+function MyComponent() {
+  const result = useFliptSelector((client, isLoading, error) => {
+    const result = client?.evaluateBoolean('my-flag', 'user-123', {
+      /* additional context */
+    });
+    console.log('Flag evaluation internals:', result, isLoading, error);
+    return result?.enabled;
+  });
 
   // Use the client to evaluate flags
   const handleCheckFlag = async () => {
-    const result = await client.evaluateBoolean({
-      flagKey: 'my-flag',
-      entityId: 'user-123',
-      context: { /* additional context */ },
-    });
     console.log('Flag evaluation result:', result);
   };
 
@@ -134,6 +133,7 @@ The `FliptProvider` component accepts two optional arguments:
 - `options`: An instance of the `ClientOptions` type that supports several options for the client. The structure is:
   - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
   - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
+  - `updateInterval`: The polling interval for fetching new state from Flipt. Set to `120` seconds by default. A `0` value disables polling completely after the initial fetch.
   - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
   - `fetcher`: An implementation of a [fetcher](https://github.com/flipt-io/flipt-client-sdks/blob/4821cb227c6c8b10419b96674d44ad1d6668a647/flipt-client-browser/src/models.ts#L5) interface to use when requesting flag state. If not provided, a default fetcher using the browser's [`fetch` API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) will be used.
 
@@ -145,48 +145,18 @@ The `FliptProvider` component supports the following authentication strategies:
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
 - [JWT Authentication](https://docs.flipt.io/authentication/using-jwts)
 
-## State Management
-
-The `FliptProvider` component pulls flag state from the Flipt instance at the `url` provided in the `options` object on instantiation.
-
-To update the flag state, you can call the `refresh` method on the `FliptEvaluationClient` class.
-
-```typescript
-// Refresh the flag state
-client.refresh();
-```
-
 ## Examples
 
 Here's a more complete example of how to use the Flipt React SDK in your application:
 
 ```tsx
 import React from 'react';
-import { FliptProvider, useFliptContext } from '@flipt-io/flipt-client-react';
+import { FliptProvider, useFliptBoolean } from '@flipt-io/flipt-client-react';
 
 function FeatureFlag({ flagKey, entityId, children }) {
-  const { client, loading, error } = useFliptContext();
-  const [isEnabled, setIsEnabled] = React.useState(false);
-
-  React.useEffect(() => {
-    if (client) {
-      client
-        .evaluateBoolean({
-          flagKey,
-          entityId,
-          context: {
-            /* additional context */
-          }
-        })
-        .then((result) => {
-          setIsEnabled(result.enabled);
-        });
-    }
-  }, [client, flagKey, entityId]);
-
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error.message}</div>;
-
+  const isEnabled = useFliptBoolean('flagKey', false, entityId, {
+    /*additional context*/
+  });
   return isEnabled ? children : null;
 }
 

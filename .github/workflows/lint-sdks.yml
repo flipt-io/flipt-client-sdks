@@ -44,8 +44,14 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
-      - name: Lint Typescript source
+      - name: Lint Typescript source for flipt-client-node
         working-directory: flipt-client-node
+        run: |
+          npm ci
+          npm run lint
+
+      - name: Lint Typescript source for flipt-client-react
+        working-directory: flipt-client-react
         run: |
           npm ci
           npm run lint
