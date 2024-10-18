@@ -56,9 +56,8 @@ export const useStore = (
   const intervalIdRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const mountedRef = useRef<boolean>(false);
 
-  const interval = options.updateInterval || 0;
-
   const setupPolling = useCallback(() => {
+    const interval = options.updateInterval || 0;
     if (
       interval > 0 &&
       mountedRef.current &&
@@ -81,7 +80,7 @@ export const useStore = (
         }
       }, interval);
     }
-  }, [interval, notify]);
+  }, [options, notify]);
 
   useEffect(() => {
     mountedRef.current = true;
