@@ -53,7 +53,9 @@ export const useStore = (
     listeners.forEach((l) => l());
   }, [listeners]);
 
-  const intervalIdRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const intervalIdRef = useRef<ReturnType<typeof setInterval> | undefined>(
+    undefined
+  );
   const mountedRef = useRef<boolean>(false);
 
   const setupPolling = useCallback(() => {
@@ -79,7 +81,7 @@ export const useStore = (
             })
             .catch((error) => {
               console.error('Error refreshing client:', error);
-              storeRef.current.error = error;
+              storeRef.current.error = error as Error;
               notify();
             });
         }

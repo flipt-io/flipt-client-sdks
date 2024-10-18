@@ -11,6 +11,7 @@ export default [
     files: ['**/*.{js,mjs,cjs,ts,jsx,tsx}'],
     ignores: [
       'dist/*',
+      'jest.config.js',
       '**/*.test.{js,jsx,ts,tsx}' // Ignore all test files (optional)
     ],
     languageOptions: {
