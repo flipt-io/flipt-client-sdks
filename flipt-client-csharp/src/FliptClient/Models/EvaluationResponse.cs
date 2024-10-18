@@ -2,6 +2,18 @@ using System.Text.Json.Serialization;
 
 namespace FliptClient.Models
 {
+    public class Flag
+    {
+        [JsonPropertyName("key")]
+        public string Key { get; set; }
+
+        [JsonPropertyName("enabled")]
+        public bool Enabled { get; set; }
+
+        [JsonPropertyName("type")]
+        public string Type { get; set; }
+    }
+
     public class VariantEvaluationResponse
     {
         [JsonPropertyName("flag_key")]
@@ -91,5 +103,5 @@ namespace FliptClient.Models
     public class VariantResult : Result<VariantEvaluationResponse> { }
     public class BooleanResult : Result<BooleanEvaluationResponse> { }
     public class BatchResult : Result<BatchEvaluationResponse> { }
-    // public class ListFlagsResult : Result<List<Flag>> { }
+    public class ListFlagsResult : Result<List<Flag>> { }
 }

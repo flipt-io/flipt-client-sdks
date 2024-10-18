@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="ext/ffi/win_x86_64/fliptengine.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>runtimes/win-x64/native/fliptengine.dll</Link>
+    </Content>
+    <Content Include="ext/ffi/linux_x86_64/libfliptengine.so">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>runtimes/linux-x64/native/libfliptengine.so</Link>
+    </Content>
+    <Content Include="ext/ffi/linux_arm64/libfliptengine.so">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>runtimes/linux-arm64/native/libfliptengine.so</Link>
+    </Content>
+    <Content Include="ext/ffi/darwin_x86_64/libfliptengine.dylib">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>runtimes/osx-x64/native/libfliptengine.dylib</Link>
+    </Content>
+    <Content Include="ext/ffi/darwin_arm64/libfliptengine.dylib">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>runtimes/osx-arm64/native/libfliptengine.dylib</Link>
+    </Content>
+  </ItemGroup>
+
+</Project>

@@ -61,6 +61,37 @@ namespace FliptClient
             return result.Result;
         }
 
+        public BatchEvaluationResponse EvaluateBatch(List<EvaluationRequest> requests)
+        {
+            string requestJson = JsonSerializer.Serialize(requests);
+            IntPtr resultPtr = NativeMethods.EvaluateBatch(_engine, requestJson);
+            string resultJson = Marshal.PtrToStringAnsi(resultPtr);
+            NativeMethods.DestroyString(resultPtr);
+
+            var result = JsonSerializer.Deserialize<BatchResult>(resultJson);
+            if (result.Status != "success")
+            {
+                throw new Exception(result.ErrorMessage);
+            }
+
+            return result.Result;
+        }
+
+        public ListFlagsResponse ListFlags()
+        {
+            IntPtr resultPtr = NativeMethods.ListFlags(_engine);
+            string resultJson = Marshal.PtrToStringAnsi(resultPtr);
+            NativeMethods.DestroyString(resultPtr);
+
+            var result = JsonSerializer.Deserialize<ListFlagsResult>(resultJson);
+            if (result.Status != "success")
+            {
+                throw new Exception(result.ErrorMessage);
+            }
+
+            return result.Result;
+        }
+
         public void Dispose()
         {
             if (_engine != IntPtr.Zero)

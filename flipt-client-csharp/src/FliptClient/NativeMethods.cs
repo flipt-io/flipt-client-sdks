@@ -17,6 +17,12 @@ namespace FliptClient
         public static extern IntPtr EvaluateBoolean(IntPtr engine, string evaluationRequest);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr EvaluateBatch(IntPtr engine, string evaluationRequest);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr ListFlags(IntPtr engine);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern void DestroyEngine(IntPtr engine);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
