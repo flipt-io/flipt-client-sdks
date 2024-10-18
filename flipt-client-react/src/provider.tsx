@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { FliptContext, configureStore } from './useFliptClient';
+import { FliptContext, useStore } from './useFliptClient';
 
 export const FliptProvider: React.FC<{
   children: React.ReactNode;
   namespace: string;
   options: { url: string; updateInterval?: number };
 }> = ({ children, namespace, options }) => {
-  const [store] = useState(configureStore(namespace, options));
+  const [store] = useState(useStore(namespace, options));
   useEffect(() => {
     store.attach();
     return () => {

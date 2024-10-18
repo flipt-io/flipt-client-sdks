@@ -2,9 +2,12 @@ import {
   useContext,
   useSyncExternalStore,
   useCallback,
-  createContext
+  createContext,
+  useEffect,
+  useRef,
+  useMemo
 } from 'react';
-import {
+import type {
   FliptEvaluationClient,
   ClientOptions
 } from '@flipt-io/flipt-client-browser';
@@ -21,71 +24,124 @@ export interface FliptStore extends FliptClientHook {
   detach: () => void;
 }
 
-export const configureStore = (
+export const useStore = (
   namespace: string,
   options: ClientOptions
 ): FliptStore => {
-  const listeners = new Set<() => void>();
-  const subscribe = (listener: () => void): (() => void) => {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  };
-  const notify = () => {
-    listeners.forEach((l) => l());
-  };
-  let intervalId: any;
-  let mounted: boolean = false;
-
-  const store: FliptStore = {
+  const storeRef = useRef<FliptStore>({
     client: null,
     isLoading: true,
     error: null,
-    subscribe,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     attach: () => {
-      mounted = true;
+      mountedRef.current = true;
       setupPolling();
     },
     detach: () => {
-      mounted = false;
-      clearInterval(intervalId);
-      intervalId = undefined;
+      mountedRef.current = false;
+      clearInterval(intervalIdRef.current);
+      intervalIdRef.current = undefined;
     }
-  };
-  const interval = options.updateInterval || 0;
+  });
 
-  const setupPolling = () => {
+  const listeners = useMemo(() => new Set<() => void>(), []);
+
+  const notify = useCallback(() => {
+    listeners.forEach((l) => l());
+  }, [listeners]);
+
+  const intervalIdRef = useRef<ReturnType<typeof setInterval> | undefined>(
+    undefined
+  );
+  const mountedRef = useRef<boolean>(false);
+
+  const setupPolling = useCallback(() => {
+    const interval = options.updateInterval || 120000;
     if (
       interval > 0 &&
-      mounted &&
-      store.client !== null &&
-      intervalId === undefined
+      mountedRef.current &&
+      storeRef.current.client !== null &&
+      intervalIdRef.current === undefined
     ) {
-      intervalId = setInterval(() => {
-        if (typeof window !== 'undefined' && navigator.onLine) {
-          store.client?.refresh().then((updated) => {
-            if (updated) {
+      intervalIdRef.current = setInterval(() => {
+        if (
+          typeof window !== 'undefined' &&
+          navigator.onLine &&
+          storeRef.current.client
+        ) {
+          storeRef.current.client
+            .refresh()
+            .then((updated) => {
+              if (updated) {
+                notify();
+              }
+            })
+            .catch((error) => {
+              console.error('Error refreshing client:', error);
+              storeRef.current.error = error as Error;
               notify();
-            }
-          });
+            });
         }
       }, interval);
     }
-  };
+  }, [options, notify]);
 
-  FliptEvaluationClient.init(namespace, options)
-    .then((client) => {
-      store.client = client;
-      setupPolling();
-    })
-    .catch((err: Error) => {
-      store.error = err;
-    })
-    .finally(() => {
-      store.isLoading = false;
-      notify();
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+      if (intervalIdRef.current) {
+        clearInterval(intervalIdRef.current);
+        intervalIdRef.current = undefined;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const initializeClient = async () => {
+      try {
+        const { FliptEvaluationClient } = await import(
+          '@flipt-io/flipt-client-browser'
+        );
+        const client = await FliptEvaluationClient.init(namespace, options);
+
+        if (isMounted) {
+          storeRef.current.client = client;
+          storeRef.current.isLoading = false;
+          setupPolling();
+          notify();
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error('Error initializing client:', err);
+          storeRef.current.error = err as Error;
+          storeRef.current.isLoading = false;
+          notify();
+        }
+      }
+    };
+
+    initializeClient().catch((err) => {
+      console.error('Unhandled error in initializeClient:', err);
+      if (isMounted) {
+        storeRef.current.error = err as Error;
+        storeRef.current.isLoading = false;
+        notify();
+      }
     });
 
-  return store;
+    return () => {
+      isMounted = false;
+    };
+  }, [namespace, options, notify, setupPolling]);
+
+  return storeRef.current;
 };
 
 export const FliptContext = createContext<FliptStore | null>(null);
@@ -109,12 +165,15 @@ export const useFliptSelector = <T>(
   if (store === null) {
     throw new Error('useFliptSelector must be used within a FliptProvider');
   }
+
+  const selectorWrapper = useCallback(() => {
+    return selector(store.client, store.isLoading, store.error);
+  }, [store, selector]);
+
   return useSyncExternalStore(
     store.subscribe,
-    useCallback(
-      () => selector(store.client, store.isLoading, store.error),
-      [store, selector]
-    )
+    selectorWrapper,
+    selectorWrapper
   );
 };
 
@@ -149,7 +208,7 @@ export const useFliptVariant = (
       try {
         return client.evaluateVariant(flagKey, entityId, context).variantKey;
       } catch (e) {
-        console.error(`Error evaluating boolean flag ${flagKey}:`, e);
+        console.error(`Error evaluating variant flag ${flagKey}:`, e);
       }
     }
     return fallback;
