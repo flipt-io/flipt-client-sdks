@@ -11,7 +11,7 @@ export default [
     files: ['**/*.{js,mjs,cjs,ts,jsx,tsx}'],
     ignores: [
       'dist/*',
-      '**/*.test.{js,jsx,ts,tsx}'  // Ignore all test files (optional)
+      '**/*.test.{js,jsx,ts,tsx}' // Ignore all test files (optional)
     ],
     languageOptions: {
       globals: {
@@ -26,14 +26,14 @@ export default [
     plugins: {
       '@typescript-eslint': tseslint,
       'react-hooks': reactHooks,
-      'prettier': prettier,
-      'react': react
+      prettier: prettier,
+      react: react
     },
     rules: {
       ...js.configs.recommended.rules,
       ...tseslint.configs['recommended-type-checked'].rules,
       ...react.configs.recommended.rules,
-      ...reactHooks.configs.recommended.rules,
+      ...reactHooks.configs.recommended.rules
       // Add any additional custom rules here
     }
   },

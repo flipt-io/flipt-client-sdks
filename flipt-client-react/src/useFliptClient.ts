@@ -57,7 +57,7 @@ export const useStore = (
   const mountedRef = useRef<boolean>(false);
 
   const setupPolling = useCallback(() => {
-    const interval = options.updateInterval || 0;
+    const interval = options.updateInterval || 120000;
     if (
       interval > 0 &&
       mountedRef.current &&
@@ -65,8 +65,13 @@ export const useStore = (
       intervalIdRef.current === undefined
     ) {
       intervalIdRef.current = setInterval(() => {
-        if (typeof window !== 'undefined' && navigator.onLine && storeRef.current.client) {
-          storeRef.current.client.refresh()
+        if (
+          typeof window !== 'undefined' &&
+          navigator.onLine &&
+          storeRef.current.client
+        ) {
+          storeRef.current.client
+            .refresh()
             .then((updated) => {
               if (updated) {
                 notify();
