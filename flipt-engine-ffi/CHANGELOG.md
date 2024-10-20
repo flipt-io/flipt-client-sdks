@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.20...flipt-engine-ffi-v0.2.0) (2024-10-20)
+
+
+### Miscellaneous Chores
+
+* release 0.2.0 ([fa9fcd3](https://github.com/flipt-io/flipt-client-sdks/commit/fa9fcd3a6613fe91576d1f5081073bf621532116))
+
 ## [0.1.20](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.19...flipt-engine-ffi-v0.1.20) (2024-10-11)
 
 
