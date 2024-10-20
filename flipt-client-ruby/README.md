@@ -83,11 +83,12 @@ puts resp
 The `Flipt::EvaluationClient` constructor accepts two optional arguments:
 
 - `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
-- `engine_opts`: A hash that supports several options for the client. The structure is:
+- `opts`: A hash that supports several options for the client. The structure is:
   - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
   - `update_interval`: The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
   - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
   - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
+  - `fetch_mode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
 
 ### Authentication
 
