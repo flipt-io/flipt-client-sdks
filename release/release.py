@@ -131,7 +131,7 @@ def release_sdk_versions(bump_type='patch', sdks_to_update=None, run=False):
                     os.system(f"cd {sdk_path} && npm install")
 
         elif sdk_dir == 'flipt-client-ruby':
-            version_rb = os.path.join(sdk_path, 'lib', 'flipt', 'version.rb')
+            version_rb = os.path.join(sdk_path, 'lib', 'flipt_client', 'version.rb')
             if os.path.exists(version_rb):
                 with open(version_rb, 'r') as f:
                     content = f.read()
