@@ -4,5 +4,6 @@ use (
 	./package/ffi
 	./package/wasm
 	./flipt-client-go
+	./flipt-engine-go
 	./test
 )
