@@ -1,5 +1,7 @@
 # Flipt Engine WASM
 
+![GitHub Release](https://img.shields.io/github/v/release/flipt-io/flipt-client-sdks?filter=flipt-engine-wasm-*)
+
 This is the WASM layer for the Flipt client-side SDKs. It is written in Rust and exposes a JS API for the SDKs to use.
 
 It leverages the [flipt-evaluation](../flipt-evaluation) library to perform the actual evaluation.
