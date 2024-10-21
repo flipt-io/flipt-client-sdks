@@ -7,7 +7,6 @@ import argparse
 import subprocess
 from semver import VersionInfo
 from prompt_toolkit import prompt
-from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.shortcuts import checkboxlist_dialog, radiolist_dialog
 from colorama import init, Fore, Back, Style
 
@@ -95,6 +94,16 @@ def print_version_update(sdk_dir, new_version, file_name=None, run=False):
     
     print(f"{action} {sdk_name} version to {version}{file_info}")
 
+def get_latest_go_version(sdk_dir):
+    try:
+        result = subprocess.run(['git', 'describe', '--tags', '--abbrev=0', '--match', f'{sdk_dir}-v*'],
+                                capture_output=True, text=True, check=True)
+        latest_tag = result.stdout.strip()
+        return latest_tag.split('-v')[-1]
+    except subprocess.CalledProcessError:
+        print(f"{Fore.YELLOW}Warning: No tags found for {sdk_dir}. Using 0.0.0 as the base version.{Style.RESET_ALL}")
+        return "0.0.0"
+
 def release_sdk_versions(bump_type='patch', sdks_to_update=None, run=False):
     all_sdk_dirs = [
         'flipt-client-go', 'flipt-client-java', 'flipt-client-node',
@@ -173,15 +182,11 @@ def release_sdk_versions(bump_type='patch', sdks_to_update=None, run=False):
 
         elif sdk_dir == 'flipt-client-go':
             # For Go, we don't update any files, just tag and push
-            go_mod = os.path.join(sdk_path, 'go.mod')
-            if os.path.exists(go_mod):
-                with open(go_mod, 'r') as f:
-                    content = f.read()
-                current_version = re.search(r'v(\d+\.\d+\.\d+)', content).group(1)
-                new_version = bump_version(current_version, bump_type)
-                print_version_update(sdk_dir, new_version, 'go.mod (tag only)', run)
-            else:
-                print(f"{Fore.YELLOW}Warning: go.mod not found for {sdk_dir}. Skipping...{Style.RESET_ALL}")
+            current_version = get_latest_go_version(sdk_dir)
+            new_version = bump_version(current_version, bump_type)
+            print_version_update(sdk_dir, new_version, 'go.mod (tag only)', run)
+            if new_version and run:
+                git_tag_and_push(sdk_dir, new_version, run)
 
         if new_version and run:
             git_tag_and_push(sdk_dir, new_version, run)
