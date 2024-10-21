@@ -8,38 +8,41 @@ from sdks.base import SDK, MuslSupportSDK
 # Initialize colorama
 init(autoreset=True)
 
+
 def get_sdk(name: str, path: str) -> SDK:
     sdk_classes = {
-        'flipt-client-go': GoSDK,
-        'flipt-client-java': JavaSDK,
-        'flipt-client-node': JavaScriptSDK,
-        'flipt-client-browser': JavaScriptSDK,
-        'flipt-client-react': JavaScriptSDK,
-        'flipt-client-dart': DartSDK,
-        'flipt-client-python': PythonSDK,
-        'flipt-client-ruby': RubySDK
+        "flipt-client-go": GoSDK,
+        "flipt-client-java": JavaSDK,
+        "flipt-client-node": JavaScriptSDK,
+        "flipt-client-browser": JavaScriptSDK,
+        "flipt-client-react": JavaScriptSDK,
+        "flipt-client-dart": DartSDK,
+        "flipt-client-python": PythonSDK,
+        "flipt-client-ruby": RubySDK,
     }
     return sdk_classes[name](name, path)
 
+
 def bump_version(version: str, bump_type: str) -> str:
     v = VersionInfo.parse(version)
-    if bump_type == 'major':
+    if bump_type == "major":
         return str(v.bump_major())
-    elif bump_type == 'minor':
+    elif bump_type == "minor":
         return str(v.bump_minor())
     else:
         return str(v.bump_patch())
 
-def update_sdk_versions(bump_type='patch', sdks_to_update=None):
+
+def update_sdk_versions(bump_type="patch", sdks_to_update=None):
     all_sdk_dirs = [
-        'flipt-client-go',
-        'flipt-client-java',
-        'flipt-client-node',
-        'flipt-client-browser',
-        'flipt-client-react',
-        'flipt-client-dart',
-        'flipt-client-python',
-        'flipt-client-ruby'
+        "flipt-client-go",
+        "flipt-client-java",
+        "flipt-client-node",
+        "flipt-client-browser",
+        "flipt-client-react",
+        "flipt-client-dart",
+        "flipt-client-python",
+        "flipt-client-ruby",
     ]
 
     sdk_dirs = sdks_to_update if sdks_to_update else all_sdk_dirs
@@ -50,7 +53,7 @@ def update_sdk_versions(bump_type='patch', sdks_to_update=None):
             print(f"Warning: {sdk_dir} is not a recognized SDK. Skipping...")
             continue
 
-        sdk_path = os.path.join('..', sdk_dir)
+        sdk_path = os.path.join("..", sdk_dir)
         if not os.path.exists(sdk_path):
             print(f"Warning: {sdk_dir} not found. Skipping...")
             continue
@@ -73,33 +76,40 @@ def update_sdk_versions(bump_type='patch', sdks_to_update=None):
 
     return updated_versions
 
+
 def tag_and_push_versions(versions):
     for sdk_dir, new_version in versions.items():
-        sdk_path = os.path.join('..', sdk_dir)
-        sdk = get_sdk(sdk_dir, sdk_path)
-        sdk.tag_and_push(new_version)
+        sdk_path = os.path.join("..", sdk_dir.split("-musl")[0])
+        sdk = get_sdk(sdk_dir.split("-musl")[0], sdk_path)
+        if sdk_dir.endswith("-musl"):
+            sdk.tag_and_push_musl(new_version)
+        else:
+            sdk.tag_and_push(new_version)
+
 
 def get_sdk_selection(all_sdk_dirs):
     sdk_display_names = {
-        'flipt-client-go': 'Go',
-        'flipt-client-java': 'Java',
-        'flipt-client-node': 'Node.js',
-        'flipt-client-browser': 'Browser',
-        'flipt-client-react': 'React',
-        'flipt-client-dart': 'Dart',
-        'flipt-client-python': 'Python',
-        'flipt-client-ruby': 'Ruby'
+        "flipt-client-go": "Go",
+        "flipt-client-java": "Java",
+        "flipt-client-node": "Node.js",
+        "flipt-client-browser": "Browser",
+        "flipt-client-react": "React",
+        "flipt-client-dart": "Dart",
+        "flipt-client-python": "Python",
+        "flipt-client-ruby": "Ruby",
     }
-    
+
     selected_sdks = checkboxlist_dialog(
         title="Select SDKs to release",
         text="Choose the SDKs you want to release (Space to select, Enter to confirm):",
-        values=[(sdk, sdk_display_names.get(sdk, sdk)) for sdk in all_sdk_dirs] + [('all', 'All SDKs')],
+        values=[(sdk, sdk_display_names.get(sdk, sdk)) for sdk in all_sdk_dirs]
+        + [("all", "All SDKs")],
     ).run()
-    
-    if 'all' in selected_sdks:
+
+    if "all" in selected_sdks:
         return all_sdk_dirs
     return selected_sdks
+
 
 def get_action():
     action = radiolist_dialog(
@@ -113,6 +123,7 @@ def get_action():
     ).run()
     return action
 
+
 def get_bump_type():
     bump_type = radiolist_dialog(
         title="Select version bump type",
@@ -125,11 +136,17 @@ def get_bump_type():
     ).run()
     return bump_type
 
+
 def main():
     all_sdk_dirs = [
-        'flipt-client-go', 'flipt-client-java', 'flipt-client-node',
-        'flipt-client-browser', 'flipt-client-react', 'flipt-client-dart',
-        'flipt-client-python', 'flipt-client-ruby'
+        "flipt-client-go",
+        "flipt-client-java",
+        "flipt-client-node",
+        "flipt-client-browser",
+        "flipt-client-react",
+        "flipt-client-dart",
+        "flipt-client-python",
+        "flipt-client-ruby",
     ]
 
     selected_sdks = get_sdk_selection(all_sdk_dirs)
@@ -144,18 +161,18 @@ def main():
 
     updated_versions = {}
 
-    if action in ['update', 'both']:
+    if action in ["update", "both"]:
         bump_type = get_bump_type()
         if not bump_type:
             print("No bump type selected. Exiting.")
             return
         updated_versions = update_sdk_versions(bump_type, selected_sdks)
-    
-    if action in ['push', 'both']:
-        if action == 'push':
+
+    if action in ["push", "both"]:
+        if action == "push":
             # If only pushing, we need to get the current versions
             for sdk_dir in selected_sdks:
-                sdk_path = os.path.join('..', sdk_dir)
+                sdk_path = os.path.join("..", sdk_dir)
                 sdk = get_sdk(sdk_dir, sdk_path)
                 updated_versions[sdk_dir] = sdk.get_current_version()
                 if isinstance(sdk, MuslSupportSDK):
@@ -163,6 +180,7 @@ def main():
         tag_and_push_versions(updated_versions)
 
     print(f"{Fore.GREEN}Action '{action}' completed successfully.{Style.RESET_ALL}")
+
 
 if __name__ == "__main__":
     main()
