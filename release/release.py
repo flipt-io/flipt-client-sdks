@@ -1,148 +1,20 @@
 import os
-import json
-import re
-import yaml
-import toml
-import argparse
-import subprocess
-from abc import ABC, abstractmethod
 from semver import VersionInfo
-from prompt_toolkit import prompt
 from prompt_toolkit.shortcuts import checkboxlist_dialog, radiolist_dialog
-from colorama import init, Fore, Back, Style
+from colorama import init, Fore, Style
+from sdks import GoSDK, JavaSDK, JavaScriptSDK, RubySDK, PythonSDK, DartSDK
+from sdks.base import SDK, MuslSupportSDK
 
 # Initialize colorama
 init(autoreset=True)
-
-class SDK(ABC):
-    def __init__(self, name, path):
-        self.name = name
-        self.path = path
-
-    @abstractmethod
-    def get_current_version(self) -> str:
-        pass
-
-    @abstractmethod
-    def update_version(self, new_version: str):
-        pass
-
-    def tag_and_push(self, new_version: str):
-        tag = f"{self.name}-v{new_version}"
-        try:
-            subprocess.run(['git', 'tag', tag], check=True)
-            subprocess.run(['git', 'push', 'origin', tag], check=True)
-            print(f"Created and pushed tag: {tag}")
-        except subprocess.CalledProcessError as e:
-            print(f"Error during git operations: {e}")
-
-class NodeSDK(SDK):
-    def get_current_version(self) -> str:
-        package_json = os.path.join(self.path, 'package.json')
-        with open(package_json, 'r') as f:
-            data = json.load(f)
-        return data['version']
-
-    def update_version(self, new_version: str):
-        package_json = os.path.join(self.path, 'package.json')
-        with open(package_json, 'r') as f:
-            data = json.load(f)
-        data['version'] = new_version
-        with open(package_json, 'w') as f:
-            json.dump(data, f, indent=2)
-        print(f"Updated {self.name} version to {new_version} in package.json")
-
-class RubySDK(SDK):
-    def get_current_version(self) -> str:
-        version_rb = os.path.join(self.path, 'lib', 'flipt_client', 'version.rb')
-        with open(version_rb, 'r') as f:
-            content = f.read()
-        return re.search(r'VERSION\s*=\s*["\'](.+)["\']', content).group(1)
-
-    def update_version(self, new_version: str):
-        version_rb = os.path.join(self.path, 'lib', 'flipt_client', 'version.rb')
-        with open(version_rb, 'r') as f:
-            content = f.read()
-        updated_content = re.sub(r'VERSION\s*=\s*["\'].*["\']', f'VERSION = "{new_version}"', content)
-        with open(version_rb, 'w') as f:
-            f.write(updated_content)
-        print(f"Updated {self.name} version to {new_version} in version.rb")
-
-class PythonSDK(SDK):
-    def get_current_version(self) -> str:
-        pyproject_toml = os.path.join(self.path, 'pyproject.toml')
-        data = toml.load(pyproject_toml)
-        return data['tool']['poetry']['version']
-
-    def update_version(self, new_version: str):
-        pyproject_toml = os.path.join(self.path, 'pyproject.toml')
-        data = toml.load(pyproject_toml)
-        data['tool']['poetry']['version'] = new_version
-        with open(pyproject_toml, 'w') as f:
-            toml.dump(data, f)
-        print(f"Updated {self.name} version to {new_version} in pyproject.toml")
-
-class JavaSDK(SDK):
-    def get_current_version(self) -> str:
-        gradle_files = ['build.gradle', 'build.gradle.kts']
-        for gradle_file in gradle_files:
-            gradle_path = os.path.join(self.path, gradle_file)
-            if os.path.exists(gradle_path):
-                with open(gradle_path, 'r') as f:
-                    content = f.read()
-                return re.search(r'version\s*=\s*["\'](.+)["\']', content).group(1)
-        raise FileNotFoundError("No Gradle file found")
-
-    def update_version(self, new_version: str):
-        gradle_files = ['build.gradle', 'build.gradle.kts']
-        for gradle_file in gradle_files:
-            gradle_path = os.path.join(self.path, gradle_file)
-            if os.path.exists(gradle_path):
-                with open(gradle_path, 'r') as f:
-                    content = f.read()
-                updated_content = re.sub(r'version\s*=\s*["\'].*["\']', f'version = "{new_version}"', content)
-                with open(gradle_path, 'w') as f:
-                    f.write(updated_content)
-                print(f"Updated {self.name} version to {new_version} in {gradle_file}")
-
-class DartSDK(SDK):
-    def get_current_version(self) -> str:
-        pubspec_yaml = os.path.join(self.path, 'pubspec.yaml')
-        with open(pubspec_yaml, 'r') as f:
-            data = yaml.safe_load(f)
-        return data['version']
-
-    def update_version(self, new_version: str):
-        pubspec_yaml = os.path.join(self.path, 'pubspec.yaml')
-        with open(pubspec_yaml, 'r') as f:
-            data = yaml.safe_load(f)
-        data['version'] = new_version
-        with open(pubspec_yaml, 'w') as f:
-            yaml.dump(data, f)
-        print(f"Updated {self.name} version to {new_version} in pubspec.yaml")
-
-class GoSDK(SDK):
-    def get_current_version(self) -> str:
-        try:
-            result = subprocess.run(['git', 'describe', '--tags', '--abbrev=0', '--match', f'{self.name}-v*'],
-                                    capture_output=True, text=True, check=True)
-            latest_tag = result.stdout.strip()
-            return latest_tag.split('-v')[-1]
-        except subprocess.CalledProcessError:
-            print(f"{Fore.YELLOW}Warning: No tags found for {self.name}. Using 0.0.0 as the base version.{Style.RESET_ALL}")
-            return "0.0.0"
-
-    def update_version(self, new_version: str):
-        # Go doesn't typically update version in files, so we just print a message
-        print(f"{Fore.YELLOW}Note: Version for {self.name} is managed via Git tags. No files updated.{Style.RESET_ALL}")
 
 def get_sdk(name: str, path: str) -> SDK:
     sdk_classes = {
         'flipt-client-go': GoSDK,
         'flipt-client-java': JavaSDK,
-        'flipt-client-node': NodeSDK,
-        'flipt-client-browser': NodeSDK,
-        'flipt-client-react': NodeSDK,
+        'flipt-client-node': JavaScriptSDK,
+        'flipt-client-browser': JavaScriptSDK,
+        'flipt-client-react': JavaScriptSDK,
         'flipt-client-dart': DartSDK,
         'flipt-client-python': PythonSDK,
         'flipt-client-ruby': RubySDK
@@ -185,6 +57,12 @@ def update_sdk_versions(bump_type='patch', sdks_to_update=None):
         new_version = bump_version(current_version, bump_type)
         sdk.update_version(new_version)
         updated_versions[sdk_dir] = new_version
+
+        if isinstance(sdk, MuslSupportSDK):
+            current_musl_version = sdk.get_current_musl_version()
+            new_musl_version = bump_version(current_musl_version, bump_type)
+            sdk.update_musl_version(new_musl_version)
+            updated_versions[f"{sdk_dir}-musl"] = new_musl_version
 
         print(f"{Fore.CYAN}Finished processing {sdk_dir}{Style.RESET_ALL}")
 
