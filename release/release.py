@@ -106,6 +106,8 @@ def get_sdk_selection(all_sdk_dirs):
         + [("all", "All SDKs")],
     ).run()
 
+    if selected_sdks is None:
+        return None  # User cancelled the selection
     if "all" in selected_sdks:
         return all_sdk_dirs
     return selected_sdks
@@ -150,21 +152,25 @@ def main():
     ]
 
     selected_sdks = get_sdk_selection(all_sdk_dirs)
+    if selected_sdks is None:
+        print("SDK selection cancelled. Exiting.")
+        return
+
     if not selected_sdks:
         print("No SDKs selected. Exiting.")
         return
 
     action = get_action()
-    if not action:
-        print("No action selected. Exiting.")
+    if action is None:
+        print("Action selection cancelled. Exiting.")
         return
 
     updated_versions = {}
 
     if action in ["update", "both"]:
         bump_type = get_bump_type()
-        if not bump_type:
-            print("No bump type selected. Exiting.")
+        if bump_type is None:
+            print("Version bump type selection cancelled. Exiting.")
             return
         updated_versions = update_sdk_versions(bump_type, selected_sdks)
 
