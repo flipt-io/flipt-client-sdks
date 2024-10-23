@@ -322,59 +322,71 @@ impl HTTPFetcher {
         &mut self,
         sender: &mpsc::Sender<Result<source::Document, Error>>,
     ) -> Result<(), Error> {
-        let stream_result = self.fetch_stream().await;
+        let max_retries = 3;
+        let mut retry_count = 0;
+        let mut backoff_duration = Duration::from_secs(1);
 
-        match stream_result {
-            Ok(Some(resp)) => {
-                let reader = StreamReader::new(
-                    resp.bytes_stream()
-                        .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err)),
-                );
-                let codec = tokio_util::codec::LinesCodec::new();
-                let frame_reader = tokio_util::codec::FramedRead::new(reader, codec);
+        loop {
+            match self.fetch_stream().await {
+                Ok(Some(resp)) => {
+                    let reader = StreamReader::new(
+                        resp.bytes_stream()
+                            .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err)),
+                    );
+                    let codec = tokio_util::codec::LinesCodec::new();
+                    let frame_reader = tokio_util::codec::FramedRead::new(reader, codec);
 
-                let mut stream = frame_reader
-                    .into_stream()
-                    .map(|frame| match frame {
-                        Ok(frame) => match serde_json::from_str::<StreamChunk>(&frame) {
-                            Ok(result) => Ok(result),
-                            Err(e) => Err(Error::InvalidJSON(format!(
-                                "failed to parse response body: {}",
-                                e
-                            ))),
-                        },
-                        Err(e) => Err(Error::Server(format!("failed to read stream chunk: {}", e))),
-                    })
-                    .map(|result| match result {
-                        Ok(result) => match result.result.namespaces.into_iter().next() {
-                            Some((_, doc)) => Ok(doc),
-                            None => {
-                                let err = Error::Server("no data received from server".into());
-                                Err(err)
+                    let mut stream = frame_reader
+                        .into_stream()
+                        .map(|frame| match frame {
+                            Ok(frame) => match serde_json::from_str::<StreamChunk>(&frame) {
+                                Ok(result) => Ok(result),
+                                Err(e) => Err(Error::InvalidJSON(format!(
+                                    "failed to parse response body: {}",
+                                    e
+                                ))),
+                            },
+                            Err(e) => {
+                                Err(Error::Server(format!("failed to read stream chunk: {}", e)))
                             }
-                        },
-                        Err(err) => Err(err),
-                    });
+                        })
+                        .map(|result| match result {
+                            Ok(result) => match result.result.namespaces.into_iter().next() {
+                                Some((_, doc)) => Ok(doc),
+                                None => {
+                                    let err = Error::Server("no data received from server".into());
+                                    Err(err)
+                                }
+                            },
+                            Err(err) => Err(err),
+                        });
 
-                while let Some(value) = stream.next().await {
-                    match sender.send(value).await {
-                        Ok(_) => continue,
-                        Err(e) => {
-                            return Err(Error::Server(format!(
-                                "failed to send result to engine {}",
-                                e
-                            )))
+                    while let Some(value) = stream.next().await {
+                        match sender.send(value).await {
+                            Ok(_) => continue,
+                            Err(e) => {
+                                return Err(Error::Server(format!(
+                                    "failed to send result to engine {}",
+                                    e
+                                )))
+                            }
                         }
                     }
-                }
 
-                Ok(())
+                    // If we've reached here, streaming completed successfully
+                    return Ok(());
+                }
+                Ok(None) => return Ok(()),
+                Err(e) => {
+                    retry_count += 1;
+                    if retry_count >= max_retries {
+                        return Err(Error::Server(format!("Max retries reached: {}", e)));
+                    }
+                    // TODO: log error
+                    tokio::time::sleep(backoff_duration).await;
+                    backoff_duration *= 2;
+                }
             }
-            Ok(None) => Ok(()),
-            Err(e) => sender
-                .send(Err(e.clone()))
-                .await
-                .map_err(|_| Error::Server("failed to send error".into())),
         }
     }
 
