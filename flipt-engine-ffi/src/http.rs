@@ -107,7 +107,7 @@ struct StreamChunk {
 
 #[derive(Deserialize)]
 struct StreamResult {
-    namespaces: std::vec::Vec<source::Document>,
+    namespaces: std::collections::HashMap<String, source::Document>,
 }
 
 impl HTTPFetcherBuilder {
@@ -347,7 +347,7 @@ impl HTTPFetcher {
                     })
                     .map(|result| match result {
                         Ok(result) => match result.result.namespaces.into_iter().next() {
-                            Some(doc) => Ok(doc),
+                            Some((_, doc)) => Ok(doc),
                             None => {
                                 let err = Error::Server("no data received from server".into());
                                 Err(err)
@@ -582,9 +582,9 @@ mod tests {
                 "application/json",
             )
             .with_chunked_body(|w| {
-                w.write_all(b"{\"result\":{ \"namespaces\":[{\"namespace\": {\"key\": \"default\"}, \"flags\":[]}]}}\n")?;
+                w.write_all(b"{\"result\":{ \"namespaces\":{\"default\":{\"namespace\": {\"key\": \"default\"}, \"flags\":[]}}}}\n")?;
                 w.write_all(
-                    b"{\"result\":{ \"namespaces\":[{\"namespace\": {\"key\": \"default\"}, \"flags\":[{\"key\": \"new_flag\", \"name\": \"new flag\", \"enabled\": false}]}]}}\n",
+                    b"{\"result\":{ \"namespaces\":{\"default\":{\"namespace\": {\"key\": \"default\"}, \"flags\":[{\"key\": \"new_flag\", \"name\": \"new flag\", \"enabled\": false}]}}}}\n",
                 )?;
                 w.write_all(b"{\n")?;
                 Ok(())
