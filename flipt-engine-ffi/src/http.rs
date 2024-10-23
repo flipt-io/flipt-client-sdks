@@ -107,7 +107,7 @@ struct StreamChunk {
 
 #[derive(Deserialize)]
 struct StreamResult {
-    namespaces: std::collections::HashMap<String, source::Document>,
+    namespaces: std::vec::Vec<source::Document>,
 }
 
 impl HTTPFetcherBuilder {
@@ -333,16 +333,28 @@ impl HTTPFetcher {
                 let codec = tokio_util::codec::LinesCodec::new();
                 let frame_reader = tokio_util::codec::FramedRead::new(reader, codec);
 
-                let mut stream = frame_reader.into_stream().map(|frame| match frame {
-                    Ok(frame) => match serde_json::from_str::<source::Document>(&frame) {
-                        Ok(result) => Ok(result),
-                        Err(e) => Err(Error::InvalidJSON(format!(
-                            "failed to parse response body: {}",
-                            e
-                        ))),
-                    },
-                    Err(e) => Err(Error::Server(format!("failed to read stream chunk: {}", e))),
-                });
+                let mut stream = frame_reader
+                    .into_stream()
+                    .map(|frame| match frame {
+                        Ok(frame) => match serde_json::from_str::<StreamChunk>(&frame) {
+                            Ok(result) => Ok(result),
+                            Err(e) => Err(Error::InvalidJSON(format!(
+                                "failed to parse response body: {}",
+                                e
+                            ))),
+                        },
+                        Err(e) => Err(Error::Server(format!("failed to read stream chunk: {}", e))),
+                    })
+                    .map(|result| match result {
+                        Ok(result) => match result.result.namespaces.into_iter().next() {
+                            Some(doc) => Ok(doc),
+                            None => {
+                                let err = Error::Server("no data received from server".into());
+                                Err(err)
+                            }
+                        },
+                        Err(err) => Err(err),
+                    });
 
                 while let Some(value) = stream.next().await {
                     match sender.send(value).await {
@@ -383,6 +395,7 @@ impl HTTPFetcher {
 
 #[cfg(test)]
 mod tests {
+    use futures::FutureExt;
     use mockito::Server;
 
     use crate::http::Authentication;
@@ -485,7 +498,7 @@ mod tests {
 
         let result = fetcher.fetch().await;
 
-        assert!(!result.is_ok());
+        assert!(result.is_err());
         mock.assert();
     }
 
@@ -569,10 +582,11 @@ mod tests {
                 "application/json",
             )
             .with_chunked_body(|w| {
-                w.write_all(b"{\"namespace\": {\"key\": \"default\"}, \"flags\":[]}\n")?;
+                w.write_all(b"{\"result\":{ \"namespaces\":[{\"namespace\": {\"key\": \"default\"}, \"flags\":[]}]}}\n")?;
                 w.write_all(
-                    b"{\"namespace\": {\"key\": \"default\"}, \"flags\":[{\"key\": \"new_flag\"}]}\n",
+                    b"{\"result\":{ \"namespaces\":[{\"namespace\": {\"key\": \"default\"}, \"flags\":[{\"key\": \"new_flag\", \"name\": \"new flag\", \"enabled\": false}]}]}}\n",
                 )?;
+                w.write_all(b"{\n")?;
                 Ok(())
             })
             .create_async()
@@ -588,11 +602,24 @@ mod tests {
         let result = fetcher.handle_streaming(&tx).await;
         assert!(result.is_ok());
         mock.assert();
-        assert!(rx.len() == 2);
+        assert!(rx.len() == 3);
         // check first result
-        let result = rx.recv().await.unwrap().unwrap();
+        let result = rx
+            .recv()
+            .map(|r| r.expect("valid record").expect("valid doc"))
+            .await;
         assert_eq!("default", result.namespace.key);
         assert_eq!(0, result.flags.len());
+        // check second result
+        let result = rx
+            .recv()
+            .map(|r| r.expect("valid record").expect("valid doc"))
+            .await;
+        assert_eq!("default", result.namespace.key);
+        assert_eq!(1, result.flags.len());
+        // check third result
+        let result = rx.recv().map(|r| r.expect("valid record")).await;
+        assert!(result.is_err())
     }
 
     #[test]
@@ -620,7 +647,7 @@ mod tests {
     fn test_deserialize_no_auth() {
         let json = r#""#;
 
-        let unwrapped_string: Authentication = serde_json::from_str(&json).unwrap_or_default();
+        let unwrapped_string: Authentication = serde_json::from_str(json).unwrap_or_default();
 
         assert_eq!(unwrapped_string, Authentication::None);
     }
@@ -629,7 +656,7 @@ mod tests {
     fn test_deserialize_client_token() {
         let json = r#"{"client_token":"secret"}"#;
 
-        let unwrapped_string: Authentication = serde_json::from_str(&json).unwrap_or_default();
+        let unwrapped_string: Authentication = serde_json::from_str(json).unwrap_or_default();
 
         assert_eq!(
             unwrapped_string,
@@ -641,7 +668,7 @@ mod tests {
     fn test_deserialize_jwt_token() {
         let json = r#"{"jwt_token":"secret"}"#;
 
-        let unwrapped_string: Authentication = serde_json::from_str(&json).unwrap_or_default();
+        let unwrapped_string: Authentication = serde_json::from_str(json).unwrap_or_default();
 
         assert_eq!(unwrapped_string, Authentication::JwtToken("secret".into()));
     }
