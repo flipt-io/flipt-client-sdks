@@ -118,11 +118,10 @@ func WithFetchMode(fetchMode FetchMode) clientOption {
 
 // EvaluateVariant performs evaluation for a variant flag.
 func (e *EvaluationClient) EvaluateVariant(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantEvaluationResponse, error) {
-	ereq, err := json.Marshal(evaluationRequest{
-		NamespaceKey: e.namespace,
-		FlagKey:      flagKey,
-		EntityId:     entityID,
-		Context:      evalContext,
+	ereq, err := json.Marshal(EvaluationRequest{
+		FlagKey:  flagKey,
+		EntityId: entityID,
+		Context:  evalContext,
 	})
 	if err != nil {
 		return nil, err
@@ -151,11 +150,10 @@ func (e *EvaluationClient) EvaluateVariant(_ context.Context, flagKey, entityID 
 
 // EvaluateBoolean performs evaluation for a boolean flag.
 func (e *EvaluationClient) EvaluateBoolean(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanEvaluationResponse, error) {
-	ereq, err := json.Marshal(evaluationRequest{
-		NamespaceKey: e.namespace,
-		FlagKey:      flagKey,
-		EntityId:     entityID,
-		Context:      evalContext,
+	ereq, err := json.Marshal(EvaluationRequest{
+		FlagKey:  flagKey,
+		EntityId: entityID,
+		Context:  evalContext,
 	})
 	if err != nil {
 		return nil, err
@@ -184,18 +182,7 @@ func (e *EvaluationClient) EvaluateBoolean(_ context.Context, flagKey, entityID 
 
 // EvaluateBatch performs evaluation for a batch of flags.
 func (e *EvaluationClient) EvaluateBatch(_ context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
-	evaluationRequests := make([]*evaluationRequest, 0, len(requests))
-
-	for _, ir := range requests {
-		evaluationRequests = append(evaluationRequests, &evaluationRequest{
-			NamespaceKey: e.namespace,
-			FlagKey:      ir.FlagKey,
-			EntityId:     ir.EntityId,
-			Context:      ir.Context,
-		})
-	}
-
-	requestsBytes, err := json.Marshal(evaluationRequests)
+	requestsBytes, err := json.Marshal(requests)
 	if err != nil {
 		return nil, err
 	}

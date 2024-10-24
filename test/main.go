@@ -339,18 +339,25 @@ func dartTests(ctx context.Context, client *dagger.Client, t *testCase) error {
 
 // csharpTests runs the csharp integration test suite against a container running Flipt.
 func csharpTests(ctx context.Context, client *dagger.Client, t *testCase) error {
-	_, err := client.Container().From("mcr.microsoft.com/dotnet/sdk:8.0").
+	platform := "linux/amd64"
+	if architecture == "arm64" {
+		platform = "linux/arm64"
+	}
+
+	_, err := client.Container(dagger.ContainerOpts{
+		Platform: dagger.Platform(platform),
+	}).From("mcr.microsoft.com/dotnet/sdk:8.0").
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-csharp"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", "obj/", "bin/"},
 		}).
-		WithFile(fmt.Sprintf("/src/ext/ffi/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
+		WithFile(fmt.Sprintf("src/FliptClient/ext/ffi/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec([]string{"dotnet", "restore"}).
-		WithExec([]string{"dotnet", "test"}).
+		WithExec([]string{"dotnet", "build"}).
+		WithExec([]string{"dotnet", "test", "-l", "console;verbosity=detailed"}).
 		Sync(ctx)
-
 	return err
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Xunit;
+using Xunit.Abstractions;
 using FliptClient;
 using FliptClient.Models;
 
@@ -10,8 +11,9 @@ namespace FliptClient.Tests
     {
         private readonly EvaluationClient _client;
 
-        public EvaluationClientTests()
+        public EvaluationClientTests(ITestOutputHelper output)
         {
+            Console.SetOut(new ConsoleWriter(output));
             string fliptUrl = Environment.GetEnvironmentVariable("FLIPT_URL");
             string authToken = Environment.GetEnvironmentVariable("FLIPT_AUTH_TOKEN");
 
@@ -28,10 +30,24 @@ namespace FliptClient.Tests
             var options = new ClientOptions
             {
                 Url = fliptUrl,
-                Authentication = new ClientTokenAuthentication { ClientToken = authToken }
+                Authentication = new Authentication { ClientToken = authToken }
             };
 
             _client = new EvaluationClient("default", options);
+        }
+
+        public class ConsoleWriter : StringWriter
+        {
+            private ITestOutputHelper _output;
+            public ConsoleWriter(ITestOutputHelper output)
+            {
+                _output = output;
+            }
+
+            public override void WriteLine(string m)
+            {
+                _output.WriteLine(m);
+            }
         }
 
         public void Dispose()
@@ -75,30 +91,30 @@ namespace FliptClient.Tests
 
             var response = _client.EvaluateBatch(requests);
 
-            Assert.Equal(3, response.Responses.Count);
+            Assert.Equal(3, response.Responses.Length);
 
             var variantResponse = response.Responses[0];
             Assert.Equal("VARIANT_EVALUATION_RESPONSE_TYPE", variantResponse.Type);
-            Assert.NotNull(variantResponse.VariantEvaluationResponse);
-            Assert.Equal("flag1", variantResponse.VariantEvaluationResponse.FlagKey);
-            Assert.True(variantResponse.VariantEvaluationResponse.Match);
-            Assert.Equal("MATCH_EVALUATION_REASON", variantResponse.VariantEvaluationResponse.Reason);
-            Assert.Equal("variant1", variantResponse.VariantEvaluationResponse.VariantKey);
-            Assert.Contains("segment1", variantResponse.VariantEvaluationResponse.SegmentKeys);
+            Assert.NotNull(variantResponse.VariantResponse);
+            Assert.Equal("flag1", variantResponse.VariantResponse.FlagKey);
+            Assert.True(variantResponse.VariantResponse.Match);
+            Assert.Equal("MATCH_EVALUATION_REASON", variantResponse.VariantResponse.Reason);
+            Assert.Equal("variant1", variantResponse.VariantResponse.VariantKey);
+            Assert.Contains("segment1", variantResponse.VariantResponse.SegmentKeys);
 
             var booleanResponse = response.Responses[1];
             Assert.Equal("BOOLEAN_EVALUATION_RESPONSE_TYPE", booleanResponse.Type);
-            Assert.NotNull(booleanResponse.BooleanEvaluationResponse);
-            Assert.Equal("flag_boolean", booleanResponse.BooleanEvaluationResponse.FlagKey);
-            Assert.True(booleanResponse.BooleanEvaluationResponse.Enabled);
-            Assert.Equal("MATCH_EVALUATION_REASON", booleanResponse.BooleanEvaluationResponse.Reason);
+            Assert.NotNull(booleanResponse.BooleanResponse);
+            Assert.Equal("flag_boolean", booleanResponse.BooleanResponse.FlagKey);
+            Assert.True(booleanResponse.BooleanResponse.Enabled);
+            Assert.Equal("MATCH_EVALUATION_REASON", booleanResponse.BooleanResponse.Reason);
 
             var errorResponse = response.Responses[2];
             Assert.Equal("ERROR_EVALUATION_RESPONSE_TYPE", errorResponse.Type);
-            Assert.NotNull(errorResponse.ErrorEvaluationResponse);
-            Assert.Equal("notfound", errorResponse.ErrorEvaluationResponse.FlagKey);
-            Assert.Equal("default", errorResponse.ErrorEvaluationResponse.NamespaceKey);
-            Assert.Equal("NOT_FOUND_ERROR_EVALUATION_REASON", errorResponse.ErrorEvaluationResponse.Reason);
+            Assert.NotNull(errorResponse.ErrorResponse);
+            Assert.Equal("notfound", errorResponse.ErrorResponse.FlagKey);
+            Assert.Equal("default", errorResponse.ErrorResponse.NamespaceKey);
+            Assert.Equal("NOT_FOUND_ERROR_EVALUATION_REASON", errorResponse.ErrorResponse.Reason);
         }
 
         [Fact]
@@ -121,8 +137,8 @@ namespace FliptClient.Tests
         public void TestListFlags()
         {
             var flags = _client.ListFlags();
-            Assert.NotEmpty(flags.Flags);
-            Assert.Equal(2, flags.Flags.Count);
+            Assert.NotEmpty(flags);
+            Assert.Equal(2, flags.Length);
         }
     }
 }

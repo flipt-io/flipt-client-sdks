@@ -94,7 +94,7 @@ namespace FliptClient.Models
         public string Status { get; set; }
 
         [JsonPropertyName("result")]
-        public T? Result { get; set; }
+        public T? Response { get; set; }
 
         [JsonPropertyName("error_message")]
         public string? ErrorMessage { get; set; }
@@ -103,5 +103,5 @@ namespace FliptClient.Models
     public class VariantResult : Result<VariantEvaluationResponse> { }
     public class BooleanResult : Result<BooleanEvaluationResponse> { }
     public class BatchResult : Result<BatchEvaluationResponse> { }
-    public class ListFlagsResult : Result<List<Flag>> { }
+    public class ListFlagsResult : Result<Flag[]> { }
 }

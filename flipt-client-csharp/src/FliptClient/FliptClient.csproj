@@ -7,23 +7,23 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="ext/ffi/win_x86_64/fliptengine.dll">
+    <Content Include="ext/ffi/win_x86_64/fliptengine.dll" Condition="Exists('ext/ffi/win_x86_64/fliptengine.dll')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>runtimes/win-x64/native/fliptengine.dll</Link>
     </Content>
-    <Content Include="ext/ffi/linux_x86_64/libfliptengine.so">
+    <Content Include="ext/ffi/linux_x86_64/libfliptengine.so" Condition="Exists('ext/ffi/linux_x86_64/libfliptengine.so')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>runtimes/linux-x64/native/libfliptengine.so</Link>
     </Content>
-    <Content Include="ext/ffi/linux_arm64/libfliptengine.so">
+    <Content Include="ext/ffi/linux_arm64/libfliptengine.so" Condition="Exists('ext/ffi/linux_arm64/libfliptengine.so')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>runtimes/linux-arm64/native/libfliptengine.so</Link>
     </Content>
-    <Content Include="ext/ffi/darwin_x86_64/libfliptengine.dylib">
+    <Content Include="ext/ffi/darwin_x86_64/libfliptengine.dylib" Condition="Exists('ext/ffi/darwin_x86_64/libfliptengine.dylib')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>runtimes/osx-x64/native/libfliptengine.dylib</Link>
     </Content>
-    <Content Include="ext/ffi/darwin_arm64/libfliptengine.dylib">
+    <Content Include="ext/ffi/darwin_arm64/libfliptengine.dylib" Condition="Exists('ext/ffi/darwin_arm64/libfliptengine.dylib')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>runtimes/osx-arm64/native/libfliptengine.dylib</Link>
     </Content>

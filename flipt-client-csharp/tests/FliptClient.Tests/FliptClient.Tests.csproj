@@ -26,4 +26,27 @@
     <ProjectReference Include="..\..\src\FliptClient\FliptClient.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\..\src\FliptClient\ext\ffi\win_x86_64\fliptengine.dll" Condition="Exists('..\..\src\FliptClient\ext\ffi\win_x86_64\fliptengine.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>runtimes/win-x64/native/fliptengine.dll</Link>
+    </Content>
+    <Content Include="..\..\src\FliptClient\ext\ffi\linux_x86_64\libfliptengine.so" Condition="Exists('..\..\src\FliptClient\ext\ffi\linux_x86_64\libfliptengine.so')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>runtimes/linux-x64/native/libfliptengine.so</Link>
+    </Content>
+    <Content Include="..\..\src\FliptClient\ext\ffi\linux_arm64\libfliptengine.so" Condition="Exists('..\..\src\FliptClient\ext\ffi\linux_arm64\libfliptengine.so')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>runtimes/linux-arm64/native/libfliptengine.so</Link>
+    </Content>
+    <Content Include="..\..\src\FliptClient\ext\ffi\darwin_x86_64\libfliptengine.dylib" Condition="Exists('..\..\src\FliptClient\ext\ffi\darwin_x86_64\libfliptengine.dylib')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>runtimes/osx-x64/native/libfliptengine.dylib</Link>
+    </Content>
+    <Content Include="..\..\src\FliptClient\ext\ffi\darwin_arm64\libfliptengine.dylib" Condition="Exists('..\..\src\FliptClient\ext\ffi\darwin_arm64\libfliptengine.dylib')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>runtimes/osx-arm64/native/libfliptengine.dylib</Link>
+    </Content>
+  </ItemGroup>
+
 </Project>

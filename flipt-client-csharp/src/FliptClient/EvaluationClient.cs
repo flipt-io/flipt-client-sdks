@@ -9,10 +9,11 @@ namespace FliptClient
     {
         private IntPtr _engine;
 
-        public EvaluationClient(string @namespace = "default", ClientOptions options = null)
+        public EvaluationClient(string @namespace = "default", ClientOptions? options = null)
         {
             options ??= new ClientOptions();
             string optsJson = JsonSerializer.Serialize(options);
+            NativeMethods.Initialize();
             _engine = NativeMethods.InitializeEngine(@namespace, optsJson);
         }
 
@@ -36,7 +37,7 @@ namespace FliptClient
                 throw new Exception(result.ErrorMessage);
             }
 
-            return result.Result;
+            return result.Response;
         }
 
         public BooleanEvaluationResponse EvaluateBoolean(string flagKey, string entityId, Dictionary<string, string> context)
@@ -59,7 +60,7 @@ namespace FliptClient
                 throw new Exception(result.ErrorMessage);
             }
 
-            return result.Result;
+            return result.Response;
         }
 
         public BatchEvaluationResponse EvaluateBatch(List<EvaluationRequest> requests)
@@ -75,10 +76,10 @@ namespace FliptClient
                 throw new Exception(result.ErrorMessage);
             }
 
-            return result.Result;
+            return result.Response;
         }
 
-        public ListFlagsResponse ListFlags()
+        public Flag[] ListFlags()
         {
             IntPtr resultPtr = NativeMethods.ListFlags(_engine);
             string resultJson = Marshal.PtrToStringAnsi(resultPtr);
@@ -90,7 +91,7 @@ namespace FliptClient
                 throw new Exception(result.ErrorMessage);
             }
 
-            return result.Result;
+            return result.Response;
         }
 
         public void Dispose()
