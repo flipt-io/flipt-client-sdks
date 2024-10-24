@@ -368,7 +368,7 @@ impl HTTPFetcher {
                                 retry_count = 0;
                                 backoff_duration = Duration::from_secs(1);
                                 continue;
-                            },
+                            }
                             Err(e) => {
                                 return Err(Error::Server(format!(
                                     "failed to send result to engine {}",
@@ -382,7 +382,9 @@ impl HTTPFetcher {
                     // Treat this as an error and attempt to reconnect
                     retry_count += 1;
                     if retry_count >= max_retries {
-                        return Err(Error::Server("max retries reached for stream reconnection".into()));
+                        return Err(Error::Server(
+                            "max retries reached for stream reconnection".into(),
+                        ));
                     }
                     // TODO: log warning about unexpected stream end and retry attempt
                     tokio::time::sleep(backoff_duration).await;
