@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using FliptClient.Models;
 
 namespace FliptClient
 {

@@ -63,7 +63,7 @@ namespace FliptClient.Models
     public class Response
     {
         [JsonPropertyName("type")]
-        public ResponseType Type { get; set; }
+        public string Type { get; set; }
 
         [JsonPropertyName("boolean_response")]
         public BooleanEvaluationResponse? BooleanResponse { get; set; }
