@@ -634,6 +634,52 @@ mod tests {
         assert!(result.is_err())
     }
 
+    #[tokio::test]
+    async fn test_handle_streaming_retries() {
+        let mut server = mockito::Server::new_async().await;
+
+        // Mock the server to return a 500 error for the first two requests
+        let mock1 = server
+            .mock(
+                "GET",
+                "/internal/v1/evaluation/snapshots?[]namespaces=default",
+            )
+            .with_status(500)
+            .expect(2)
+            .create_async()
+            .await;
+
+        // Mock the server to return a valid response on the third request
+        let mock2 = server
+            .mock("GET", "/internal/v1/evaluation/snapshots?[]namespaces=default")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"result":{ "namespaces":{"default":{"namespace": {"key": "default"}, "flags":[]}}}}"#)
+            .create_async()
+            .await;
+
+        let url = server.url();
+        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
+            .authentication(Authentication::None)
+            .mode(FetchMode::Streaming)
+            .build();
+
+        let (tx, mut rx) = mpsc::channel(4);
+        let result = fetcher.handle_streaming(&tx).await;
+
+        // Assert that the result is Ok, indicating that the retries were successful
+        assert!(result.is_ok());
+
+        // Assert that the valid response was received after retries
+        let result = rx.recv().await.expect("valid record").expect("valid doc");
+        assert_eq!("default", result.namespace.key);
+        assert_eq!(0, result.flags.len());
+
+        // Assert that the mocks were called the expected number of times
+        mock1.assert();
+        mock2.assert();
+    }
+
     #[test]
     fn test_initial_fetch() {
         let mut server = Server::new();
