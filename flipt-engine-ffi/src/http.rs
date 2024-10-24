@@ -363,7 +363,12 @@ impl HTTPFetcher {
 
                     while let Some(value) = stream.next().await {
                         match sender.send(value).await {
-                            Ok(_) => continue,
+                            Ok(_) => {
+                                // Reset retry count on successful message
+                                retry_count = 0;
+                                backoff_duration = Duration::from_secs(1);
+                                continue;
+                            },
                             Err(e) => {
                                 return Err(Error::Server(format!(
                                     "failed to send result to engine {}",
@@ -373,8 +378,15 @@ impl HTTPFetcher {
                         }
                     }
 
-                    // If we've reached here, streaming completed successfully
-                    return Ok(());
+                    // If we've reached here, the stream has ended unexpectedly
+                    // Treat this as an error and attempt to reconnect
+                    retry_count += 1;
+                    if retry_count >= max_retries {
+                        return Err(Error::Server("max retries reached for stream reconnection".into()));
+                    }
+                    // TODO: log warning about unexpected stream end and retry attempt
+                    tokio::time::sleep(backoff_duration).await;
+                    backoff_duration *= 2;
                 }
                 Ok(None) => return Ok(()),
                 Err(e) => {
