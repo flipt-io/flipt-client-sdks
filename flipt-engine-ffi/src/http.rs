@@ -380,7 +380,7 @@ impl HTTPFetcher {
                 Err(e) => {
                     retry_count += 1;
                     if retry_count >= max_retries {
-                        return Err(Error::Server(format!("Max retries reached: {}", e)));
+                        return Err(Error::Server(format!("max retries reached: {}", e)));
                     }
                     // TODO: log error
                     tokio::time::sleep(backoff_duration).await;
