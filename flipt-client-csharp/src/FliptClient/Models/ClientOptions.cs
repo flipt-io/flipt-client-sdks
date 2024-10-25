@@ -8,6 +8,7 @@ namespace FliptClient.Models
         [JsonPropertyName("url")]
         public string Url { get; set; } = "http://localhost:8080";
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("update_interval")]
         public int UpdateInterval { get; set; } = 120;
 
@@ -23,6 +24,7 @@ namespace FliptClient.Models
         public FetchMode FetchMode { get; set; } = FetchMode.Polling;
     }
 
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum FetchMode
     {
         [JsonPropertyName("polling")]

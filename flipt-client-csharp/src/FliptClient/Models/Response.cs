@@ -50,10 +50,10 @@ namespace FliptClient.Models
     public class BatchEvaluationResponse
     {
         [JsonPropertyName("request_id")]
-        public required string RequestId { get; set; }
+        public string RequestId { get; set; }
 
         [JsonPropertyName("responses")]
-        public required Response[] Responses { get; set; }
+        public Response[] Responses { get; set; }
 
         [JsonPropertyName("request_duration_millis")]
         public float RequestDurationMillis { get; set; }
@@ -65,14 +65,14 @@ namespace FliptClient.Models
         [JsonPropertyName("type")]
         public string Type { get; set; }
 
-        [JsonPropertyName("boolean_response")]
-        public BooleanEvaluationResponse? BooleanResponse { get; set; }
+        [JsonPropertyName("boolean_evaluation_response")]
+        public BooleanEvaluationResponse? BooleanEvaluationResponse { get; set; }
 
-        [JsonPropertyName("variant_response")]
-        public VariantEvaluationResponse? VariantResponse { get; set; }
+        [JsonPropertyName("variant_evaluation_response")]
+        public VariantEvaluationResponse? VariantEvaluationResponse { get; set; }
 
-        [JsonPropertyName("error_response")]
-        public ErrorEvaluationResponse? ErrorResponse { get; set; }
+        [JsonPropertyName("error_evaluation_response")]
+        public ErrorEvaluationResponse? ErrorEvaluationResponse { get; set; }
     }
 
 

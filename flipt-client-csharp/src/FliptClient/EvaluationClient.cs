@@ -13,7 +13,6 @@ namespace FliptClient
         {
             options ??= new ClientOptions();
             string optsJson = JsonSerializer.Serialize(options);
-            Console.WriteLine($"Initializing engine with options: {optsJson}");
             _engine = NativeMethods.InitializeEngine(@namespace, optsJson);
         }
 
