@@ -65,7 +65,7 @@ namespace FliptClient
 
         private static string GetLibraryName()
         {
-            string libraryName = GetPlatformSpecificLibraryName();
+            string libraryName = GetPlatformLibraryPath();
             string libraryPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, libraryName);
 
             if (!File.Exists(libraryPath))
