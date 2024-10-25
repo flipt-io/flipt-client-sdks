@@ -8,7 +8,6 @@ namespace FliptClient
     {
         private static IntPtr _nativeLibraryHandle;
 
-        // Define specific delegate types for each function
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate IntPtr InitializeEngineDelegate(string ns, string opts);
 
@@ -30,7 +29,6 @@ namespace FliptClient
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void DestroyStringDelegate(IntPtr str);
 
-        // Public properties for the delegates
         public static InitializeEngineDelegate InitializeEngine;
         public static EvaluateVariantDelegate EvaluateVariant;
         public static EvaluateBooleanDelegate EvaluateBoolean;
@@ -66,6 +64,20 @@ namespace FliptClient
         }
 
         private static string GetLibraryName()
+        {
+            string libraryName = GetPlatformSpecificLibraryName();
+            string libraryPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, libraryName);
+
+            if (!File.Exists(libraryPath))
+            {
+                // Try to find the library in the NuGet package structure
+                libraryPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "runtimes", libraryName);
+            }
+
+            return libraryPath;
+        }
+
+        private static string GetPlatformLibraryPath()
         {
             string libraryPath = "";
 

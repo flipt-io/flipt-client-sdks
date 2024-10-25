@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>Flipt.Client</PackageId>
-    <Version>0.0.1</Version>
+    <Version>0.0.1-rc.1</Version>
     <Authors>Flipt Devs (dev@flipt.io)</Authors>
     <Company>Flipt.io</Company>
     <Description>Flipt Client SDK</Description>
@@ -13,6 +13,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>Flipt, Feature Flags</PackageTags>
     <RepositoryUrl>https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-client-csharp</RepositoryUrl>
+    <RuntimeIdentifiers>win-x64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,22 +23,32 @@
   <ItemGroup>
     <Content Include="ext/ffi/win_x86_64/fliptengine.dll" Condition="Exists('ext/ffi/win_x86_64/fliptengine.dll')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>runtimes/win-x64/native/fliptengine.dll</PackagePath>
       <Link>runtimes/win-x64/native/fliptengine.dll</Link>
     </Content>
     <Content Include="ext/ffi/linux_x86_64/libfliptengine.so" Condition="Exists('ext/ffi/linux_x86_64/libfliptengine.so')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>runtimes/linux-x64/native/libfliptengine.so</PackagePath>
       <Link>runtimes/linux-x64/native/libfliptengine.so</Link>
     </Content>
     <Content Include="ext/ffi/linux_arm64/libfliptengine.so" Condition="Exists('ext/ffi/linux_arm64/libfliptengine.so')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>runtimes/linux-arm64/native/libfliptengine.so</PackagePath>
       <Link>runtimes/linux-arm64/native/libfliptengine.so</Link>
     </Content>
     <Content Include="ext/ffi/darwin_x86_64/libfliptengine.dylib" Condition="Exists('ext/ffi/darwin_x86_64/libfliptengine.dylib')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>runtimes/osx-x64/native/libfliptengine.dylib</PackagePath>
       <Link>runtimes/osx-x64/native/libfliptengine.dylib</Link>
     </Content>
     <Content Include="ext/ffi/darwin_arm64/libfliptengine.dylib" Condition="Exists('ext/ffi/darwin_arm64/libfliptengine.dylib')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>runtimes/osx-arm64/native/libfliptengine.dylib</PackagePath>
       <Link>runtimes/osx-arm64/native/libfliptengine.dylib</Link>
     </Content>
   </ItemGroup>
