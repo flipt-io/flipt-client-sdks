@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>Flipt.Client</PackageId>
-    <Version>0.0.1-rc.1</Version>
+    <Version>0.0.1-rc.2</Version>
     <Authors>Flipt Devs (dev@flipt.io)</Authors>
     <Company>Flipt.io</Company>
     <Description>Flipt Client SDK</Description>
@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="ext/ffi/win_x86_64/fliptengine.dll" Condition="Exists('ext/ffi/win_x86_64/fliptengine.dll')">
+    <Content Include="ext/ffi/windows_x86_64/fliptengine.dll" Condition="Exists('ext/ffi/windows_x86_64/fliptengine.dll')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>
       <PackagePath>runtimes/win-x64/native/fliptengine.dll</PackagePath>
