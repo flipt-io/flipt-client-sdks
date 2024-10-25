@@ -8,14 +8,40 @@ namespace FliptClient
     {
         private static IntPtr _nativeLibraryHandle;
 
+        // Define specific delegate types for each function
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate IntPtr InitializeEngineDelegate(string ns, string opts);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate IntPtr EvaluateVariantDelegate(IntPtr engine, string request);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate IntPtr EvaluateBooleanDelegate(IntPtr engine, string request);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate IntPtr EvaluateBatchDelegate(IntPtr engine, string request);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate IntPtr ListFlagsDelegate(IntPtr engine);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void DestroyEngineDelegate(IntPtr engine);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void DestroyStringDelegate(IntPtr str);
+
+        // Public properties for the delegates
+        public static InitializeEngineDelegate InitializeEngine;
+        public static EvaluateVariantDelegate EvaluateVariant;
+        public static EvaluateBooleanDelegate EvaluateBoolean;
+        public static EvaluateBatchDelegate EvaluateBatch;
+        public static ListFlagsDelegate ListFlags;
+        public static DestroyEngineDelegate DestroyEngine;
+        public static DestroyStringDelegate DestroyString;
+
         static NativeMethods()
         {
-
-            Console.WriteLine("NativeMethods constructor called.");
-
             string libraryPath = GetLibraryName();
-
-            Console.WriteLine($"Loading library from {libraryPath}");
 
             if (!File.Exists(libraryPath))
             {
@@ -29,14 +55,20 @@ namespace FliptClient
                 throw new InvalidOperationException("Failed to load native library, handle is null.");
             }
 
+            // Initialize the delegates
+            InitializeEngine = GetDelegate<InitializeEngineDelegate>("initialize_engine");
+            EvaluateVariant = GetDelegate<EvaluateVariantDelegate>("evaluate_variant");
+            EvaluateBoolean = GetDelegate<EvaluateBooleanDelegate>("evaluate_boolean");
+            EvaluateBatch = GetDelegate<EvaluateBatchDelegate>("evaluate_batch");
+            ListFlags = GetDelegate<ListFlagsDelegate>("list_flags");
+            DestroyEngine = GetDelegate<DestroyEngineDelegate>("destroy_engine");
+            DestroyString = GetDelegate<DestroyStringDelegate>("destroy_string");
         }
 
         private static string GetLibraryName()
         {
             string libraryPath = "";
-            // write current os and architecture
-            Console.WriteLine($"Current OS: {RuntimeInformation.OSDescription}");
-            Console.WriteLine($"Current Architecture: {RuntimeInformation.ProcessArchitecture}");
+
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 libraryPath = "runtimes/win-x64/native/fliptengine.dll";
@@ -64,42 +96,23 @@ namespace FliptClient
                 }
             }
 
-            Console.WriteLine($"Current Directory: {Environment.CurrentDirectory}");
-
-            Console.WriteLine($"Loading library from {libraryPath}");
             return libraryPath;
         }
 
-        public static void Initialize()
+        private static T GetDelegate<T>(string functionName) where T : Delegate
         {
-            // Access a static member to ensure the static constructor is called
-            var handle = _nativeLibraryHandle;
-        }
-
-        public static T GetDelegate<T>(string functionName) where T : Delegate
-        {
-            // Access a static member to ensure the static constructor is called
-            var handle = _nativeLibraryHandle;
-
-            if (handle == IntPtr.Zero)
+            if (_nativeLibraryHandle == IntPtr.Zero)
             {
                 throw new InvalidOperationException("Native library not loaded.");
             }
 
-            IntPtr procAddress = NativeLibrary.GetExport(handle, functionName);
+            IntPtr procAddress = NativeLibrary.GetExport(_nativeLibraryHandle, functionName);
             if (procAddress == IntPtr.Zero)
             {
                 throw new InvalidOperationException($"Function {functionName} not found.");
             }
+
             return Marshal.GetDelegateForFunctionPointer<T>(procAddress);
         }
-
-        public static Func<string, string, IntPtr> InitializeEngine = GetDelegate<Func<string, string, IntPtr>>("InitializeEngine");
-        public static Func<IntPtr, string, IntPtr> EvaluateVariant = GetDelegate<Func<IntPtr, string, IntPtr>>("EvaluateVariant");
-        public static Func<IntPtr, string, IntPtr> EvaluateBoolean = GetDelegate<Func<IntPtr, string, IntPtr>>("EvaluateBoolean");
-        public static Func<IntPtr, string, IntPtr> EvaluateBatch = GetDelegate<Func<IntPtr, string, IntPtr>>("EvaluateBatch");
-        public static Func<IntPtr, IntPtr> ListFlags = GetDelegate<Func<IntPtr, IntPtr>>("ListFlags");
-        public static Action<IntPtr> DestroyEngine = GetDelegate<Action<IntPtr>>("DestroyEngine");
-        public static Action<IntPtr> DestroyString = GetDelegate<Action<IntPtr>>("DestroyString");
     }
 }

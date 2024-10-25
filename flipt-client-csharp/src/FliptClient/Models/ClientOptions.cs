@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace FliptClient.Models
@@ -13,9 +14,11 @@ namespace FliptClient.Models
         [JsonPropertyName("authentication")]
         public Authentication Authentication { get; set; }
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("reference")]
         public string Reference { get; set; }
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("fetch_mode")]
         public FetchMode FetchMode { get; set; } = FetchMode.Polling;
     }
@@ -30,9 +33,11 @@ namespace FliptClient.Models
 
     public class Authentication
     {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("client_token")]
         public string ClientToken { get; set; }
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("jwt_token")]
         public string JwtToken { get; set; }
     }
