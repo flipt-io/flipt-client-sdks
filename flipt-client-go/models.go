@@ -1,12 +1,5 @@
 package evaluation
 
-type evaluationRequest struct {
-	NamespaceKey string            `json:"namespace_key"`
-	FlagKey      string            `json:"flag_key"`
-	EntityId     string            `json:"entity_id"`
-	Context      map[string]string `json:"context"`
-}
-
 type EvaluationRequest struct {
 	FlagKey  string            `json:"flag_key"`
 	EntityId string            `json:"entity_id"`

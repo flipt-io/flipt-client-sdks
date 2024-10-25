@@ -63,6 +63,7 @@ Currently, we support the following languages/platforms:
 | [JavaScript (Browser)](./flipt-client-browser) | WASM           | N/A   | N/A           |
 | [React Web (Browser)](./flipt-client-react)    | WASM           | N/A   | N/A           |
 | [Flutter/Dart](./flipt-client-dart)            | FFI            | ✅    | ❌            |
+| [C#](./flipt-client-csharp)                    | FFI            | ✅    | ❌            |
 
 Documentation for each client can be found in the README of that client's directory.
 
@@ -71,7 +72,6 @@ Documentation for each client can be found in the README of that client's direct
 Languages we are planning to support:
 
 1. [Rust](https://github.com/flipt-io/flipt-client-sdks/issues/83)
-1. [C#](https://github.com/flipt-io/flipt-client-sdks/issues/310)
 
 ### Help Wanted
 

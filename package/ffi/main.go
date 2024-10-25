@@ -30,6 +30,7 @@ var (
 		"java":      javaBuild,
 		"java-musl": javaMuslBuild,
 		"dart":      dartBuild,
+		"csharp":    csharpBuild,
 	}
 	sema = make(chan struct{}, 5)
 	// defaultInclude is the default include for all builds to copy over the
@@ -550,6 +551,38 @@ func dartBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 	_, err = container.WithSecretVariable("PUB_TOKEN", pubToken).
 		WithExec([]string{"dart", "pub", "token", "add", "https://pub.dev", "--env-var", "PUB_TOKEN"}).
 		WithExec([]string{"dart", "pub", "publish", "--force"}).
+		Sync(ctx)
+
+	return err
+}
+
+func csharpBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts ...buildOptionsFn) error {
+	container := client.Container().From("mcr.microsoft.com/dotnet/sdk:8.0").
+		WithWorkdir("/src").
+		WithDirectory("/src", hostDirectory.Directory("flipt-client-csharp"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{".gitignore", "obj/", "bin/"},
+		}).
+		WithDirectory("/src/src/FliptClient/ext/ffi", hostDirectory.Directory("tmp/glibc"), dagger.ContainerWithDirectoryOpts{
+			Include: defaultInclude,
+		}).
+		WithExec([]string{"dotnet", "build", "-c", "Release"}).
+		WithExec([]string{"dotnet", "pack", "-c", "Release", "-o", "bin/Release"})
+
+	var err error
+
+	if !push {
+		_, err = container.Sync(ctx)
+		return err
+	}
+
+	if os.Getenv("NUGET_API_KEY") == "" {
+		return fmt.Errorf("NUGET_API_KEY is not set")
+	}
+
+	nugetAPIKeySecret := client.SetSecret("nuget-api-key", os.Getenv("NUGET_API_KEY"))
+
+	_, err = container.WithSecretVariable("NUGET_API_KEY", nugetAPIKeySecret).
+		WithExec([]string{"sh", "-c", "dotnet nuget push bin/Release/*.nupkg --api-key $NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate"}).
 		Sync(ctx)
 
 	return err
