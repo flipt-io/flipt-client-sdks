@@ -357,7 +357,7 @@ func csharpTests(ctx context.Context, client *dagger.Client, t *testCase) error 
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec([]string{"dotnet", "restore"}).
 		WithExec([]string{"dotnet", "build"}).
-		WithExec([]string{"dotnet", "test", "-l", "console;verbosity=detailed"}).
+		WithExec([]string{"dotnet", "test"}).
 		Sync(ctx)
 	return err
 }
