@@ -1,4 +1,6 @@
-# Flipt Client C#
+# Flipt Client C\#
+
+[![Nuget](https://img.shields.io/nuget/v/flipt.client)](https://www.nuget.org/packages/Flipt.Client/)
 
 The `flipt-client-csharp` library contains the C# source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client.
 
