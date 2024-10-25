@@ -23,7 +23,7 @@ namespace FliptClient.Models
         public bool Match { get; set; }
 
         [JsonPropertyName("segment_keys")]
-        public List<string> SegmentKeys { get; set; }
+        public string[] SegmentKeys { get; set; }
 
         [JsonPropertyName("reason")]
         public string Reason { get; set; }

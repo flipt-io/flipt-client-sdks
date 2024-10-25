@@ -31,7 +31,7 @@ var (
 	sema = make(chan struct{}, 5)
 )
 
-type integrationTestFn func(context.Context, *dagger.Client, *testCase) error
+type integrationTestFn func(context.Context, *dagger.Container, *testCase) error
 
 func init() {
 	flag.StringVar(&sdks, "sdks", "", "comma separated list of which language(s) to run integration tests for")
@@ -96,6 +96,15 @@ func run() error {
 
 	var g errgroup.Group
 
+	platform := "linux/amd64"
+	if architecture == "arm64" {
+		platform = "linux/arm64"
+	}
+
+	container := client.Container(dagger.ContainerOpts{
+		Platform: dagger.Platform(platform),
+	})
+
 	for lang, fn := range tests {
 		lang, fn := lang, fn
 		g.Go(take(func() error {
@@ -114,7 +123,7 @@ func run() error {
 				testCase.test = getFFITestContainer(ctx, client, dir)
 			}
 
-			return fn(ctx, client, testCase)
+			return fn(ctx, container, testCase)
 		}))
 	}
 
@@ -183,8 +192,8 @@ func getWasmTestContainer(_ context.Context, client *dagger.Client, hostDirector
 }
 
 // pythonTests runs the python integration test suite against a container running Flipt.
-func pythonTests(ctx context.Context, client *dagger.Client, t *testCase) error {
-	_, err := client.Container().From("python:3.11-bookworm").
+func pythonTests(ctx context.Context, root *dagger.Container, t *testCase) error {
+	_, err := root.From("python:3.11-bookworm").
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-python")).
@@ -200,8 +209,8 @@ func pythonTests(ctx context.Context, client *dagger.Client, t *testCase) error 
 }
 
 // goTests runs the golang integration test suite against a container running Flipt.
-func goTests(ctx context.Context, client *dagger.Client, t *testCase) error {
-	_, err := client.Container().From("golang:1.21.3-bookworm").
+func goTests(ctx context.Context, root *dagger.Container, t *testCase) error {
+	_, err := root.From("golang:1.21.3-bookworm").
 		WithExec([]string{"apt-get", "update"}).
 		WithExec([]string{"apt-get", "-y", "install", "build-essential"}).
 		WithWorkdir("/src").
@@ -223,8 +232,8 @@ func goTests(ctx context.Context, client *dagger.Client, t *testCase) error {
 }
 
 // nodeTests runs the node integration test suite against a container running Flipt.
-func nodeTests(ctx context.Context, client *dagger.Client, t *testCase) error {
-	_, err := client.Container().From("node:21.2-bookworm").
+func nodeTests(ctx context.Context, root *dagger.Container, t *testCase) error {
+	_, err := root.From("node:21.2-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "dist/"},
@@ -244,8 +253,8 @@ func nodeTests(ctx context.Context, client *dagger.Client, t *testCase) error {
 }
 
 // rubyTests runs the ruby integration test suite against a container running Flipt.
-func rubyTests(ctx context.Context, client *dagger.Client, t *testCase) error {
-	_, err := client.Container().From("ruby:3.1-bookworm").
+func rubyTests(ctx context.Context, root *dagger.Container, t *testCase) error {
+	_, err := root.From("ruby:3.1-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-ruby")).
 		WithFile(fmt.Sprintf("/src/lib/ext/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
@@ -260,14 +269,14 @@ func rubyTests(ctx context.Context, client *dagger.Client, t *testCase) error {
 }
 
 // javaTests run the java integration tests suite against a container running Flipt.
-func javaTests(ctx context.Context, client *dagger.Client, t *testCase) error {
+func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	path := "x86-64"
 
 	if architecture == "arm64" {
 		path = "aarch64"
 	}
 
-	_, err := client.Container().From("gradle:8.5.0-jdk11").
+	_, err := root.From("gradle:8.5.0-jdk11").
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-java"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./.idea/", ".gradle/", "build/"},
@@ -283,8 +292,8 @@ func javaTests(ctx context.Context, client *dagger.Client, t *testCase) error {
 }
 
 // browserTests runs the browser integration test suite against a container running Flipt.
-func browserTests(ctx context.Context, client *dagger.Client, t *testCase) error {
-	_, err := client.Container().From("node:21.2-bookworm").
+func browserTests(ctx context.Context, root *dagger.Container, t *testCase) error {
+	_, err := root.From("node:21.2-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-browser"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "dist/"},
@@ -305,8 +314,8 @@ func browserTests(ctx context.Context, client *dagger.Client, t *testCase) error
 
 // reactTests runs the react unit test suite against a mocked Flipt client.
 // this is because the react client simply uses the browser client under the hood
-func reactTests(ctx context.Context, client *dagger.Client, t *testCase) error {
-	_, err := client.Container().From("node:21.2-bookworm").
+func reactTests(ctx context.Context, root *dagger.Container, t *testCase) error {
+	_, err := root.From("node:21.2-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-react"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "dist/"},
@@ -320,8 +329,8 @@ func reactTests(ctx context.Context, client *dagger.Client, t *testCase) error {
 }
 
 // dartTests runs the dart integration test suite against a container running Flipt.
-func dartTests(ctx context.Context, client *dagger.Client, t *testCase) error {
-	_, err := client.Container().From("dart:stable").
+func dartTests(ctx context.Context, root *dagger.Container, t *testCase) error {
+	_, err := root.From("dart:stable").
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-dart"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", ".dart_tool/"},
@@ -338,15 +347,8 @@ func dartTests(ctx context.Context, client *dagger.Client, t *testCase) error {
 }
 
 // csharpTests runs the csharp integration test suite against a container running Flipt.
-func csharpTests(ctx context.Context, client *dagger.Client, t *testCase) error {
-	platform := "linux/amd64"
-	if architecture == "arm64" {
-		platform = "linux/arm64"
-	}
-
-	_, err := client.Container(dagger.ContainerOpts{
-		Platform: dagger.Platform(platform),
-	}).From("mcr.microsoft.com/dotnet/sdk:8.0").
+func csharpTests(ctx context.Context, root *dagger.Container, t *testCase) error {
+	_, err := root.From("mcr.microsoft.com/dotnet/sdk:8.0").
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-csharp"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", "obj/", "bin/"},
@@ -359,5 +361,6 @@ func csharpTests(ctx context.Context, client *dagger.Client, t *testCase) error 
 		WithExec([]string{"dotnet", "build"}).
 		WithExec([]string{"dotnet", "test"}).
 		Sync(ctx)
+
 	return err
 }
