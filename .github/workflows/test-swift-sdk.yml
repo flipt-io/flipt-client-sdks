@@ -1,0 +1,59 @@
+name: Test Swift SDK
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  test:
+    name: Integration Tests
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Install Flipt
+        uses: flipt-io/setup-action@v0.2.0
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.75.0
+          override: true
+
+      - name: Install Swift
+        uses: swift-actions/setup-swift@v1
+        with:
+          swift-version: "5.9"
+
+      - name: run flipt
+        env:
+          FLIPT_STORAGE_TYPE: "local"
+          FLIPT_STORAGE_LOCAL_PATH: "./test/fixtures/testdata"
+        run: flipt&
+
+      - name: Install Rust Targets
+        run: |
+          rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
+
+      - name: Build Engine
+        run: |
+          cd ./flipt-engine-ffi
+          ./build.sh
+          cd ..
+
+      - name: Run Integration Tests
+        env:
+          FLIPT_URL: "http://0.0.0.0:8080"
+          FLIPT_AUTH_TOKEN: "secret"
+        run: |
+          cd ./flipt-client-swift
+          swift test
