@@ -655,9 +655,6 @@ func swiftBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagge
 		return fmt.Errorf("tag %q must start with %q", tag, tagPrefix)
 	}
 
-	// because of how Go modules work, we need to create a new repo that contains
-	// only the go client code. This is because the go client code is in a subdirectory
-	// we also need to copy the ext directory into the tag of this new repo so that it can be used
 	targetRepo := os.Getenv("TARGET_REPO")
 	if targetRepo == "" {
 		targetRepo = "https://github.com/flipt-io/flipt-client-swift.git"

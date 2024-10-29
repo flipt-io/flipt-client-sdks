@@ -14,7 +14,7 @@ public class FliptClient {
          url: String = "",
          authentication: Authentication? = nil,
          ref: String = "",
-         updateInterval: Int = 0,
+         updateInterval: Int = 120,
          fetchMode: FetchMode = .polling) throws {
         self.namespace = namespace
         self.url = url
