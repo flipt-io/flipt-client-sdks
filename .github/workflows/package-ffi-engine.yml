@@ -55,10 +55,15 @@ jobs:
             target: x86_64-pc-windows-msvc
             use_cross: false
 
-          # - name: iOS-arm64
-          #   os: macos-latest
-          #   target: aarch64-apple-ios
-          #   use_cross: false
+          - name: iOS-arm64
+            os: macos-latest
+            target: aarch64-apple-ios
+            use_cross: false
+
+          - name: iOS-arm64-sim
+            os: macos-latest
+            target: aarch64-apple-ios-sim
+            use_cross: false
 
           # - name: Android-arm64
           #   os: ubuntu-latest
@@ -125,7 +130,6 @@ jobs:
           7z a -tzip flipt-engine-ffi-${{ matrix.platform.name }}.zip `
             target\${{ matrix.platform.target }}\release\fliptengine.* `
             || true
-
       - name: Upload To Pull Request (Pull Request)
         uses: actions/upload-artifact@v4
         if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'package/')

@@ -31,6 +31,7 @@ var (
 		"java-musl": javaMuslBuild,
 		"dart":      dartBuild,
 		"csharp":    csharpBuild,
+		"swift":     swiftBuild,
 	}
 	sema = make(chan struct{}, 5)
 	// defaultInclude is the default include for all builds to copy over the
@@ -150,6 +151,8 @@ var (
 		{id: "Linux-arm64-musl", target: "aarch64-unknown-linux-musl", ext: "tar.gz", libc: musl},
 		{id: "Linux-x86_64-musl", target: "x86_64-unknown-linux-musl", ext: "tar.gz", libc: musl},
 		{id: "Darwin-arm64", target: "aarch64-apple-darwin", ext: "tar.gz", libc: both},
+		{id: "iOS-arm64", target: "aarch64-apple-ios", ext: "tar.gz", libc: both},
+		{id: "iOS-arm64-sim", target: "aarch64-apple-ios-sim", ext: "tar.gz", libc: both},
 		{id: "Darwin-x86_64", target: "x86_64-apple-darwin", ext: "tar.gz", libc: both},
 		{id: "Windows-x86_64", target: "x86_64-pc-windows-msvc", ext: "zip", libc: both},
 	}
@@ -172,10 +175,10 @@ func getLatestEngineTag() (string, error) {
 
 	// use github api to get the latest release of the ffi engine
 	cmd := exec.Command("sh", "-c", `
-		curl -s "https://api.github.com/repos/flipt-io/flipt-client-sdks/releases" | 
-		jq -r '.[] | select(.tag_name | startswith("flipt-engine-ffi-")) | .tag_name' | 
-		sort -Vr | 
-		head -n 1 | 
+		curl -s "https://api.github.com/repos/flipt-io/flipt-client-sdks/releases" |
+		jq -r '.[] | select(.tag_name | startswith("flipt-engine-ffi-")) | .tag_name' |
+		sort -Vr |
+		head -n 1 |
 		sed "s/^flipt-engine-ffi-//"
 	`)
 
@@ -583,6 +586,92 @@ func csharpBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagg
 
 	_, err = container.WithSecretVariable("NUGET_API_KEY", nugetAPIKeySecret).
 		WithExec([]string{"sh", "-c", "dotnet nuget push bin/Release/*.nupkg --api-key $NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate"}).
+		Sync(ctx)
+
+	return err
+}
+
+func swiftBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts ...buildOptionsFn) error {
+	buildOpts := buildOptions{
+		libc: glibc,
+	}
+
+	for _, opt := range opts {
+		opt(&buildOpts)
+	}
+
+	pat := os.Getenv("GITHUB_TOKEN")
+	if pat == "" {
+		return errors.New("GITHUB_TOKEN environment variable must be set")
+	}
+
+	var (
+		encodedPAT = base64.URLEncoding.EncodeToString([]byte("pat:" + pat))
+		ghToken    = client.SetSecret("gh-token", encodedPAT)
+	)
+
+	var gitUserName = os.Getenv("GIT_USER_NAME")
+	if gitUserName == "" {
+		gitUserName = "flipt-bot"
+	}
+
+	var gitUserEmail = os.Getenv("GIT_USER_EMAIL")
+	if gitUserEmail == "" {
+		gitUserEmail = "dev@flipt.io"
+	}
+
+	git := client.Container().From("golang:1.21.3-bookworm"). // probably don't need golang here but i assume it has good deps
+									WithSecretVariable("GITHUB_TOKEN", ghToken).
+									WithExec([]string{"git", "config", "--global", "user.email", gitUserEmail}).
+									WithExec([]string{"git", "config", "--global", "user.name", gitUserName}).
+									WithExec([]string{"sh", "-c", `git config --global http.https://github.com/.extraheader "AUTHORIZATION: Basic ${GITHUB_TOKEN}"`})
+
+	repository := git.
+		WithExec([]string{"git", "clone", "https://github.com/flipt-io/flipt-client-sdks.git", "/src"}).
+		WithWorkdir("/src").
+		WithFile("Sources/FliptEngineFFI.xcframework/ios-arm64/Headers/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
+		WithFile("Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/Headers/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
+		WithFile("Sources/FliptEngineFFI.xcframework/ios-arm64/libfliptengine.a", hostDirectory.File("target/aarch64-apple-ios/release/libfliptengine.a")).
+		WithFile("Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/libfliptengine.a", hostDirectory.File("target/aarch64-apple-ios-sim/release/libfliptengine.a"))
+
+	filtered := repository.
+		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").
+		WithExec([]string{"git", "filter-branch", "-f", "--prune-empty",
+			"--subdirectory-filter", "flipt-client-swift",
+			"--tree-filter", "cp -r /tmp/ext .",
+			"--", tag})
+
+	_, err := filtered.Sync(ctx)
+	if !push {
+		return err
+	}
+
+	if tag == "" {
+		return fmt.Errorf("tag is not set")
+	}
+
+	const tagPrefix = "refs/tags/flipt-client-ios-"
+	if !strings.HasPrefix(tag, tagPrefix) {
+		return fmt.Errorf("tag %q must start with %q", tag, tagPrefix)
+	}
+
+	// because of how Go modules work, we need to create a new repo that contains
+	// only the go client code. This is because the go client code is in a subdirectory
+	// we also need to copy the ext directory into the tag of this new repo so that it can be used
+	targetRepo := os.Getenv("TARGET_REPO")
+	if targetRepo == "" {
+		targetRepo = "https://github.com/flipt-io/flipt-client-swift.git"
+	}
+
+	targetTag := strings.TrimPrefix(tag, tagPrefix)
+
+	// push to target repo/tag
+	_, err = filtered.WithExec([]string{
+		"git",
+		"push",
+		"-f",
+		targetRepo,
+		fmt.Sprintf("%s:%s", tag, targetTag)}).
 		Sync(ctx)
 
 	return err
