@@ -650,7 +650,7 @@ func swiftBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagge
 		return fmt.Errorf("tag is not set")
 	}
 
-	const tagPrefix = "refs/tags/flipt-client-ios-"
+	const tagPrefix = "refs/tags/flipt-client-swift-"
 	if !strings.HasPrefix(tag, tagPrefix) {
 		return fmt.Errorf("tag %q must start with %q", tag, tagPrefix)
 	}
