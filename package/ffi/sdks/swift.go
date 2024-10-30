@@ -61,7 +61,7 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").
 		WithExec([]string{"git", "filter-branch", "-f", "--prune-empty",
 			"--subdirectory-filter", "flipt-client-swift",
-			"--tree-filter", "cp -r /tmp/ext/glibc/ios_arm64/libfliptengine.a Sources/FliptEngineFFI.xcframework/ios-arm64/; cp -r /tmp/ext/glibc/ios_arm64_sim/libfliptengine.a Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/",
+			"--tree-filter", "cp -r /tmp/ext/ios_arm64/libfliptengine.a Sources/FliptEngineFFI.xcframework/ios-arm64/; cp -r /tmp/ext/ios_arm64_sim/libfliptengine.a Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/",
 			"--", opts.Tag})
 
 	_, err := filtered.Sync(ctx)
