@@ -22,15 +22,15 @@ var (
 	tag       string
 	engineTag string
 	sdksToFn  = map[string]sdks.SDK{
-		"python": &sdks.PythonSDK{},
-		"go":     &sdks.GoSDK{},
-		//	"go-musl":   &sdks.GoMuslSDK{},
-		"ruby": &sdks.RubySDK{},
-		"java": &sdks.JavaSDK{},
-		//	"java-musl": &sdks.JavaMuslSDK{},
-		"dart":   &sdks.DartSDK{},
-		"csharp": &sdks.CSharpSDK{},
-		"swift":  &sdks.SwiftSDK{},
+		"python":    &sdks.PythonSDK{},
+		"go":        &sdks.GoSDK{},
+		"go-musl":   &sdks.GoSDK{Libc: platform.Musl},
+		"ruby":      &sdks.RubySDK{},
+		"java":      &sdks.JavaSDK{},
+		"java-musl": &sdks.JavaSDK{Libc: platform.Musl},
+		"dart":      &sdks.DartSDK{},
+		"csharp":    &sdks.CSharpSDK{},
+		"swift":     &sdks.SwiftSDK{},
 	}
 	sema = make(chan struct{}, 5)
 )

@@ -17,8 +17,22 @@ type GoSDK struct {
 	Libc platform.Libc
 }
 
-func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error {
+func (s *GoSDK) SupportedPlatforms() []platform.Platform {
+	switch s.Libc {
+	case platform.Musl:
+		return []platform.Platform{
+			platform.LinuxArm64Musl,
+			platform.LinuxX86_64Musl,
+			platform.DarwinArm64,
+			platform.DarwinX86_64,
+			platform.WindowsX86_64,
+		}
+	default:
+		return s.BaseSDK.SupportedPlatforms()
+	}
+}
 
+func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error {
 	pat := os.Getenv("GITHUB_TOKEN")
 	if pat == "" {
 		return errors.New("GITHUB_TOKEN environment variable must be set")
@@ -45,16 +59,11 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 		WithExec([]string{"git", "config", "--global", "user.name", gitUserName}).
 		WithExec([]string{"sh", "-c", `git config --global http.https://github.com/.extraheader "AUTHORIZATION: Basic ${GITHUB_TOKEN}"`})
 
-	libc := platform.Glibc
-	if s.Libc != "" {
-		libc = s.Libc
-	}
-
 	repository := git.
 		WithExec([]string{"git", "clone", "https://github.com/flipt-io/flipt-client-sdks.git", "/src"}).
 		WithWorkdir("/src").
 		WithFile("/tmp/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
-		WithDirectory("/tmp/ext", hostDirectory.Directory(fmt.Sprintf("tmp/%s", libc)), dagger.ContainerWithDirectoryOpts{Include: defaultInclude})
+		WithDirectory("/tmp/ext", hostDirectory.Directory(fmt.Sprintf("tmp/%s", s.Libc)), dagger.ContainerWithDirectoryOpts{Include: defaultInclude})
 
 	filtered := repository.
 		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").

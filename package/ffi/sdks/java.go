@@ -15,6 +15,21 @@ type JavaSDK struct {
 	Libc platform.Libc
 }
 
+func (s *JavaSDK) SupportedPlatforms() []platform.Platform {
+	switch s.Libc {
+	case platform.Musl:
+		return []platform.Platform{
+			platform.LinuxArm64Musl,
+			platform.LinuxX86_64Musl,
+			platform.DarwinArm64,
+			platform.DarwinX86_64,
+			platform.WindowsX86_64,
+		}
+	default:
+		return s.BaseSDK.SupportedPlatforms()
+	}
+}
+
 func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error {
 	// the directory structure of the tmp directory is as follows:
 	// tmp/linux_x86_64/

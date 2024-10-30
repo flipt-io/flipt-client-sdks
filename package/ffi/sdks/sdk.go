@@ -21,9 +21,7 @@ type SDK interface {
 	Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error
 }
 
-type BaseSDK struct {
-	Name string
-}
+type BaseSDK struct{}
 
 func (s *BaseSDK) SupportedPlatforms() []platform.Platform {
 	return []platform.Platform{
