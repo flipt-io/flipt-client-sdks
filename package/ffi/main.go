@@ -631,8 +631,8 @@ func swiftBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagge
 		WithWorkdir("/src").
 		WithFile("Sources/FliptEngineFFI.xcframework/ios-arm64/Headers/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithFile("Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/Headers/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
-		WithFile("Sources/FliptEngineFFI.xcframework/ios-arm64/libfliptengine.a", hostDirectory.File("target/aarch64-apple-ios/release/libfliptengine.a")).
-		WithFile("Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/libfliptengine.a", hostDirectory.File("target/aarch64-apple-ios-sim/release/libfliptengine.a"))
+		WithFile("Sources/FliptEngineFFI.xcframework/ios-arm64/libfliptengine.a", hostDirectory.File("tmp/aarch64-apple-ios/libfliptengine.a")).
+		WithFile("Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/libfliptengine.a", hostDirectory.File("tmp/aarch64-apple-ios-sim/libfliptengine.a"))
 
 	filtered := repository.
 		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").
