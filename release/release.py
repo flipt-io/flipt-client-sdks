@@ -2,7 +2,7 @@ import os
 from semver import VersionInfo
 from prompt_toolkit.shortcuts import checkboxlist_dialog, radiolist_dialog
 from colorama import init, Fore, Style
-from sdks import GoSDK, JavaSDK, JavaScriptSDK, RubySDK, PythonSDK, DartSDK
+from sdks import GoSDK, JavaSDK, JavaScriptSDK, RubySDK, PythonSDK, DartSDK, SwiftSDK, CSharpSDK
 from sdks.base import SDK, MuslSupportSDK
 
 # Initialize colorama
@@ -19,6 +19,8 @@ def get_sdk(name: str, path: str) -> SDK:
         "flipt-client-dart": DartSDK,
         "flipt-client-python": PythonSDK,
         "flipt-client-ruby": RubySDK,
+        "flipt-client-swift": SwiftSDK,
+        "flipt-client-csharp": CSharpSDK,
     }
     return sdk_classes[name](name, path)
 
@@ -43,6 +45,8 @@ def update_sdk_versions(bump_type="patch", sdks_to_update=None):
         "flipt-client-dart",
         "flipt-client-python",
         "flipt-client-ruby",
+        "flipt-client-swift",
+        "flipt-client-csharp",
     ]
 
     sdk_dirs = sdks_to_update if sdks_to_update else all_sdk_dirs
@@ -97,6 +101,8 @@ def get_sdk_selection(all_sdk_dirs):
         "flipt-client-dart": "Dart",
         "flipt-client-python": "Python",
         "flipt-client-ruby": "Ruby",
+        "flipt-client-swift": "Swift",
+        "flipt-client-csharp": "C#",
     }
 
     selected_sdks = checkboxlist_dialog(
@@ -149,6 +155,8 @@ def main():
         "flipt-client-dart",
         "flipt-client-python",
         "flipt-client-ruby",
+        "flipt-client-swift",
+        "flipt-client-csharp",
     ]
 
     selected_sdks = get_sdk_selection(all_sdk_dirs)
