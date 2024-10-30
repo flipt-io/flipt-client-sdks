@@ -53,15 +53,13 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 	repository := git.
 		WithExec([]string{"git", "clone", "https://github.com/flipt-io/flipt-client-sdks.git", "/src"}).
 		WithWorkdir("/src").
-		WithFile("Sources/FliptEngineFFI.xcframework/ios-arm64/Headers/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
-		WithFile("Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/Headers/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithDirectory("/tmp/ext", hostDirectory.Directory("tmp/glibc"))
 
 	filtered := repository.
 		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").
 		WithExec([]string{"git", "filter-branch", "-f", "--prune-empty",
 			"--subdirectory-filter", "flipt-client-swift",
-			"--tree-filter", "cp -r /tmp/ext/glibc/ios_arm64/libfliptengine.a Sources/FliptEngineFFI.xcframework/ios-arm64/; cp -r /tmp/ext/glibc/ios_arm64_sim/libfliptengine.a Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/",
+			"--tree-filter", "cp /tmp/ext/ios_arm64/libfliptengine.a Sources/FliptEngineFFI.xcframework/ios-arm64/; cp /tmp/ext/ios_arm64_sim/libfliptengine.a Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/; cp flipt-engine-ffi/include/flipt_engine.h Sources/FliptEngineFFI.xcframework/ios-arm64/; cp flipt-engine-ffi/include/flipt_engine.h Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/",
 			"--", opts.Tag})
 
 	_, err := filtered.Sync(ctx)
