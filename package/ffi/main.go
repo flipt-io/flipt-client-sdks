@@ -188,7 +188,7 @@ func downloadFFI(ctx context.Context, client *dagger.Client, sdk sdks.SDK) error
 			cmd = []string{"sh", "-c", fmt.Sprintf("cp -r /tmp/%s/target/%s/release/* /out/glibc/%s", out, pkg.Target, out)}
 		case platform.Musl:
 			cmd = []string{"sh", "-c", fmt.Sprintf("cp -r /tmp/%s/target/%s/release/* /out/musl/%s", out, pkg.Target, out)}
-		default: // glibc
+		default: // n/a doesn't matter
 			cmd = []string{"sh", "-c", fmt.Sprintf("cp -r /tmp/%s/target/%s/release/* /out/glibc/%s && cp -r /tmp/%s/target/%s/release/* /out/musl/%s", out, pkg.Target, out, out, pkg.Target, out)}
 		}
 
