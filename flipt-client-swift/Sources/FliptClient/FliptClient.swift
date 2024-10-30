@@ -182,11 +182,11 @@ public enum Authentication: Encodable {
         case jwt_token
     }
 
-    enum AuthenticationType: String, Codable {
+    public enum AuthenticationType: String, Codable {
         case clientToken, jwtToken
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
         case .clientToken(let token):
