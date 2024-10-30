@@ -25,7 +25,7 @@ func (s *SwiftSDK) SupportedPlatforms() []platform.Platform {
 
 func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error {
 	pat := os.Getenv("GITHUB_TOKEN")
-	if pat == "" {
+	if pat == "" && opts.Push {
 		return errors.New("GITHUB_TOKEN environment variable must be set")
 	}
 
@@ -55,8 +55,8 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 		WithWorkdir("/src").
 		WithFile("Sources/FliptEngineFFI.xcframework/ios-arm64/Headers/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithFile("Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/Headers/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
-		WithFile("Sources/FliptEngineFFI.xcframework/ios-arm64/libfliptengine.a", hostDirectory.File("tmp/glibc/aarch64-apple-ios/libfliptengine.a")).
-		WithFile("Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/libfliptengine.a", hostDirectory.File("tmp/glibc/aarch64-apple-ios-sim/libfliptengine.a"))
+		WithFile("Sources/FliptEngineFFI.xcframework/ios-arm64/libfliptengine.a", hostDirectory.File("tmp/glibc/ios_arm64/libfliptengine.a")).
+		WithFile("Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/libfliptengine.a", hostDirectory.File("tmp/glibc/ios_arm64_sim/libfliptengine.a"))
 
 	filtered := repository.
 		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").
