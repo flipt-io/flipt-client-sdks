@@ -1,6 +1,6 @@
 # Flipt Client Swift
 
-[![GitHub Release](https://img.shields.io/github/v/release/flipt-io/flipt-client-sdks?filter=flipt-client-swift-*)](https://github.com/flipt-io/flipt-client-sdks/releases)
+[![Client tag](https://img.shields.io/github/v/tag/flipt-io/flipt-client-swift?filter=v*&label=flipt-client-swift)](https://github.com/flipt-io/flipt-client-swift)
 
 The `flipt-client-swift` library contains the Swift source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client.
 
@@ -12,7 +12,7 @@ Add the following to your `Package.swift` file:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/flipt-io/flipt-client-swift.git", from: "0.1.0")
+    .package(url: "https://github.com/flipt-io/flipt-client-swift.git", from: "0.0.1")
 ]
 ```
 
