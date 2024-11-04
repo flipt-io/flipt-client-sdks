@@ -5,7 +5,7 @@
 Let us know how we can help!
 
 - Use a **clear and descriptive title** for the issue to identify the problem.
-- Describe the **exact steps** which reproduce the problem in as many details as possible.
+- Describe the **exact steps** to reproduce the problem in as many details as possible.
 - Include the language client you are using and the version.
 - Include any **stack traces** with your error
 - List versions you are using: Flipt, OS, etc.
@@ -64,11 +64,11 @@ The client shape should be as follows:
 
 The client should interface with the engine to evaluate flags. The engine is responsible for connecting to the Flipt server, fetching flag state, and evaluating flags.
 
-You don't have to build the engine from scratch in order to develop a new client. You can download the latest engine version from the [releases page](https://github.com/flipt-io/flipt-client-sdks/latest) for your platform and use it while developing the client.
+You don't have to build the engine from scratch in order to develop a new client. You can download the latest engine version from the [releases page](https://github.com/flipt-io/flipt-client-sdks/releases/latest) for your platform and use it while developing the client.
 
 ### 4. Setup Tests (optional)
 
-If you like to add tests using Dagger, you can follow the steps below. If you are not familiar with Dagger, you can skip this step and simply provide instructions for running the tests locally.
+If you'd like to add tests using Dagger, you can follow the steps below. If you are not familiar with Dagger, you can skip this step and simply provide instructions for running the tests locally.
 
 Feel free to ask the team for help with this step.
 
@@ -86,7 +86,7 @@ Add a new section to the [dependabot.yml](./.github/dependabot.yml) file for the
 
 ### 7. Create a PR
 
-Create a PR with the changes and we will review it as soon as possible. Please add any language specific idioms when it comes to packaging the client. This will allow us to automate and publish the client to the appropriate package manager.
+Create a PR with the changes and we will review it as soon as possible. Please add any language-specific idioms when it comes to packaging the client. This will allow us to automate and publish the client to the appropriate package manager.
 
 ### Conventional Commits
 
