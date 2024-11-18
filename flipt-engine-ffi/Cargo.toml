@@ -20,7 +20,7 @@ native-tls = { version = "0.2", features = ["vendored"] }
 futures = "0.3"
 thiserror = "2.0.3"
 reqwest-retry = "0.6.1"
-reqwest-middleware = "0.3.3"
+reqwest-middleware = "0.4.0"
 
 [dependencies.flipt-evaluation]
 path = "../flipt-evaluation"
