@@ -2,7 +2,6 @@
 
 ## [0.1.2](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-wasm-v0.1.1...flipt-engine-wasm-v0.1.2) (2024-10-03)
 
-
 ### Features
 
 * build java musl lib ([#420](https://github.com/flipt-io/flipt-client-sdks/issues/420)) ([5a9b3fc](https://github.com/flipt-io/flipt-client-sdks/commit/5a9b3fcf0fc00aba237328c1f2ff22198a97268e))
