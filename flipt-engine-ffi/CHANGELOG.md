@@ -1,5 +1,6 @@
 # Changelog
 
+
 ## [0.2.0](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.20...flipt-engine-ffi-v0.2.0) (2024-10-20)
 
 
