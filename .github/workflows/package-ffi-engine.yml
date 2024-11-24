@@ -65,10 +65,15 @@ jobs:
             target: aarch64-apple-ios-sim
             use_cross: false
 
-          # - name: Android-arm64
-          #   os: ubuntu-latest
-          #   target: aarch64-linux-android
-          #   use_cross: true
+          - name: Android-arm64
+            os: ubuntu-latest
+            target: aarch64-linux-android
+            use_cross: true
+
+          - name: Android-x86_64
+            os: ubuntu-latest
+            target: x86_64-linux-android
+            use_cross: true
 
     runs-on: ${{ matrix.platform.os }}
 
