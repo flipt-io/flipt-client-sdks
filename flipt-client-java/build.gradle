@@ -23,8 +23,8 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.18.0'
-    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.18.0'
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.18.1'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.18.1'
     implementation 'net.java.dev.jna:jna-platform:5.15.0'
     testImplementation platform('org.junit:junit-bom:5.11.3')
     testImplementation 'org.junit.jupiter:junit-jupiter'
