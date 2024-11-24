@@ -73,7 +73,7 @@ jobs:
           - name: Android-x86_64
             os: ubuntu-latest
             target: x86_64-linux-android
-            use_cross: false
+            use_cross: true
 
     runs-on: ${{ matrix.platform.os }}
 
