@@ -157,7 +157,7 @@ type testCase struct {
 // getFFITestContainer builds the dynamic library for the Rust core, and the Flipt container for the client libraries to run
 // their tests against.
 func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
-	return client.Container().From("rust:1.74.0-bookworm").
+	return client.Container().From("rust:1.83.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
@@ -171,7 +171,7 @@ func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory
 // getWasmTestContainer builds the wasm module for the Rust core, and the Flipt container for the client libraries to run
 // their tests against.
 func getWasmTestContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory, target string) *dagger.Container {
-	container := client.Container().From("rust:1.74.0-bookworm").
+	container := client.Container().From("rust:1.83.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
