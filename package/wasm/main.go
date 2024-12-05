@@ -69,7 +69,7 @@ func run() error {
 }
 
 func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
-	rust := client.Container().From("rust:1.74.0-bookworm").
+	rust := client.Container().From("rust:1.83.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
@@ -126,7 +126,7 @@ func nodeBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger
 }
 
 func browserBuild(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory) error {
-	rust := client.Container().From("rust:1.74.0-bookworm").
+	rust := client.Container().From("rust:1.83.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
