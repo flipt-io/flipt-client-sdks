@@ -63,7 +63,6 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 		WithExec([]string{"git", "clone", "https://github.com/flipt-io/flipt-client-sdks.git", "/src"}).
 		WithWorkdir("/src").
 		WithFile("/tmp/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
-		WithFile("/tmp/ext/ext.go", hostDirectory.File("flipt-client-go/ext/ext.go")).
 		WithDirectory("/tmp/ext", hostDirectory.Directory(fmt.Sprintf("tmp/%s", s.Libc)), dagger.ContainerWithDirectoryOpts{Include: defaultInclude})
 
 	filtered := repository.

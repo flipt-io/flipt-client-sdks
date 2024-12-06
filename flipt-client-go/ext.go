@@ -1,8 +1,8 @@
-package ext
+package evaluation
 
 import "embed"
 
-//go:embed *.h
+//go:embed ext/*
 var _ embed.FS
 
 // https://github.com/flipt-io/flipt-client-sdks/issues/558
