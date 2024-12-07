@@ -1,5 +1,32 @@
 # Changelog
 
+
+## [0.2.2](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.2.2...flipt-engine-ffi-v0.2.2) (2024-11-24)
+
+
+### Features
+
+* add dart client ([#351](https://github.com/flipt-io/flipt-client-sdks/issues/351)) ([2cd64f8](https://github.com/flipt-io/flipt-client-sdks/commit/2cd64f80e782eed30069694408ff524cbe66ae5e))
+* add support for default variant eval ([#309](https://github.com/flipt-io/flipt-client-sdks/issues/309)) ([ad88594](https://github.com/flipt-io/flipt-client-sdks/commit/ad88594b3f56acf62a72ca6c988409eb07c89a65))
+* build java musl lib ([#420](https://github.com/flipt-io/flipt-client-sdks/issues/420)) ([5a9b3fc](https://github.com/flipt-io/flipt-client-sdks/commit/5a9b3fcf0fc00aba237328c1f2ff22198a97268e))
+* support etags in clients ([#299](https://github.com/flipt-io/flipt-client-sdks/issues/299)) ([e2acce3](https://github.com/flipt-io/flipt-client-sdks/commit/e2acce311f7531cfba831112222e7c63cb364759))
+
+
+### Bug Fixes
+
+* **engine-ffi:** return error to caller on connection or parse json failures ([#254](https://github.com/flipt-io/flipt-client-sdks/issues/254)) ([aaf3377](https://github.com/flipt-io/flipt-client-sdks/commit/aaf33775ee0d61e94dab5043f7337f330a208cbf))
+* **ffi:** handle errors from http response ([#347](https://github.com/flipt-io/flipt-client-sdks/issues/347)) ([0c86da9](https://github.com/flipt-io/flipt-client-sdks/commit/0c86da9e4cf13e827266c6e7019db76b41019cdf)), closes [#346](https://github.com/flipt-io/flipt-client-sdks/issues/346)
+
+
+### Miscellaneous Chores
+
+* release 0.1.12 ([b6ee0e1](https://github.com/flipt-io/flipt-client-sdks/commit/b6ee0e1147dbdead09f8d64903ef5ab7d9fb2b94))
+* release 0.1.16 ([ffa7c53](https://github.com/flipt-io/flipt-client-sdks/commit/ffa7c535b7023eb218a78e949548b3fd6df4dd9d))
+* release 0.1.20 ([012626d](https://github.com/flipt-io/flipt-client-sdks/commit/012626dd75499d5c523967a4d7a539678e7b5f99))
+* release 0.2.0 ([fa9fcd3](https://github.com/flipt-io/flipt-client-sdks/commit/fa9fcd3a6613fe91576d1f5081073bf621532116))
+* release 0.2.2 ([2fae750](https://github.com/flipt-io/flipt-client-sdks/commit/2fae750535c03b746e8af2e693ef262a6ca7ca77))
+* release 0.2.2 ([92bbd5f](https://github.com/flipt-io/flipt-client-sdks/commit/92bbd5f71b433c4b45044337176090fbea31d0ce))
+
 ## [0.2.0](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.1.20...flipt-engine-ffi-v0.2.0) (2024-10-20)
 
 

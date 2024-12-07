@@ -30,7 +30,7 @@ jobs:
           override: true
 
       - name: Install Swift
-        uses: swift-actions/setup-swift@v1
+        uses: swift-actions/setup-swift@v2
         with:
           swift-version: "5.9"
 
