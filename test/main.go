@@ -27,6 +27,7 @@ var (
 		"dart":    dartTests,
 		"react":   reactTests,
 		"csharp":  csharpTests,
+		"kotlin":  kotlinAndroidTests,
 	}
 	sema = make(chan struct{}, 5)
 )
@@ -360,6 +361,30 @@ func csharpTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithExec([]string{"dotnet", "restore"}).
 		WithExec([]string{"dotnet", "build"}).
 		WithExec([]string{"dotnet", "test"}).
+		Sync(ctx)
+
+	return err
+}
+
+
+// kotlinAndroidTests run the java integration tests suite against a container running Flipt.
+func kotlinAndroidTests(ctx context.Context, root *dagger.Container, t *testCase) error {
+	path := "x86_64"
+
+	if architecture == "arm64" {
+		path = "arm64-v8a"
+	}
+
+	_, err := root.From("gradle:8.5.0-jdk11").
+		WithWorkdir("/src").
+		WithDirectory("/src", t.dir.Directory("flipt-client-kotlin-android"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"./.idea/", ".gradle/", "build/"},
+		}).
+		WithFile(fmt.Sprintf("/src/main/cpp/libs/%s/libfliptengine.so", path), t.test.File(libFile)).
+		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
+		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
+		WithExec([]string{"./gradlew", "connectedAndroidTest"}).
 		Sync(ctx)
 
 	return err
