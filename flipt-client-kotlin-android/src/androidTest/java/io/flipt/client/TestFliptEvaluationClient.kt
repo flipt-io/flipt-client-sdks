@@ -13,17 +13,15 @@ class TestFliptEvaluationClient {
     @Before
     @Throws(Exception::class)
     fun initAll() {
-//        val fliptURL = BuildConfig.FLIPT_URL
-//        val clientToken = BuildConfig.FLIPT_AUTH_TOKEN
-        val fliptURL = "http://10.0.2.2:8080"
-        val clientToken = "secret"
+        val fliptURL = BuildConfig.FLIPT_URL
+        val clientToken = BuildConfig.FLIPT_AUTH_TOKEN
 
         assert(!fliptURL.isEmpty())
         assert(!clientToken.isEmpty())
         fliptClient = FliptEvaluationClient.builder()
             .url(url = fliptURL)
             .namespace("default")
-//            .authentication(ClientTokenAuthentication(clientToken))
+            .authentication(ClientTokenAuthentication(clientToken))
             .build()
     }
 

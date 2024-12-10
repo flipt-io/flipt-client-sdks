@@ -54,4 +54,3 @@ dependencies {
     androidTestImplementation libs.androidx.espresso.core
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.7.20"
 }
-
