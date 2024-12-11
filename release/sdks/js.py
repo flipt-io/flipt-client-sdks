@@ -18,5 +18,5 @@ class JavaScriptSDK(SDK):
         data["version"] = new_version
         with open(package_json, "w") as f:
             json.dump(data, f, indent=2)
-        subprocess.run(["npm", "install"], check=True)
+        subprocess.run(["cd", self.path, "&&", "pwd", "&&", "npm", "i"], check=True)
         print(f"Updated {self.name} version to {new_version} in package.json")
