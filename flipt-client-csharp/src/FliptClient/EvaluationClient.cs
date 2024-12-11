@@ -18,6 +18,19 @@ namespace FliptClient
 
         public VariantEvaluationResponse EvaluateVariant(string flagKey, string entityId, Dictionary<string, string> context)
         {
+            if (string.IsNullOrWhiteSpace(flagKey))
+            {
+                throw new ArgumentException("flagKey cannot be empty or null");
+            }
+            if (string.IsNullOrWhiteSpace(entityId))
+            {
+                throw new ArgumentException("entityId cannot be empty or null");
+            }
+            if (context == null)
+            {
+                context = new Dictionary<string, string>();
+            }
+
             var request = new EvaluationRequest
             {
                 FlagKey = flagKey,
@@ -41,6 +54,19 @@ namespace FliptClient
 
         public BooleanEvaluationResponse EvaluateBoolean(string flagKey, string entityId, Dictionary<string, string> context)
         {
+            if (string.IsNullOrWhiteSpace(flagKey))
+            {
+                throw new ArgumentException("flagKey cannot be empty or null");
+            }
+            if (string.IsNullOrWhiteSpace(entityId))
+            {
+                throw new ArgumentException("entityId cannot be empty or null");
+            }
+            if (context == null)
+            {
+                context = new Dictionary<string, string>();
+            }
+
             var request = new EvaluationRequest
             {
                 FlagKey = flagKey,
@@ -64,6 +90,11 @@ namespace FliptClient
 
         public BatchEvaluationResponse EvaluateBatch(List<EvaluationRequest> requests)
         {
+            if (requests == null || requests.Count == 0)
+            {
+                throw new ArgumentException("requests cannot be empty or null");
+            }
+
             string requestJson = JsonSerializer.Serialize(requests);
             IntPtr resultPtr = NativeMethods.EvaluateBatch(_engine, requestJson);
             string resultJson = Marshal.PtrToStringAnsi(resultPtr);

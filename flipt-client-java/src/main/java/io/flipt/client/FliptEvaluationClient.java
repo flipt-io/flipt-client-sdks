@@ -11,6 +11,7 @@ import com.sun.jna.Pointer;
 import io.flipt.client.models.*;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -166,6 +167,15 @@ public class FliptEvaluationClient {
     private final Map<String, String> context;
 
     public InternalEvaluationRequest(String flagKey, String entityId, Map<String, String> context) {
+      if (flagKey == null || flagKey.isEmpty()) {
+        throw new IllegalArgumentException("flagKey is required");
+      }
+      if (entityId == null || entityId.isEmpty()) {
+        throw new IllegalArgumentException("entityId is required");
+      }
+      if (context == null) {
+        context = new HashMap<>();
+      }
       this.flagKey = flagKey;
       this.entityId = entityId;
       this.context = context;

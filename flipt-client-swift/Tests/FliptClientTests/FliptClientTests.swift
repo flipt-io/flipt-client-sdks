@@ -31,7 +31,29 @@ class FliptClientTests: XCTestCase {
         evaluationClient = nil
         super.tearDown()
     }
-    
+
+    func testEmptyFlagKey() {
+        do {
+            let _ = try evaluationClient.evaluateBoolean(flagKey: "", entityID: "someentity", evalContext: ["fizz": "buzz"])
+            XCTFail("Expected an error, but got none")
+        } catch let error as FliptClient.ClientError {
+            XCTAssertTrue(error.localizedDescription != "") // this could be better
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testEmptyEntityId() {
+        do {
+            let _ = try evaluationClient.evaluateBoolean(flagKey: "flag1", entityID: "", evalContext: ["fizz": "buzz"])
+            XCTFail("Expected an error, but got none")
+        } catch let error as FliptClient.ClientError {
+            XCTAssertTrue(error.localizedDescription != "") // this could be better
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
     func testInvalidAuthentication() {
         do {
             let client = try FliptClient(
@@ -49,7 +71,6 @@ class FliptClientTests: XCTestCase {
         }
     }
 
-    
     func testVariant() {
         do {
             let variant = try evaluationClient.evaluateVariant(
@@ -65,7 +86,7 @@ class FliptClientTests: XCTestCase {
             XCTFail("Unexpected error: \(error)")
         }
     }
-    
+
     func testBoolean() {
         do {
             let boolean = try evaluationClient.evaluateBoolean(
@@ -80,7 +101,7 @@ class FliptClientTests: XCTestCase {
             XCTFail("Unexpected error: \(error)")
         }
     }
-    
+
     func testBatch() {
         do {
             let requests = [
@@ -136,7 +157,7 @@ class FliptClientTests: XCTestCase {
             XCTFail("Unexpected error: \(error)")
         }
     }
-    
+
     func testVariantFailure() {
         do {
             let _ = try evaluationClient.evaluateVariant(
@@ -151,6 +172,4 @@ class FliptClientTests: XCTestCase {
             XCTFail("Unexpected error: \(error)")
         }
     }
-
-
 }

@@ -95,6 +95,11 @@ class FliptEvaluationClient:
     def evaluate_variant(
         self, flag_key: str, entity_id: str, context: dict = {}
     ) -> VariantEvaluationResponse:
+        if not flag_key or not flag_key.strip():
+            raise ValueError("flag_key cannot be empty or null")
+        if not entity_id or not entity_id.strip():
+            raise ValueError("entity_id cannot be empty or null")
+
         response = self.ffi_core.evaluate_variant(
             self.engine,
             serialize_evaluation_request(
@@ -114,6 +119,11 @@ class FliptEvaluationClient:
     def evaluate_boolean(
         self, flag_key: str, entity_id: str, context: dict = {}
     ) -> BooleanEvaluationResponse:
+        if not flag_key or not flag_key.strip():
+            raise ValueError("flag_key cannot be empty or null")
+        if not entity_id or not entity_id.strip():
+            raise ValueError("entity_id cannot be empty or null")
+
         response = self.ffi_core.evaluate_boolean(
             self.engine,
             serialize_evaluation_request(
@@ -136,6 +146,11 @@ class FliptEvaluationClient:
         evaluation_requests = []
 
         for r in requests:
+            if not r.flag_key or not r.flag_key.strip():
+                raise ValueError("flag_key cannot be empty or null")
+            if not r.entity_id or not r.entity_id.strip():
+                raise ValueError("entity_id cannot be empty or null")
+
             evaluation_requests.append(
                 InternalEvaluationRequest(
                     namespace_key=self.namespace_key,
@@ -180,6 +195,11 @@ class FliptEvaluationClient:
 def serialize_evaluation_request(
     namespace_key: str, flag_key: str, entity_id: str, context: dict
 ) -> str:
+    if not flag_key or not flag_key.strip():
+        raise ValueError("flag_key cannot be empty or null")
+    if not entity_id or not entity_id.strip():
+        raise ValueError("entity_id cannot be empty or null")
+
     evaluation_request = InternalEvaluationRequest(
         namespace_key=namespace_key,
         flag_key=flag_key,
