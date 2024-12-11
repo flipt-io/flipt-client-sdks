@@ -56,6 +56,30 @@ namespace FliptClient.Tests
         }
 
         [Fact]
+        public void TestNullFlagKey()
+        {
+            Assert.Throws<ArgumentException>(() => _client.EvaluateBoolean(null, "someentity", new Dictionary<string, string>()));
+        }
+
+        [Fact]
+        public void TestEmptyFlagKey()
+        {
+            Assert.Throws<ArgumentException>(() => _client.EvaluateBoolean("", "someentity", new Dictionary<string, string>()));
+        }
+
+        [Fact]
+        public void TestNullEntityId()
+        {
+            Assert.Throws<ArgumentException>(() => _client.EvaluateBoolean("flag1", null, new Dictionary<string, string>()));
+        }
+
+        [Fact]
+        public void TestEmptyEntityId()
+        {
+            Assert.Throws<ArgumentException>(() => _client.EvaluateBoolean("flag1", "", new Dictionary<string, string>()));
+        }
+
+        [Fact]
         public void TestEvaluateVariant()
         {
             var context = new Dictionary<string, string> { { "fizz", "buzz" } };

@@ -25,6 +25,26 @@ class TestFliptEvaluationClient(unittest.TestCase):
             )
         )
 
+    def test_null_flag_key(self):
+        with self.assertRaises(ValueError) as context:
+            self.flipt_client.evaluate_boolean(None, "someentity", {"fizz": "buzz"})
+        self.assertEqual("flag_key cannot be empty or null", str(context.exception))
+
+    def test_empty_flag_key(self):
+        with self.assertRaises(ValueError) as context:
+            self.flipt_client.evaluate_boolean("", "someentity", {"fizz": "buzz"})
+        self.assertEqual("flag_key cannot be empty or null", str(context.exception))
+
+    def test_null_entity_id(self):
+        with self.assertRaises(ValueError) as context:
+            self.flipt_client.evaluate_boolean("flag1", None, {"fizz": "buzz"})
+        self.assertEqual("entity_id cannot be empty or null", str(context.exception))
+
+    def test_empty_entity_id(self):
+        with self.assertRaises(ValueError) as context:
+            self.flipt_client.evaluate_boolean("flag1", "", {"fizz": "buzz"})
+        self.assertEqual("entity_id cannot be empty or null", str(context.exception))
+
     def test_variant(self):
         variant = self.flipt_client.evaluate_variant(
             "flag1", "someentity", {"fizz": "buzz"}
