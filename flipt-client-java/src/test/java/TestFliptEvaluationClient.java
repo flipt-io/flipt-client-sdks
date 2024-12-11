@@ -27,30 +27,38 @@ public class TestFliptEvaluationClient {
 
   @Test
   void testNullFlagKey() throws Exception {
-    Assertions.assertThrows(IllegalArgumentException.class, () -> {
-      fliptClient.evaluateBoolean(null, "entity", new HashMap<>());
-    });
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          fliptClient.evaluateBoolean(null, "entity", new HashMap<>());
+        });
   }
 
   @Test
   void testEmptyFlagKey() throws Exception {
-    Assertions.assertThrows(IllegalArgumentException.class, () -> {
-      fliptClient.evaluateBoolean("", "entity", new HashMap<>());
-    });
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          fliptClient.evaluateBoolean("", "entity", new HashMap<>());
+        });
   }
 
   @Test
   void testNullEntityId() throws Exception {
-    Assertions.assertThrows(IllegalArgumentException.class, () -> {
-      fliptClient.evaluateBoolean("flag1", null, new HashMap<>());
-    });
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          fliptClient.evaluateBoolean("flag1", null, new HashMap<>());
+        });
   }
 
   @Test
   void testEmptyEntityId() throws Exception {
-    Assertions.assertThrows(IllegalArgumentException.class, () -> {
-      fliptClient.evaluateBoolean("flag1", "", new HashMap<>());
-    });
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          fliptClient.evaluateBoolean("flag1", "", new HashMap<>());
+        });
   }
 
   @Test
