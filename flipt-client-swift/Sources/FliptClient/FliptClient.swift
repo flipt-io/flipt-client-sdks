@@ -57,6 +57,13 @@ public class FliptClient {
     }
 
     public func evaluateVariant(flagKey: String, entityID: String, evalContext: [String: String]) throws -> VariantEvaluationResponse {
+        if flagKey.isEmpty {
+            throw ClientError.invalidRequest
+        }
+        if entityID.isEmpty {
+            throw ClientError.invalidRequest
+        }
+
         let evaluationRequest = EvaluationRequest(
             flag_key: flagKey,
             entity_id: entityID,
@@ -93,6 +100,13 @@ public class FliptClient {
     }
 
     public func evaluateBoolean(flagKey: String, entityID: String, evalContext: [String: String]) throws -> BooleanEvaluationResponse {
+        if flagKey.isEmpty {
+            throw ClientError.invalidRequest
+        }
+        if entityID.isEmpty {
+            throw ClientError.invalidRequest
+        }
+
         let evaluationRequest = EvaluationRequest(
             flag_key: flagKey,
             entity_id: entityID,
