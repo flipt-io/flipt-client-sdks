@@ -10,9 +10,6 @@ The `flipt-client-node` library contains the JavaScript/TypeScript source code f
 npm install @flipt-io/flipt-client
 ```
 
-> [!IMPORTANT]
-> The latest version of the Flipt Node.js SDK does not currently work with Next.js App Router because Next.js App Router does not support WASM dependencies. See [this issue](https://github.com/vercel/next.js/issues/55537) for more information. Use version `0.9.0` of the SDK until this is resolved.
-
 ## Usage
 
 In your Node.js code you can import this client and use it as so:
