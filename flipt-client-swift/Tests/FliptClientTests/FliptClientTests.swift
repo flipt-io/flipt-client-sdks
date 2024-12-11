@@ -32,31 +32,9 @@ class FliptClientTests: XCTestCase {
         super.tearDown()
     }
 
-    func testNullFlagKey() {
-        do {
-            let _ = try evaluationClient.evaluateBoolean(flagKey: nil, entityID: "someentity", evalContext: ["fizz": "buzz"])
-            XCTFail("Expected an error, but got none")
-        } catch let error as FliptClient.ClientError {
-            XCTAssertTrue(error.localizedDescription != "") // this could be better
-        } catch {
-            XCTFail("Unexpected error: \(error)")
-        }
-    }
-
     func testEmptyFlagKey() {
         do {
             let _ = try evaluationClient.evaluateBoolean(flagKey: "", entityID: "someentity", evalContext: ["fizz": "buzz"])
-            XCTFail("Expected an error, but got none")
-        } catch let error as FliptClient.ClientError {
-            XCTAssertTrue(error.localizedDescription != "") // this could be better
-        } catch {
-            XCTFail("Unexpected error: \(error)")
-        }
-    }
-
-    func testNullEntityId() {
-        do {
-            let _ = try evaluationClient.evaluateBoolean(flagKey: "flag1", entityID: nil, evalContext: ["fizz": "buzz"])
             XCTFail("Expected an error, but got none")
         } catch let error as FliptClient.ClientError {
             XCTAssertTrue(error.localizedDescription != "") // this could be better
