@@ -18,8 +18,8 @@ class SDK(ABC):
     def tag_and_push(self, new_version: str):
         tag = f"{self.name}-v{new_version}"
         try:
-            subprocess.run(["git", "checkout", "-b", tag], check=True)
-            subprocess.run(["git", "commit", "-am", f"Release {tag}"], check=True)
+            subprocess.run(["git", "checkout", "-b", f"release/{tag}"], check=True)
+            subprocess.run(["git", "commit", "-am", "--allow-empty", f"Release {tag}"], check=True)
             subprocess.run(["git", "tag", tag], check=True)
             subprocess.run(["git", "push", "origin", tag], check=True)
             print(f"Created and pushed tag: {tag}")
@@ -39,8 +39,8 @@ class MuslSupportSDK(SDK):
     def tag_and_push_musl(self, new_version: str):
         musl_tag = f"{self.name}-musl-v{new_version}"
         try:
-            subprocess.run(["git", "checkout", "-b", musl_tag], check=True)
-            subprocess.run(["git", "commit", "-am", f"Release {musl_tag}"], check=True)
+            subprocess.run(["git", "checkout", "-b", f"release/{musl_tag}"], check=True)
+            subprocess.run(["git", "commit", "-am", "--allow-empty", f"Release {musl_tag}"], check=True)
             subprocess.run(["git", "tag", musl_tag], check=True)
             subprocess.run(["git", "push", "origin", musl_tag], check=True)
             print(f"Created and pushed MUSL tag: {musl_tag}")
