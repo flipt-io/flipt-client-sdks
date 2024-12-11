@@ -12,6 +12,7 @@ import io.flipt.client.models.*;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.Optional;
 
 public class FliptEvaluationClient {
