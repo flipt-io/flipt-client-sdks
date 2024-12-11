@@ -149,6 +149,13 @@ export class FliptEvaluationClient {
     entityId: string,
     context: {}
   ): VariantEvaluationResponse {
+    if (!flagKey || flagKey.trim() === '') {
+      throw new Error('flagKey cannot be empty');
+    }
+    if (!entityId || entityId.trim() === '') {
+      throw new Error('entityId cannot be empty');
+    }
+
     const evaluationRequest: EvaluationRequest = {
       flagKey,
       entityId,
@@ -188,6 +195,13 @@ export class FliptEvaluationClient {
     entityId: string,
     context: {}
   ): BooleanEvaluationResponse {
+    if (!flagKey || flagKey.trim() === '') {
+      throw new Error('flagKey cannot be empty');
+    }
+    if (!entityId || entityId.trim() === '') {
+      throw new Error('entityId cannot be empty');
+    }
+
     const evaluationRequest: EvaluationRequest = {
       flagKey,
       entityId,

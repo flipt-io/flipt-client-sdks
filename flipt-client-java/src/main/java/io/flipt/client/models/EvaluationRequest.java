@@ -12,6 +12,15 @@ public class EvaluationRequest {
   private final Map<String, String> context;
 
   public EvaluationRequest(String flagKey, String entityId, Map<String, String> context) {
+    if (flagKey == null || flagKey.isEmpty()) {
+      throw new IllegalArgumentException("flagKey is required");
+    }
+    if (entityId == null || entityId.isEmpty()) {
+      throw new IllegalArgumentException("entityId is required");
+    }
+    if (context == null) {
+      context = new HashMap<>();
+    }
     this.flagKey = flagKey;
     this.entityId = entityId;
     this.context = context;
