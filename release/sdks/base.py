@@ -17,12 +17,12 @@ class SDK(ABC):
 
     def _create_and_push_tag(self, tag: str):
         try:
-            subprocess.run(["git", "checkout", "-b", f"release/{tag}"], check=True)
-            subprocess.run(["git", "commit", "-a", "--allow-empty", "-m", f"Release {tag}"], check=True)
-            subprocess.run(["gh", "pr", "create", "--title", f"Release {tag}", "--body", f"Release {tag}"], check=True)
+            subprocess.run(["git", "checkout", "-b", f"release/{tag}"], check=True, cwd=self.path)
+            subprocess.run(["git", "commit", "-a", "--allow-empty", "-m", f"Release {tag}"], check=True, cwd=self.path)
+            subprocess.run(["gh", "pr", "create", "--title", f"Release {tag}", "--body", f"Release {tag}"], check=True, cwd=self.path)
 
-            subprocess.run(["git", "tag", tag], check=True)
-            subprocess.run(["git", "push", "origin", tag], check=True)
+            subprocess.run(["git", "tag", tag], check=True, cwd=self.path)
+            subprocess.run(["git", "push", "origin", tag], check=True, cwd=self.path)
             print(f"Created and pushed tag: {tag}")
         except subprocess.CalledProcessError as e:
             print(f"Error during git operations: {e}")
