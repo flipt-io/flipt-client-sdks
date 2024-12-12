@@ -15,8 +15,7 @@ class SDK(ABC):
     def update_version(self, new_version: str):
         pass
 
-    def tag_and_push(self, new_version: str):
-        tag = f"{self.name}-v{new_version}"
+    def _create_and_push_tag(self, tag: str):
         try:
             subprocess.run(["git", "checkout", "-b", f"release/{tag}"], check=True)
             subprocess.run(["git", "commit", "-a", "--allow-empty", "-m", f"Release {tag}"], check=True)
@@ -27,6 +26,10 @@ class SDK(ABC):
             print(f"Created and pushed tag: {tag}")
         except subprocess.CalledProcessError as e:
             print(f"Error during git operations: {e}")
+
+    def tag_and_push(self, new_version: str):
+        tag = f"{self.name}-v{new_version}"
+        self._create_and_push_tag(tag)
 
 
 class MuslSupportSDK(SDK):
@@ -40,13 +43,4 @@ class MuslSupportSDK(SDK):
 
     def tag_and_push_musl(self, new_version: str):
         musl_tag = f"{self.name}-musl-v{new_version}"
-        try:
-            subprocess.run(["git", "checkout", "-b", f"release/{musl_tag}"], check=True)
-            subprocess.run(["git", "commit", "-a", "--allow-empty", "-m", f"Release {musl_tag}"], check=True)
-            subprocess.run(["gh", "pr", "create", "--title", f"Release {musl_tag}", "--body", f"Release {musl_tag}"], check=True)
-
-            subprocess.run(["git", "tag", musl_tag], check=True)
-            subprocess.run(["git", "push", "origin", musl_tag], check=True)
-            print(f"Created and pushed MUSL tag: {musl_tag}")
-        except subprocess.CalledProcessError as e:
-            print(f"Error during MUSL git operations: {e}")
+        self._create_and_push_tag(musl_tag)
