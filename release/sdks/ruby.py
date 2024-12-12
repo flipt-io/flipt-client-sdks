@@ -15,7 +15,7 @@ class RubySDK(SDK):
         with open(version_rb, "r") as f:
             content = f.read()
         updated_content = re.sub(
-            r'VERSION\s*=\s*["\'].*["\']', f'VERSION = "{new_version}"', content
+            r'VERSION\s*=\s*["\'].*["\']', f'VERSION = \'{new_version}\'', content
         )
         with open(version_rb, "w") as f:
             f.write(updated_content)
