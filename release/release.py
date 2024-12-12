@@ -105,18 +105,15 @@ def get_sdk_selection(all_sdk_dirs):
         "flipt-client-csharp": "C#",
     }
 
-    selected_sdks = checkboxlist_dialog(
-        title="Select SDKs to release",
-        text="Choose the SDKs you want to release (Space to select, Enter to confirm):",
-        values=[(sdk, sdk_display_names.get(sdk, sdk)) for sdk in all_sdk_dirs]
-        + [("all", "All SDKs")],
+    selected_sdk = radiolist_dialog(
+        title="Select SDK to release",
+        text="Choose the SDK you want to release:",
+        values=[(sdk, sdk_display_names.get(sdk, sdk)) for sdk in all_sdk_dirs],
     ).run()
 
-    if selected_sdks is None:
+    if selected_sdk is None:
         return None  # User cancelled the selection
-    if "all" in selected_sdks:
-        return all_sdk_dirs
-    return selected_sdks
+    return [selected_sdk]  # Return as list to maintain compatibility with rest of code
 
 
 def get_action():
