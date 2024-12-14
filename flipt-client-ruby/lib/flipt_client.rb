@@ -92,7 +92,7 @@ module Flipt
       resp, ptr = self.class.evaluate_variant(@engine, evaluation_request.to_json)
       ptr = FFI::AutoPointer.new(ptr, EvaluationClient.method(:destroy_string))
       data = JSON.parse(resp)
-      raise StandardError, data['error_message'] if data['status'] != 'success'
+      raise Error, data['error_message'] if data['status'] != 'success'
 
       data['result']
     end
@@ -107,7 +107,7 @@ module Flipt
       resp, ptr = self.class.evaluate_boolean(@engine, evaluation_request.to_json)
       ptr = FFI::AutoPointer.new(ptr, EvaluationClient.method(:destroy_string))
       data = JSON.parse(resp)
-      raise StandardError, data['error_message'] if data['status'] != 'success'
+      raise Error, data['error_message'] if data['status'] != 'success'
 
       data['result']
     end
@@ -125,7 +125,7 @@ module Flipt
       resp, ptr = self.class.evaluate_batch(@engine, batch_evaluation_request.to_json)
       ptr = FFI::AutoPointer.new(ptr, EvaluationClient.method(:destroy_string))
       data = JSON.parse(resp)
-      raise StandardError, data['error_message'] if data['status'] != 'success'
+      raise Error, data['error_message'] if data['status'] != 'success'
 
       data['result']
     end
@@ -135,7 +135,7 @@ module Flipt
       resp, ptr = self.class.list_flags(@engine)
       ptr = FFI::AutoPointer.new(ptr, EvaluationClient.method(:destroy_string))
       data = JSON.parse(resp)
-      raise StandardError, data['error_message'] if data['status'] != 'success'
+      raise Error, data['error_message'] if data['status'] != 'success'
 
       data['result']
     end
