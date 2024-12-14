@@ -1,6 +1,6 @@
 import os
 from semver import VersionInfo
-from prompt_toolkit.shortcuts import checkboxlist_dialog, radiolist_dialog
+from prompt_toolkit.shortcuts import radiolist_dialog, yes_no_dialog
 from colorama import init, Fore, Style
 from sdks import GoSDK, JavaSDK, JavaScriptSDK, RubySDK, PythonSDK, DartSDK, SwiftSDK, CSharpSDK
 from sdks.base import SDK, MuslSupportSDK
@@ -81,14 +81,14 @@ def update_sdk_versions(bump_type="patch", sdks_to_update=None):
     return updated_versions
 
 
-def tag_and_push_versions(versions):
+def tag_and_push_versions(versions, create_pull_request: bool):
     for sdk_dir, new_version in versions.items():
         sdk_path = os.path.join("..", sdk_dir.split("-musl")[0])
         sdk = get_sdk(sdk_dir.split("-musl")[0], sdk_path)
         if sdk_dir.endswith("-musl"):
-            sdk.tag_and_push_musl(new_version)
+            sdk.tag_and_push_musl(new_version, create_pull_request)
         else:
-            sdk.tag_and_push(new_version)
+            sdk.tag_and_push(new_version, create_pull_request)
 
 
 def get_sdk_selection(all_sdk_dirs):
@@ -141,6 +141,11 @@ def get_bump_type():
     ).run()
     return bump_type
 
+def get_pull_request():
+    pull_request = yes_no_dialog(
+        title="Do you want to create a pull request?",
+    ).run()
+    return pull_request
 
 def main():
     all_sdk_dirs = [
@@ -188,7 +193,8 @@ def main():
                 updated_versions[sdk_dir] = sdk.get_current_version()
                 if isinstance(sdk, MuslSupportSDK):
                     updated_versions[f"{sdk_dir}-musl"] = sdk.get_current_musl_version()
-        tag_and_push_versions(updated_versions)
+        create_pull_request = get_pull_request()
+        tag_and_push_versions(updated_versions, create_pull_request)
 
     print(f"{Fore.GREEN}Action '{action}' completed successfully.{Style.RESET_ALL}")
 
