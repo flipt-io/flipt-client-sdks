@@ -106,7 +106,7 @@ The `FliptEvaluationClient` supports the following authentication strategies:
    docker run -d \
        -p 8080:8080 \
        -p 9000:9000 \
-       docker.flipt.io/flipt/flipt:latest
+       flipt/flipt:latest
    ```
 
 2. You'll also need to have the `flipt_client` gem installed locally. See [Installation](#installation) above.
