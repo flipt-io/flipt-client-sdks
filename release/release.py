@@ -89,19 +89,6 @@ def get_sdk_selection() -> str | None:
     return selected_sdk
 
 
-def get_action():
-    action = radiolist_dialog(
-        title="Select action",
-        text="Choose the action to perform:",
-        values=[
-            ("both", "Update versions and push"),
-            ("update", "Update versions"),
-            ("push", "Tag and push"),
-        ],
-    ).run()
-    return action
-
-
 def get_bump_type():
     bump_type = radiolist_dialog(
         title="Select version bump type",
@@ -126,33 +113,24 @@ def main():
         print("SDK selection cancelled. Exiting.")
         return
 
-    action = get_action()
-    if action is None:
-        print("Action selection cancelled. Exiting.")
-        return
 
     updated_versions = {}
 
-    if action in ["update", "both"]:
-        bump_type = get_bump_type()
-        if bump_type is None:
-            print("Version bump type selection cancelled. Exiting.")
-            return
-        updated_versions = update_sdk_version(bump_type, selected_sdk)
+    bump_type = get_bump_type()
+    if bump_type is None:
+        print("Version bump type selection cancelled. Exiting.")
+        return
 
-    if action in ["push", "both"]:
-        sdk_instance = get_sdk(selected_sdk)
-        
-        if action == "push":
-            # If only pushing, we need to get the current version
-            updated_versions[selected_sdk] = sdk_instance.get_current_version()
-        
-        # Check if the SDK supports pull requests
-        create_pull_request = False if isinstance(sdk_instance, TagBasedSDK) else get_pull_request()
-        
-        tag_and_push_version({selected_sdk: updated_versions[selected_sdk]}, create_pull_request)
+    updated_versions = update_sdk_version(bump_type, selected_sdk)
 
-    print(f"{Fore.GREEN}Action '{action}' completed successfully.{Style.RESET_ALL}")
+    sdk_instance = get_sdk(selected_sdk)
+        
+    # Check if the SDK supports pull requests
+    create_pull_request = False if isinstance(sdk_instance, TagBasedSDK) else get_pull_request()
+        
+    tag_and_push_version({selected_sdk: updated_versions[selected_sdk]}, create_pull_request)
+
+    print(f"{Fore.GREEN}Release completed successfully.{Style.RESET_ALL}")
 
 
 if __name__ == "__main__":
