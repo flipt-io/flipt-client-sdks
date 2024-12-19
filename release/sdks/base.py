@@ -1,11 +1,15 @@
 from abc import ABC, abstractmethod
 import subprocess
-
+import os
 
 class SDK(ABC):
-    def __init__(self, name, path):
+    def __init__(self, name):
         self.name = name
-        self.path = path
+
+    @property
+    def path(self) -> str:
+        name = self.name.split("-musl")[0]
+        return os.path.join("..", name)
 
     @abstractmethod
     def get_current_version(self) -> str:
@@ -38,16 +42,30 @@ class SDK(ABC):
         tag = f"{self.name}-v{new_version}"
         self._create_and_push_tag(tag, create_pull_request)
 
-
-class MuslSupportSDK(SDK):
-    @abstractmethod
-    def get_current_musl_version(self) -> str:
+class TagBasedSDK(SDK):
+    def get_current_version(self) -> str:
+        try:
+            # Get all tags matching the SDK name pattern
+            result = subprocess.run(
+                ["git", "tag", "--list", f"{self.name}-v*"],
+                check=True,
+                cwd=self.path,
+                capture_output=True,
+                text=True
+            )
+            
+            # Parse versions from tags and sort them
+            versions = []
+            for tag in result.stdout.splitlines():
+                # Extract version number from tag (e.g., "flipt-client-swift-v1.0.0" -> "1.0.0")
+                version = tag.split('-v')[-1]
+                versions.append(version)
+            
+            # Return the latest version, or "0.0.0" if no tags exist
+            return sorted(versions, reverse=True)[0] if versions else "0.0.0"
+        except subprocess.CalledProcessError:
+            return "0.0.0"  # Return default version if git command fails
+    
+    def update_version(self, new_version: str):
+        # No file updates needed for tag-based versioning
         pass
-
-    @abstractmethod
-    def update_musl_version(self, new_version: str):
-        pass
-
-    def tag_and_push_musl(self, new_version: str, create_pull_request: bool):
-        musl_tag = f"{self.name}-musl-v{new_version}"
-        self._create_and_push_tag(musl_tag, create_pull_request)

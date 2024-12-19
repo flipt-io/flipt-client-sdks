@@ -1,16 +1,10 @@
 import os
 import re
-from .base import MuslSupportSDK
+from .base import SDK
 
-
-class JavaSDK(MuslSupportSDK):
+class JavaSDK(SDK):
     def get_current_version(self):
-        return self._get_version_from_file("build.gradle")
-
-    def get_current_musl_version(self):
-        return self._get_version_from_file("build.musl.gradle")
-
-    def _get_version_from_file(self, filename):
+        filename = self._get_update_file()
         with open(os.path.join(self.path, filename), "r") as f:
             content = f.read()
             match = re.search(r"version\s*=\s*'([\d.]+)'", content)
@@ -19,12 +13,7 @@ class JavaSDK(MuslSupportSDK):
         raise ValueError(f"Version not found in {filename}")
 
     def update_version(self, new_version):
-        self._update_version_in_file("build.gradle", new_version)
-
-    def update_musl_version(self, new_version):
-        self._update_version_in_file("build.musl.gradle", new_version)
-
-    def _update_version_in_file(self, filename, new_version):
+        filename = self._get_update_file()
         file_path = os.path.join(self.path, filename)
         with open(file_path, "r") as f:
             content = f.read()
@@ -35,3 +24,8 @@ class JavaSDK(MuslSupportSDK):
 
         with open(file_path, "w") as f:
             f.write(updated_content)
+
+    def _get_update_file(self) -> str:
+        if self.name.endswith("-musl"):
+            return "build.musl.gradle"
+        return "build.gradle"

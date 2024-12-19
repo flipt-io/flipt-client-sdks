@@ -3,16 +3,17 @@ from semver import VersionInfo
 from prompt_toolkit.shortcuts import radiolist_dialog, yes_no_dialog
 from colorama import init, Fore, Style
 from sdks import GoSDK, JavaSDK, JavaScriptSDK, RubySDK, PythonSDK, DartSDK, SwiftSDK, CSharpSDK
-from sdks.base import SDK, MuslSupportSDK
+from sdks.base import SDK, TagBasedSDK
 
 # Initialize colorama
 init(autoreset=True)
 
-
-def get_sdk(name: str, path: str) -> SDK:
+def get_sdk(name: str) -> SDK:
     sdk_classes = {
         "flipt-client-go": GoSDK,
+        "flipt-client-go-musl": GoSDK,
         "flipt-client-java": JavaSDK,
+        "flipt-client-java-musl": JavaSDK,
         "flipt-client-node": JavaScriptSDK,
         "flipt-client-browser": JavaScriptSDK,
         "flipt-client-react": JavaScriptSDK,
@@ -22,7 +23,7 @@ def get_sdk(name: str, path: str) -> SDK:
         "flipt-client-swift": SwiftSDK,
         "flipt-client-csharp": CSharpSDK,
     }
-    return sdk_classes[name](name, path)
+    return sdk_classes[name](name)
 
 
 def bump_version(version: str, bump_type: str) -> str:
@@ -35,66 +36,38 @@ def bump_version(version: str, bump_type: str) -> str:
         return str(v.bump_patch())
 
 
-def update_sdk_versions(bump_type="patch", sdks_to_update=None):
-    all_sdk_dirs = [
-        "flipt-client-go",
-        "flipt-client-java",
-        "flipt-client-node",
-        "flipt-client-browser",
-        "flipt-client-react",
-        "flipt-client-dart",
-        "flipt-client-python",
-        "flipt-client-ruby",
-        "flipt-client-swift",
-        "flipt-client-csharp",
-    ]
+def update_sdk_version(bump_type="patch", sdk=None):
+    if not sdk:
+        print("No SDK specified. Exiting...")
+        return {}
 
-    sdk_dirs = sdks_to_update if sdks_to_update else all_sdk_dirs
-    updated_versions = {}
+    print(f"\nProcessing {sdk}...")
+    
+    sdk_instance = get_sdk(sdk)
+    current_version = sdk_instance.get_current_version()
+    new_version = bump_version(current_version, bump_type)
+    sdk_instance.update_version(new_version)
+    
+    # Return dictionary with SDK name as key, not the SDK instance
+    updated_versions = {sdk: new_version}
 
-    for sdk_dir in sdk_dirs:
-        if sdk_dir not in all_sdk_dirs:
-            print(f"Warning: {sdk_dir} is not a recognized SDK. Skipping...")
-            continue
-
-        sdk_path = os.path.join("..", sdk_dir)
-        if not os.path.exists(sdk_path):
-            print(f"Warning: {sdk_dir} not found. Skipping...")
-            continue
-
-        print(f"\nProcessing {sdk_dir}...")
-
-        sdk = get_sdk(sdk_dir, sdk_path)
-        current_version = sdk.get_current_version()
-        new_version = bump_version(current_version, bump_type)
-        sdk.update_version(new_version)
-        updated_versions[sdk_dir] = new_version
-
-        if isinstance(sdk, MuslSupportSDK):
-            current_musl_version = sdk.get_current_musl_version()
-            new_musl_version = bump_version(current_musl_version, bump_type)
-            sdk.update_musl_version(new_musl_version)
-            updated_versions[f"{sdk_dir}-musl"] = new_musl_version
-
-        print(f"{Fore.CYAN}Finished processing {sdk_dir}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Finished processing {sdk}{Style.RESET_ALL}")
 
     return updated_versions
 
 
-def tag_and_push_versions(versions, create_pull_request: bool):
-    for sdk_dir, new_version in versions.items():
-        sdk_path = os.path.join("..", sdk_dir.split("-musl")[0])
-        sdk = get_sdk(sdk_dir.split("-musl")[0], sdk_path)
-        if sdk_dir.endswith("-musl"):
-            sdk.tag_and_push_musl(new_version, create_pull_request)
-        else:
-            sdk.tag_and_push(new_version, create_pull_request)
+def tag_and_push_version(versions, create_pull_request: bool):
+    for sdk, new_version in versions.items():
+        sdk_instance = get_sdk(sdk)
+        sdk_instance.tag_and_push(new_version, create_pull_request)
 
 
-def get_sdk_selection(all_sdk_dirs):
+def get_sdk_selection() -> str | None:
     sdk_display_names = {
         "flipt-client-go": "Go",
+        "flipt-client-go-musl": "Go (MUSL)",
         "flipt-client-java": "Java",
+        "flipt-client-java-musl": "Java (MUSL)",
         "flipt-client-node": "Node.js",
         "flipt-client-browser": "Browser",
         "flipt-client-react": "React",
@@ -108,12 +81,12 @@ def get_sdk_selection(all_sdk_dirs):
     selected_sdk = radiolist_dialog(
         title="Select SDK to release",
         text="Choose the SDK you want to release:",
-        values=[(sdk, sdk_display_names.get(sdk, sdk)) for sdk in all_sdk_dirs],
+        values=[(sdk, display) for sdk, display in sdk_display_names.items()],
     ).run()
 
     if selected_sdk is None:
         return None  # User cancelled the selection
-    return [selected_sdk]  # Return as list to maintain compatibility with rest of code
+    return selected_sdk
 
 
 def get_action():
@@ -121,9 +94,9 @@ def get_action():
         title="Select action",
         text="Choose the action to perform:",
         values=[
+            ("both", "Update versions and push"),
             ("update", "Update versions"),
             ("push", "Tag and push"),
-            ("both", "Update versions and push"),
         ],
     ).run()
     return action
@@ -148,26 +121,9 @@ def get_pull_request():
     return pull_request
 
 def main():
-    all_sdk_dirs = [
-        "flipt-client-go",
-        "flipt-client-java",
-        "flipt-client-node",
-        "flipt-client-browser",
-        "flipt-client-react",
-        "flipt-client-dart",
-        "flipt-client-python",
-        "flipt-client-ruby",
-        "flipt-client-swift",
-        "flipt-client-csharp",
-    ]
-
-    selected_sdks = get_sdk_selection(all_sdk_dirs)
-    if selected_sdks is None:
+    selected_sdk = get_sdk_selection()
+    if selected_sdk is None:
         print("SDK selection cancelled. Exiting.")
-        return
-
-    if not selected_sdks:
-        print("No SDKs selected. Exiting.")
         return
 
     action = get_action()
@@ -182,19 +138,19 @@ def main():
         if bump_type is None:
             print("Version bump type selection cancelled. Exiting.")
             return
-        updated_versions = update_sdk_versions(bump_type, selected_sdks)
+        updated_versions = update_sdk_version(bump_type, selected_sdk)
 
     if action in ["push", "both"]:
+        sdk_instance = get_sdk(selected_sdk)
+        
         if action == "push":
-            # If only pushing, we need to get the current versions
-            for sdk_dir in selected_sdks:
-                sdk_path = os.path.join("..", sdk_dir)
-                sdk = get_sdk(sdk_dir, sdk_path)
-                updated_versions[sdk_dir] = sdk.get_current_version()
-                if isinstance(sdk, MuslSupportSDK):
-                    updated_versions[f"{sdk_dir}-musl"] = sdk.get_current_musl_version()
-        create_pull_request = get_pull_request()
-        tag_and_push_versions(updated_versions, create_pull_request)
+            # If only pushing, we need to get the current version
+            updated_versions[selected_sdk] = sdk_instance.get_current_version()
+        
+        # Check if the SDK supports pull requests
+        create_pull_request = False if isinstance(sdk_instance, TagBasedSDK) else get_pull_request()
+        
+        tag_and_push_version({selected_sdk: updated_versions[selected_sdk]}, create_pull_request)
 
     print(f"{Fore.GREEN}Action '{action}' completed successfully.{Style.RESET_ALL}")
 
