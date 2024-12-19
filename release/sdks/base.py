@@ -28,7 +28,7 @@ class SDK(ABC):
                 subprocess.run(["git", "commit", "-s", "-a", "--allow-empty", "-m", f"Release {tag}"], check=True, cwd=self.path)
                 subprocess.run(
                     ["gh", "pr", "create", "-R", "flipt-io/flipt-client-sdks", "--title", f"\"Release {tag}\"", "--body", f"\"Release {tag}\""],
-                    check=True, cwd=self.path, capture_output=True, text=True
+                    cwd=self.path
                 )
 
         except subprocess.CalledProcessError as e:
