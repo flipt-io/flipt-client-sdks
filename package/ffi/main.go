@@ -153,6 +153,10 @@ func downloadFFI(ctx context.Context, client *dagger.Client, sdk sdks.SDK) error
 		}
 	}
 
+	if engineTag == "" {
+		return fmt.Errorf("engine tag is not found")
+	}
+
 	packages := sdk.SupportedPlatforms()
 
 	for _, pkg := range packages {
