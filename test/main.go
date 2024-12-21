@@ -52,7 +52,7 @@ func main() {
 }
 
 func run() error {
-	var tests = make(map[string]integrationTestFn, len(sdkToFn))
+	tests := make(map[string]integrationTestFn, len(sdkToFn))
 
 	maps.Copy(tests, sdkToFn)
 
@@ -366,7 +366,6 @@ func csharpTests(ctx context.Context, root *dagger.Container, t *testCase) error
 	return err
 }
 
-
 // kotlinAndroidTests run the java integration tests suite against a container running Flipt.
 func kotlinAndroidTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	path := "x86_64"
@@ -376,6 +375,12 @@ func kotlinAndroidTests(ctx context.Context, root *dagger.Container, t *testCase
 	}
 
 	_, err := root.From("gradle:8.5.0-jdk11").
+		WithWorkdir("/sdk").
+		WithEnvVariable("ANDROID_HOME", "/sdk").
+		WithExec([]string{"mkdir", "-p", "/sdk/cmdline-tools"}).
+		WithExec(strings.Fields("wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip")).
+		WithExec(strings.Fields("unzip cmdline-tools.zip -d /sdk/cmdline-tools && mv /sdk/cmdline-tools/cmdline-tools /sdk/cmdline-tools/latest && rm cmdline-tools.zip")).
+		WithExec(strings.Fields("yes | /sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/sdk platform-tools platforms;android-33 build-tools;33.0.2")).
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-kotlin-android"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./.idea/", ".gradle/", "build/"},
