@@ -28,6 +28,30 @@ describe('FliptEvaluationClient', () => {
     });
   });
 
+  test('null flag key', () => {
+    expect(() => {
+      client.evaluateBoolean(null, 'someentity', {});
+    }).toThrow('flagKey cannot be empty');
+  });
+
+  test('empty flag key', () => {
+    expect(() => {
+      client.evaluateBoolean('', 'someentity', {});
+    }).toThrow('flagKey cannot be empty');
+  });
+
+  test('null entity id', () => {
+    expect(() => {
+      client.evaluateBoolean('flag1', null, {});
+    }).toThrow('entityId cannot be empty');
+  });
+
+  test('empty entity id', () => {
+    expect(() => {
+      client.evaluateBoolean('flag1', '', {});
+    }).toThrow('entityId cannot be empty');
+  });
+
   test('variant', () => {
     const variant = client.evaluateVariant('flag1', 'someentity', {
       fizz: 'buzz'

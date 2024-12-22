@@ -1,6 +1,5 @@
 name: Package Dart SDK
 on:
-  workflow_dispatch:
   push:
     tags: ["flipt-client-dart-**"]
 

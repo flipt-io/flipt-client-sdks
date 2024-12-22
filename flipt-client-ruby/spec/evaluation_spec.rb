@@ -70,14 +70,14 @@ RSpec.describe Flipt::EvaluationClient do
   describe '#evaluate_variant failure' do
     it 'gracefully handles failures for variant flag evaluation' do
       expect { @client.evaluate_variant({ flag_key: 'nonexistent', entity_id: 'someentity', context: { "fizz": 'buzz' } }) }
-        .to raise_error(StandardError, 'invalid request: failed to get flag information default/nonexistent')
+        .to raise_error(::Flipt::Error, 'invalid request: failed to get flag information default/nonexistent')
     end
   end
 
   describe '#evaluate_boolean failure' do
     it 'gracefully handles failures for boolean flag evaluation' do
       expect { @client.evaluate_boolean({ flag_key: 'nonexistent', entity_id: 'someentity', context: { "fizz": 'buzz' } }) }
-        .to raise_error(StandardError, 'invalid request: failed to get flag information default/nonexistent')
+        .to raise_error(::Flipt::Error, 'invalid request: failed to get flag information default/nonexistent')
     end
   end
 

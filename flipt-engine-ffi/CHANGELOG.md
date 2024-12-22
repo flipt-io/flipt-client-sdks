@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.2.3](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.2.2...flipt-engine-ffi-v0.2.3) (2024-12-18)
+
+
+### Bug Fixes
+
+* **ffi:** clear stored etag on http req failure ([#594](https://github.com/flipt-io/flipt-client-sdks/issues/594)) ([2db0a2e](https://github.com/flipt-io/flipt-client-sdks/commit/2db0a2e2813046f78543bcb7a6d20464c9401e6b))
+
 ## [0.2.2](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.2.2...flipt-engine-ffi-v0.2.2) (2024-11-24)
 
 

@@ -249,33 +249,40 @@ impl HTTPFetcher {
             }
         };
 
-        let response = self
+        match self
             .http_client
             .get(url)
             .headers(self.build_headers())
             .send()
             .await
-            .map_err(|e| Error::Server(format!("failed to make request: {}", e)))?
-            .error_for_status()
-            .map_err(|e| Error::Server(format!("response: {}", e)))?;
+        {
+            Ok(response) => match response.error_for_status() {
+                Ok(response) => match response.status() {
+                    reqwest::StatusCode::NOT_MODIFIED => Ok(None),
+                    reqwest::StatusCode::OK => {
+                        if let Some(etag) = response.headers().get(reqwest::header::ETAG) {
+                            self.etag = Some(etag.to_str().unwrap().to_string());
+                        }
 
-        match response.status() {
-            reqwest::StatusCode::NOT_MODIFIED => Ok(None),
-
-            reqwest::StatusCode::OK => {
-                // check if we have a new etag
-                if let Some(etag) = response.headers().get(reqwest::header::ETAG) {
-                    self.etag = Some(etag.to_str().unwrap().to_string());
+                        Ok(Some(response))
+                    }
+                    _ => {
+                        self.etag = None;
+                        Err(Error::Server(format!(
+                            "unexpected http response: {}",
+                            response.status()
+                        )))
+                    }
+                },
+                Err(e) => {
+                    self.etag = None;
+                    Err(Error::Server(format!("response: {}", e)))
                 }
-
-                Ok(Some(response))
+            },
+            Err(e) => {
+                self.etag = None;
+                Err(Error::Server(format!("failed to make request: {}", e)))
             }
-
-            _ => Err(Error::Server(format!(
-                "unexpected http response: {} {}",
-                response.status(),
-                response.text().await.unwrap_or("".to_string())
-            ))),
         }
     }
 
@@ -499,6 +506,7 @@ mod tests {
         let result = fetcher.fetch().await;
 
         assert!(result.is_err());
+        assert_eq!(fetcher.etag, None);
         mock.assert();
     }
 

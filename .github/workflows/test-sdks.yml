@@ -4,6 +4,8 @@ on:
     branches:
       - main
   pull_request:
+    branches-ignore:
+      - release/*
   workflow_dispatch:
 
 env:

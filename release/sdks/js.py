@@ -1,5 +1,6 @@
 import os
 import json
+import subprocess
 from .base import SDK
 
 
@@ -17,4 +18,9 @@ class JavaScriptSDK(SDK):
         data["version"] = new_version
         with open(package_json, "w") as f:
             json.dump(data, f, indent=2)
+
         print(f"Updated {self.name} version to {new_version} in package.json")
+
+        # Run npm install in the package directory
+        subprocess.run(["npm", "install"], cwd=self.path, check=True)
+        print(f"Ran npm install in {self.path}")
