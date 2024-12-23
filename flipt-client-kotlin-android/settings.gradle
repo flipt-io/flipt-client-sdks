@@ -1,0 +1,36 @@
+pluginManagement {
+    repositories {
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:7.3.1" // AGP compatible with Kotlin 1.7.1
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.6.0" // Correct plugin for Kotlin 1.7.1
+        classpath "org.jetbrains.kotlin:kotlin-serialization:1.6.0" // Serialization plugin
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "flipt-client-kotlin-android"
+include ':'
