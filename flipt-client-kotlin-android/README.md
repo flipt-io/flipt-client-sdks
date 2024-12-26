@@ -54,17 +54,8 @@ When in streaming mode, the SDK will connect to the Flipt server and open a pers
 
 This SDK currently supports the following OSes/architectures:
 
-- Linux x86_64
-- Linux x86_64 (musl)
-- Linux arm64
-- Linux arm64 (musl)
-- MacOS x86_64
-- MacOS arm64
-- Windows x86_64
-
-### Glibc vs Musl
-
-Most Linux distributions use [Glibc](https://en.wikipedia.org/wiki/Glibc), but some distributions like Alpine Linux use [Musl](https://en.wikipedia.org/wiki/Musl). If you are using Alpine Linux, you will need to install the `musl` version of the client.
+- Android x86_64
+- Android arm64
 
 ## Usage
 

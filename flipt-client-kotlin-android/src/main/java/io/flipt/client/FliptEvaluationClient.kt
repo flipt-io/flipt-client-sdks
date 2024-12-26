@@ -127,7 +127,7 @@ class FliptEvaluationClient(namespace: String, options: ClientOptions) {
 
 
     @Serializable
-    data class InternalEvaluationRequest(
+    internal data class InternalEvaluationRequest(
         @SerialName("flag_key") val flagKey: String,
         @SerialName("entity_id") val entityId: String,
         @SerialName("context") val context: Map<String, String>
@@ -185,12 +185,8 @@ class FliptEvaluationClient(namespace: String, options: ClientOptions) {
 
     fun listFlags(): ArrayList<Flag>? {
         val value = CLibrary.INSTANCE.listFlags(engine)
-        val resp = readFlags(value)
+        val resp = json.decodeFromString<Result<ArrayList<Flag>>>(value)
         return resp.result ?: throw EvaluationException(resp.errorMessage ?: "Unknown Error")
-    }
-
-    fun readFlags(ptr: String): Result<ArrayList<Flag>> {
-        return json.decodeFromString<Result<ArrayList<Flag>>>(ptr)
     }
 
     fun close() {

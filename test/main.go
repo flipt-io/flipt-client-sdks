@@ -385,7 +385,7 @@ func kotlinAndroidTests(ctx context.Context, root *dagger.Container, t *testCase
 		WithDirectory("/src", t.dir.Directory("flipt-client-kotlin-android"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./.idea/", ".gradle/", "build/"},
 		}).
-		WithFile(fmt.Sprintf("/src/main/cpp/libs/%s/libfliptengine.so", path), t.test.File(libFile)).
+		WithFile(fmt.Sprintf("/src/main/cpp/libs/%s/libfliptengine.a", path), t.test.File(libFile)).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
