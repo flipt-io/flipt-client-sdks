@@ -27,7 +27,6 @@ var (
 		"dart":    dartTests,
 		"react":   reactTests,
 		"csharp":  csharpTests,
-		"kotlin":  kotlinAndroidTests,
 	}
 	sema = make(chan struct{}, 5)
 )
