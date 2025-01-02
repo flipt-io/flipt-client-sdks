@@ -40,16 +40,16 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android NDK
+      - name: Add Android NDK to PATH
         run: |
-          echo y | sdkmanager --install "ndk;27.2.12479018" --sdk_root=$ANDROID_SDK_ROOT
+          echo "$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
 
       - name: Update config.toml
         run: |
           mkdir -p ~/.cargo
           cat << 'EOF' > ~/.cargo/config.toml
           [target.x86_64-linux-android]
-          linker = "x86_64-linux-android29-clang"
+          linker = "x86_64-linux-android21-clang"
           EOF
 
       - name: Build Engine
