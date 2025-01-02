@@ -49,7 +49,7 @@ jobs:
           mkdir -p ~/.cargo
           cat << 'EOF' > ~/.cargo/config.toml
           [target.x86_64-linux-android]
-          linker = "x86_64-linux-android27-clang"
+          linker = "x86_64-linux-android29-clang"
           EOF
 
       - name: Build Engine
