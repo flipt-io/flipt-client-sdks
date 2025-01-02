@@ -42,7 +42,7 @@ jobs:
 
       - name: Install Android NDK
         run: |
-          sdkmanager "ndk;27.2.12479018"
+          yes | sdkmanager "ndk;27.2.12479018"
 
       - name: Update config.toml
         run: |
