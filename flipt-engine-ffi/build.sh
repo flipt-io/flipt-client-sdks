@@ -27,12 +27,10 @@ case $SDK in
         ;;
         
     "android")
-        rustup target add aarch64-linux-android x86_64-linux-android
+        rustup target add x86_64-linux-android
 
-        cargo build -p flipt-engine-ffi --release --target=aarch64-linux-android
         cargo build -p flipt-engine-ffi --release --target=x86_64-linux-android
         
-        cp ../target/aarch64-linux-android/release/libfliptengine.a ../flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a/libfliptengine.a
         cp ../target/x86_64-linux-android/release/libfliptengine.a ../flipt-client-kotlin-android/src/main/cpp/libs/x86_64/libfliptengine.a
         ;;
         

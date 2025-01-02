@@ -46,6 +46,14 @@ jobs:
           FLIPT_STORAGE_LOCAL_PATH: "./test/fixtures/testdata"
         run: flipt&
 
+      - name: Update config.toml
+        run: |
+          mkdir -p ~/.cargo
+          cat << 'EOF' > ~/.cargo/config.toml
+          [target.x86_64-linux-android]
+          linker = "x86_64-linux-android29-clang"
+          EOF
+
       - name: Build Engine
         run: |
           pushd ./flipt-engine-ffi
