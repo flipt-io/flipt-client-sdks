@@ -39,6 +39,12 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          api-level: 33
+          target: default
+          arch: x86_64
+          profile: default
+          emulator-build: stable
 
       - name: Add Android NDK to PATH
         run: |
@@ -67,6 +73,27 @@ jobs:
           FLIPT_STORAGE_LOCAL_PATH: "./test/fixtures/testdata"
         run: flipt&
 
+      - name: Install System Image
+        run: |
+          echo "Installing system image..."
+          sdkmanager "system-images;android-33;google_apis;x86_64"
+
+      - name: Create Emulator
+        run: |
+          echo "Creating emulator..."
+          echo "no" | avdmanager create avd -n test -k "system-images;android-33;google_apis;x86_64" --device "pixel"
+
+      - name: Start Emulator
+        run: |
+          echo "Starting emulator..."
+          $ANDROID_HOME/emulator/emulator -avd test -no-audio -no-boot-anim -no-window -gpu swiftshader_indirect &
+
+      - name: Wait for Emulator to Boot
+        run: |
+          echo "Waiting for emulator to boot..."
+          adb wait-for-device
+          adb shell getprop init.svc.bootanim | grep -m 1 stopped
+
       - name: Run Integration Tests
         env:
           FLIPT_URL: "http://0.0.0.0:8080"
@@ -74,3 +101,9 @@ jobs:
         run: |
           cd ./flipt-client-kotlin-android
           ./gradlew connectedAndroidTest
+
+      - name: Stop Emulator
+        if: always()
+        run: |
+          echo "Stopping emulator..."
+          adb emu kill
