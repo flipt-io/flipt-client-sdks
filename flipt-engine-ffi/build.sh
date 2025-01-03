@@ -30,8 +30,9 @@ case $SDK in
         rustup target add x86_64-linux-android
 
         cargo build -p flipt-engine-ffi --release --target=x86_64-linux-android
-        
+        mkdir -p ../flipt-client-kotlin-android/src/main/cpp/libs/x86_64
         cp ../target/x86_64-linux-android/release/libfliptengine.a ../flipt-client-kotlin-android/src/main/cpp/libs/x86_64/libfliptengine.a
+        cp -r include/ ../flipt-client-kotlin-android/src/main/cpp/include
         ;;
         
     *)
