@@ -51,7 +51,7 @@ jobs:
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           name: flipt-engine-ffi-Android-x86_64.tar.gz
-          path: /tmp/flipt-engine-ffi-Android-x86_64
+          path: /tmp
           run-id: ${{ inputs.caller_run_id }}
 
       - name: Download Artifact (arm64)
@@ -59,51 +59,58 @@ jobs:
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           name: flipt-engine-ffi-Android-arm64.tar.gz
-          path: /tmp/flipt-engine-ffi-Android-arm64
+          path: /tmp
           run-id: ${{ inputs.caller_run_id }}
 
-      - name: Show Artifacts
+      - name: Extract Artifacts
         run: |
-          tree /tmp/flipt-engine-ffi-Android-x86_64
-          tree /tmp/flipt-engine-ffi-Android-arm64
+          tar -xzvf /tmp/flipt-engine-ffi-Android-x86_64.tar.gz -C /tmp/flipt-engine-ffi-Android-x86_64
+          tar -xzvf /tmp/flipt-engine-ffi-Android-arm64.tar.gz -C /tmp/flipt-engine-ffi-Android-arm64
 
-      # - name: Run flipt
-      #   env:
-      #     FLIPT_STORAGE_TYPE: "local"
-      #     FLIPT_STORAGE_LOCAL_PATH: "./test/fixtures/testdata"
-      #   run: flipt&
+      - name: Move Artifacts
+        run: |
+          mkdir -p ../flipt-client-kotlin-android/src/main/cpp/libs/x86_64
+          mkdir -p ../flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a
+          mv /tmp/flipt-engine-ffi-Android-x86_64/target/x86_64-linux-android/release/libfliptengine.a ../flipt-client-kotlin-android/src/main/cpp/libs/x86_64/
+          mv /tmp/flipt-engine-ffi-Android-arm64/target/aarch64-linux-android/release/libfliptengine.a ../flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a/
 
-      # - name: Install System Image
-      #   run: |
-      #     echo "Installing system image..."
-      #     sdkmanager "system-images;android-33;google_apis;x86_64"
+      - name: Run flipt
+        env:
+          FLIPT_STORAGE_TYPE: "local"
+          FLIPT_STORAGE_LOCAL_PATH: "./test/fixtures/testdata"
+        run: flipt&
 
-      # - name: Create Emulator
-      #   run: |
-      #     echo "Creating emulator..."
-      #     echo "no" | avdmanager create avd -n test -k "system-images;android-33;google_apis;x86_64" --device "pixel"
+      - name: Install System Image
+        run: |
+          echo "Installing system image..."
+          sdkmanager "system-images;android-33;google_apis;x86_64"
 
-      # - name: Start Emulator
-      #   run: |
-      #     echo "Starting emulator..."
-      #     $ANDROID_HOME/emulator/emulator -avd test -no-audio -no-boot-anim -no-window -gpu swiftshader_indirect &
+      - name: Create Emulator
+        run: |
+          echo "Creating emulator..."
+          echo "no" | avdmanager create avd -n test -k "system-images;android-33;google_apis;x86_64" --device "pixel"
 
-      # - name: Wait for Emulator to Boot
-      #   run: |
-      #     echo "Waiting for emulator to boot..."
-      #     adb wait-for-device
-      #     adb shell getprop init.svc.bootanim | grep -m 1 stopped
+      - name: Start Emulator
+        run: |
+          echo "Starting emulator..."
+          $ANDROID_HOME/emulator/emulator -avd test -no-window -no-snapshot -screen no-touch -noaudio -memory 2048 -no-boot-anim -accel off -camera-back none -gpu off &
 
-      # - name: Run Integration Tests
-      #   env:
-      #     FLIPT_URL: "http://0.0.0.0:8080"
-      #     FLIPT_AUTH_TOKEN: "secret"
-      #   run: |
-      #     cd ./flipt-client-kotlin-android
-      #     ./gradlew connectedAndroidTest
+      - name: Wait for Emulator to Boot
+        run: |
+          echo "Waiting for emulator to boot..."
+          adb wait-for-device
+          adb shell getprop sys.boot_completed
 
-      # - name: Stop Emulator
-      #   if: always()
-      #   run: |
-      #     echo "Stopping emulator..."
-      #     adb emu kill
+      - name: Run Integration Tests
+        env:
+          FLIPT_URL: "http://0.0.0.0:8080"
+          FLIPT_AUTH_TOKEN: "secret"
+        run: |
+          cd ./flipt-client-kotlin-android
+          ./gradlew connectedAndroidTest
+
+      - name: Stop Emulator
+        if: always()
+        run: |
+          echo "Stopping emulator..."
+          adb emu kill
