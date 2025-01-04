@@ -177,4 +177,4 @@ jobs:
           curl -X POST -H "Authorization: Bearer ${{ steps.generate_token.outputs.token }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/flipt-io/flipt-client-sdks/actions/workflows/test-android-sdk.yml/dispatches \
-            -d '{"ref":"${{ github.head_ref }}", "inputs":{"run_id":"${{ github.run_id }}"}}'
+            -d '{"ref":"${{ github.head_ref }}", "inputs":{"caller_run_id":"${{ github.run_id }}"}}'
