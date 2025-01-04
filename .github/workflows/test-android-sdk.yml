@@ -52,7 +52,7 @@ jobs:
           github-token: ${{ steps.generate_token.outputs.token }}
           name: flipt-engine-ffi-Android-x86_64.tar.gz
           path: /tmp/flipt-engine-ffi-Android-x86_64.tar.gz
-          run_id: ${{ inputs.caller_run_id }}
+          run-id: ${{ inputs.caller_run_id }}
 
       - name: Download Artifact (arm64)
         uses: actions/download-artifact@v4
@@ -60,7 +60,7 @@ jobs:
           github-token: ${{ steps.generate_token.outputs.token }}
           name: flipt-engine-ffi-Android-arm64.tar.gz
           path: /tmp/flipt-engine-ffi-Android-arm64.tar.gz
-          run_id: ${{ inputs.caller_run_id }}
+          run-id: ${{ inputs.caller_run_id }}
 
       - name: Extract Artifacts
         run: |
