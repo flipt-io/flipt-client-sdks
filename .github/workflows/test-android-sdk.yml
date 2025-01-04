@@ -1,8 +1,10 @@
 name: Test Android SDK
 on:
-  workflow_run:
-    workflows: ["Package FFI Engine"]
-    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        type: string
+        required: true
 
 permissions:
   contents: write
@@ -49,21 +51,23 @@ jobs:
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           name: flipt-engine-ffi-Android-x86_64.tar.gz
-          path: flipt-engine-ffi-Android-x86_64.tar.gz
+          path: /tmp/flipt-engine-ffi-Android-x86_64.tar.gz
+          run_id: ${{ inputs.run_id }}
 
       - name: Download Artifact (arm64)
         uses: actions/download-artifact@v4
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           name: flipt-engine-ffi-Android-arm64.tar.gz
-          path: flipt-engine-ffi-Android-arm64.tar.gz
+          path: /tmp/flipt-engine-ffi-Android-arm64.tar.gz
+          run_id: ${{ inputs.run_id }}
 
       - name: Extract Artifacts
         run: |
-          tar -xzvf flipt-engine-ffi-Android-x86_64.tar.gz -C ./flipt-engine-ffi-Android-x86_64
-          tar -xzvf flipt-engine-ffi-Android-arm64.tar.gz -C ./flipt-engine-ffi-Android-arm64
-          ls -la ./flipt-engine-ffi-Android-x86_64
-          ls -la ./flipt-engine-ffi-Android-arm64
+          tar -xzvf /tmp/flipt-engine-ffi-Android-x86_64.tar.gz -C /tmp/flipt-engine-ffi-Android-x86_64
+          tar -xzvf /tmp/flipt-engine-ffi-Android-arm64.tar.gz -C /tmp/flipt-engine-ffi-Android-arm64
+          ls -la /tmp/flipt-engine-ffi-Android-x86_64
+          ls -la /tmp/flipt-engine-ffi-Android-arm64
 
       # - name: Run flipt
       #   env:

@@ -159,3 +159,11 @@ jobs:
           tag_name: flipt-engine-ffi-${{ github.event.inputs.tag }}
           files: |
             flipt-engine-ffi-${{ matrix.platform.name }}${{ startsWith(matrix.platform.name, 'Windows') && '.zip' || '.tar.gz' }}
+
+      - name: Trigger Test Android SDK
+        if: success()
+        run: |
+          curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/flipt-io/flipt-client-sdks/actions/workflows/test-android-sdk.yml/dispatches \
+            -d '{"run_id":"'${{ github.run_id }}'"}'
