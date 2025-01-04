@@ -101,7 +101,7 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.platform.target}}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Set RUSTFLAGS
-        if: endsWith(matrix.platform.target, '-musl')
+        if: endsWith(matrix.platform.target, '-musl') || endsWith(matrix.platform.target, '-android')
         run: |
           echo "RUSTFLAGS=-C target-feature=-crt-static" >> $GITHUB_ENV
 
