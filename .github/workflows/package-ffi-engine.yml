@@ -160,8 +160,11 @@ jobs:
           files: |
             flipt-engine-ffi-${{ matrix.platform.name }}${{ startsWith(matrix.platform.name, 'Windows') && '.zip' || '.tar.gz' }}
 
+  notify:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
       - name: Trigger Test Android SDK
-        if: success()
         run: |
           curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
