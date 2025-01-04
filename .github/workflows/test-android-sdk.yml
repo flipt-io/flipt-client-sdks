@@ -64,6 +64,8 @@ jobs:
 
       - name: Extract Artifacts
         run: |
+          mkdir -p /tmp/flipt-engine-ffi-Android-x86_64
+          mkdir -p /tmp/flipt-engine-ffi-Android-arm64
           tar -xzvf /tmp/flipt-engine-ffi-Android-x86_64.tar.gz -C /tmp/flipt-engine-ffi-Android-x86_64
           tar -xzvf /tmp/flipt-engine-ffi-Android-arm64.tar.gz -C /tmp/flipt-engine-ffi-Android-arm64
 
@@ -73,6 +75,7 @@ jobs:
           mkdir -p ../flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a
           mv /tmp/flipt-engine-ffi-Android-x86_64/target/x86_64-linux-android/release/libfliptengine.a ../flipt-client-kotlin-android/src/main/cpp/libs/x86_64/
           mv /tmp/flipt-engine-ffi-Android-arm64/target/aarch64-linux-android/release/libfliptengine.a ../flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a/
+          cp -r ../flipt-engine-ffi/include/ ../flipt-client-kotlin-android/src/main/cpp/include
 
       - name: Run flipt
         env:
