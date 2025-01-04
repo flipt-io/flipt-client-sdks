@@ -36,21 +36,17 @@ jobs:
         with:
           swift-version: "5.9"
 
-      - name: run flipt
+      - name: Run flipt
         env:
           FLIPT_STORAGE_TYPE: "local"
           FLIPT_STORAGE_LOCAL_PATH: "./test/fixtures/testdata"
         run: flipt&
 
-      - name: Install Rust Targets
-        run: |
-          rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
-
       - name: Build Engine
         run: |
-          cd ./flipt-engine-ffi
-          ./build.sh
-          cd ..
+          pushd ./flipt-engine-ffi
+          ./build.sh swift
+          popd
 
       - name: Run Integration Tests
         env:

@@ -135,12 +135,14 @@ jobs:
           7z a -tzip flipt-engine-ffi-${{ matrix.platform.name }}.zip `
             target\${{ matrix.platform.target }}\release\fliptengine.* `
             || true
-      - name: Upload To Pull Request (Pull Request)
+
+      - name: Upload Artifact (Pull Request)
         uses: actions/upload-artifact@v4
-        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'package/')
+        if: github.event_name == 'pull_request'
         with:
           name: flipt-engine-ffi-${{ matrix.platform.name }}${{ startsWith(matrix.platform.name, 'Windows') && '.zip' || '.tar.gz' }}
           path: flipt-engine-ffi-${{ matrix.platform.name }}${{ startsWith(matrix.platform.name, 'Windows') && '.zip' || '.tar.gz' }}
+          retention-days: 1
 
       - name: Upload Release Assets (Tag)
         uses: softprops/action-gh-release@v2
