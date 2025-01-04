@@ -2,10 +2,8 @@ name: Test Android SDK
 on:
   workflow_dispatch:
   workflow_run:
-    workflows:
-      - package-ffi-engine
-    types:
-      - completed
+    workflows: ["Package FFI Engine"]
+    types: [completed]
 
 permissions:
   contents: write
