@@ -64,7 +64,6 @@ jobs:
 
       - name: Show Artifacts
         run: |
-          apt-get install -y tree
           tree /tmp/flipt-engine-ffi-Android-x86_64
           tree /tmp/flipt-engine-ffi-Android-arm64
 
