@@ -87,12 +87,9 @@ jobs:
       - name: Install System Image
         run: |
           echo "Installing system image..."
-          sdkmanager "system-images;android-33;google_apis;x86_64"
-
-      - name: Create Emulator
-        run: |
+          echo "yes" | sdkmanager "platform-tools" "platforms;android-33" "emulator" "system-images;android-33;default;x86_64"
           echo "Creating emulator..."
-          echo "no" | avdmanager create avd -n test -k "system-images;android-33;google_apis;x86_64" --device "pixel"
+          echo "no" | avdmanager create avd -n test -k "system-images;android-33;default;x86_64"
 
       - name: Start Emulator
         run: |
