@@ -90,14 +90,8 @@ jobs:
           echo "yes" | sdkmanager "platform-tools" "platforms;android-33" "emulator" "system-images;android-33;default;x86_64"
           echo "Creating emulator..."
           echo "no" | avdmanager create avd -n test -k "system-images;android-33;default;x86_64"
-
-      - name: Start Emulator
-        run: |
           echo "Starting emulator..."
           $ANDROID_HOME/emulator/emulator -avd test -no-window -no-snapshot -screen no-touch -noaudio -memory 2048 -no-boot-anim -accel off -camera-back none -gpu off &
-
-      - name: Wait for Emulator to Boot
-        run: |
           echo "Waiting for emulator to boot..."
           adb wait-for-device
           adb shell getprop sys.boot_completed
