@@ -6,7 +6,6 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 
-
 class TestFliptEvaluationClient {
     private var fliptClient: FliptEvaluationClient? = null
 
@@ -15,14 +14,16 @@ class TestFliptEvaluationClient {
     fun initAll() {
         val fliptURL = BuildConfig.FLIPT_URL
         val clientToken = BuildConfig.FLIPT_AUTH_TOKEN
-
+        assert("http://10.0.2.2:8080" == fliptURL)
         assert(!fliptURL.isEmpty())
         assert(!clientToken.isEmpty())
-        fliptClient = FliptEvaluationClient.builder()
-            .url(url = fliptURL)
-            .namespace("default")
-            .authentication(ClientTokenAuthentication(clientToken))
-            .build()
+        fliptClient =
+            FliptEvaluationClient
+                .builder()
+                .url(url = fliptURL)
+                .namespace("default")
+                .authentication(ClientTokenAuthentication(clientToken))
+                .build()
     }
 
     @Test
@@ -31,7 +32,7 @@ class TestFliptEvaluationClient {
         val context: MutableMap<String, String> = HashMap()
         context["fizz"] = "buzz"
 
-        val response  = fliptClient?.evaluateVariant("flag1", "entity", context)
+        val response = fliptClient?.evaluateVariant("flag1", "entity", context)
 
         assert("flag1" == response?.flagKey)
         assert(response?.match ?: false)
@@ -59,11 +60,12 @@ class TestFliptEvaluationClient {
         val context: MutableMap<String, String> = HashMap()
         context["fizz"] = "buzz"
 
-        val evalRequests: Array<EvaluationRequest> = arrayOf(
-            EvaluationRequest("flag1", "entity", context),
-            EvaluationRequest("flag_boolean", "entity", context),
-            EvaluationRequest("notfound", "entity", context)
-        )
+        val evalRequests: Array<EvaluationRequest> =
+            arrayOf(
+                EvaluationRequest("flag1", "entity", context),
+                EvaluationRequest("flag_boolean", "entity", context),
+                EvaluationRequest("notfound", "entity", context),
+            )
 
         val response = fliptClient?.evaluateBatch(evalRequests)
 
@@ -71,7 +73,7 @@ class TestFliptEvaluationClient {
         val responses = response?.responses
 
         assert(responses?.get(0)?.variantEvaluationResponse != null)
-        val variantResponse  = responses?.get(0)?.variantEvaluationResponse
+        val variantResponse = responses?.get(0)?.variantEvaluationResponse
         assert("flag1" == variantResponse?.flagKey)
         assert(variantResponse?.match ?: false)
         assert("MATCH_EVALUATION_REASON" == variantResponse?.reason)
@@ -103,5 +105,4 @@ class TestFliptEvaluationClient {
     fun tearDownAll() {
         fliptClient?.close()
     }
-
 }
