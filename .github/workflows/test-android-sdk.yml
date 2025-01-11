@@ -14,6 +14,7 @@ jobs:
   test:
     name: Integration Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Delete unnecessary tools 🔧
         uses: jlumbroso/free-disk-space@v1.3.1
@@ -31,6 +32,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+
       - name: Checkout Sources
         uses: actions/checkout@v4
 
@@ -79,11 +81,18 @@ jobs:
           mv /tmp/flipt-engine-ffi-Android-arm64/target/aarch64-linux-android/release/libfliptengine.a flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a/
           cp -r flipt-engine-ffi/include/* flipt-client-kotlin-android/src/main/cpp/include
 
-      - name: Run flipt
+      - name: Run Flipt
         env:
           FLIPT_STORAGE_TYPE: "local"
           FLIPT_STORAGE_LOCAL_PATH: "./test/fixtures/testdata"
         run: flipt&
+
+      - name: Wait for Flipt to be ready
+        run: |
+          while ! curl -s http://0.0.0.0:8080/health | grep -q "SERVING"; do
+            echo "Waiting for Flipt to be ready..."
+            sleep 1
+          done
 
       - name: Run Integration Tests
         uses: reactivecircus/android-emulator-runner@v2
