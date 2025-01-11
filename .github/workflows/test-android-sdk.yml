@@ -33,6 +33,9 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
       - name: Checkout Sources
         uses: actions/checkout@v4
 
@@ -103,6 +106,13 @@ jobs:
           api-level: 33
           target: default
           arch: x86_64
-          script: ./gradlew connectedAndroidTest
+          script: ./gradlew connectedCheck
           working-directory: ./flipt-client-kotlin-android
           emulator-options: -no-window -no-snapshot -screen no-touch -noaudio -no-boot-anim -camera-back none
+
+      - name: (Fail-only) Upload the build reports
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-reports
+          path: ./flipt-client-kotlin-android/build/reports
