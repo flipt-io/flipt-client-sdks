@@ -106,7 +106,7 @@ jobs:
           api-level: 33
           target: default
           arch: x86_64
-          script: ./gradlew connectedCheck
+          script: ./gradlew connectedAndroidTest
           working-directory: ./flipt-client-kotlin-android
           emulator-options: -no-window -no-snapshot -screen no-touch -noaudio -no-boot-anim -camera-back none
 
