@@ -108,7 +108,7 @@ jobs:
           arch: x86_64
           script: ./gradlew connectedAndroidTest
           working-directory: ./flipt-client-kotlin-android
-          emulator-options: -no-window -no-snapshot -screen no-touch -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -no-snapshot -screen no-touch -noaudio -no-boot-anim -camera-back none -dns-server 8.8.8.8
 
       - name: (Fail-only) Upload the build reports
         if: failure()
