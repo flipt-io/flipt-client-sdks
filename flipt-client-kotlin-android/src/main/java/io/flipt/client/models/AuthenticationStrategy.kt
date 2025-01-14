@@ -7,7 +7,6 @@ import kotlinx.serialization.json.JsonClassDiscriminator
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
-@JsonClassDiscriminator("type")
 sealed class AuthenticationStrategy
 
 @Serializable
