@@ -21,6 +21,7 @@ import kotlin.time.Duration
 class FliptEvaluationClient(namespace: String, options: ClientOptions) {
     private var engine: Long = 0
     private val json = Json {
+        encodeDefaults = false
         ignoreUnknownKeys = true
     }
 
