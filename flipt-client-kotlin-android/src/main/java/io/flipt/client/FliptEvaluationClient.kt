@@ -16,8 +16,6 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.time.Duration
-import android.util.Log
-
 
 class FliptEvaluationClient(namespace: String, options: ClientOptions) {
     private var engine: Long = 0
@@ -28,7 +26,6 @@ class FliptEvaluationClient(namespace: String, options: ClientOptions) {
 
     init {
         val clientOptionsSerialized = json.encodeToString(options)
-        Log.d("FliptClient", "Client Options JSON: $clientOptionsSerialized")
         engine = CLibrary.INSTANCE.initializeEngine(namespace, clientOptionsSerialized)
     }
 
