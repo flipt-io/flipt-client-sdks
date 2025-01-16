@@ -104,7 +104,7 @@ jobs:
 
       - name: (Fail-only) Upload the build reports
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-reports
           path: ./flipt-client-kotlin-android/build/reports
