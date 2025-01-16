@@ -77,6 +77,9 @@ jobs:
         env:
           FLIPT_STORAGE_TYPE: "local"
           FLIPT_STORAGE_LOCAL_PATH: "./test/fixtures/testdata"
+          FLIPT_AUTHENTICATION_REQUIRED: true
+          FLIPT_AUTHENTICATION_METHODS_TOKEN_ENABLED: true
+          FLIPT_AUTHENTICATION_METHODS_TOKEN_BOOTSTRAP_TOKEN: "secret"
         run: flipt&
 
       - name: Wait for Flipt to be ready
