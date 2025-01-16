@@ -17,10 +17,10 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.time.Duration
 
-
 class FliptEvaluationClient(namespace: String, options: ClientOptions) {
     private var engine: Long = 0
     private val json = Json {
+        encodeDefaults = false
         ignoreUnknownKeys = true
     }
 

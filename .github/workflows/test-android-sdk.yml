@@ -1,8 +1,10 @@
 name: Test Android SDK
 on:
-  workflow_run:
-    workflows: ["Package FFI Engine"]
-    types: [completed]
+  workflow_dispatch:
+    inputs:
+      caller_run_id:
+        type: string
+        required: true
 
 permissions:
   contents: write
@@ -12,7 +14,17 @@ jobs:
   test:
     name: Integration Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
       - name: Checkout Sources
         uses: actions/checkout@v4
 
@@ -20,21 +32,6 @@ jobs:
         uses: flipt-io/setup-action@v0.2.0
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: "17"
-          distribution: "temurin"
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          api-level: 33
-          target: default
-          arch: x86_64
-          profile: default
-          emulator-build: stable
 
       - name: Generate token
         id: generate_token
@@ -49,59 +46,65 @@ jobs:
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           name: flipt-engine-ffi-Android-x86_64.tar.gz
-          path: flipt-engine-ffi-Android-x86_64.tar.gz
+          path: /tmp
+          run-id: ${{ inputs.caller_run_id }}
 
       - name: Download Artifact (arm64)
         uses: actions/download-artifact@v4
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           name: flipt-engine-ffi-Android-arm64.tar.gz
-          path: flipt-engine-ffi-Android-arm64.tar.gz
+          path: /tmp
+          run-id: ${{ inputs.caller_run_id }}
 
       - name: Extract Artifacts
         run: |
-          tar -xzvf flipt-engine-ffi-Android-x86_64.tar.gz -C ./flipt-engine-ffi-Android-x86_64
-          tar -xzvf flipt-engine-ffi-Android-arm64.tar.gz -C ./flipt-engine-ffi-Android-arm64
-          ls -la ./flipt-engine-ffi-Android-x86_64
-          ls -la ./flipt-engine-ffi-Android-arm64
+          mkdir -p /tmp/flipt-engine-ffi-Android-x86_64
+          mkdir -p /tmp/flipt-engine-ffi-Android-arm64
+          tar -xzvf /tmp/flipt-engine-ffi-Android-x86_64.tar.gz -C /tmp/flipt-engine-ffi-Android-x86_64
+          tar -xzvf /tmp/flipt-engine-ffi-Android-arm64.tar.gz -C /tmp/flipt-engine-ffi-Android-arm64
 
-      # - name: Run flipt
-      #   env:
-      #     FLIPT_STORAGE_TYPE: "local"
-      #     FLIPT_STORAGE_LOCAL_PATH: "./test/fixtures/testdata"
-      #   run: flipt&
+      - name: Move Artifacts
+        run: |
+          mkdir -p flipt-client-kotlin-android/src/main/cpp/libs/x86_64
+          mkdir -p flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a
+          mkdir -p flipt-client-kotlin-android/src/main/cpp/include
+          mv /tmp/flipt-engine-ffi-Android-x86_64/target/x86_64-linux-android/release/libfliptengine.a flipt-client-kotlin-android/src/main/cpp/libs/x86_64/
+          mv /tmp/flipt-engine-ffi-Android-arm64/target/aarch64-linux-android/release/libfliptengine.a flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a/
+          cp -r flipt-engine-ffi/include/* flipt-client-kotlin-android/src/main/cpp/include
 
-      # - name: Install System Image
-      #   run: |
-      #     echo "Installing system image..."
-      #     sdkmanager "system-images;android-33;google_apis;x86_64"
+      - name: Run Flipt
+        env:
+          FLIPT_STORAGE_TYPE: "local"
+          FLIPT_STORAGE_LOCAL_PATH: "./test/fixtures/testdata"
+          FLIPT_AUTHENTICATION_REQUIRED: true
+          FLIPT_AUTHENTICATION_METHODS_TOKEN_ENABLED: true
+          FLIPT_AUTHENTICATION_METHODS_TOKEN_BOOTSTRAP_TOKEN: "secret"
+        run: flipt&
 
-      # - name: Create Emulator
-      #   run: |
-      #     echo "Creating emulator..."
-      #     echo "no" | avdmanager create avd -n test -k "system-images;android-33;google_apis;x86_64" --device "pixel"
+      - name: Wait for Flipt to be ready
+        run: |
+          while ! curl -s http://0.0.0.0:8080/health | grep -q "SERVING"; do
+            echo "Waiting for Flipt to be ready..."
+            sleep 1
+          done
 
-      # - name: Start Emulator
-      #   run: |
-      #     echo "Starting emulator..."
-      #     $ANDROID_HOME/emulator/emulator -avd test -no-audio -no-boot-anim -no-window -gpu swiftshader_indirect &
+      - name: Run Integration Tests
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          FLIPT_URL: "http://10.0.2.2:8080"
+          FLIPT_AUTH_TOKEN: "secret"
+        with:
+          api-level: 33
+          target: default
+          arch: x86_64
+          script: ./gradlew connectedAndroidTest
+          working-directory: ./flipt-client-kotlin-android
+          emulator-options: -no-window -no-snapshot -screen no-touch -noaudio -no-boot-anim -camera-back none
 
-      # - name: Wait for Emulator to Boot
-      #   run: |
-      #     echo "Waiting for emulator to boot..."
-      #     adb wait-for-device
-      #     adb shell getprop init.svc.bootanim | grep -m 1 stopped
-
-      # - name: Run Integration Tests
-      #   env:
-      #     FLIPT_URL: "http://0.0.0.0:8080"
-      #     FLIPT_AUTH_TOKEN: "secret"
-      #   run: |
-      #     cd ./flipt-client-kotlin-android
-      #     ./gradlew connectedAndroidTest
-
-      # - name: Stop Emulator
-      #   if: always()
-      #   run: |
-      #     echo "Stopping emulator..."
-      #     adb emu kill
+      - name: (Fail-only) Upload the build reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: ./flipt-client-kotlin-android/build/reports
