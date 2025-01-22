@@ -1,12 +1,10 @@
 name: Test Swift SDK
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches-ignore:
-      - release/*
   workflow_dispatch:
+    inputs:
+      caller_run_id:
+        type: string
+        required: true
 
 permissions:
   contents: write
@@ -16,7 +14,13 @@ jobs:
   test:
     name: Integration Tests
     runs-on: macos-latest
+    timeout-minutes: 10
     steps:
+      - name: Install Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "5.9"
+
       - name: Checkout Sources
         uses: actions/checkout@v4
 
@@ -25,28 +29,57 @@ jobs:
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
+      - name: Generate token
+        id: generate_token
+        uses: tibdex/github-app-token@v2
         with:
-          toolchain: 1.75.0
-          override: true
+          app_id: ${{ secrets.FLIPT_RELEASE_BOT_APP_ID }}
+          private_key: ${{ secrets.FLIPT_RELEASE_BOT_APP_PEM }}
+          installation_id: ${{ secrets.FLIPT_RELEASE_BOT_INSTALLATION_ID }}
 
-      - name: Install Swift
-        uses: swift-actions/setup-swift@v2
+      - name: Download Artifact (iOS arm64)
+        uses: actions/download-artifact@v4
         with:
-          swift-version: "5.9"
+          github-token: ${{ steps.generate_token.outputs.token }}
+          pattern: flipt-engine-ffi-iOS-arm64*.tar.gz
+          path: /tmp
+          run-id: ${{ inputs.caller_run_id }}
 
-      - name: Run flipt
+      - name: Download Artifact (Darwin arm64)
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ steps.generate_token.outputs.token }}
+          name: flipt-engine-ffi-Darwin-arm64.tar.gz 
+          path: /tmp
+          run-id: ${{ inputs.caller_run_id }}
+
+      - name: Extract Artifacts
+        run: |
+          mkdir -p /tmp/flipt-engine-ffi-iOS-arm64
+          mkdir -p /tmp/flipt-engine-ffi-iOS-sim
+          mkdir -p /tmp/flipt-engine-ffi-Darwin-arm64
+          tar -xzvf /tmp/flipt-engine-ffi-iOS-arm64.tar.gz -C /tmp/flipt-engine-ffi-iOS-arm64
+          tar -xzvf /tmp/flipt-engine-ffi-iOS-sim.tar.gz -C /tmp/flipt-engine-ffi-iOS-sim
+          tar -xzvf /tmp/flipt-engine-ffi-Darwin-arm64.tar.gz -C /tmp/flipt-engine-ffi-Darwin-arm64
+
+      - name: XCode Build
+        run: |
+          xcodebuild -create-xcframework -library /tmp/flipt-engine-ffi-iOS-arm64/target/aarch64-apple-ios/release/libfliptengine.a -headers ../flipt-engine-ffi/include/ -library /tmp/flipt-engine-ffi-iOS-sim/target/aarch64-apple-ios-sim/release/libfliptengine.a -headers ../flipt-engine-ffi/include/ -library /tmp/flipt-engine-ffi-Darwin-arm64/target/aarch64-apple-darwin/release/libfliptengine.a -headers ../flipt-engine-ffi/include/ -output ../flipt-client-swift/Sources/FliptEngineFFI.xcframework
+
+      - name: Run Flipt
         env:
           FLIPT_STORAGE_TYPE: "local"
           FLIPT_STORAGE_LOCAL_PATH: "./test/fixtures/testdata"
+          FLIPT_AUTHENTICATION_REQUIRED: true
+          FLIPT_AUTHENTICATION_METHODS_TOKEN_ENABLED: true
+          FLIPT_AUTHENTICATION_METHODS_TOKEN_BOOTSTRAP_TOKEN: "secret"
         run: flipt&
 
-      - name: Build Engine
+      - name: Wait for Flipt to be ready
         run: |
-          pushd ./flipt-engine-ffi
-          ./build.sh swift
-          popd
+          while ! curl -s http://0.0.0.0:8080/health | grep -q "SERVING"; do
+            sleep 1
+          done
 
       - name: Run Integration Tests
         env:
