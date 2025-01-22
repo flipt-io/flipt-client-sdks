@@ -55,6 +55,7 @@ jobs:
 
       - name: Extract Artifacts
         run: |
+          tree /tmp
           mkdir -p /tmp/flipt-engine-ffi-iOS-arm64
           mkdir -p /tmp/flipt-engine-ffi-iOS-sim
           mkdir -p /tmp/flipt-engine-ffi-Darwin-arm64
