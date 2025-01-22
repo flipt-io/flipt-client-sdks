@@ -55,6 +55,7 @@ jobs:
 
       - name: Extract Artifacts
         run: |
+          brew install tree
           tree /tmp
           mkdir -p /tmp/flipt-engine-ffi-iOS-arm64
           mkdir -p /tmp/flipt-engine-ffi-iOS-sim
