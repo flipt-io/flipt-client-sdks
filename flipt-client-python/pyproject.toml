@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "flipt-client"
-version = "0.13.1"
+version = "0.14.0"
 description = "Flipt Client Evaluation SDK"
 authors = [ "Flipt Devs <dev@flipt.io>",]
 readme = "README.md"
