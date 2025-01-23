@@ -197,7 +197,7 @@ func getWasmTestContainer(_ context.Context, client *dagger.Client, hostDirector
 
 // pythonTests runs the python integration test suite against a container running Flipt.
 func pythonTests(ctx context.Context, root *dagger.Container, t *testCase) error {
-	_, err := root.From("python:3.11-bookworm").
+	_, err := root.From("python:3.9-bookworm").
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-python")).

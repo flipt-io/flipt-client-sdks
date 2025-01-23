@@ -74,7 +74,9 @@ Feel free to ask the team for help with this step.
 
 1. Update the `test/main.go` file to include the new client in the list of clients to test.
 2. Update `test/main.go` to run the tests for the new client using Dagger. See the existing clients for examples.
-3. Ensure the tests pass locally by running `dagger run go run ./test/... --languages={language}` from the root of the repository. Note: You will need to have Docker, Go, and Dagger installed locally to run the tests.
+3. Ensure the tests pass locally by running `dagger run go run ./test/... -sdks {comma separated list of languages}` from the root of the repository. Note: You will need to have Docker, Go, and Dagger installed locally to run the tests.
+
+> **Note:** If you are working on an ARM-based cpu then you may encounter an OSError `cannot open shared object file: No such file or directory`. This could be due to the `getFFITestContainer()` step of the dagger pipeline building the dynamic library for an ARM target which cannot be used by the tests. A workaround until this is resolved is downloading the x86 `.so` from the [releases page](https://github.com/flipt-io/flipt-client-sdks/releases/latest), moving the `.so` to the expected folder (which will get mounted to the container for tests), and removing any `WithFile` directives from `test/main.go` which might override your local copy with the ARM-based copy compiled in `getFFITestContainer()`
 
 ### 5. Update README
 

@@ -172,6 +172,7 @@ jobs:
           - name: iOS
             workflow: test-swift-sdk.yml
 
+    if: github.repository == 'flipt-io/flipt-client-sdks'
     steps:
       - name: Generate token
         id: generate_token
