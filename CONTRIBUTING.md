@@ -74,7 +74,7 @@ Feel free to ask the team for help with this step.
 
 1. Update the `test/main.go` file to include the new client in the list of clients to test.
 2. Update `test/main.go` to run the tests for the new client using Dagger. See the existing clients for examples.
-3. Ensure the tests pass locally by running `dagger run go run ./test/... --languages={language}` from the root of the repository. Note: You will need to have Docker, Go, and Dagger installed locally to run the tests.
+3. Ensure the tests pass locally by running `dagger run go run ./test/... -sdks {comma separated list of languages}` from the root of the repository. Note: You will need to have Docker, Go, and Dagger installed locally to run the tests.
 
 ### 5. Update README
 
