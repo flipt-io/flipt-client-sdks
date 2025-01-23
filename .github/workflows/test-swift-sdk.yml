@@ -70,6 +70,11 @@ jobs:
           tar -xzvf /tmp/flipt-engine-ffi-iOS-arm64-sim.tar.gz -C /tmp/flipt-engine-ffi-iOS-arm64-sim
           tar -xzvf /tmp/flipt-engine-ffi-Darwin-arm64.tar.gz -C /tmp/flipt-engine-ffi-Darwin-arm64
 
+      - name: Run tree
+        run: |
+          brew install tree
+          tree flipt-engine-ffi/include
+
       - name: XCode Build
         run: |
           xcodebuild -create-xcframework \
