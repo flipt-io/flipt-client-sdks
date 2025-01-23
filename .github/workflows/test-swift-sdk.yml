@@ -64,15 +64,19 @@ jobs:
       - name: Extract Artifacts
         run: |
           mkdir -p /tmp/flipt-engine-ffi-iOS-arm64
-          mkdir -p /tmp/flipt-engine-ffi-iOS-sim
+          mkdir -p /tmp/flipt-engine-ffi-iOS-arm64-sim
           mkdir -p /tmp/flipt-engine-ffi-Darwin-arm64
           tar -xzvf /tmp/flipt-engine-ffi-iOS-arm64.tar.gz -C /tmp/flipt-engine-ffi-iOS-arm64
-          tar -xzvf /tmp/flipt-engine-ffi-iOS-sim.tar.gz -C /tmp/flipt-engine-ffi-iOS-sim
+          tar -xzvf /tmp/flipt-engine-ffi-iOS-arm64-sim.tar.gz -C /tmp/flipt-engine-ffi-iOS-arm64-sim
           tar -xzvf /tmp/flipt-engine-ffi-Darwin-arm64.tar.gz -C /tmp/flipt-engine-ffi-Darwin-arm64
 
       - name: XCode Build
         run: |
-          xcodebuild -create-xcframework -library /tmp/flipt-engine-ffi-iOS-arm64/target/aarch64-apple-ios/release/libfliptengine.a -headers ../flipt-engine-ffi/include/ -library /tmp/flipt-engine-ffi-iOS-sim/target/aarch64-apple-ios-sim/release/libfliptengine.a -headers ../flipt-engine-ffi/include/ -library /tmp/flipt-engine-ffi-Darwin-arm64/target/aarch64-apple-darwin/release/libfliptengine.a -headers ../flipt-engine-ffi/include/ -output ../flipt-client-swift/Sources/FliptEngineFFI.xcframework
+          xcodebuild -create-xcframework \
+            -library /tmp/flipt-engine-ffi-iOS-arm64/target/aarch64-apple-ios/release/libfliptengine.a -headers ../flipt-engine-ffi/include/ \
+            -library /tmp/flipt-engine-ffi-iOS-arm64-sim/target/aarch64-apple-ios-sim/release/libfliptengine.a -headers ../flipt-engine-ffi/include/ \
+            -library /tmp/flipt-engine-ffi-Darwin-arm64/target/aarch64-apple-darwin/release/libfliptengine.a -headers ../flipt-engine-ffi/include/ \
+            -output ../flipt-client-swift/Sources/FliptEngineFFI.xcframework
 
       - name: Run Flipt
         env:
