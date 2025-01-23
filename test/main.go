@@ -50,6 +50,10 @@ func main() {
 	}
 }
 
+func args(args string, a ...any) []string {
+	return strings.Split(fmt.Sprintf(args, a...), " ")
+}
+
 func run() error {
 	tests := make(map[string]integrationTestFn, len(sdkToFn))
 
@@ -83,9 +87,9 @@ func run() error {
 
 	flipt := client.Container().From("flipt/flipt:latest").
 		WithUser("root").
-		WithExec([]string{"mkdir", "-p", "/var/data/flipt"}).
+		WithExec(args("mkdir -p /var/data/flipt")).
 		WithDirectory("/var/data/flipt", dir.Directory("test/fixtures/testdata")).
-		WithExec([]string{"chown", "-R", "flipt:flipt", "/var/data/flipt"}).
+		WithExec(args("chown -R flipt:flipt /var/data/flipt")).
 		WithUser("flipt").
 		WithEnvVariable("FLIPT_STORAGE_TYPE", "local").
 		WithEnvVariable("FLIPT_STORAGE_LOCAL_PATH", "/var/data/flipt").
@@ -165,7 +169,7 @@ func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory
 		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
-		WithExec([]string{"cargo", "build", "-p", "flipt-engine-ffi", "--release"}) // Build the dynamic library
+		WithExec(args("cargo build -p flipt-engine-ffi --release")) // Build the dynamic library
 }
 
 // getWasmTestContainer builds the wasm module for the Rust core, and the Flipt container for the client libraries to run
@@ -179,16 +183,16 @@ func getWasmTestContainer(_ context.Context, client *dagger.Client, hostDirector
 		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
-		WithExec([]string{"cargo", "build", "-p", "flipt-engine-wasm", "--release"}) // Build the wasm module
+		WithExec(args("cargo build -p flipt-engine-wasm --release")) // Build the wasm module
 
 	if architecture == "arm64" {
-		container = container.WithExec([]string{"apt-get", "update"}).
-			WithExec([]string{"apt-get", "-y", "install", "binaryen"})
+		container = container.WithExec(args("apt-get update")).
+			WithExec(args("apt-get -y install binaryen"))
 	}
 
-	return container.WithExec([]string{"cargo", "install", "wasm-pack"}). // Install wasm-pack
-										WithWorkdir("/src/flipt-engine-wasm").
-										WithExec([]string{"wasm-pack", "build", "--target", target}) // Build the wasm package
+	return container.WithExec(args("cargo install wasm-pack")). // Install wasm-pack
+									WithWorkdir("/src/flipt-engine-wasm").
+									WithExec(args("wasm-pack build --target %s", target)) // Build the wasm package
 }
 
 // pythonTests runs the python integration test suite against a container running Flipt.
@@ -201,8 +205,8 @@ func pythonTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithExec([]string{"poetry", "install", "--without=dev"}).
-		WithExec([]string{"poetry", "run", "test"}).
+		WithExec(args("poetry install --without=dev")).
+		WithExec(args("poetry run test")).
 		Sync(ctx)
 
 	return err
@@ -211,8 +215,8 @@ func pythonTests(ctx context.Context, root *dagger.Container, t *testCase) error
 // goTests runs the golang integration test suite against a container running Flipt.
 func goTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	_, err := root.From("golang:1.21.3-bookworm").
-		WithExec([]string{"apt-get", "update"}).
-		WithExec([]string{"apt-get", "-y", "install", "build-essential"}).
+		WithExec(args("apt-get update")).
+		WithExec(args("apt-get -y install build-essential")).
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-go")).
 		WithFile(fmt.Sprintf("/src/ext/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
@@ -224,8 +228,8 @@ func goTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		// modify the LD_LIBRARY_PATH variable to inform the linker different locations for
 		// dynamic libraries.
 		WithEnvVariable("LD_LIBRARY_PATH", fmt.Sprintf("/src/ext/linux_%s:$LD_LIBRARY_PATH", architecture)).
-		WithExec([]string{"go", "mod", "download"}).
-		WithExec([]string{"go", "test", "./..."}).
+		WithExec(args("go mod download")).
+		WithExec(args("go test ./...")).
 		Sync(ctx)
 
 	return err
@@ -244,9 +248,9 @@ func nodeTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithExec([]string{"npm", "install"}).
-		WithExec([]string{"npm", "run", "build"}).
-		WithExec([]string{"npm", "test"}).
+		WithExec(args("npm install")).
+		WithExec(args("npm run build")).
+		WithExec(args("npm test")).
 		Sync(ctx)
 
 	return err
@@ -261,8 +265,8 @@ func rubyTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithExec([]string{"bundle", "install"}).
-		WithExec([]string{"bundle", "exec", "rspec"}).
+		WithExec(args("bundle install")).
+		WithExec(args("bundle exec rspec")).
 		Sync(ctx)
 
 	return err
@@ -285,7 +289,7 @@ func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithExec([]string{"gradle", "test"}).
+		WithExec(args("gradle test")).
 		Sync(ctx)
 
 	return err
@@ -304,9 +308,9 @@ func browserTests(ctx context.Context, root *dagger.Container, t *testCase) erro
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithExec([]string{"npm", "install"}).
-		WithExec([]string{"npm", "run", "build"}).
-		WithExec([]string{"npm", "test"}).
+		WithExec(args("npm install")).
+		WithExec(args("npm run build")).
+		WithExec(args("npm test")).
 		Sync(ctx)
 
 	return err
@@ -320,9 +324,9 @@ func reactTests(ctx context.Context, root *dagger.Container, t *testCase) error 
 		WithDirectory("/src", t.dir.Directory("flipt-client-react"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "dist/"},
 		}).
-		WithExec([]string{"npm", "install"}).
-		WithExec([]string{"npm", "run", "build"}).
-		WithExec([]string{"npm", "test"}).
+		WithExec(args("npm install")).
+		WithExec(args("npm run build")).
+		WithExec(args("npm test")).
 		Sync(ctx)
 
 	return err
@@ -339,8 +343,8 @@ func dartTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithExec([]string{"dart", "pub", "get"}).
-		WithExec([]string{"dart", "test"}).
+		WithExec(args("dart pub get")).
+		WithExec(args("dart test")).
 		Sync(ctx)
 
 	return err
@@ -357,9 +361,9 @@ func csharpTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithExec([]string{"dotnet", "restore"}).
-		WithExec([]string{"dotnet", "build"}).
-		WithExec([]string{"dotnet", "test"}).
+		WithExec(args("dotnet restore")).
+		WithExec(args("dotnet build")).
+		WithExec(args("dotnet test")).
 		Sync(ctx)
 
 	return err
