@@ -37,32 +37,8 @@ Releasing the engine is a three-step process:
 
 #### SDKs
 
-Releasing each SDK is a two to three-step process:
-
 <p align="center">
     <img src=".github/images/release-engine-ffi-sdk.png" width=600 />
 </p>
 
-1. Update the SDK to the new version that you want to release (i.e. update the version in `package.json` for Node, `pyproject.toml` for Python, `flipt_client.gemspec` for Ruby).
-1. Commit and tag the SDK with the new version using the naming convention `flipt-client-{language}-{version}` (i.e. `flipt-client-node-v0.1.0`).
-1. Push the tag to `origin`. This will trigger the appropriate GitHub Action to build, package, and publish the SDK.
-
-Note: In the future we can potentially automate the tagging/pushing of the SDKs via a GitHub Action or script.
-
-#### Checklist
-
-- [ ] Update the `flipt-client-node` version in `flipt-client-node/package.json` and run `npm install`
-- [ ] Update the `flipt-client-python` version in `flipt-client-python/pyproject.toml`
-- [ ] Update the `flipt-client-ruby` version in `flipt-client-ruby/lib/flipt_client/version.rb`
-- [ ] Update the `flipt-client-java` version in `flipt-client-java/build.gradle`
-- [ ] Update the `flipt-client-dart` version in `flipt-client-dart/pubspec.yaml`
-- [ ] Tag each SDK with the new version and push the tags to `origin`
-
-### WASM
-
-Releasing the `flipt-client-browser` SDK is a three to four-step process:
-
-1. Update the `flipt-engine-wasm` dependency in `flipt-client-browser/src` (if necessary).
-1. Update the `flipt-client-browser` version in `flipt-client-browser/package.json` and run `npm install`
-1. Commit and tag the SDK with the new version using the naming convention `flipt-client-browser-v{version}` (i.e. `flipt-client-browser-v0.1.0`).
-1. Push the tag to `origin`. This will trigger the appropriate GitHub Action to build, package, and publish the SDK.
+We use a Python script to release the SDKs. The script is located in the [release](./release) directory. See the [README](./release/README.md) for more information.
