@@ -7,7 +7,6 @@ import (
 	"log"
 	"maps"
 	"os"
-	"runtime"
 	"strings"
 
 	"dagger.io/dagger"
@@ -40,13 +39,6 @@ func init() {
 
 func main() {
 	flag.Parse()
-
-	architecture = "x86_64"
-	platform = "linux/amd64"
-	if strings.Contains(runtime.GOARCH, "arm64") || strings.Contains(runtime.GOARCH, "aarch64") {
-		architecture = "arm64"
-		platform = "linux/arm64"
-	}
 
 	if err := run(); err != nil {
 		log.Fatal(err)
@@ -83,6 +75,20 @@ func run() error {
 	dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
 		Exclude: []string{".github/", "build/", "tmp/", ".git/"},
 	})
+
+	// Detect the architecture and platform of the host machine
+	architecture = "x86_64"
+	platform = "linux/amd64"
+	daggerPlatform, err := client.DefaultPlatform(ctx)
+	if err != nil {
+		fmt.Println("Error detecting host platform from Dagger: ", err)
+		fmt.Println("Defaulting to platform: linux/amd64, architecture: x86_64")
+	}
+	platform = string(daggerPlatform)
+	if strings.Contains(platform, "arm64") || strings.Contains(platform, "aarch64") {
+		architecture = "arm64"
+		platform = "linux/arm64"
+	}
 
 	flipt := client.Container().From("flipt/flipt:latest").
 		WithUser("root").
