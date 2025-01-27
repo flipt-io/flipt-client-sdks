@@ -7,7 +7,6 @@ import (
 	"log"
 	"maps"
 	"os"
-	"runtime"
 	"strings"
 
 	"dagger.io/dagger"
@@ -16,6 +15,7 @@ import (
 
 var (
 	architecture string
+	platform     string
 	sdks         string
 	sdkToFn      = map[string]integrationTestFn{
 		"python":  pythonTests,
@@ -39,11 +39,6 @@ func init() {
 
 func main() {
 	flag.Parse()
-
-	architecture = "x86_64"
-	if strings.Contains(runtime.GOARCH, "arm64") || strings.Contains(runtime.GOARCH, "aarch64") {
-		architecture = "arm64"
-	}
 
 	if err := run(); err != nil {
 		log.Fatal(err)
@@ -81,6 +76,20 @@ func run() error {
 		Exclude: []string{".github/", "build/", "tmp/", ".git/"},
 	})
 
+	// Detect the architecture and platform of the host machine
+	architecture = "x86_64"
+	platform = "linux/amd64"
+	daggerPlatform, err := client.DefaultPlatform(ctx)
+	if err != nil {
+		fmt.Println("Error detecting host platform from Dagger: ", err)
+		fmt.Println("Defaulting to platform: linux/amd64, architecture: x86_64")
+	}
+	platform = string(daggerPlatform)
+	if strings.Contains(platform, "arm64") || strings.Contains(platform, "aarch64") {
+		architecture = "arm64"
+		platform = "linux/arm64"
+	}
+
 	flipt := client.Container().From("flipt/flipt:latest").
 		WithUser("root").
 		WithExec([]string{"mkdir", "-p", "/var/data/flipt"}).
@@ -95,11 +104,6 @@ func run() error {
 		WithExposedPort(8080)
 
 	var g errgroup.Group
-
-	platform := "linux/amd64"
-	if architecture == "arm64" {
-		platform = "linux/arm64"
-	}
 
 	container := client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform(platform),
@@ -157,7 +161,9 @@ type testCase struct {
 // getFFITestContainer builds the dynamic library for the Rust core, and the Flipt container for the client libraries to run
 // their tests against.
 func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
-	return client.Container().From("rust:1.83.0-bookworm").
+	return client.Container(dagger.ContainerOpts{
+		Platform: dagger.Platform(platform),
+	}).From("rust:1.83.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
@@ -171,7 +177,9 @@ func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory
 // getWasmTestContainer builds the wasm module for the Rust core, and the Flipt container for the client libraries to run
 // their tests against.
 func getWasmTestContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory, target string) *dagger.Container {
-	container := client.Container().From("rust:1.83.0-bookworm").
+	container := client.Container(dagger.ContainerOpts{
+		Platform: dagger.Platform(platform),
+	}).From("rust:1.83.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
