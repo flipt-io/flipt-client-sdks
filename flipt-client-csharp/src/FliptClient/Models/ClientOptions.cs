@@ -22,6 +22,10 @@ namespace FliptClient.Models
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("fetch_mode")]
         public FetchMode FetchMode { get; set; } = FetchMode.Polling;
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        [JsonPropertyName("allow_stale")]
+        public bool AllowStale { get; set; } = false;
     }
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
