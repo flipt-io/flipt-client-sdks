@@ -86,6 +86,7 @@ pub struct EngineOpts {
     update_interval: Option<u64>,
     fetch_mode: Option<FetchMode>,
     reference: Option<String>,
+    allow_stale: Option<bool>,
 }
 
 impl Default for EngineOpts {
@@ -96,6 +97,7 @@ impl Default for EngineOpts {
             update_interval: Some(120),
             reference: None,
             fetch_mode: Some(FetchMode::default()),
+            allow_stale: Some(false),
         }
     }
 }
@@ -107,7 +109,12 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn new(namespace: &str, mut fetcher: HTTPFetcher, evaluator: Evaluator<Snapshot>) -> Self {
+    pub fn new(
+        namespace: &str,
+        mut fetcher: HTTPFetcher,
+        evaluator: Evaluator<Snapshot>,
+        allow_stale: bool,
+    ) -> Self {
         let stop_signal = Arc::new(AtomicBool::new(false));
 
         let runtime = Runtime::new().expect("failed to create runtime");
@@ -137,7 +144,9 @@ impl Engine {
                         evaluator_clone.lock().unwrap().replace_snapshot(snap);
                     }
                     Err(err) => {
-                        evaluator_clone.lock().unwrap().replace_snapshot(Err(err));
+                        if !allow_stale {
+                            evaluator_clone.lock().unwrap().replace_snapshot(Err(err));
+                        }
                     }
                 }
             }
@@ -250,7 +259,12 @@ pub unsafe extern "C" fn initialize_engine(
 
     let fetcher = fetcher_builder.build();
     let evaluator = Evaluator::new(namespace);
-    let engine = Engine::new(namespace, fetcher, evaluator);
+    let engine = Engine::new(
+        namespace,
+        fetcher,
+        evaluator,
+        engine_opts.allow_stale.unwrap_or_default(),
+    );
 
     Box::into_raw(Box::new(engine)) as *mut c_void
 }
