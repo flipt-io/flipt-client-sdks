@@ -228,11 +228,11 @@ public struct EvaluationRequest: Codable {
 }
 
 public struct ClientTokenAuthentication: Codable {
-    let token: String
+    public let token: String
 }
 
 public struct JWTAuthentication: Codable {
-    let token: String
+    public let token: String
 }
 
 public enum FetchMode: String, Codable {
@@ -241,11 +241,11 @@ public enum FetchMode: String, Codable {
 }
 
 public struct ClientOptions<T: Encodable>: Encodable {
-    let url: String
-    let authentication: T?
-    let updateInterval: Int
-    let reference: String
-    let fetchMode: FetchMode
+    public let url: String
+    public let authentication: T?
+    public let updateInterval: Int
+    public let reference: String
+    public let fetchMode: FetchMode
 }
 
 public struct Flag: Codable {
