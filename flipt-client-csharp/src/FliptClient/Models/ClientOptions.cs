@@ -22,6 +22,19 @@ namespace FliptClient.Models
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("fetch_mode")]
         public FetchMode FetchMode { get; set; } = FetchMode.Polling;
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        [JsonPropertyName("error_strategy")]
+        public ErrorStrategy ErrorStrategy { get; set; } = ErrorStrategy.Report;
+    }
+
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public enum ErrorStrategy
+    {
+        [JsonPropertyName("report")]
+        Report,
+        [JsonPropertyName("fallback")]
+        Fallback,
     }
 
     [JsonConverter(typeof(JsonStringEnumConverter))]

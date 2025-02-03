@@ -9,7 +9,7 @@ use fliptevaluation::{
     BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
     VariantEvaluationResponse,
 };
-use http::{Authentication, FetchMode, HTTPFetcher, HTTPFetcherBuilder};
+use http::{Authentication, ErrorStrategy, FetchMode, HTTPFetcher, HTTPFetcherBuilder};
 use libc::c_void;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -86,6 +86,7 @@ pub struct EngineOpts {
     update_interval: Option<u64>,
     fetch_mode: Option<FetchMode>,
     reference: Option<String>,
+    error_strategy: Option<ErrorStrategy>,
 }
 
 impl Default for EngineOpts {
@@ -96,6 +97,7 @@ impl Default for EngineOpts {
             update_interval: Some(120),
             reference: None,
             fetch_mode: Some(FetchMode::default()),
+            error_strategy: Some(ErrorStrategy::Report),
         }
     }
 }
@@ -107,7 +109,12 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn new(namespace: &str, mut fetcher: HTTPFetcher, evaluator: Evaluator<Snapshot>) -> Self {
+    pub fn new(
+        namespace: &str,
+        mut fetcher: HTTPFetcher,
+        evaluator: Evaluator<Snapshot>,
+        error_strategy: ErrorStrategy,
+    ) -> Self {
         let stop_signal = Arc::new(AtomicBool::new(false));
 
         let runtime = Runtime::new().expect("failed to create runtime");
@@ -137,7 +144,9 @@ impl Engine {
                         evaluator_clone.lock().unwrap().replace_snapshot(snap);
                     }
                     Err(err) => {
-                        evaluator_clone.lock().unwrap().replace_snapshot(Err(err));
+                        if error_strategy == ErrorStrategy::Report {
+                            evaluator_clone.lock().unwrap().replace_snapshot(Err(err));
+                        }
                     }
                 }
             }
@@ -250,7 +259,12 @@ pub unsafe extern "C" fn initialize_engine(
 
     let fetcher = fetcher_builder.build();
     let evaluator = Evaluator::new(namespace);
-    let engine = Engine::new(namespace, fetcher, evaluator);
+    let engine = Engine::new(
+        namespace,
+        fetcher,
+        evaluator,
+        engine_opts.error_strategy.unwrap_or_default(),
+    );
 
     Box::into_raw(Box::new(engine)) as *mut c_void
 }
