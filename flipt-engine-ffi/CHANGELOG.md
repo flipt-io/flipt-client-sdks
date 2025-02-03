@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.2.4](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.2.3...flipt-engine-ffi-v0.2.4) (2025-02-03)
+
+
+### Features
+
+* **engine-ffi:** add option to evaluate the flag against the stale cache ([#673](https://github.com/flipt-io/flipt-client-sdks/issues/673)) ([b357414](https://github.com/flipt-io/flipt-client-sdks/commit/b35741416e4e7b530a7e83a301ef3a7741405dc0))
+
 ## [0.2.3](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.2.2...flipt-engine-ffi-v0.2.3) (2024-12-18)
 
 
