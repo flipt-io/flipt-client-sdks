@@ -2,7 +2,7 @@
 
 use fliptengine::{
     evaluator::Evaluator,
-    http::{Authentication, HTTPFetcherBuilder},
+    http::{Authentication, ErrorStrategy, HTTPFetcherBuilder},
 };
 use fliptevaluation::EvaluationRequest;
 use std::collections::HashMap;
@@ -14,7 +14,7 @@ fn main() {
         .build();
     let evaluator = Evaluator::new(namespace);
 
-    let engine = fliptengine::Engine::new(namespace, fetcher, evaluator);
+    let engine = fliptengine::Engine::new(namespace, fetcher, evaluator, ErrorStrategy::Report);
     let mut context: HashMap<String, String> = HashMap::new();
     context.insert("fizz".into(), "buzz".into());
 
