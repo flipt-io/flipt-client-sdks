@@ -9,7 +9,7 @@ use fliptevaluation::{
     BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
     VariantEvaluationResponse,
 };
-use http::{Authentication, FetchMode, HTTPFetcher, HTTPFetcherBuilder};
+use http::{Authentication, ErrorStrategy, FetchMode, HTTPFetcher, HTTPFetcherBuilder};
 use libc::c_void;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -86,7 +86,7 @@ pub struct EngineOpts {
     update_interval: Option<u64>,
     fetch_mode: Option<FetchMode>,
     reference: Option<String>,
-    allow_stale: Option<bool>,
+    error_strategy: Option<ErrorStrategy>,
 }
 
 impl Default for EngineOpts {
@@ -97,7 +97,7 @@ impl Default for EngineOpts {
             update_interval: Some(120),
             reference: None,
             fetch_mode: Some(FetchMode::default()),
-            allow_stale: Some(false),
+            error_strategy: Some(ErrorStrategy::Report),
         }
     }
 }
@@ -113,7 +113,7 @@ impl Engine {
         namespace: &str,
         mut fetcher: HTTPFetcher,
         evaluator: Evaluator<Snapshot>,
-        allow_stale: bool,
+        error_strategy: ErrorStrategy,
     ) -> Self {
         let stop_signal = Arc::new(AtomicBool::new(false));
 
@@ -144,7 +144,7 @@ impl Engine {
                         evaluator_clone.lock().unwrap().replace_snapshot(snap);
                     }
                     Err(err) => {
-                        if !allow_stale {
+                        if error_strategy == ErrorStrategy::Report {
                             evaluator_clone.lock().unwrap().replace_snapshot(Err(err));
                         }
                     }
@@ -263,7 +263,7 @@ pub unsafe extern "C" fn initialize_engine(
         namespace,
         fetcher,
         evaluator,
-        engine_opts.allow_stale.unwrap_or_default(),
+        engine_opts.error_strategy.unwrap_or_default(),
     );
 
     Box::into_raw(Box::new(engine)) as *mut c_void

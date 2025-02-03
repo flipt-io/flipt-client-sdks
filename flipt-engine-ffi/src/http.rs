@@ -79,6 +79,17 @@ pub enum FetchMode {
     Streaming,
 }
 
+#[derive(Debug, Clone, Default, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum ErrorStrategy {
+    /// The default behavior: report the error.
+    #[default]
+    Report,
+    /// Fallback: use the previous available Snapshot state.
+    Fallback,
+}
+
 #[derive(Clone)]
 pub struct HTTPFetcher {
     http_client: ClientWithMiddleware,
