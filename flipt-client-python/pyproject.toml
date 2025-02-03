@@ -24,4 +24,4 @@ pydantic = "<3.0"
 test = "scripts:test"
 
 [tool.poetry.group.dev.dependencies]
-black = ">=23.11,<25.0"
+black = ">=23.11,<26.0"
