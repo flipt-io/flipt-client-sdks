@@ -89,6 +89,11 @@ jobs:
             sleep 1
           done
 
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "3.19.8"
+
       - name: Run Integration Tests
         uses: reactivecircus/android-emulator-runner@v2
         env:
