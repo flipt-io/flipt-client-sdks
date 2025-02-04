@@ -70,6 +70,16 @@ updates:
       # kodiak `merge.automerge_label`
       - "automerge"
 
+  - package-ecosystem: gradle
+    directory: "/flipt-client-kotlin-android"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      # kodiak `merge.automerge_label`
+      - "automerge"
+
   - package-ecosystem: bundler
     directory: "/flipt-client-ruby"
     schedule:
