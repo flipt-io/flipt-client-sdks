@@ -23,11 +23,11 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.18.2'
-    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.18.2'
-    implementation 'net.java.dev.jna:jna-platform:5.16.0'
-    testImplementation platform('org.junit:junit-bom:5.11.4')
-    testImplementation 'org.junit.jupiter:junit-jupiter'
+    implementation libs.jackson.dataformat.xml
+    implementation libs.jackson.datatype.jdk8
+    implementation libs.jna.platform
+    testImplementation platform(libs.junit.bom)
+    testImplementation libs.junit.jupiter
 }
 
 spotless {
