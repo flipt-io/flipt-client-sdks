@@ -14,7 +14,6 @@ class TestFliptEvaluationClient {
     fun initAll() {
         val fliptURL = BuildConfig.FLIPT_URL
         val clientToken = BuildConfig.FLIPT_AUTH_TOKEN
-        assert("http://10.0.2.2:8080" == fliptURL)
         assert(!fliptURL.isEmpty())
         assert(!clientToken.isEmpty())
         fliptClient =

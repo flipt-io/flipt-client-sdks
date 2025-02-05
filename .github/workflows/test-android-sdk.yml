@@ -13,7 +13,7 @@ permissions:
 jobs:
   test:
     name: Integration Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
       - name: Enable KVM group perms
@@ -77,7 +77,7 @@ jobs:
         env:
           FLIPT_STORAGE_TYPE: "local"
           FLIPT_STORAGE_LOCAL_PATH: "./test/fixtures/testdata"
-          FLIPT_AUTHENTICATION_REQUIRED: true
+          FLIPT_AUTHENTICATION_REQUIRED: true 
           FLIPT_AUTHENTICATION_METHODS_TOKEN_ENABLED: true
           FLIPT_AUTHENTICATION_METHODS_TOKEN_BOOTSTRAP_TOKEN: "secret"
         run: flipt&
@@ -89,11 +89,6 @@ jobs:
             sleep 1
           done
 
-      - name: Install CMake
-        uses: lukka/get-cmake@latest
-        with:
-          cmakeVersion: "3.19.8"
-
       - name: Run Integration Tests
         uses: reactivecircus/android-emulator-runner@v2
         env:
@@ -101,6 +96,7 @@ jobs:
           FLIPT_AUTH_TOKEN: "secret"
         with:
           api-level: 33
+          ndk: 25.1.8937393
           target: default
           arch: x86_64
           script: ./gradlew connectedAndroidTest
