@@ -20,6 +20,8 @@ func (s *SwiftSDK) SupportedPlatforms() []platform.Platform {
 	return []platform.Platform{
 		platform.IOSArm64,
 		platform.IOSSimArm64,
+		platform.DarwinArm64,
+		platform.DarwinX86_64,
 	}
 }
 
@@ -60,7 +62,7 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").
 		WithExec([]string{"git", "filter-branch", "-f", "--prune-empty",
 			"--subdirectory-filter", "flipt-client-swift",
-			"--tree-filter", "cp /tmp/ext/ios_arm64/libfliptengine.a Sources/FliptEngineFFI.xcframework/ios-arm64/; cp /tmp/ext/ios_arm64_sim/libfliptengine.a Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/; cp /tmp/ext/flipt_engine.h Sources/FliptEngineFFI.xcframework/ios-arm64/Headers; cp /tmp/ext/flipt_engine.h Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/Headers",
+			"--tree-filter", "cp /tmp/ext/ios_arm64/libfliptengine.a Sources/FliptEngineFFI.xcframework/ios-arm64/; cp /tmp/ext/ios_arm64_sim/libfliptengine.a Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/; cp /tmp/ext/darwin_arm64/libfliptengine.a Sources/FliptEngineFFI.xcframework/macos-arm64/; cp /tmp/ext/darwin_x86_64/libfliptengine.a Sources/FliptEngineFFI.xcframework/macos-x86_64/; cp /tmp/ext/flipt_engine.h Sources/FliptEngineFFI.xcframework/ios-arm64/Headers; cp /tmp/ext/flipt_engine.h Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/Headers; cp /tmp/ext/flipt_engine.h Sources/FliptEngineFFI.xcframework/macos-arm64/Headers; cp /tmp/ext/flipt_engine.h Sources/FliptEngineFFI.xcframework/macos-x86_64/Headers",
 			"--", opts.Tag})
 
 	_, err := filtered.Sync(ctx)
@@ -85,13 +87,26 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 	targetTag := strings.TrimPrefix(opts.Tag, tagPrefix)
 
 	// push to target repo/tag
-	_, err = filtered.WithExec([]string{
+	if _, err := filtered.WithExec([]string{
 		"git",
 		"push",
 		"-f",
 		targetRepo,
 		fmt.Sprintf("%s:%s", opts.Tag, targetTag)}).
-		Sync(ctx)
+		Sync(ctx); err != nil {
+		return err
+	}
+
+	// create GitHub release via API
+	releasePayload := fmt.Sprintf(`{"tag_name":"%s","name":"%s","body":"Release %s of the Flipt Swift Client SDK"}`, targetTag, targetTag, targetTag)
+	_, err = filtered.WithExec([]string{
+		"curl",
+		"-X", "POST",
+		"-H", fmt.Sprintf("Authorization: token %s", pat),
+		"-H", "Accept: application/vnd.github.v3+json",
+		"-d", releasePayload,
+		fmt.Sprintf("https://api.github.com/repos/flipt-io/flipt-client-swift/releases"),
+	}).Sync(ctx)
 
 	return err
 }
