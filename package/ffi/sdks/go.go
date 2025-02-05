@@ -86,9 +86,6 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 		return fmt.Errorf("tag %q must start with %q", opts.Tag, tagPrefix)
 	}
 
-	// because of how Go modules work, we need to create a new repo that contains
-	// only the go client code. This is because the go client code is in a subdirectory
-	// we also need to copy the ext directory into the tag of this new repo so that it can be used
 	targetRepo := os.Getenv("TARGET_REPO")
 	if targetRepo == "" {
 		targetRepo = "https://github.com/flipt-io/flipt-client-go.git"
@@ -97,13 +94,26 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 	targetTag := strings.TrimPrefix(opts.Tag, tagPrefix)
 
 	// push to target repo/tag
-	_, err = filtered.WithExec([]string{
+	if _, err := filtered.WithExec([]string{
 		"git",
 		"push",
 		"-f",
 		targetRepo,
 		fmt.Sprintf("%s:%s", opts.Tag, targetTag)}).
-		Sync(ctx)
+		Sync(ctx); err != nil {
+		return err
+	}
+
+	// create GitHub release via API
+	releasePayload := fmt.Sprintf(`{"tag_name":"%s","name":"%s","body":"Release %s of the Flipt Go Client SDK"}`, targetTag, targetTag, targetTag)
+	_, err = filtered.WithExec([]string{
+		"curl",
+		"-X", "POST",
+		"-H", fmt.Sprintf("Authorization: token %s", pat),
+		"-H", "Accept: application/vnd.github.v3+json",
+		"-d", releasePayload,
+		fmt.Sprintf("https://api.github.com/repos/flipt-io/flipt-client-go/releases"),
+	}).Sync(ctx)
 
 	return err
 }
