@@ -30,6 +30,7 @@ type EvaluationClient struct {
 	ref            string
 	updateInterval int
 	fetchMode      FetchMode
+	errorStrategy  ErrorStrategy
 }
 
 // NewEvaluationClient constructs a Client.
@@ -48,6 +49,7 @@ func NewEvaluationClient(opts ...clientOption) (*EvaluationClient, error) {
 		Authentication: &client.authentication,
 		Reference:      client.ref,
 		FetchMode:      client.fetchMode,
+		ErrorStrategy:  client.errorStrategy,
 	}
 
 	b, err := json.Marshal(clientOpts)
@@ -113,6 +115,13 @@ func WithJWTAuthentication(token string) clientOption {
 func WithFetchMode(fetchMode FetchMode) clientOption {
 	return func(c *EvaluationClient) {
 		c.fetchMode = fetchMode
+	}
+}
+
+// WithErrorStrategy allows for specifying the error strategy for the Flipt client when fetching flag state (e.g. fail, fallback).
+func WithErrorStrategy(errorStrategy ErrorStrategy) clientOption {
+	return func(c *EvaluationClient) {
+		c.errorStrategy = errorStrategy
 	}
 }
 

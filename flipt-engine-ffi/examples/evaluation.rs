@@ -14,7 +14,7 @@ fn main() {
         .build();
     let evaluator = Evaluator::new(namespace);
 
-    let engine = fliptengine::Engine::new(namespace, fetcher, evaluator, ErrorStrategy::Report);
+    let engine = fliptengine::Engine::new(namespace, fetcher, evaluator, ErrorStrategy::Fail);
     let mut context: HashMap<String, String> = HashMap::new();
     context.insert("fizz".into(), "buzz".into());
 
