@@ -31,8 +31,8 @@ namespace FliptClient.Models
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum ErrorStrategy
     {
-        [JsonPropertyName("report")]
-        Report,
+        [JsonPropertyName("fail")]
+        Fail,
         [JsonPropertyName("fallback")]
         Fallback,
     }

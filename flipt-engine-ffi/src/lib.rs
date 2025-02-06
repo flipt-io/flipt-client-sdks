@@ -97,7 +97,7 @@ impl Default for EngineOpts {
             update_interval: Some(120),
             reference: None,
             fetch_mode: Some(FetchMode::default()),
-            error_strategy: Some(ErrorStrategy::Report),
+            error_strategy: Some(ErrorStrategy::Fail),
         }
     }
 }
@@ -144,7 +144,7 @@ impl Engine {
                         evaluator_clone.lock().unwrap().replace_snapshot(snap);
                     }
                     Err(err) => {
-                        if error_strategy == ErrorStrategy::Report {
+                        if error_strategy == ErrorStrategy::Fail {
                             evaluator_clone.lock().unwrap().replace_snapshot(Err(err));
                         }
                     }

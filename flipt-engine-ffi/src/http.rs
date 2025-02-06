@@ -83,9 +83,9 @@ pub enum FetchMode {
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum ErrorStrategy {
-    /// The default behavior: report the error.
+    /// The default behavior: fail fast.
     #[default]
-    Report,
+    Fail,
     /// Fallback: use the previous available Snapshot state.
     Fallback,
 }
