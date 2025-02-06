@@ -25,7 +25,7 @@ namespace FliptClient.Models
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("error_strategy")]
-        public ErrorStrategy ErrorStrategy { get; set; } = ErrorStrategy.Report;
+        public ErrorStrategy ErrorStrategy { get; set; } = ErrorStrategy.Fail;
     }
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
