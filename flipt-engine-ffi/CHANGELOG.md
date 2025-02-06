@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.2.5](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.2.4...flipt-engine-ffi-v0.2.5) (2025-02-06)
+
+
+### Features
+
+* rename report error strategy to fail ([#697](https://github.com/flipt-io/flipt-client-sdks/issues/697)) ([4824c4d](https://github.com/flipt-io/flipt-client-sdks/commit/4824c4d2fc5065a95e3035168c30da4189ce76f1))
+
 ## [0.2.4](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.2.3...flipt-engine-ffi-v0.2.4) (2025-02-06)
 
 
