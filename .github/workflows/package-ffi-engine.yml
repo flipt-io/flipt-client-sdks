@@ -108,6 +108,7 @@ jobs:
       - name: Install cross from GitHub
         run: |
           which cross || cargo install cross --git https://github.com/cross-rs/cross
+          echo "CROSS_NO_WARNINGS=0" >> $GITHUB_ENV
 
       - name: Build ${{ matrix.platform.name }}
         uses: actions-rs/cargo@v1
