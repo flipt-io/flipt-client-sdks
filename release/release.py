@@ -127,6 +127,17 @@ def main():
         
     # Check if the SDK supports pull requests
     create_pull_request = False if isinstance(sdk_instance, TagBasedSDK) else get_pull_request()
+    
+    # Add confirmation prompt for tag
+    new_version = updated_versions[selected_sdk]
+    tag_confirmation = yes_no_dialog(
+        title="Confirm Tag Creation",
+        text=f"This will create and push tag v{new_version} for {selected_sdk}.\nDo you want to continue?"
+    ).run()
+    
+    if not tag_confirmation:
+        print("Tag creation cancelled. Exiting.")
+        return
         
     tag_and_push_version({selected_sdk: updated_versions[selected_sdk]}, create_pull_request)
 
