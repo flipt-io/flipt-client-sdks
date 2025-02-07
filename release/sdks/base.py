@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import subprocess
 import os
+from packaging import version
 
 class SDK(ABC):
     def __init__(self, name):
@@ -57,15 +58,15 @@ class TagBasedSDK(SDK):
             versions = []
             for tag in result.stdout.splitlines():
                 # Extract version number from tag (e.g., "flipt-client-swift-v1.0.0" -> "1.0.0")
-                version = tag.split('-v')[-1]
-                versions.append(version)
+                version_str = tag.split('-v')[-1]
+                versions.append(version_str)
             
             # Return the latest version, or "0.0.0" if no tags exist
             found = "0.0.0"
             if versions:
-                found = sorted(versions, reverse=True)[0]
+                # Sort versions using packaging.version for proper semver comparison
+                found = str(max(version.parse(v) for v in versions))
 
-            print(f"Found latest version: {found}")
             return found
         except subprocess.CalledProcessError:
             return "0.0.0"  # Return default version if git command fails
