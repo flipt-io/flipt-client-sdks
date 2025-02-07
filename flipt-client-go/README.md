@@ -103,6 +103,7 @@ The `NewClient` constructor accepts a variadic number of `ClientOption` function
 - `With{Method}Authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
 - `WithReference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
 - `WithFetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
+- `WithErrorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to `Fail`. See the [Error Strategies](#error-strategies) section for more information.
 
 ### Authentication
 
@@ -111,6 +112,13 @@ The `Client` supports the following authentication strategies:
 - No Authentication (default)
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
 - [JWT Authentication](https://docs.flipt.io/authentication/using-jwts)
+
+### Error Strategies
+
+The `Client` supports the following error strategies:
+
+- `Fail`: The client will throw an error if the flag state cannot be fetched. This is the default behavior.
+- `Fallback`: The client will maintain the last known good state and use that state for evaluation in case of an error.
 
 ## Memory Management
 

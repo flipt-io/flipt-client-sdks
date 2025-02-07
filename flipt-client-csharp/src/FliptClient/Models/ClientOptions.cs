@@ -25,14 +25,14 @@ namespace FliptClient.Models
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("error_strategy")]
-        public ErrorStrategy ErrorStrategy { get; set; } = ErrorStrategy.Report;
+        public ErrorStrategy ErrorStrategy { get; set; } = ErrorStrategy.Fail;
     }
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum ErrorStrategy
     {
-        [JsonPropertyName("report")]
-        Report,
+        [JsonPropertyName("fail")]
+        Fail,
         [JsonPropertyName("fallback")]
         Fallback,
     }
