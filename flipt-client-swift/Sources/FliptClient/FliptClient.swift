@@ -212,17 +212,27 @@ public enum Authentication: Encodable {
 }
 
 public struct EvaluationRequest: Codable {
-    let flag_key: String
-    let entity_id: String
-    let context: [String: String]
+    public let flag_key: String
+    public let entity_id: String
+    public let context: [String: String]
+    
+    public init(
+        flag_key: String,
+        entity_id: String,
+        context: [String: String]
+    ) {
+        self.flag_key = flag_key
+        self.entity_id = entity_id
+        self.context = context
+    }
 }
 
 public struct ClientTokenAuthentication: Codable {
-    let token: String
+    public let token: String
 }
 
 public struct JWTAuthentication: Codable {
-    let token: String
+    public let token: String
 }
 
 public enum FetchMode: String, Codable {
@@ -231,54 +241,54 @@ public enum FetchMode: String, Codable {
 }
 
 public struct ClientOptions<T: Encodable>: Encodable {
-    let url: String
-    let authentication: T?
-    let updateInterval: Int
-    let reference: String
-    let fetchMode: FetchMode
+    public let url: String
+    public let authentication: T?
+    public let updateInterval: Int
+    public let reference: String
+    public let fetchMode: FetchMode
 }
 
 public struct Flag: Codable {
-    let key: String
-    let enabled: Bool
-    let type: String
+    public let key: String
+    public let enabled: Bool
+    public let type: String
 }
 
 public struct VariantEvaluationResponse: Codable {
-    let match: Bool
-    let segment_keys: [String]
-    let reason: String
-    let flag_key: String
-    let variant_key: String
-    let variant_attachment: String?
-    let request_duration_millis: Double
-    let timestamp: String
+    public let match: Bool
+    public let segment_keys: [String]
+    public let reason: String
+    public let flag_key: String
+    public let variant_key: String
+    public let variant_attachment: String?
+    public let request_duration_millis: Double
+    public let timestamp: String
 }
 
 public struct BooleanEvaluationResponse: Codable {
-    let enabled: Bool
-    let flag_key: String
-    let reason: String
-    let request_duration_millis: Double
-    let timestamp: String
+    public let enabled: Bool
+    public let flag_key: String
+    public let reason: String
+    public let request_duration_millis: Double
+    public let timestamp: String
 }
 
 public struct ErrorEvaluationResponse: Codable {
-    let flag_key: String
-    let namespace_key: String
-    let reason: String
+    public let flag_key: String
+    public let namespace_key: String
+    public let reason: String
 }
 
 public struct BatchEvaluationResponse: Codable {
-    let responses: [Response]
-    let request_duration_millis: Double
+    public let responses: [Response]
+    public let request_duration_millis: Double
 }
 
 public struct Response: Codable {
-    let type: String
-    let variant_evaluation_response: VariantEvaluationResponse?
-    let boolean_evaluation_response: BooleanEvaluationResponse?
-    let error_evaluation_response: ErrorEvaluationResponse?
+    public let type: String
+    public let variant_evaluation_response: VariantEvaluationResponse?
+    public let boolean_evaluation_response: BooleanEvaluationResponse?
+    public let error_evaluation_response: ErrorEvaluationResponse?
 }
 
 struct Result<R: Codable>: Codable {
