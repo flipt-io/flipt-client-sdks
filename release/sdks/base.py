@@ -61,7 +61,12 @@ class TagBasedSDK(SDK):
                 versions.append(version)
             
             # Return the latest version, or "0.0.0" if no tags exist
-            return sorted(versions, reverse=True)[0] if versions else "0.0.0"
+            found = "0.0.0"
+            if versions:
+                found = sorted(versions, reverse=True)[0]
+
+            print(f"Found latest version: {found}")
+            return found
         except subprocess.CalledProcessError:
             return "0.0.0"  # Return default version if git command fails
     
