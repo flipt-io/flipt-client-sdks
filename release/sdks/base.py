@@ -24,7 +24,7 @@ class SDK(ABC):
         try:
             if create_pull_request:
                 subprocess.run(["git", "checkout", "-b", f"release/{tag}"], check=True, cwd=self.path)
-                subprocess.run(["git", "commit", "-s", "-a", "--allow-empty", "-m", f"Release {tag}"], check=True, cwd=self.path)
+                subprocess.run(["git", "commit", "-s", "-a", "--allow-empty", "-m", f"Release {tag} [ci skip]"], check=True, cwd=self.path)
                 subprocess.run(
                     ["gh", "pr", "create", "-R", "flipt-io/flipt-client-sdks", "--title", f"Release {tag}", "--body", f"Release {tag}"],
                     cwd=self.path
