@@ -28,12 +28,10 @@ namespace FliptClient.Models
         public ErrorStrategy ErrorStrategy { get; set; } = ErrorStrategy.Fail;
     }
 
-    [JsonConverter(typeof(JsonStringEnumConverter))]
+    [JsonConverter(typeof(LowercaseEnumConverter<ErrorStrategy>))]
     public enum ErrorStrategy
     {
-        [JsonPropertyName("fail")]
         Fail,
-        [JsonPropertyName("fallback")]
         Fallback,
     }
 
@@ -55,5 +53,24 @@ namespace FliptClient.Models
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("jwt_token")]
         public string JwtToken { get; set; }
+    }
+
+
+    public class LowercaseEnumConverter<T> : JsonConverter<T> where T : struct, Enum
+    {
+        public override T Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var enumString = reader.GetString();
+            if (Enum.TryParse<T>(enumString, true, out var value))
+            {
+                return value;
+            }
+            throw new JsonException($"Unable to convert \"{enumString}\" to {typeof(T)}.");
+        }
+
+        public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options)
+        {
+            writer.WriteStringValue(value.ToString().ToLower()); // Convert enum name to lowercase
+        }
     }
 }
