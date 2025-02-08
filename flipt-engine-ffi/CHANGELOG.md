@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.2.6](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.2.5...flipt-engine-ffi-v0.2.6) (2025-02-08)
+
+
+### Bug Fixes
+
+* use lower case values during json serialization ([#704](https://github.com/flipt-io/flipt-client-sdks/issues/704)) ([51cdfa4](https://github.com/flipt-io/flipt-client-sdks/commit/51cdfa4c2c68ce098eac86db3ec3be7f7160d130))
+
 ## [0.2.5](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-ffi-v0.2.4...flipt-engine-ffi-v0.2.5) (2025-02-06)
 
 
