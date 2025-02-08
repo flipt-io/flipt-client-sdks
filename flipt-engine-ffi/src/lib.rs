@@ -399,3 +399,14 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
 pub unsafe extern "C" fn destroy_string(ptr: *mut c_char) {
     let _ = CString::from_raw(ptr);
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{http::ErrorStrategy, EngineOpts};
+    #[test]
+    fn test_engine_ops_with_error_strategy() {
+        let input = r#"{"url":"http://localhost:8080","update_interval":120,"authentication":null,"error_strategy":"fallback"}"#;
+        let engine_opts: EngineOpts = serde_json::from_str(input).unwrap_or_default();
+        assert_eq!(ErrorStrategy::Fallback, engine_opts.error_strategy.unwrap());
+    }
+}
