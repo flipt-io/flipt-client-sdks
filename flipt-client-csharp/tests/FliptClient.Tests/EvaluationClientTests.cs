@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using Xunit;
 using Xunit.Abstractions;
 using FliptClient;
@@ -163,6 +164,15 @@ namespace FliptClient.Tests
             var flags = _client.ListFlags();
             Assert.NotEmpty(flags);
             Assert.Equal(2, flags.Length);
+        }
+
+        [Fact]
+        public void TestClientOptions()
+        {
+            var options = new ClientOptions{ErrorStrategy=ErrorStrategy.Fallback};
+            string optsJson = JsonSerializer.Serialize(options);
+            string expectedJson = """{"url":"http://localhost:8080","update_interval":120,"authentication":null,"error_strategy":"fallback"}""";
+            Assert.Equal(expectedJson, optsJson);
         }
     }
 }
