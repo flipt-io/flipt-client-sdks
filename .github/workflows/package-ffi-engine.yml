@@ -66,9 +66,9 @@ jobs:
             use_cross: false
 
           - name: Android-arm64
-            os: ubuntu-latest
+            os: ubuntu-22.04
             target: aarch64-linux-android
-            use_cross: true
+            use_cros: true
 
           - name: Android-x86_64
             os: ubuntu-latest
