@@ -11,7 +11,7 @@ SDK=$1
 
 case $SDK in
 "swift")
-  rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
+  rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim x86_64-apple-darwin
 
   cargo build -p flipt-engine-ffi --release --target=aarch64-apple-ios-sim
   cargo build -p flipt-engine-ffi --release --target=aarch64-apple-ios
