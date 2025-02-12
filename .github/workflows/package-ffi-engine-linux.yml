@@ -19,29 +19,17 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - name: Linux-x86_64
-            target: x86_64-unknown-linux-gnu
-            use_cross: false
-
-          - name: Linux-arm64
-            target: aarch64-unknown-linux-gnu
-            use_cross: true
-
           - name: Linux-x86_64-musl
             target: x86_64-unknown-linux-musl
-            use_cross: true
 
           - name: Linux-arm64-musl
             target: aarch64-unknown-linux-musl
-            use_cross: true
 
           - name: Android-arm64
             target: aarch64-linux-android
-            use_cross: true
 
           - name: Android-x86_64
             target: x86_64-linux-android
-            use_cross: true
 
     runs-on: ubuntu-22.04
     env:
@@ -68,11 +56,9 @@ jobs:
           key: linux-${{ matrix.platform.target}}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Set up QEMU
-        if: matrix.platform.use_cross
         uses: docker/setup-qemu-action@v3
 
       - name: Install cross
-        if: matrix.platform.use_cross
         run: |
           which cross || cargo install cross --git https://github.com/cross-rs/cross
           echo "CROSS_NO_WARNINGS=0" >> $GITHUB_ENV
@@ -83,18 +69,14 @@ jobs:
 
       - name: Set RUSTFLAGS (MUSL)
         if: endsWith(matrix.platform.target, '-musl')
-        run: echo "RUSTFLAGS=-C target-feature=-crt-static" >> $GITHUB_ENV
+        run: echo "RUSTFLAGS=-C target-feature=+crt-static" >> $GITHUB_ENV
 
       - name: Build
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: -p flipt-engine-ffi --target ${{ matrix.platform.target }} --release
-          use-cross: ${{ matrix.platform.use_cross }}
-
-      - name: Strip
-        if: matrix.platform.name == 'Linux-x86_64'
-        run: strip -x target/${{ matrix.platform.target }}/release/libfliptengine.so
+          use-cross: true
 
       - name: Package
         run: |
