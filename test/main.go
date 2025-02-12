@@ -146,7 +146,7 @@ func take(fn func() error) func() error {
 }
 
 const (
-	libFile    = "/src/target/release/libfliptengine.so"
+	libFile    = "/src/target/release/libfliptengine.a"
 	headerFile = "/src/flipt-engine-ffi/include/flipt_engine.h"
 	wasmDir    = "/src/flipt-engine-wasm/pkg"
 )
@@ -205,7 +205,7 @@ func pythonTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-python")).
-		WithFile(fmt.Sprintf("/src/ext/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
+		WithFile(fmt.Sprintf("/src/ext/linux_%s/libfliptengine.a", architecture), t.test.File(libFile)).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -223,7 +223,7 @@ func goTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithExec([]string{"apt-get", "-y", "install", "build-essential"}).
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-go")).
-		WithFile(fmt.Sprintf("/src/ext/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
+		WithFile(fmt.Sprintf("/src/ext/linux_%s/libfliptengine.a", architecture), t.test.File(libFile)).
 		WithFile("/src/ext/flipt_engine.h", t.test.File(headerFile)).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
@@ -265,7 +265,7 @@ func rubyTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	_, err := root.From("ruby:3.1-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-ruby")).
-		WithFile(fmt.Sprintf("/src/lib/ext/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
+		WithFile(fmt.Sprintf("/src/lib/ext/linux_%s/libfliptengine.a", architecture), t.test.File(libFile)).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -289,7 +289,7 @@ func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithDirectory("/src", t.dir.Directory("flipt-client-java"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./.idea/", ".gradle/", "build/"},
 		}).
-		WithFile(fmt.Sprintf("/src/src/main/resources/linux-%s/libfliptengine.so", path), t.test.File(libFile)).
+		WithFile(fmt.Sprintf("/src/src/main/resources/linux-%s/libfliptengine.a", path), t.test.File(libFile)).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -343,7 +343,7 @@ func dartTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithDirectory("/src", t.dir.Directory("flipt-client-dart"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", ".dart_tool/"},
 		}).
-		WithFile(fmt.Sprintf("/src/lib/src/ffi/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
+		WithFile(fmt.Sprintf("/src/lib/src/ffi/linux_%s/libfliptengine.a", architecture), t.test.File(libFile)).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -361,7 +361,7 @@ func csharpTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithDirectory("/src", t.dir.Directory("flipt-client-csharp"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", "obj/", "bin/"},
 		}).
-		WithFile(fmt.Sprintf("src/FliptClient/ext/ffi/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
+		WithFile(fmt.Sprintf("src/FliptClient/ext/ffi/linux_%s/libfliptengine.a", architecture), t.test.File(libFile)).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
