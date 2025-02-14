@@ -60,7 +60,7 @@ jobs:
 
       - name: Install cross
         run: |
-          which cross || cargo install cross --locked
+          which cross || cargo install cross --git https://github.com/cross-rs/cross
           echo "CROSS_NO_WARNINGS=0" >> $GITHUB_ENV
 
       - name: Set RUSTFLAGS (Android)
