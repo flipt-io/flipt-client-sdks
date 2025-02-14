@@ -12,7 +12,7 @@ Add the following to your `Package.swift` file:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/flipt-io/flipt-client-swift.git", from: "0.0.x")
+    .package(url: "https://github.com/flipt-io/flipt-client-swift.git", from: "1.x.x")
 ]
 ```
 
@@ -85,6 +85,25 @@ defer {
     client.close()
 }
 ```
+
+### Client Options
+
+The `FliptClient` initializer accepts several options that can be used to configure the client. The available options are:
+
+- `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
+- `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
+- `updateInterval`: The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
+- `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
+- `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
+- `fetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
+- `errorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to `fail`. See the [Error Strategies](#error-strategies) section for more information.
+
+### Error Strategies
+
+The `FliptClient` supports the following error strategies:
+
+- `fail`: The client will throw an error if the flag state cannot be fetched. This is the default behavior.
+- `fallback`: The client will maintain the last known good state and use that state for evaluation in case of an error.
 
 ### Authentication
 

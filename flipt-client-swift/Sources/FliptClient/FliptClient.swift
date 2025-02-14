@@ -9,26 +9,30 @@ public class FliptClient {
     private var ref: String = ""
     private var updateInterval: Int = 0
     private var fetchMode: FetchMode = .polling
+    private var errorStrategy: ErrorStrategy = .fail
 
     public init(namespace: String = "default",
          url: String = "",
          authentication: Authentication? = nil,
          ref: String = "",
          updateInterval: Int = 120,
-         fetchMode: FetchMode = .polling) throws {
+         fetchMode: FetchMode = .polling,
+         errorStrategy: ErrorStrategy = .fail) throws {
         self.namespace = namespace
         self.url = url
         self.authentication = authentication
         self.ref = ref
         self.updateInterval = updateInterval
         self.fetchMode = fetchMode
+        self.errorStrategy = errorStrategy
 
         let clientOptions = ClientOptions(
             url: url,
             authentication: authentication,
             updateInterval: updateInterval,
             reference: ref,
-            fetchMode: fetchMode
+            fetchMode: fetchMode,
+            errorStrategy: errorStrategy
         )
 
         guard let jsonData = try? JSONEncoder().encode(clientOptions) else {
@@ -240,12 +244,18 @@ public enum FetchMode: String, Codable {
     case polling
 }
 
+public enum ErrorStrategy: String, Codable {
+    case fail
+    case fallback
+}
+
 public struct ClientOptions<T: Encodable>: Encodable {
     public let url: String
     public let authentication: T?
     public let updateInterval: Int
     public let reference: String
     public let fetchMode: FetchMode
+    public let errorStrategy: ErrorStrategy
 }
 
 public struct Flag: Codable {
