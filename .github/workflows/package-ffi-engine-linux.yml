@@ -59,6 +59,7 @@ jobs:
         uses: docker/setup-qemu-action@v3
 
       - name: Set up QEMU
+        if: matrix.platform.use_cross
         uses: docker/setup-qemu-action@v3
 
       - name: Install cross
