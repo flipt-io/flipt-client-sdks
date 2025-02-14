@@ -20,10 +20,10 @@ class SDK(ABC):
     def update_version(self, new_version: str):
         pass
 
-    def tag_and_push(self, new_version: str, create_pull_request: bool):
+    def tag_and_push(self, new_version: str, opts: dict):
         tag = f"{self.name}-v{new_version}"
         try:
-            if create_pull_request:
+            if opts["create_pull_request"]:
                 subprocess.run(["git", "checkout", "-b", f"release/{tag}"], check=True, cwd=self.path)
                 subprocess.run(["git", "commit", "-s", "-a", "--allow-empty", "-m", f"Release {tag}"], check=True, cwd=self.path)
                 subprocess.run(
@@ -32,7 +32,8 @@ class SDK(ABC):
                 )
             else:
                 subprocess.run(["git", "commit", "-s", "-a", "--allow-empty", "-m", f"Release {tag}"], check=True, cwd=self.path)
-                subprocess.run(["git", "push", "origin", "main"], check=True, cwd=self.path)
+                if opts["push_to_main"]:
+                    subprocess.run(["git", "push", "origin", "main"], check=True, cwd=self.path)
             
             # Create and push tag
             subprocess.run(["git", "tag", tag], check=True, cwd=self.path)

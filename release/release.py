@@ -1,4 +1,5 @@
 import os
+import argparse
 from semver import VersionInfo
 from prompt_toolkit.shortcuts import radiolist_dialog, yes_no_dialog
 from colorama import init, Fore, Style
@@ -56,10 +57,13 @@ def update_sdk_version(bump_type="patch", sdk=None):
     return updated_versions
 
 
-def tag_and_push_version(versions, create_pull_request: bool):
+def tag_and_push_version(versions, opts: dict):
     for sdk, new_version in versions.items():
         sdk_instance = get_sdk(sdk)
-        sdk_instance.tag_and_push(new_version, create_pull_request)
+        if opts.get("dry_run"):
+            print(f"{Fore.YELLOW}[DRY RUN] Would tag and push version {new_version} for {sdk}{Style.RESET_ALL}")
+            return
+        sdk_instance.tag_and_push(new_version, opts)
 
 
 def get_sdk_selection() -> str | None:
@@ -108,11 +112,15 @@ def get_pull_request():
     return pull_request
 
 def main():
+    # Add argument parser
+    parser = argparse.ArgumentParser(description='Release SDK versions')
+    parser.add_argument('--dry-run', action='store_true', help='Show what would happen without making any changes')
+    args = parser.parse_args()
+
     selected_sdk = get_sdk_selection()
     if selected_sdk is None:
         print("SDK selection cancelled. Exiting.")
         return
-
 
     updated_versions = {}
 
@@ -121,15 +129,24 @@ def main():
         print("Version bump type selection cancelled. Exiting.")
         return
 
-    updated_versions = update_sdk_version(bump_type, selected_sdk)
+    if args.dry_run:
+        print(f"{Fore.YELLOW}[DRY RUN] Would bump {selected_sdk} with {bump_type} version update{Style.RESET_ALL}")
+        sdk_instance = get_sdk(selected_sdk)
+        current_version = sdk_instance.get_current_version()
+        new_version = bump_version(current_version, bump_type)
+        print(f"{Fore.YELLOW}[DRY RUN] Version would change from {current_version} to {new_version}{Style.RESET_ALL}")
+    else:
+        updated_versions = update_sdk_version(bump_type, selected_sdk)
 
     sdk_instance = get_sdk(selected_sdk)
         
     # Check if the SDK supports pull requests
     create_pull_request = False if isinstance(sdk_instance, TagBasedSDK) else get_pull_request()
+    # Check if we should push straight to main
+    push_to_main = not (isinstance(sdk_instance, TagBasedSDK) or create_pull_request)
     
     # Add confirmation prompt for tag
-    new_version = updated_versions[selected_sdk]
+    new_version = updated_versions.get(selected_sdk) or bump_version(sdk_instance.get_current_version(), bump_type)
     tag_confirmation = yes_no_dialog(
         title="Confirm Tag Creation",
         text=f"This will create and push tag v{new_version} for {selected_sdk}.\nDo you want to continue?"
@@ -138,10 +155,19 @@ def main():
     if not tag_confirmation:
         print("Tag creation cancelled. Exiting.")
         return
-        
-    tag_and_push_version({selected_sdk: updated_versions[selected_sdk]}, create_pull_request)
 
-    print(f"{Fore.GREEN}Release completed successfully.{Style.RESET_ALL}")
+    opts = {
+        "create_pull_request": create_pull_request,
+        "push_to_main": push_to_main,
+        "dry_run": args.dry_run
+    }
+        
+    tag_and_push_version({selected_sdk: new_version}, opts)
+
+    if args.dry_run:
+        print(f"{Fore.GREEN}Dry run completed successfully. No changes were made.{Style.RESET_ALL}")
+    else:
+        print(f"{Fore.GREEN}Release completed successfully.{Style.RESET_ALL}")
 
 
 if __name__ == "__main__":
