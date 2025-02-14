@@ -21,22 +21,22 @@ jobs:
       matrix:
         platform:
           - name: Linux-x86_64
-            os: ubuntu-latest
+            os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             use_cross: false
 
           - name: Linux-arm64
-            os: ubuntu-latest
+            os: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
             use_cross: true
 
           - name: Linux-x86_64-musl
-            os: ubuntu-latest
+            os: ubuntu-22.04
             target: x86_64-unknown-linux-musl
             use_cross: true
 
           - name: Linux-arm64-musl
-            os: ubuntu-latest
+            os: ubuntu-22.04
             target: aarch64-unknown-linux-musl
             use_cross: true
 
@@ -66,12 +66,12 @@ jobs:
             use_cross: false
 
           - name: Android-arm64
-            os: ubuntu-latest
+            os: ubuntu-22.04
             target: aarch64-linux-android
             use_cross: true
 
           - name: Android-x86_64
-            os: ubuntu-latest
+            os: ubuntu-22.04
             target: x86_64-linux-android
             use_cross: true
 
