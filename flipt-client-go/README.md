@@ -53,7 +53,7 @@ Most Linux distributions use [Glibc](https://en.wikipedia.org/wiki/Glibc), but s
 Example:
 
 ```bash
-go install go.flipt.io/flipt-client@musl-v0.0.1
+go get go.flipt.io/flipt-client@musl-v0.0.1
 ```
 
 See [flipt-client-sdks #141](https://github.com/flipt-io/flipt-client-sdks/issues/141) for more information.
