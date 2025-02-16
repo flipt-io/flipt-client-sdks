@@ -163,7 +163,7 @@ type testCase struct {
 func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
 	return client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform(platform),
-	}).From("rust:1.83.0-bookworm").
+	}).From("rust:1.83.0-alpine").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
@@ -171,7 +171,7 @@ func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory
 		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
-		WithExec([]string{"cargo", "build", "-p", "flipt-engine-ffi", "--release"}) // Build the dynamic library
+		WithExec([]string{"cargo", "build", "-p", "flipt-engine-ffi", "--release"}) // Build the static library
 }
 
 // getWasmTestContainer builds the wasm module for the Rust core, and the Flipt container for the client libraries to run
@@ -228,7 +228,7 @@ func goTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		// Since the dynamic library is being sourced from a "non-standard location" we can
+		// Since the static library is being sourced from a "non-standard location" we can
 		// modify the LD_LIBRARY_PATH variable to inform the linker different locations for
 		// dynamic libraries.
 		WithEnvVariable("LD_LIBRARY_PATH", fmt.Sprintf("/src/ext/linux_%s:$LD_LIBRARY_PATH", architecture)).
