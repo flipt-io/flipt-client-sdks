@@ -7,27 +7,10 @@ import (
 	"os/exec"
 
 	"dagger.io/dagger"
-	"go.flipt.io/flipt/client-sdks/package/ffi/platform"
 )
 
 type JavaSDK struct {
 	BaseSDK
-	Libc platform.Libc
-}
-
-func (s *JavaSDK) SupportedPlatforms() []platform.Platform {
-	switch s.Libc {
-	case platform.Musl:
-		return []platform.Platform{
-			platform.LinuxArm64Musl,
-			platform.LinuxX86_64Musl,
-			platform.DarwinArm64,
-			platform.DarwinX86_64,
-			platform.WindowsX86_64,
-		}
-	default:
-		return s.BaseSDK.SupportedPlatforms()
-	}
 }
 
 func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error {
@@ -60,13 +43,8 @@ func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, hostDirector
 		{old: "windows_x86_64", new: "win32-x86-64"},
 	}
 
-	libc := platform.Glibc
-	if s.Libc != "" {
-		libc = s.Libc
-	}
-
 	for _, rename := range renames {
-		tmp := fmt.Sprintf("tmp/%s/%s", libc, rename.old)
+		tmp := fmt.Sprintf("tmp/%s", rename.old)
 		// if the directory does not exist or is empty, skip it
 		if isEmpty, err := isDirEmptyOrNotExist(tmp); err != nil {
 			return fmt.Errorf("error checking directory %s: %w", tmp, err)
@@ -75,7 +53,7 @@ func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, hostDirector
 		}
 
 		// staging directory to copy the files into
-		stg := fmt.Sprintf("staging/%s/%s", libc, rename.new)
+		stg := fmt.Sprintf("staging/%s", rename.new)
 
 		// remove directory if it exists
 		if err := os.RemoveAll(stg); err != nil {
@@ -95,17 +73,11 @@ func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, hostDirector
 
 	container := client.Container().From("gradle:8.5.0-jdk11").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-java")).
-		WithDirectory("/src/src/main/resources", hostDirectory.Directory(fmt.Sprintf("staging/%s", libc)), dagger.ContainerWithDirectoryOpts{
+		WithDirectory("/src/src/main/resources", hostDirectory.Directory("staging"), dagger.ContainerWithDirectoryOpts{
 			Include: defaultInclude,
 		}).
-		WithWorkdir("/src")
-
-	if libc == platform.Musl {
-		container = container.
-			WithExec([]string{"gradle", "-x", "test", "--build-file", "build.musl.gradle", "build"})
-	} else {
-		container = container.WithExec([]string{"gradle", "-x", "test", "build"})
-	}
+		WithWorkdir("/src").
+		WithExec([]string{"gradle", "-x", "test", "build"})
 
 	var err error
 
@@ -138,17 +110,13 @@ func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, hostDirector
 		pgpPassphrase    = client.SetSecret("pgp-passphrase", os.Getenv("PGP_PASSPHRASE"))
 	)
 
-	container = container.WithSecretVariable("MAVEN_USERNAME", mavenUsername).
+	_, err = container.WithSecretVariable("MAVEN_USERNAME", mavenUsername).
 		WithSecretVariable("MAVEN_PASSWORD", mavenPassword).
 		WithSecretVariable("MAVEN_PUBLISH_REGISTRY_URL", mavenRegistryUrl).
 		WithSecretVariable("PGP_PRIVATE_KEY", pgpPrivateKey).
-		WithSecretVariable("PGP_PASSPHRASE", pgpPassphrase)
-
-	if libc == platform.Musl {
-		_, err = container.WithExec([]string{"gradle", "-b", "build.musl.gradle", "publish"}).Sync(ctx)
-	} else {
-		_, err = container.WithExec([]string{"gradle", "publish"}).Sync(ctx)
-	}
+		WithSecretVariable("PGP_PASSPHRASE", pgpPassphrase).
+		WithExec([]string{"gradle", "publish"}).
+		Sync(ctx)
 
 	return err
 }

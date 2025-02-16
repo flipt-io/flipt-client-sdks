@@ -9,7 +9,7 @@ import (
 	"go.flipt.io/flipt/client-sdks/package/ffi/platform"
 )
 
-var defaultInclude = []string{"**/*.so", "**/*.dylib", "**/*.dll"}
+var defaultInclude = []string{"**/*.a", "**/*.dylib", "**/*.dll"}
 
 type BuildOpts struct {
 	Push bool

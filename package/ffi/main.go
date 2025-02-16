@@ -22,15 +22,13 @@ var (
 	tag       string
 	engineTag string
 	sdksToFn  = map[string]sdks.SDK{
-		"python":    &sdks.PythonSDK{},
-		"go":        &sdks.GoSDK{Libc: platform.Glibc},
-		"go-musl":   &sdks.GoSDK{Libc: platform.Musl},
-		"ruby":      &sdks.RubySDK{},
-		"java":      &sdks.JavaSDK{Libc: platform.Glibc},
-		"java-musl": &sdks.JavaSDK{Libc: platform.Musl},
-		"dart":      &sdks.DartSDK{},
-		"csharp":    &sdks.CSharpSDK{},
-		"swift":     &sdks.SwiftSDK{},
+		"python": &sdks.PythonSDK{},
+		"go":     &sdks.GoSDK{},
+		"ruby":   &sdks.RubySDK{},
+		"java":   &sdks.JavaSDK{},
+		"dart":   &sdks.DartSDK{},
+		"csharp": &sdks.CSharpSDK{},
+		"swift":  &sdks.SwiftSDK{},
 	}
 	sema = make(chan struct{}, 5)
 )
@@ -178,7 +176,7 @@ func downloadFFI(ctx context.Context, client *dagger.Client, sdk sdks.SDK) error
 			WithExec(args("mkdir -p /tmp/dl")).
 			WithExec(args("wget %s -O /tmp/dl/%s.%s", url, pkg.ID, ext)).
 			WithExec(args("mkdir -p /tmp/%s", out)).
-			WithExec(args("mkdir -p /out/glibc/%s /out/musl/%s", out, out))
+			WithExec(args("mkdir -p /out/%s", out))
 
 		if ext == "tar.gz" {
 			container = container.WithExec(args("tar xzf /tmp/dl/%s.%s -C /tmp/%s", pkg.ID, ext, out))
@@ -186,21 +184,11 @@ func downloadFFI(ctx context.Context, client *dagger.Client, sdk sdks.SDK) error
 			container = container.WithExec(args("7z x /tmp/dl/%s.%s -o/tmp/%s", pkg.ID, ext, out))
 		}
 
-		var cmd []string
-		switch pkg.Libc {
-		case platform.Glibc:
-			cmd = []string{"sh", "-c", fmt.Sprintf("cp -r /tmp/%s/target/%s/release/* /out/glibc/%s", out, pkg.Target, out)}
-		case platform.Musl:
-			cmd = []string{"sh", "-c", fmt.Sprintf("cp -r /tmp/%s/target/%s/release/* /out/musl/%s", out, pkg.Target, out)}
-		default: // n/a doesn't matter
-			cmd = []string{"sh", "-c", fmt.Sprintf("cp -r /tmp/%s/target/%s/release/* /out/glibc/%s && cp -r /tmp/%s/target/%s/release/* /out/musl/%s", out, pkg.Target, out, out, pkg.Target, out)}
-		}
-
-		dir := container.
+		cmd := []string{"sh", "-c", fmt.Sprintf("cp -r /tmp/%s/target/%s/release/* /out/%s", out, pkg.Target, out)}
+		if _, err := container.
 			WithExec(cmd).
-			Directory("/out")
-
-		if _, err := dir.Export(ctx, "tmp"); err != nil {
+			Directory("/out").
+			Export(ctx, "tmp"); err != nil {
 			return err
 		}
 	}
