@@ -27,17 +27,17 @@
       <PackagePath>runtimes/win-x64/native/fliptengine.dll</PackagePath>
       <Link>runtimes/win-x64/native/fliptengine.dll</Link>
     </Content>
-    <Content Include="ext/ffi/linux_x86_64/libfliptengine.a" Condition="Exists('ext/ffi/linux_x86_64/libfliptengine.a')">
+    <Content Include="ext/ffi/linux_x86_64/libfliptengine.so" Condition="Exists('ext/ffi/linux_x86_64/libfliptengine.so')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>
-      <PackagePath>runtimes/linux-x64/native/libfliptengine.a</PackagePath>
-      <Link>runtimes/linux-x64/native/libfliptengine.a</Link>
+      <PackagePath>runtimes/linux-x64/native/libfliptengine.so</PackagePath>
+      <Link>runtimes/linux-x64/native/libfliptengine.so</Link>
     </Content>
-    <Content Include="ext/ffi/linux_arm64/libfliptengine.a" Condition="Exists('ext/ffi/linux_arm64/libfliptengine.a')">
+    <Content Include="ext/ffi/linux_arm64/libfliptengine.so" Condition="Exists('ext/ffi/linux_arm64/libfliptengine.so')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>
-      <PackagePath>runtimes/linux-arm64/native/libfliptengine.a</PackagePath>
-      <Link>runtimes/linux-arm64/native/libfliptengine.a</Link>
+      <PackagePath>runtimes/linux-arm64/native/libfliptengine.so</PackagePath>
+      <Link>runtimes/linux-arm64/native/libfliptengine.so</Link>
     </Content>
     <Content Include="ext/ffi/darwin_x86_64/libfliptengine.dylib" Condition="Exists('ext/ffi/darwin_x86_64/libfliptengine.dylib')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

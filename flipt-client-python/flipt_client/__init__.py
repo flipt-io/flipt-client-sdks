@@ -35,9 +35,9 @@ class FliptEvaluationClient:
             "Darwin-x86_64": "darwin_x86_64/libfliptengine.dylib",
             "Darwin-arm64": "darwin_arm64/libfliptengine.dylib",
             "Darwin-aarch64": "darwin_arm64/libfliptengine.dylib",
-            "Linux-x86_64": "linux_x86_64/libfliptengine.a",
-            "Linux-arm64": "linux_arm64/libfliptengine.a",
-            "Linux-aarch64": "linux_arm64/libfliptengine.a",
+            "Linux-x86_64": "linux_x86_64/libfliptengine.so",
+            "Linux-arm64": "linux_arm64/libfliptengine.so",
+            "Linux-aarch64": "linux_arm64/libfliptengine.so",
             "Windows-x86_64": "windows_x86_64/fliptengine.dll",
         }
 
