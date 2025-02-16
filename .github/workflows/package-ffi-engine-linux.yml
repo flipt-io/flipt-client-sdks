@@ -83,7 +83,7 @@ jobs:
 
       - name: Set RUSTFLAGS (MUSL)
         if: endsWith(matrix.platform.target, '-musl')
-        run: echo "RUSTFLAGS=-C target-feature=+crt-static" >> $GITHUB_ENV
+        run: echo "RUSTFLAGS=-C target-feature=-crt-static" >> $GITHUB_ENV
 
       - name: Build
         uses: actions-rs/cargo@v1
