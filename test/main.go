@@ -158,15 +158,20 @@ type testCase struct {
 	test  *dagger.Container
 }
 
-// getFFITestContainer builds the dynamic library for the Rust core, and the Flipt container for the client libraries to run
+// getFFITestContainer builds the static library for the Rust core, and the Flipt container for the client libraries to run
 // their tests against.
 func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
+	target := "x86_64-unknown-linux-musl"
+	if architecture == "arm64" {
+		target = "aarch64-unknown-linux-musl"
+	}
+
 	return client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform(platform),
-	}).From("rust:1.83.0-alpine").
-		WithExec([]string{"apk", "update"}).
-		WithExec([]string{"apk", "add", "--no-cache", "build-base", "git", "gcc", "musl-dev", "pkgconf"}).
-		WithEnvVariable("RUSTFLAGS", "-C target-feature=+crt-static").
+	}).From("rust:1.83.0-slim").
+		WithExec([]string{"apt-get", "update"}).
+		WithExec([]string{"apt-get", "install", "-y", "build-essential", "git", "pkg-config", "musl-tools"}).
+		WithExec([]string{"rustup", "target", "add", "aarch64-unknown-linux-musl", "x86_64-unknown-linux-musl"}).
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
@@ -174,7 +179,10 @@ func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory
 		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
-		WithExec([]string{"cargo", "build", "-p", "flipt-engine-ffi", "--release"}) // Build the static library
+		WithEnvVariable("RUSTFLAGS", "-C target-feature=+crt-static").
+		WithExec([]string{"cargo", "build", "-p", "flipt-engine-ffi", "--release", "--target", target}).                 // Cross-compile for musl
+		WithExec([]string{"mkdir", "-p", "/src/target/release"}).                                                        // Ensure directory exists
+		WithExec([]string{"cp", fmt.Sprintf("/src/target/%s/release/libfliptengine.a", target), "/src/target/release/"}) // Copy to expected location
 }
 
 // getWasmTestContainer builds the wasm module for the Rust core, and the Flipt container for the client libraries to run
