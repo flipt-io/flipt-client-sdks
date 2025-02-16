@@ -1,0 +1,93 @@
+name: Package FFI Engine (macOS)
+on:
+  pull_request:
+    branches: [main]
+  push:
+    tags: ["flipt-engine-ffi-v**"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag (e.g. v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - name: Darwin-arm64
+            target: aarch64-apple-darwin
+
+          - name: Darwin-x86_64
+            target: x86_64-apple-darwin
+
+          - name: iOS-arm64
+            target: aarch64-apple-ios
+
+          - name: iOS-arm64-sim
+            target: aarch64-apple-ios-sim
+
+    runs-on: macos-latest
+    env:
+      CARGO_TERM_COLOR: always
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.platform.target }}
+          override: true
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: macos-${{ matrix.platform.target}}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: -p flipt-engine-ffi --target ${{ matrix.platform.target }} --release
+
+      - name: Strip
+        run: strip -x target/${{ matrix.platform.target }}/release/libfliptengine.dylib
+
+      - name: Package
+        run: |
+          tar -czvf flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz \
+            target/${{ matrix.platform.target }}/release/libfliptengine.* \
+            || true
+
+      - name: Upload Artifact (Pull Request)
+        uses: actions/upload-artifact@v4
+        if: github.event_name == 'pull_request'
+        with:
+          name: flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
+          path: flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
+          retention-days: 1
+
+      - name: Upload Release Assets (Tag)
+        uses: softprops/action-gh-release@v2
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/flipt-engine-ffi-v')
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
+
+      - name: Upload Release Assets (Workflow Dispatch)
+        uses: softprops/action-gh-release@v2
+        if: github.event_name == 'workflow_dispatch' && !endswith(github.event.inputs.tag, 'pre')
+        with:
+          tag_name: flipt-engine-ffi-${{ github.event.inputs.tag }}
+          files: flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz 
