@@ -339,7 +339,7 @@ func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithDirectory("/src", t.dir.Directory("flipt-client-java"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./.idea/", ".gradle/", "build/"},
 		}).
-		WithFile(fmt.Sprintf("/src/src/main/resources/linux-%s/libfliptengine.a", path), t.test.File(libFile)).
+		WithFile(fmt.Sprintf("/src/src/main/resources/linux-%s/libfliptengine.so", path), t.test.File(libFile)).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
