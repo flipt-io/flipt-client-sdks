@@ -89,11 +89,11 @@ namespace FliptClient
             {
                 if (RuntimeInformation.ProcessArchitecture == Architecture.X64)
                 {
-                    libraryPath = "runtimes/linux-x64/native/libfliptengine.a";
+                    libraryPath = "runtimes/linux-x64/native/libfliptengine.so";
                 }
                 else if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
                 {
-                    libraryPath = "runtimes/linux-arm64/native/libfliptengine.a";
+                    libraryPath = "runtimes/linux-arm64/native/libfliptengine.so";
                 }
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))

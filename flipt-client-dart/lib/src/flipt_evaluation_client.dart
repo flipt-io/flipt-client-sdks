@@ -49,7 +49,7 @@ class FliptEvaluationClient {
 
     switch (Platform.operatingSystem) {
       case 'linux':
-        libraryName = 'libfliptengine.a';
+        libraryName = 'libfliptengine.so';
         platformDir =
             Platform.version.contains('arm64') ? 'linux_arm64' : 'linux_x86_64';
         break;

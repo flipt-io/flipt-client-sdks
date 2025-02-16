@@ -32,8 +32,8 @@ case $SDK in
   cargo build -p flipt-engine-ffi --release --target=aarch64-linux-android
   mkdir -p ../flipt-client-kotlin-android/src/main/cpp/libs/x86_64
   mkdir -p ../flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a
-  cp ../target/x86_64-linux-android/release/libfliptengine.a ../flipt-client-kotlin-android/src/main/cpp/libs/x86_64/libfliptengine.a
-  cp ../target/aarch64-linux-android/release/deps/libfliptengine.a ../flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a/libfliptengine.a
+  cp ../target/x86_64-linux-android/release/libfliptengine.so ../flipt-client-kotlin-android/src/main/cpp/libs/x86_64/libfliptengine.so
+  cp ../target/aarch64-linux-android/release/libfliptengine.so ../flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a/libfliptengine.so
   cp -r include/ ../flipt-client-kotlin-android/src/main/cpp/include
   ;;
 

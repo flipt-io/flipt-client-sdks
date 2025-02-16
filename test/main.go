@@ -185,7 +185,7 @@ func take(fn func() error) func() error {
 }
 
 const (
-	libFile    = "/src/target/release/libfliptengine.a"
+	libFile    = "/src/target/release/libfliptengine.so"
 	headerFile = "/src/flipt-engine-ffi/include/flipt_engine.h"
 	wasmDir    = "/src/flipt-engine-wasm/pkg"
 )
@@ -197,7 +197,7 @@ type testCase struct {
 	test  *dagger.Container
 }
 
-// getFFITestContainer builds the static library for the Rust core, and the Flipt container for the client libraries to run
+// getFFITestContainer builds the shared object library for the Rust core, and the Flipt container for the client libraries to run
 // their tests against.
 func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
 	target := "x86_64-unknown-linux-musl"
@@ -209,7 +209,7 @@ func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory
 		Platform: dagger.Platform(platform),
 	}).From("rust:1.83.0-slim").
 		WithExec([]string{"apt-get", "update"}).
-		WithExec([]string{"apt-get", "install", "-y", "build-essential", "git", "pkg-config", "musl-tools"}).
+		WithExec([]string{"apt-get", "install", "-y", "build-essential", "musl-tools"}).
 		WithExec([]string{"rustup", "target", "add", "aarch64-unknown-linux-musl", "x86_64-unknown-linux-musl"}).
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
@@ -218,10 +218,10 @@ func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory
 		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
-		WithEnvVariable("RUSTFLAGS", "-C target-feature=+crt-static").
-		WithExec([]string{"cargo", "build", "-p", "flipt-engine-ffi", "--release", "--target", target}).                 // Cross-compile for musl
-		WithExec([]string{"mkdir", "-p", "/src/target/release"}).                                                        // Ensure directory exists
-		WithExec([]string{"cp", fmt.Sprintf("/src/target/%s/release/libfliptengine.a", target), "/src/target/release/"}) // Copy to expected location
+		WithEnvVariable("RUSTFLAGS", "-C target-feature=-crt-static").
+		WithExec([]string{"cargo", "build", "-p", "flipt-engine-ffi", "--release", "--target", target}).                  // Cross-compile for musl
+		WithExec([]string{"mkdir", "-p", "/src/target/release"}).                                                         // Ensure directory exists
+		WithExec([]string{"cp", fmt.Sprintf("/src/target/%s/release/libfliptengine.so", target), "/src/target/release/"}) // Copy to expected location
 }
 
 // getWasmTestContainer builds the wasm module for the Rust core, and the Flipt container for the client libraries to run
@@ -255,7 +255,7 @@ func pythonTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-python")).
-		WithFile(fmt.Sprintf("/src/ext/linux_%s/libfliptengine.a", architecture), t.test.File(libFile)).
+		WithFile(fmt.Sprintf("/src/ext/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -273,7 +273,7 @@ func goTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithExec([]string{"apt-get", "-y", "install", "build-essential"}).
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-go")).
-		WithFile(fmt.Sprintf("/src/ext/linux_%s/libfliptengine.a", architecture), t.test.File(libFile)).
+		WithFile(fmt.Sprintf("/src/ext/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
 		WithFile("/src/ext/flipt_engine.h", t.test.File(headerFile)).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
@@ -315,7 +315,7 @@ func rubyTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	_, err := root.From("ruby:3.1-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src", t.dir.Directory("flipt-client-ruby")).
-		WithFile(fmt.Sprintf("/src/lib/ext/linux_%s/libfliptengine.a", architecture), t.test.File(libFile)).
+		WithFile(fmt.Sprintf("/src/lib/ext/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -393,7 +393,7 @@ func dartTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithDirectory("/src", t.dir.Directory("flipt-client-dart"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", ".dart_tool/"},
 		}).
-		WithFile(fmt.Sprintf("/src/lib/src/ffi/linux_%s/libfliptengine.a", architecture), t.test.File(libFile)).
+		WithFile(fmt.Sprintf("/src/lib/src/ffi/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -411,7 +411,7 @@ func csharpTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithDirectory("/src", t.dir.Directory("flipt-client-csharp"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", "obj/", "bin/"},
 		}).
-		WithFile(fmt.Sprintf("src/FliptClient/ext/ffi/linux_%s/libfliptengine.a", architecture), t.test.File(libFile)).
+		WithFile(fmt.Sprintf("src/FliptClient/ext/ffi/linux_%s/libfliptengine.so", architecture), t.test.File(libFile)).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
