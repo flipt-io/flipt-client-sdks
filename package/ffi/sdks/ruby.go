@@ -16,7 +16,7 @@ func (s *RubySDK) Build(ctx context.Context, client *dagger.Client, hostDirector
 	container := client.Container().From("ruby:3.1-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-ruby")).
-		WithDirectory("/src/lib/ext", hostDirectory.Directory("tmp/glibc"), dagger.ContainerWithDirectoryOpts{
+		WithDirectory("/src/lib/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
 			Include: defaultInclude,
 		}).
 		WithFile("/src/lib/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
