@@ -45,8 +45,16 @@ func main() {
 	}
 }
 
+type testResult struct {
+	sdk     string
+	success bool
+	err     error
+}
+
 func run() error {
 	tests := make(map[string]integrationTestFn, len(sdkToFn))
+	results := make([]testResult, 0, len(sdkToFn))
+	resultsChan := make(chan testResult, len(sdkToFn))
 
 	maps.Copy(tests, sdkToFn)
 
@@ -127,11 +135,42 @@ func run() error {
 				testCase.test = getFFITestContainer(ctx, client, dir)
 			}
 
-			return fn(ctx, container, testCase)
+			err := fn(ctx, container, testCase)
+			resultsChan <- testResult{
+				sdk:     lang,
+				success: err == nil,
+				err:     err,
+			}
+			return err
 		}))
 	}
 
-	return g.Wait()
+	go func() {
+		for result := range resultsChan {
+			results = append(results, result)
+		}
+	}()
+
+	err = g.Wait()
+	close(resultsChan)
+
+	fmt.Println("\n=== Test Results Summary ===")
+	fmt.Println("Successful tests:")
+	for _, result := range results {
+		if result.success {
+			fmt.Printf("✅ %s\n", result.sdk)
+		}
+	}
+
+	fmt.Println("\nFailed tests:")
+	for _, result := range results {
+		if !result.success {
+			fmt.Printf("❌ %s: %v\n", result.sdk, result.err)
+		}
+	}
+	fmt.Println("=========================")
+
+	return err
 }
 
 func take(fn func() error) func() error {
