@@ -17,8 +17,8 @@ module Flipt
     LIB_FILES = {
       /arm64-darwin/ => "ext/darwin_arm64/lib#{FLIPTENGINE}.dylib",
       /x86_64-darwin/ => "ext/darwin_x86_64/lib#{FLIPTENGINE}.dylib",
-      /arm64-linux|aarch64-linux/ => "ext/linux_arm64/lib#{FLIPTENGINE}.so",
-      /x86_64-linux/ => "ext/linux_x86_64/lib#{FLIPTENGINE}.so",
+      /arm64-linux|aarch64-linux/ => "ext/linux_arm64/lib#{FLIPTENGINE}.a",
+      /x86_64-linux/ => "ext/linux_x86_64/lib#{FLIPTENGINE}.a",
       /x86_64-mingw32/ => "ext/windows_x86_64/#{FLIPTENGINE}.dll"
     }.freeze
 

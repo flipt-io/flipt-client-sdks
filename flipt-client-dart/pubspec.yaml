@@ -12,8 +12,8 @@ environment:
   sdk: '>=2.12.0 <4.0.0'
 flutter:
   assets:
-  - lib/src/ffi/linux_x86_64/libfliptengine.so
-  - lib/src/ffi/linux_arm64/libfliptengine.so
+  - lib/src/ffi/linux_x86_64/libfliptengine.a
+  - lib/src/ffi/linux_arm64/libfliptengine.a
   - lib/src/ffi/darwin_x86_64/libfliptengine.dylib
   - lib/src/ffi/darwin_arm64/libfliptengine.dylib
   - lib/src/ffi/windows_x86_64/fliptengine.dll
