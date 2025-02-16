@@ -165,7 +165,7 @@ func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory
 		Platform: dagger.Platform(platform),
 	}).From("rust:1.83.0-alpine").
 		WithExec([]string{"apk", "update"}).
-		WithExec([]string{"apk", "add", "build-base", "git", "gcc", "g++", "make"}).
+		WithExec([]string{"apk", "add", "--no-cache", "build-base", "git", "gcc", "musl-dev", "pkgconf"}).
 		WithEnvVariable("RUSTFLAGS", "-C target-feature=+crt-static").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
