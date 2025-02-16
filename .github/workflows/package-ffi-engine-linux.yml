@@ -1,8 +1,7 @@
-name: Package FFI Engine
+name: Package FFI Engine (Linux)
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
   push:
     tags: ["flipt-engine-ffi-v**"]
   workflow_dispatch:
@@ -21,69 +20,37 @@ jobs:
       matrix:
         platform:
           - name: Linux-x86_64
-            os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             use_cross: false
 
           - name: Linux-arm64
-            os: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
             use_cross: true
 
           - name: Linux-x86_64-musl
-            os: ubuntu-22.04
             target: x86_64-unknown-linux-musl
             use_cross: true
 
           - name: Linux-arm64-musl
-            os: ubuntu-22.04
             target: aarch64-unknown-linux-musl
             use_cross: true
 
-          - name: Darwin-arm64
-            os: macos-latest
-            target: aarch64-apple-darwin
-            use_cross: false
-
-          - name: Darwin-x86_64
-            os: macos-latest
-            target: x86_64-apple-darwin
-            use_cross: false
-
-          - name: Windows-x86_64
-            os: windows-latest
-            target: x86_64-pc-windows-msvc
-            use_cross: false
-
-          - name: iOS-arm64
-            os: macos-latest
-            target: aarch64-apple-ios
-            use_cross: false
-
-          - name: iOS-arm64-sim
-            os: macos-latest
-            target: aarch64-apple-ios-sim
-            use_cross: false
-
           - name: Android-arm64
-            os: ubuntu-22.04
             target: aarch64-linux-android
             use_cross: true
 
           - name: Android-x86_64
-            os: ubuntu-22.04
             target: x86_64-linux-android
             use_cross: true
 
-    runs-on: ${{ matrix.platform.os }}
-
+    runs-on: ubuntu-22.04
     env:
       CARGO_TERM_COLOR: always
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust ${{ matrix.platform.name }}
+      - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -98,51 +65,49 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-${{ matrix.platform.target}}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: linux-${{ matrix.platform.target}}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Set RUSTFLAGS
-        if: endsWith(matrix.platform.target, '-musl') || endsWith(matrix.platform.target, '-android')
-        run: |
-          echo "RUSTFLAGS=-C target-feature=-crt-static" >> $GITHUB_ENV
+      - name: Set up QEMU
+        if: matrix.platform.use_cross
+        uses: docker/setup-qemu-action@v3
 
-      - name: Install cross from GitHub
+      - name: Install cross
+        if: matrix.platform.use_cross
         run: |
           which cross || cargo install cross --git https://github.com/cross-rs/cross
           echo "CROSS_NO_WARNINGS=0" >> $GITHUB_ENV
 
-      - name: Build ${{ matrix.platform.name }}
+      - name: Set RUSTFLAGS (Android)
+        if: endsWith(matrix.platform.target, '-android')
+        run: echo "RUSTFLAGS=-C target-feature=-crt-static" >> $GITHUB_ENV
+
+      - name: Set RUSTFLAGS (MUSL)
+        if: endsWith(matrix.platform.target, '-musl')
+        run: echo "RUSTFLAGS=-C target-feature=-crt-static" >> $GITHUB_ENV
+
+      - name: Build
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: -p flipt-engine-ffi --target ${{ matrix.platform.target }} --release
           use-cross: ${{ matrix.platform.use_cross }}
 
-      - if: startsWith(matrix.platform.name, 'Darwin')
-        run: |
-          strip -x target/${{ matrix.platform.target }}/release/libfliptengine.dylib
+      - name: Strip
+        if: matrix.platform.name == 'Linux-x86_64'
+        run: strip -x target/${{ matrix.platform.target }}/release/libfliptengine.so
 
-      - if: startsWith(matrix.platform.name, 'Linux-x86_64')
-        run: |
-          strip -x target/${{ matrix.platform.target }}/release/libfliptengine.so
-
-      - if: ${{ !startsWith(matrix.platform.name, 'Windows') }}
+      - name: Package
         run: |
           tar -czvf flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz \
             target/${{ matrix.platform.target }}/release/libfliptengine.* \
-            || true
-
-      - if: startsWith(matrix.platform.name, 'Windows')
-        run: |
-          7z a -tzip flipt-engine-ffi-${{ matrix.platform.name }}.zip `
-            target\${{ matrix.platform.target }}\release\fliptengine.* `
             || true
 
       - name: Upload Artifact (Pull Request)
         uses: actions/upload-artifact@v4
         if: github.event_name == 'pull_request'
         with:
-          name: flipt-engine-ffi-${{ matrix.platform.name }}${{ startsWith(matrix.platform.name, 'Windows') && '.zip' || '.tar.gz' }}
-          path: flipt-engine-ffi-${{ matrix.platform.name }}${{ startsWith(matrix.platform.name, 'Windows') && '.zip' || '.tar.gz' }}
+          name: flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
+          path: flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
           retention-days: 1
 
       - name: Upload Release Assets (Tag)
@@ -150,16 +115,14 @@ jobs:
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/flipt-engine-ffi-v')
         with:
           tag_name: ${{ github.ref_name }}
-          files: |
-            flipt-engine-ffi-${{ matrix.platform.name }}${{ startsWith(matrix.platform.name, 'Windows') && '.zip' || '.tar.gz' }}
+          files: flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
 
       - name: Upload Release Assets (Workflow Dispatch)
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'workflow_dispatch' && !endswith(github.event.inputs.tag, 'pre')
         with:
           tag_name: flipt-engine-ffi-${{ github.event.inputs.tag }}
-          files: |
-            flipt-engine-ffi-${{ matrix.platform.name }}${{ startsWith(matrix.platform.name, 'Windows') && '.zip' || '.tar.gz' }}
+          files: flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz 
 
   notify:
     runs-on: ubuntu-latest
