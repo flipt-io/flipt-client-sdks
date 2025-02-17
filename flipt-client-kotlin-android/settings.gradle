@@ -18,7 +18,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath "com.android.tools.build:gradle:8.8.0" // AGP compatible with Kotlin 1.7.1
+        classpath "com.android.tools.build:gradle:8.8.1" // AGP compatible with Kotlin 1.7.1
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.6.0" // Correct plugin for Kotlin 1.7.1
         classpath "org.jetbrains.kotlin:kotlin-serialization:2.1.10" // Serialization plugin
     }
