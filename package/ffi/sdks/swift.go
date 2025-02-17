@@ -55,7 +55,7 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 	repository := git.
 		WithExec([]string{"git", "clone", "https://github.com/flipt-io/flipt-client-sdks.git", "/src"}).
 		WithWorkdir("/src").
-		WithDirectory("/tmp/ext", hostDirectory.Directory("tmp/glibc")).
+		WithDirectory("/tmp/ext", hostDirectory.Directory("tmp")).
 		WithFile("/tmp/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h"))
 
 	filtered := repository.

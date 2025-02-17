@@ -17,7 +17,7 @@ func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, hostDirector
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-dart"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", ".dart_tool/"},
 		}).
-		WithDirectory("/src/lib/src/ffi", hostDirectory.Directory("tmp/glibc"), dagger.ContainerWithDirectoryOpts{
+		WithDirectory("/src/lib/src/ffi", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
 			Include: defaultInclude,
 		}).
 		WithWorkdir("/src").
