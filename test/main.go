@@ -249,7 +249,7 @@ func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory
 		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
-		WithEnvVariable("RUSTFLAGS", "-C target-feature=-crt-static -Clink-arg=-Wl,-Bsymbolic -Clink-arg=-Wl,-Bsymbolic-functions").
+		WithEnvVariable("RUSTFLAGS", "-C target-feature=-crt-static -Clink-arg=-Wl,-Bsymbolic -Clink-arg=-Wl,-Bsymbolic-functions -Clink-arg=-Wl,-z,norelr").
 		WithExec([]string{"cargo", "build", "-p", "flipt-engine-ffi", "--release", "--target", target}).
 		WithExec([]string{"mkdir", "-p", "/output"}).
 		WithExec([]string{"cp", fmt.Sprintf("/src/target/%s/release/libfliptengine.so", target), "/output/"}).
