@@ -250,7 +250,7 @@ unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, FFIE
 ///
 /// This function will initialize an Engine and return a pointer back to the caller.
 #[no_mangle]
-pub unsafe extern "C" fn initialize_engine(
+pub unsafe extern "C" fn initialize_engine_rust(
     namespace: *const c_char,
     opts: *const c_char,
 ) -> *mut c_void {
@@ -323,7 +323,7 @@ pub unsafe extern "C" fn initialize_engine(
 ///
 /// This function will take in a pointer to the engine and return a variant evaluation response.
 #[no_mangle]
-pub unsafe extern "C" fn evaluate_variant(
+pub unsafe extern "C" fn evaluate_variant_rust(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
@@ -337,7 +337,7 @@ pub unsafe extern "C" fn evaluate_variant(
 ///
 /// This function will take in a pointer to the engine and return a boolean evaluation response.
 #[no_mangle]
-pub unsafe extern "C" fn evaluate_boolean(
+pub unsafe extern "C" fn evaluate_boolean_rust(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
@@ -351,7 +351,7 @@ pub unsafe extern "C" fn evaluate_boolean(
 ///
 /// This function will take in a pointer to the engine and return a batch evaluation response.
 #[no_mangle]
-pub unsafe extern "C" fn evaluate_batch(
+pub unsafe extern "C" fn evaluate_batch_rust(
     engine_ptr: *mut c_void,
     batch_evaluation_request: *const c_char,
 ) -> *const c_char {
@@ -365,10 +365,34 @@ pub unsafe extern "C" fn evaluate_batch(
 ///
 /// This function will take in a pointer to the engine and return a list of flags for the given namespace.
 #[no_mangle]
-pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> *const c_char {
+pub unsafe extern "C" fn list_flags_rust(engine_ptr: *mut c_void) -> *const c_char {
     let res = get_engine(engine_ptr).unwrap().list_flags();
 
     result_to_json_ptr(res)
+}
+
+/// # Safety
+///
+/// This function will free the memory occupied by the engine.
+#[no_mangle]
+pub unsafe extern "C" fn destroy_engine_rust(engine_ptr: *mut c_void) {
+    if engine_ptr.is_null() {
+        return;
+    }
+
+    let engine = Box::from_raw(engine_ptr as *mut Engine);
+    engine.stop_signal.store(true, Ordering::Relaxed);
+
+    // The engine will be dropped here, cleaning up all resources
+}
+
+/// # Safety
+///
+/// This function will take in a pointer to the string and free the memory.
+/// See Rust the safety section in CString::from_raw.
+#[no_mangle]
+pub unsafe extern "C" fn destroy_string_rust(ptr: *mut c_char) {
+    let _ = CString::from_raw(ptr);
 }
 
 unsafe fn get_batch_evaluation_request(
@@ -421,30 +445,6 @@ unsafe fn get_evaluation_request(evaluation_request: *const c_char) -> Evaluatio
         entity_id: client_eval_request.entity_id,
         context: context_map,
     }
-}
-
-/// # Safety
-///
-/// This function will free the memory occupied by the engine.
-#[no_mangle]
-pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
-    if engine_ptr.is_null() {
-        return;
-    }
-
-    let engine = Box::from_raw(engine_ptr as *mut Engine);
-    engine.stop_signal.store(true, Ordering::Relaxed);
-
-    // The engine will be dropped here, cleaning up all resources
-}
-
-/// # Safety
-///
-/// This function will take in a pointer to the string and free the memory.
-/// See Rust the safety section in CString::from_raw.
-#[no_mangle]
-pub unsafe extern "C" fn destroy_string(ptr: *mut c_char) {
-    let _ = CString::from_raw(ptr);
 }
 
 #[cfg(test)]

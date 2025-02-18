@@ -1,45 +1,7 @@
-#!/bin/bash
+#!/bin/sh
 
-# Check if SDK argument is provided
-if [ $# -ne 1 ]; then
-  echo "Error: SDK argument is required"
-  echo "Usage: $0 [swift|android]"
-  exit 1
-fi
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-SDK=$1
-
-case $SDK in
-"swift")
-  rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
-
-  cargo build -p flipt-engine-ffi --release --target=aarch64-apple-ios-sim
-  cargo build -p flipt-engine-ffi --release --target=aarch64-apple-ios
-  cargo build -p flipt-engine-ffi --release --target=aarch64-apple-darwin
-  rm -rf ../flipt-client-swift/Sources/FliptEngineFFI.xcframework
-
-  xcodebuild -create-xcframework \
-    -library ../target/aarch64-apple-ios-sim/release/libfliptengine.a -headers ./include/ \
-    -library ../target/aarch64-apple-ios/release/libfliptengine.a -headers ./include/ \
-    -library ../target/aarch64-apple-darwin/release/libfliptengine.a -headers ./include/ \
-    -output "../flipt-client-swift/Sources/FliptEngineFFI.xcframework"
-  ;;
-
-"android")
-  rustup target add x86_64-linux-android aarch64-linux-android
-
-  cargo build -p flipt-engine-ffi --release --target=x86_64-linux-android
-  cargo build -p flipt-engine-ffi --release --target=aarch64-linux-android
-  mkdir -p ../flipt-client-kotlin-android/src/main/cpp/libs/x86_64
-  mkdir -p ../flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a
-  cp ../target/x86_64-linux-android/release/libfliptengine.so ../flipt-client-kotlin-android/src/main/cpp/libs/x86_64/libfliptengine.so
-  cp ../target/aarch64-linux-android/release/libfliptengine.so ../flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a/libfliptengine.so
-  cp -r include/ ../flipt-client-kotlin-android/src/main/cpp/include
-  ;;
-
-*)
-  echo "Error: Invalid SDK specified"
-  echo "Usage: $0 [swift|android]"
-  exit 1
-  ;;
-esac
+cp "$SCRIPT_DIR/include/flipt_engine.h" "$SCRIPT_DIR/flipt_engine.h"
+gcc -fPIC -c "$SCRIPT_DIR/wrapper.c" -o "$SCRIPT_DIR/wrapper.o"
+gcc -shared -o "$SCRIPT_DIR/libfliptengine.so" "$SCRIPT_DIR/wrapper.o" -L"$SCRIPT_DIR" -lfliptengine -ldl -lpthread

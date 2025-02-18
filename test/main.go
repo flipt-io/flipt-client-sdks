@@ -133,10 +133,10 @@ func run() error {
 	})
 
 	// Detect the architecture and platform of the host machine
-	// err = detectPlatform(client)
-	// if err != nil {
-	// 	return err
-	// }
+	err = detectPlatform(client)
+	if err != nil {
+		return err
+	}
 
 	flipt := setupFliptContainer(client, hostDir)
 
@@ -279,7 +279,7 @@ func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory
 	}).From("rust:alpine3.17").
 		WithExec([]string{"apk", "update"}).
 		WithExec([]string{"apk", "add", "--no-cache", "build-base", "musl-dev", "binutils", "libgcc", "gcc"}).
-		WithExec([]string{"rustup", "target", "add", "aarch64-unknown-linux-musl", "x86_64-unknown-linux-musl"}).
+		WithExec([]string{"rustup", "target", "add", target}).
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
@@ -287,13 +287,19 @@ func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory
 		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
-		WithFile("/src/.cargo/config.toml", hostDirectory.File(".cargo/config.toml")).
-		WithEnvVariable("RUSTFLAGS", "-C target-feature=-crt-static").
+		WithEnvVariable("RUSTFLAGS", "-C target-feature=+crt-static").
 		WithEnvVariable("RUST_BACKTRACE", "1").
 		// Add verbose build output
 		WithExec([]string{"cargo", "build", "-p", "flipt-engine-ffi", "--release", "--target", target, "-v"}).
+		// Copy the static lib to where the wrapper build script can find it
+		WithExec([]string{"cp", fmt.Sprintf("/src/target/%s/release/libfliptengine.a", target), "/src/flipt-engine-ffi/"}).
+		// Make and run the build script
+		WithExec([]string{"chmod", "+x", "/src/flipt-engine-ffi/build.sh"}).
+		WithExec([]string{"/src/flipt-engine-ffi/build.sh"}).
+		// Copy both .so and .a files to output
 		WithExec([]string{"mkdir", "-p", "/output"}).
-		WithExec([]string{"cp", fmt.Sprintf("/src/target/%s/release/libfliptengine.so", target), "/output/"})
+		WithExec([]string{"cp", "/src/flipt-engine-ffi/libfliptengine.so", "/output/"}).
+		WithExec([]string{"cp", "/src/flipt-engine-ffi/libfliptengine.a", "/output/libfliptengine_static.a"})
 }
 
 // getWasmTestContainer builds the wasm module for the Rust core, and the Flipt container for the client libraries to run
