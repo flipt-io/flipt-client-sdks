@@ -207,7 +207,7 @@ func run() error {
 	fmt.Println("\nFailed tests:")
 	for _, result := range results {
 		if result.err != nil {
-			fmt.Printf("❌ %s %s: %v\n", result.sdk, result.base, result.err)
+			fmt.Printf("❌ %s %s\n", result.sdk, result.base)
 		}
 	}
 	fmt.Println("=========================")
@@ -362,7 +362,6 @@ func goTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 }
 
 // nodeTests runs the node integration test suite against a container running Flipt.
-
 func nodeTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	// previously node:21.2-bookworm
 	_, err := root.
