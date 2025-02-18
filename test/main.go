@@ -16,7 +16,6 @@ import (
 
 var (
 	architecture = "x86_64"
-	rustArch     = "x86_64"
 	platform     = "linux/amd64"
 	sdks         string
 	sema         = make(chan struct{}, 10)
@@ -134,10 +133,10 @@ func run() error {
 	})
 
 	// Detect the architecture and platform of the host machine
-	err = detectPlatform(client)
-	if err != nil {
-		return err
-	}
+	// err = detectPlatform(client)
+	// if err != nil {
+	// 	return err
+	// }
 
 	flipt := setupFliptContainer(client, hostDir)
 
@@ -237,9 +236,8 @@ func detectPlatform(client *dagger.Client) error {
 
 	platform = string(daggerPlatform)
 	if strings.Contains(platform, "arm64") || strings.Contains(platform, "aarch64") {
-		architecture = "arm64"
 		platform = "linux/arm64"
-		rustArch = "aarch64"
+		architecture = "aarch64"
 	}
 	return nil
 }
@@ -274,13 +272,13 @@ func createBaseContainer(client *dagger.Client, config containerConfig) *dagger.
 // getFFITestContainer builds the shared object library for the Rust core, and the Flipt container for the client libraries to run
 // their tests against.
 func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
-	target := fmt.Sprintf("%s-unknown-linux-musl", rustArch)
+	target := fmt.Sprintf("%s-unknown-linux-musl", architecture)
 
 	return client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform(platform),
 	}).From("rust:alpine3.17").
 		WithExec([]string{"apk", "update"}).
-		WithExec([]string{"apk", "add", "--no-cache", "build-base", "musl-dev"}).
+		WithExec([]string{"apk", "add", "--no-cache", "build-base", "musl-dev", "binutils", "libgcc", "gcc"}).
 		WithExec([]string{"rustup", "target", "add", "aarch64-unknown-linux-musl", "x86_64-unknown-linux-musl"}).
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
@@ -289,16 +287,13 @@ func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory
 		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
+		WithFile("/src/.cargo/config.toml", hostDirectory.File(".cargo/config.toml")).
 		WithEnvVariable("RUSTFLAGS", "-C target-feature=-crt-static").
-		// Add caching for Cargo dependencies
-		WithMountedCache("/usr/local/cargo/registry", client.CacheVolume("cargo-registry")).
-		WithMountedCache("/usr/local/cargo/git", client.CacheVolume("cargo-git")).
-		WithMountedCache("/src/target", client.CacheVolume("cargo-target")).
-		WithExec([]string{"cargo", "build", "-p", "flipt-engine-ffi", "--release", "--target", target}).
+		WithEnvVariable("RUST_BACKTRACE", "1").
+		// Add verbose build output
+		WithExec([]string{"cargo", "build", "-p", "flipt-engine-ffi", "--release", "--target", target, "-v"}).
 		WithExec([]string{"mkdir", "-p", "/output"}).
-		WithExec([]string{"cp", fmt.Sprintf("/src/target/%s/release/libfliptengine.so", target), "/output/"}).
-		WithExec([]string{"cp", fmt.Sprintf("/lib/ld-musl-%s.so.1", rustArch), "/output/"}).
-		WithExec([]string{"cp", fmt.Sprintf("/lib/libc.musl-%s.so.1", rustArch), "/output/"})
+		WithExec([]string{"cp", fmt.Sprintf("/src/target/%s/release/libfliptengine.so", target), "/output/"})
 }
 
 // getWasmTestContainer builds the wasm module for the Rust core, and the Flipt container for the client libraries to run
@@ -316,7 +311,7 @@ func getWasmTestContainer(_ context.Context, client *dagger.Client, hostDirector
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
 		WithExec([]string{"cargo", "build", "-p", "flipt-engine-wasm", "--release"}) // Build the wasm module
 
-	if architecture == "arm64" {
+	if architecture == "aarch64" {
 		container = container.WithExec([]string{"apt-get", "update"}).
 			WithExec([]string{"apt-get", "-y", "install", "binaryen"})
 	}
@@ -355,13 +350,8 @@ func goTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithEnvVariable("RUST_BACKTRACE", "1").
-		// Since the dynamic library is being sourced from a "non-standard location" we can
-		// modify the LD_LIBRARY_PATH variable to inform the linker different locations for
-		// dynamic libraries.
-		WithEnvVariable("LD_LIBRARY_PATH", fmt.Sprintf("/src/ext/linux_%s:$LD_LIBRARY_PATH", architecture)).
 		WithExec([]string{"go", "mod", "download"}).
-		WithExec([]string{"go", "test", "./..."}).
+		WithExec([]string{"go", "test", "-v", "./..."}).
 		Sync(ctx)
 
 	return err
@@ -410,12 +400,7 @@ func rubyTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 // javaTests run the java integration tests suite against a container running Flipt.
 func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	// previously gradle:8.5.0-jdk11
-	path := "x86-64"
-
-	if architecture == "arm64" {
-		path = "aarch64"
-	}
-
+	path := strings.ReplaceAll(architecture, "_", "-")
 	_, err := root.
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-java"), dagger.ContainerWithDirectoryOpts{

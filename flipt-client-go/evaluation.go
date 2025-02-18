@@ -2,11 +2,11 @@ package evaluation
 
 /*
 #cgo CFLAGS: -I./ext
-#cgo darwin,arm64 LDFLAGS: -L${SRCDIR}/ext/darwin_aarch64 -lfliptengine -Wl,-rpath,${SRCDIR}/ext/darwin_aarch64
-#cgo darwin,amd64 LDFLAGS: -L${SRCDIR}/ext/darwin_x86_64 -lfliptengine -Wl,-rpath,${SRCDIR}/ext/darwin_x86_64
-#cgo linux,arm64 LDFLAGS: -L${SRCDIR}/ext/linux_arm64 -lfliptengine -lm -Wl,-rpath,${SRCDIR}/ext/linux_arm64
-#cgo linux,amd64 LDFLAGS: -L${SRCDIR}/ext/linux_x86_64 -lfliptengine -lm -Wl,-rpath,${SRCDIR}/ext/linux_x86_64
-#cgo windows,amd64 LDFLAGS: -L${SRCDIR}/ext/windows_x86_64 -lfliptengine -Wl,-rpath,${SRCDIR}/ext/windows_x86_64
+#cgo darwin,arm64 LDFLAGS: -L${SRCDIR}/ext/darwin_aarch64 -lfliptengine
+#cgo darwin,amd64 LDFLAGS: -L${SRCDIR}/ext/darwin_x86_64 -lfliptengine
+#cgo linux,arm64 LDFLAGS: -L${SRCDIR}/ext/linux_aarch64 -lfliptengine
+#cgo linux,amd64 LDFLAGS: -L${SRCDIR}/ext/linux_x86_64 -lfliptengine
+#cgo windows,amd64 LDFLAGS: -L${SRCDIR}/ext/windows_x86_64 -lfliptengine
 #include <string.h>
 #include <stdlib.h>
 #include "flipt_engine.h"

@@ -273,19 +273,10 @@ pub unsafe extern "C" fn initialize_engine(
             Err(_) => return std::ptr::null_mut(),
         };
 
-        // Add debug printing here
-        println!("Raw engine opts JSON: {}", bytes_str_repr);
-
         // Safe JSON parsing with error handling
         let engine_opts: EngineOpts = match serde_json::from_str(bytes_str_repr) {
-            Ok(opts) => {
-                println!("Deserialized engine opts: {:#?}", opts);
-                opts
-            }
-            Err(e) => {
-                println!("Failed to parse engine opts: {}", e);
-                EngineOpts::default()
-            }
+            Ok(opts) => opts,
+            Err(_) => EngineOpts::default(),
         };
 
         let mut fetcher_builder = HTTPFetcherBuilder::new(

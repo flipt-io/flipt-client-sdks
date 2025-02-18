@@ -9,18 +9,17 @@ publish = false
 repository = "https://github.com/flipt-io/flipt-client-sdks"
 
 [dependencies]
-libc = "0.2.150"
+libc = { version = "0.2.150", features = ["std"] }
 serde = { version = "1.0.147", features = ["derive"] }
 serde_json = { version = "1.0.89", features = ["raw_value"] }
 reqwest = { version = "0.12.9", features = ["json", "stream", "rustls-tls"], default-features = false }
-tokio = { version = "1.36.0", features = ["full"] }
-tokio-util = { version = "0.7", features = ["io", "codec"] }
-futures-util = "0.3.30"
-futures = "0.3"
+tokio = { version = "1.36.0", features = ["rt-multi-thread", "macros", "io-util", "net", "time"], default-features = false }
+tokio-util = { version = "0.7", features = ["io"], default-features = false }
+futures-util = { version = "0.3.30", default-features = false }
+futures = { version = "0.3", default-features = false }
 thiserror = "2.0.3"
 reqwest-retry = "0.7.0"
 reqwest-middleware = "0.4.0"
-lazy_static = "1.4"
 
 [dependencies.flipt-evaluation]
 path = "../flipt-evaluation"
@@ -31,4 +30,4 @@ mockito = "1.4.0"
 
 [lib]
 name = "fliptengine"
-crate-type = ["rlib", "dylib", "staticlib"]
+crate-type = ["dylib"]
