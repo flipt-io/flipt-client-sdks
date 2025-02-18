@@ -17,9 +17,12 @@ use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Once;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use thiserror::Error;
+use tokio::runtime::Builder;
+use tokio::runtime::Handle;
 use tokio::runtime::Runtime;
 
 #[derive(Deserialize)]
@@ -79,7 +82,7 @@ fn result_to_json_ptr<T: Serialize>(result: Result<T, Error>) -> *mut c_char {
     CString::new(json_string).unwrap().into_raw()
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct EngineOpts {
     url: Option<String>,
     authentication: Option<Authentication>,
@@ -104,8 +107,39 @@ impl Default for EngineOpts {
 
 pub struct Engine {
     evaluator: Arc<Mutex<Evaluator<Snapshot>>>,
-    runtime: Runtime,
     stop_signal: Arc<AtomicBool>,
+}
+
+static RUNTIME_INIT: Once = Once::new();
+static mut RUNTIME: Option<Runtime> = None;
+
+fn get_or_create_runtime() -> &'static Handle {
+    RUNTIME_INIT.call_once(|| {
+        // Try to get the current runtime handle
+        match Handle::try_current() {
+            // If we're already in a runtime, we don't need to create one
+            Ok(_) => {}
+            // If we're not in a runtime, create one
+            Err(_) => {
+                let rt = Builder::new_multi_thread()
+                    .thread_name("flipt-engine-ffi")
+                    .enable_all()
+                    .build()
+                    .expect("Failed to create runtime");
+
+                // SAFETY: We're only calling this once, protected by RUNTIME_INIT
+                unsafe {
+                    RUNTIME = Some(rt);
+                }
+            }
+        }
+    });
+
+    // Return either the existing runtime's handle or our created runtime's handle
+    match Handle::try_current() {
+        Ok(handle) => unsafe { std::mem::transmute(&handle) },
+        Err(_) => unsafe { RUNTIME.as_ref().unwrap().handle() },
+    }
 }
 
 impl Engine {
@@ -116,27 +150,31 @@ impl Engine {
         error_strategy: ErrorStrategy,
     ) -> Self {
         let stop_signal = Arc::new(AtomicBool::new(false));
-
-        let runtime = Runtime::new().expect("failed to create runtime");
+        let stop_signal_clone = stop_signal.clone();
 
         let evaluator = Arc::new(Mutex::new(evaluator));
         let evaluator_clone = evaluator.clone();
 
-        let initial_snapshot = fetcher.initial_fetch();
-        match initial_snapshot {
-            Ok(doc) => {
-                let snap = Snapshot::build(namespace, doc);
-                evaluator_clone.lock().unwrap().replace_snapshot(snap);
-            }
-            Err(err) => {
-                evaluator_clone.lock().unwrap().replace_snapshot(Err(err));
-            }
-        }
-
-        let mut rx = runtime.block_on(async { fetcher.start(stop_signal.clone()) });
-
         let namespace_clone = namespace.to_string();
-        runtime.spawn(async move {
+
+        let handle = get_or_create_runtime();
+
+        // Block on initial fetch
+        handle.block_on(async {
+            match fetcher.initial_fetch_async().await {
+                Ok(doc) => {
+                    let snap = Snapshot::build(&namespace_clone, doc);
+                    evaluator_clone.lock().unwrap().replace_snapshot(snap);
+                }
+                Err(err) => {
+                    evaluator_clone.lock().unwrap().replace_snapshot(Err(err));
+                }
+            }
+        });
+
+        // Spawn the continuous polling task
+        handle.spawn(async move {
+            let mut rx = fetcher.start(stop_signal_clone);
             while let Some(res) = rx.recv().await {
                 match res {
                     Ok(doc) => {
@@ -154,7 +192,6 @@ impl Engine {
 
         Self {
             evaluator,
-            runtime,
             stop_signal,
         }
     }
@@ -217,56 +254,78 @@ pub unsafe extern "C" fn initialize_engine(
     namespace: *const c_char,
     opts: *const c_char,
 ) -> *mut c_void {
-    let namespace = CStr::from_ptr(namespace).to_str().unwrap();
-
-    let engine_opts_bytes = CStr::from_ptr(opts).to_bytes();
-    let bytes_str_repr = std::str::from_utf8(engine_opts_bytes).unwrap();
-    let engine_opts: EngineOpts = serde_json::from_str(bytes_str_repr).unwrap_or_default();
-
-    let http_url = engine_opts
-        .url
-        .to_owned()
-        .unwrap_or("http://localhost:8080".into());
-
-    let authentication = engine_opts.authentication.to_owned();
-    let reference = engine_opts.reference.to_owned();
-    let update_interval = engine_opts.update_interval.to_owned();
-    let fetch_mode = engine_opts.fetch_mode.to_owned();
-
-    let mut fetcher_builder = HTTPFetcherBuilder::new(&http_url, namespace);
-
-    fetcher_builder = match update_interval {
-        Some(update_interval) => {
-            fetcher_builder.update_interval(Duration::from_secs(update_interval))
+    let result = std::panic::catch_unwind(|| {
+        // Null pointer checks
+        if namespace.is_null() || opts.is_null() {
+            return std::ptr::null_mut();
         }
-        None => fetcher_builder,
-    };
 
-    fetcher_builder = match authentication {
-        Some(authentication) => fetcher_builder.authentication(authentication),
-        None => fetcher_builder,
-    };
+        // Safe string conversion with error handling
+        let namespace = match CStr::from_ptr(namespace).to_str() {
+            Ok(s) => s,
+            Err(_) => return std::ptr::null_mut(),
+        };
 
-    fetcher_builder = match fetch_mode {
-        Some(fetch_mode) => fetcher_builder.mode(fetch_mode),
-        None => fetcher_builder,
-    };
+        let engine_opts_bytes = CStr::from_ptr(opts).to_bytes();
 
-    fetcher_builder = match reference {
-        Some(reference) => fetcher_builder.reference(&reference),
-        None => fetcher_builder,
-    };
+        let bytes_str_repr = match std::str::from_utf8(engine_opts_bytes) {
+            Ok(s) => s,
+            Err(_) => return std::ptr::null_mut(),
+        };
 
-    let fetcher = fetcher_builder.build();
-    let evaluator = Evaluator::new(namespace);
-    let engine = Engine::new(
-        namespace,
-        fetcher,
-        evaluator,
-        engine_opts.error_strategy.unwrap_or_default(),
-    );
+        // Add debug printing here
+        println!("Raw engine opts JSON: {}", bytes_str_repr);
 
-    Box::into_raw(Box::new(engine)) as *mut c_void
+        // Safe JSON parsing with error handling
+        let engine_opts: EngineOpts = match serde_json::from_str(bytes_str_repr) {
+            Ok(opts) => {
+                println!("Deserialized engine opts: {:#?}", opts);
+                opts
+            }
+            Err(e) => {
+                println!("Failed to parse engine opts: {}", e);
+                EngineOpts::default()
+            }
+        };
+
+        let mut fetcher_builder = HTTPFetcherBuilder::new(
+            &engine_opts
+                .url
+                .unwrap_or_else(|| "http://localhost:8080".into()),
+            namespace,
+        );
+
+        if let Some(update_interval) = engine_opts.update_interval {
+            fetcher_builder = fetcher_builder.update_interval(Duration::from_secs(update_interval));
+        }
+
+        if let Some(authentication) = engine_opts.authentication {
+            fetcher_builder = fetcher_builder.authentication(authentication);
+        }
+
+        if let Some(fetch_mode) = engine_opts.fetch_mode {
+            fetcher_builder = fetcher_builder.mode(fetch_mode);
+        }
+
+        if let Some(reference) = &engine_opts.reference {
+            fetcher_builder = fetcher_builder.reference(reference);
+        }
+
+        let fetcher = fetcher_builder.build();
+        let evaluator = Evaluator::new(namespace);
+
+        let engine = Engine::new(
+            namespace,
+            fetcher,
+            evaluator,
+            engine_opts.error_strategy.unwrap_or_default(),
+        );
+
+        // Convert to raw pointer
+        Box::into_raw(Box::new(engine)) as *mut c_void
+    });
+
+    result.unwrap_or(std::ptr::null_mut())
 }
 
 /// # Safety
@@ -384,9 +443,6 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
 
     let engine = Box::from_raw(engine_ptr as *mut Engine);
     engine.stop_signal.store(true, Ordering::Relaxed);
-
-    // Shutdown the runtime
-    engine.runtime.shutdown_background();
 
     // The engine will be dropped here, cleaning up all resources
 }

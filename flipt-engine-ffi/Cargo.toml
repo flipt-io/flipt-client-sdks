@@ -20,6 +20,7 @@ futures = "0.3"
 thiserror = "2.0.3"
 reqwest-retry = "0.7.0"
 reqwest-middleware = "0.4.0"
+lazy_static = "1.4"
 
 [dependencies.flipt-evaluation]
 path = "../flipt-evaluation"

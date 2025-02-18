@@ -16,6 +16,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"unsafe"
 )
 
@@ -54,17 +55,32 @@ func NewEvaluationClient(opts ...clientOption) (*EvaluationClient, error) {
 
 	b, err := json.Marshal(clientOpts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal client options: %w", err)
+	}
+
+	// Ensure strings are valid
+	if client.namespace == "" {
+		return nil, fmt.Errorf("namespace cannot be empty")
 	}
 
 	cn := C.CString(client.namespace)
+	if cn == nil {
+		return nil, fmt.Errorf("failed to allocate memory for namespace")
+	}
 	defer C.free(unsafe.Pointer(cn))
+
 	co := C.CString(string(b))
+	if co == nil {
+		return nil, fmt.Errorf("failed to allocate memory for options")
+	}
 	defer C.free(unsafe.Pointer(co))
 
 	eng := C.initialize_engine(cn, co)
-	client.engine = eng
+	if eng == nil {
+		return nil, fmt.Errorf("failed to initialize engine: engine pointer is null")
+	}
 
+	client.engine = eng
 	return client, nil
 }
 
@@ -238,7 +254,9 @@ func (e *EvaluationClient) ListFlags(_ context.Context) ([]Flag, error) {
 
 // Close cleans up the allocated engine as it was initialized in the constructor.
 func (e *EvaluationClient) Close() error {
-	// Destroy the engine to clean up allocated memory on dynamic library side.
-	C.destroy_engine(e.engine)
+	if e.engine != nil {
+		C.destroy_engine(e.engine)
+		e.engine = nil
+	}
 	return nil
 }
