@@ -288,9 +288,7 @@ func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
 		WithEnvVariable("RUSTFLAGS", "-C target-feature=+crt-static").
-		WithEnvVariable("RUST_BACKTRACE", "1").
-		// Add verbose build output
-		WithExec([]string{"cargo", "build", "-p", "flipt-engine-ffi", "--release", "--target", target, "-v"}).
+		WithExec([]string{"cargo", "build", "-p", "flipt-engine-ffi", "--release", "--target", target}).
 		// Copy the static lib to where the wrapper build script can find it
 		WithExec([]string{"cp", fmt.Sprintf("/src/target/%s/release/libfliptengine.a", target), "/src/flipt-engine-ffi/"}).
 		// Make and run the build script
