@@ -8,5 +8,6 @@ cd "$SCRIPT_DIR"
 cp "libfliptengine.a" "libfliptengine_static.a"
 
 musl-gcc -shared -o libfliptengine.so -fPIC wrapper.c \
+    -I./include \
     -L. -lfliptengine_static \
     -Wl,-Bstatic -static-libgcc -static
