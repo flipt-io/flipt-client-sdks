@@ -69,9 +69,11 @@ type testFn func(context.Context, *dagger.Container, *testCase) error
 
 // testResult holds the result of a test execution
 type testResult struct {
-	sdk  string
-	base string
-	err  error
+	sdk      string
+	base     string
+	err      error
+	platform testPlatform
+	skipped  bool
 }
 
 const (
@@ -182,23 +184,31 @@ func run() error {
 		Platform: dagger.Platform(platform),
 	})
 
-	var skipped []containerConfig
-
 	for lang, t := range tests {
 		lang, t := lang, t
 		for _, c := range t.containers {
 			c := c
+			skipped := false
 
 			if len(c.platforms) > 0 {
 				// filter out containers that don't match the current platform if specified
 				if !slices.Contains(c.platforms, platform) {
-					fmt.Printf("skipping %s for platform %s\n", c.base, platform)
-					skipped = append(skipped, c)
-					continue
+					skipped = true
 				}
 			}
 
 			g.Go(take(func() error {
+				// if the container is skipped, send a result with the skipped flag set
+				if skipped {
+					resultsChan <- testResult{
+						sdk:      lang,
+						base:     c.base,
+						platform: platform,
+						skipped:  true,
+					}
+					return nil
+				}
+
 				testCase := &testCase{
 					sdk:     lang,
 					hostDir: hostDir,
@@ -218,9 +228,10 @@ func run() error {
 
 				err := t.fn(ctx, container, testCase)
 				resultsChan <- testResult{
-					sdk:  lang,
-					base: c.base,
-					err:  err,
+					sdk:      lang,
+					base:     c.base,
+					err:      err,
+					platform: platform,
 				}
 				return err
 			}))
@@ -242,28 +253,7 @@ func run() error {
 
 	wg.Wait()
 
-	fmt.Println("\n=== Test Results Summary ===")
-
-	fmt.Println("\nSuccessful tests:")
-	for _, result := range results {
-		if result.err == nil {
-			fmt.Printf("✅ %s %s\n", result.sdk, result.base)
-		}
-	}
-
-	fmt.Println("\nSkipped tests:")
-	for _, c := range skipped {
-		fmt.Printf("⚠️ %s for platform %s\n", c.base, platform)
-	}
-
-	fmt.Println("\nFailed tests:")
-	for _, result := range results {
-		if result.err != nil {
-			fmt.Printf("❌ %s %s\n", result.sdk, result.base)
-		}
-	}
-
-	fmt.Println("\n=========================")
+	printResults(results)
 
 	return err
 }
@@ -557,4 +547,102 @@ func csharpTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		Sync(ctx)
 
 	return err
+}
+
+func printResults(results []testResult) {
+	var (
+		skipped []testResult
+		success []testResult
+		failed  []testResult
+
+		isCI        = os.Getenv("CI") != ""
+		summaryFile = os.Getenv("GITHUB_STEP_SUMMARY")
+	)
+
+	for _, result := range results {
+		if result.skipped {
+			skipped = append(skipped, result)
+		} else if result.err != nil {
+			failed = append(failed, result)
+		} else {
+			success = append(success, result)
+		}
+	}
+
+	// Sort each slice by sdk + base + platform
+	sortResults := func(results []testResult) {
+		slices.SortFunc(results, func(a, b testResult) int {
+			aKey := fmt.Sprintf("%s-%s-%s", a.sdk, a.base, a.platform)
+			bKey := fmt.Sprintf("%s-%s-%s", b.sdk, b.base, b.platform)
+			return strings.Compare(aKey, bKey)
+		})
+	}
+
+	sortResults(skipped)
+	sortResults(success)
+	sortResults(failed)
+
+	if isCI && summaryFile != "" {
+		// Format results as GitHub Actions workflow summary
+		var summary strings.Builder
+
+		summary.WriteString("# Integration Test Results\n\n")
+
+		// Successful Tests Table
+		summary.WriteString("## Successful Tests\n\n")
+		summary.WriteString("| SDK | Base Image | Platform |\n")
+		summary.WriteString("|-----|------------|----------|\n")
+		for _, result := range success {
+			summary.WriteString(fmt.Sprintf("| %s | %s | %s |\n", result.sdk, result.base, result.platform))
+		}
+
+		// Failed Tests Table
+		if len(failed) > 0 {
+			summary.WriteString("\n## Failed Tests\n\n")
+			summary.WriteString("| SDK | Base Image | Platform |\n")
+			summary.WriteString("|-----|------------|----------|\n")
+			for _, result := range failed {
+				summary.WriteString(fmt.Sprintf("| %s | %s | %s |\n",
+					result.sdk, result.base, result.platform))
+			}
+		}
+
+		// Skipped Tests Table
+		if len(skipped) > 0 {
+			summary.WriteString("\n## Skipped Tests\n\n")
+			summary.WriteString("| Base Image | Platform |\n")
+			summary.WriteString("|------------|----------|\n")
+			for _, c := range skipped {
+				summary.WriteString(fmt.Sprintf("| %s | %s |\n", c.base, platform))
+			}
+		}
+
+		// Write to GITHUB_STEP_SUMMARY file
+		if err := os.WriteFile(summaryFile, []byte(summary.String()), 0644); err != nil {
+			fmt.Printf("Failed to write GitHub summary: %v\n", err)
+		}
+	}
+
+	// Always print to stdout for local runs and CI logging
+	fmt.Println("\n=== Test Results Summary ===")
+
+	fmt.Println("\nSuccessful tests:")
+	fmt.Println("--------------------------------")
+	for _, result := range success {
+		fmt.Printf("✅ %s %s\n", result.sdk, result.base)
+	}
+
+	fmt.Println("\nSkipped tests:")
+	fmt.Println("--------------------------------")
+	for _, c := range skipped {
+		fmt.Printf("⚠️ %s for platform %s\n", c.base, platform)
+	}
+
+	fmt.Println("\nFailed tests:")
+	fmt.Println("--------------------------------")
+	for _, result := range failed {
+		fmt.Printf("❌ %s %s\n", result.sdk, result.base)
+	}
+
+	fmt.Println("\n=========================")
 }
