@@ -130,6 +130,7 @@ var (
 
 	csharpVersions = []containerConfig{
 		{base: "mcr.microsoft.com/dotnet/sdk:8.0"},
+		{base: "mcr.microsoft.com/dotnet/sdk:8.0-alpine"},
 	}
 )
 

@@ -70,10 +70,6 @@ namespace FliptClient
             string directPath = Path.Combine(baseDir, libraryName);
             string runtimePath = Path.Combine(baseDir, "runtimes", libraryName);
 
-            Console.WriteLine($"Searching for library at:");
-            Console.WriteLine($"- {directPath}");
-            Console.WriteLine($"- {runtimePath}");
-
             if (File.Exists(directPath))
             {
                 return directPath;
