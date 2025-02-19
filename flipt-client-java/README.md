@@ -124,6 +124,13 @@ The `FliptEvaluationClient` supports the following authentication strategies:
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
 - [JWT Authentication](https://docs.flipt.io/authentication/using-jwts)
 
+### Error Strategies
+
+The client supports the following error strategies:
+
+- `fail`: The client will throw an error if the flag state cannot be fetched. This is the default behavior.
+- `fallback`: The client will maintain the last known good state and use that state for evaluation in case of an error.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to open an issue or submit a Pull Request.
