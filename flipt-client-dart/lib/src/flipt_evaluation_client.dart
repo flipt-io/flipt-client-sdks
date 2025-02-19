@@ -51,12 +51,12 @@ class FliptEvaluationClient {
       case 'linux':
         libraryName = 'libfliptengine.so';
         platformDir =
-            Platform.version.contains('arm64') ? 'linux_arm64' : 'linux_x86_64';
+            Platform.version.contains('arm64') ? 'linux_aarch64' : 'linux_x86_64';
         break;
       case 'macos':
         libraryName = 'libfliptengine.dylib';
         platformDir = Platform.version.contains('arm64')
-            ? 'darwin_arm64'
+            ? 'darwin_aarch64'
             : 'darwin_x86_64';
         break;
       case 'windows':
