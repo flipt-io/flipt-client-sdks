@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euxo pipefail
 
+if ! command -v musl-gcc &> /dev/null; then
+    echo "Error: musl-gcc is not installed. Please install it first."
+    exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 cd "$SCRIPT_DIR"
