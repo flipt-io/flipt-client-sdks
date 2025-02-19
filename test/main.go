@@ -245,11 +245,11 @@ func run() error {
 
 				switch lang {
 				case "node":
-					testCase.engine = getWasmTestContainer(ctx, client, hostDir, "nodejs")
+					testCase.engine = getWasmBuildContainer(ctx, client, hostDir, "nodejs")
 				case "browser", "react":
-					testCase.engine = getWasmTestContainer(ctx, client, hostDir, "web")
+					testCase.engine = getWasmBuildContainer(ctx, client, hostDir, "web")
 				default:
-					testCase.engine = getFFITestContainer(ctx, client, hostDir)
+					testCase.engine = getFFIBuildContainer(ctx, client, hostDir)
 				}
 
 				container = createBaseContainer(client, c)
@@ -286,6 +286,7 @@ func run() error {
 	return err
 }
 
+// take is a helper function to limit the concurrency of the tests
 func take(fn func() error) func() error {
 	return func() error {
 		// insert into semaphore channel to maintain
@@ -297,6 +298,7 @@ func take(fn func() error) func() error {
 	}
 }
 
+// detectPlatform detects the platform and architecture of the host machine
 func detectPlatform(client *dagger.Client) error {
 	daggerPlatform, err := client.DefaultPlatform(context.Background())
 	if err != nil {
@@ -312,6 +314,7 @@ func detectPlatform(client *dagger.Client) error {
 	return nil
 }
 
+// setupFliptContainer creates a Flipt container with the test data mounted
 func setupFliptContainer(client *dagger.Client, hostDir *dagger.Directory) *dagger.Container {
 	return client.Container().From("flipt/flipt:latest").
 		WithUser("root").
@@ -327,7 +330,7 @@ func setupFliptContainer(client *dagger.Client, hostDir *dagger.Directory) *dagg
 		WithExposedPort(8080)
 }
 
-// Helper function to create a base container with common settings
+// createBaseContainer creates a base container with common settings
 func createBaseContainer(client *dagger.Client, config containerConfig) *dagger.Container {
 	container := client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform(platform),
@@ -340,9 +343,9 @@ func createBaseContainer(client *dagger.Client, config containerConfig) *dagger.
 	return container
 }
 
-// getFFITestContainer builds the shared object library for the Rust core, and the Flipt container for the client libraries to run
+// getFFIBuildContainer builds the shared object library for the Rust core for the client libraries to run
 // their tests against.
-func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
+func getFFIBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
 	var (
 		target = fmt.Sprintf("%s-unknown-linux-musl", architecture)
 
@@ -381,9 +384,9 @@ func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory
 		WithExec(args("cp /src/flipt-engine-ffi/libfliptengine.so /output/"))
 }
 
-// getWasmTestContainer builds the wasm module for the Rust core, and the Flipt container for the client libraries to run
+// getWasmBuildContainer builds the wasm module for the Rust core for the client libraries to run
 // their tests against.
-func getWasmTestContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory, target string) *dagger.Container {
+func getWasmBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory, target string) *dagger.Container {
 	container := client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform(platform),
 	}).From("rust:1.83.0-bullseye").
@@ -547,7 +550,7 @@ func dartTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-dart"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", ".dart_tool/"},
 		}).
-		WithDirectory(fmt.Sprintf("lib/src/ffi/linux_%s", architecture), t.engine.Directory("/output")).
+		WithDirectory(fmt.Sprintf("/src/lib/src/ffi/linux_%s", architecture), t.engine.Directory("/output")).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -566,7 +569,7 @@ func csharpTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-csharp"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", "obj/", "bin/"},
 		}).
-		WithDirectory(fmt.Sprintf("src/FliptClient/ext/ffi/linux_%s", architecture), t.engine.Directory("/output")).
+		WithDirectory(fmt.Sprintf("/src/src/FliptClient/ext/ffi/linux_%s", architecture), t.engine.Directory("/output")).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").

@@ -143,6 +143,10 @@ func WithErrorStrategy(errorStrategy ErrorStrategy) clientOption {
 
 // EvaluateVariant performs evaluation for a variant flag.
 func (e *EvaluationClient) EvaluateVariant(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantEvaluationResponse, error) {
+	if e.engine == nil {
+		return nil, errors.New("engine not initialized")
+	}
+
 	ereq, err := json.Marshal(EvaluationRequest{
 		FlagKey:  flagKey,
 		EntityId: entityID,
@@ -175,6 +179,10 @@ func (e *EvaluationClient) EvaluateVariant(_ context.Context, flagKey, entityID 
 
 // EvaluateBoolean performs evaluation for a boolean flag.
 func (e *EvaluationClient) EvaluateBoolean(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanEvaluationResponse, error) {
+	if e.engine == nil {
+		return nil, errors.New("engine not initialized")
+	}
+
 	ereq, err := json.Marshal(EvaluationRequest{
 		FlagKey:  flagKey,
 		EntityId: entityID,
@@ -207,6 +215,10 @@ func (e *EvaluationClient) EvaluateBoolean(_ context.Context, flagKey, entityID 
 
 // EvaluateBatch performs evaluation for a batch of flags.
 func (e *EvaluationClient) EvaluateBatch(_ context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
+	if e.engine == nil {
+		return nil, errors.New("engine not initialized")
+	}
+
 	requestsBytes, err := json.Marshal(requests)
 	if err != nil {
 		return nil, err
@@ -234,6 +246,10 @@ func (e *EvaluationClient) EvaluateBatch(_ context.Context, requests []*Evaluati
 }
 
 func (e *EvaluationClient) ListFlags(_ context.Context) ([]Flag, error) {
+	if e.engine == nil {
+		return nil, errors.New("engine not initialized")
+	}
+
 	flags := C.list_flags(e.engine)
 	defer C.destroy_string(flags)
 

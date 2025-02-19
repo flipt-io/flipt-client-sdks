@@ -9,10 +9,12 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 cd "$SCRIPT_DIR"
-# Copy and rename the static library
-cp "libfliptengine.a" "libfliptengine_static.a"
+# Rename the static library
+mv "libfliptengine.a" "libfliptengine_static.a"
 
 musl-gcc -shared -o libfliptengine.so -fPIC wrapper.c \
     -I./include \
     -L. -lfliptengine_static \
     -Wl,-Bstatic -static-libgcc -static
+
+rm libfliptengine_static.a
