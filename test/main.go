@@ -47,7 +47,7 @@ var (
 // containerConfig holds the base configuration for a test container
 type containerConfig struct {
 	base      string
-	commands  []string
+	setup     []string
 	platforms []testPlatform
 }
 
@@ -81,42 +81,69 @@ const (
 	wasmDir    = "/src/flipt-engine-wasm/pkg"
 )
 
-// Define test configurations
-var sdkToConfig = map[string]testConfig{
-	"python": {containers: []containerConfig{
+var (
+	pythonVersions = []containerConfig{
 		{base: "python:3.9-bookworm"},
 		{base: "python:3.9-bullseye"},
 		{base: "python:3.9-alpine"},
-	}, fn: pythonTests},
-	"go": {containers: []containerConfig{
-		{
-			base:     "golang:1.23-bookworm",
-			commands: []string{"apt-get update", "apt-get install -y build-essential"},
-		},
-		{
-			base:     "golang:1.23-bullseye",
-			commands: []string{"apt-get update", "apt-get install -y build-essential"},
-		},
-		{
-			base:     "golang:1.23-alpine",
-			commands: []string{"apk update", "apk add --no-cache build-base"},
-		},
-	}, fn: goTests},
-	"node": {containers: []containerConfig{{base: "node:21.2-bookworm"}}, fn: nodeTests},
-	"ruby": {containers: []containerConfig{
+	}
+
+	goVersions = []containerConfig{
+		{base: "golang:1.23-bookworm", setup: []string{"apt-get update", "apt-get install -y build-essential"}},
+		{base: "golang:1.23-bullseye", setup: []string{"apt-get update", "apt-get install -y build-essential"}},
+		{base: "golang:1.23-alpine", setup: []string{"apk update", "apk add --no-cache build-base"}},
+	}
+
+	nodeVersions = []containerConfig{
+		{base: "node:21.2-bookworm"},
+		{base: "node:21.2-bullseye"},
+		{base: "node:21.2-alpine"},
+	}
+
+	rubyVersions = []containerConfig{
 		{base: "ruby:3.1-bookworm"},
 		{base: "ruby:3.1-bullseye"},
-		{base: "ruby:3.1-alpine"},
-	}, fn: rubyTests},
-	"java": {containers: []containerConfig{
+		{base: "ruby:3.1-alpine", setup: []string{"apk update", "apk add --no-cache build-base"}},
+	}
+
+	javaVersions = []containerConfig{
 		{base: "gradle:8-jdk11"},
 		{base: "gradle:8-jdk11-focal"},
 		{base: "gradle:8-jdk11-alpine", platforms: []testPlatform{linuxAMD64}},
-	}, fn: javaTests},
-	"browser": {containers: []containerConfig{{base: "node:21.2-bookworm"}}, fn: browserTests},
-	"dart":    {containers: []containerConfig{{base: "dart:stable"}}, fn: dartTests},
-	"react":   {containers: []containerConfig{{base: "node:21.2-bookworm"}}, fn: reactTests},
-	"csharp":  {containers: []containerConfig{{base: "mcr.microsoft.com/dotnet/sdk:8.0"}}, fn: csharpTests},
+	}
+
+	browserVersions = []containerConfig{
+		{base: "node:21.2-bookworm"},
+		{base: "node:21.2-bullseye"},
+		{base: "node:21.2-alpine"},
+	}
+
+	dartVersions = []containerConfig{
+		{base: "dart:stable"},
+	}
+
+	reactVersions = []containerConfig{
+		{base: "node:21.2-bookworm"},
+		{base: "node:21.2-bullseye"},
+		{base: "node:21.2-alpine"},
+	}
+
+	csharpVersions = []containerConfig{
+		{base: "mcr.microsoft.com/dotnet/sdk:8.0"},
+	}
+)
+
+// Define test configurations
+var sdkToConfig = map[string]testConfig{
+	"python":  {containers: pythonVersions, fn: pythonTests},
+	"go":      {containers: goVersions, fn: goTests},
+	"node":    {containers: nodeVersions, fn: nodeTests},
+	"ruby":    {containers: rubyVersions, fn: rubyTests},
+	"java":    {containers: javaVersions, fn: javaTests},
+	"browser": {containers: browserVersions, fn: browserTests},
+	"dart":    {containers: dartVersions, fn: dartTests},
+	"react":   {containers: reactVersions, fn: reactTests},
+	"csharp":  {containers: csharpVersions, fn: csharpTests},
 }
 
 func init() {
@@ -305,9 +332,10 @@ func createBaseContainer(client *dagger.Client, config containerConfig) *dagger.
 		Platform: dagger.Platform(platform),
 	}).From(config.base)
 
-	for _, cmd := range config.commands {
+	for _, cmd := range config.setup {
 		container = container.WithExec(args(cmd))
 	}
+
 	return container
 }
 
@@ -589,16 +617,18 @@ func printResults(results []testResult) {
 		summary.WriteString("# Integration Test Results\n\n")
 
 		// Successful Tests Table
-		summary.WriteString("## Successful Tests\n\n")
-		summary.WriteString("| SDK | Base Image | Platform |\n")
-		summary.WriteString("|-----|------------|----------|\n")
-		for _, result := range success {
-			summary.WriteString(fmt.Sprintf("| %s | %s | %s |\n", result.sdk, result.base, result.platform))
+		if len(success) > 0 {
+			summary.WriteString(fmt.Sprintf("## ✅ Successful Tests (%d/%d)\n\n", len(success), len(results)))
+			summary.WriteString("| SDK | Base Image | Platform |\n")
+			summary.WriteString("|-----|------------|----------|\n")
+			for _, result := range success {
+				summary.WriteString(fmt.Sprintf("| %s | %s | %s |\n", result.sdk, result.base, result.platform))
+			}
 		}
 
 		// Failed Tests Table
 		if len(failed) > 0 {
-			summary.WriteString("\n## Failed Tests\n\n")
+			summary.WriteString(fmt.Sprintf("\n## ❌ Failed Tests (%d/%d)\n\n", len(failed), len(results)))
 			summary.WriteString("| SDK | Base Image | Platform |\n")
 			summary.WriteString("|-----|------------|----------|\n")
 			for _, result := range failed {
@@ -609,7 +639,7 @@ func printResults(results []testResult) {
 
 		// Skipped Tests Table
 		if len(skipped) > 0 {
-			summary.WriteString("\n## Skipped Tests\n\n")
+			summary.WriteString(fmt.Sprintf("\n## ⚠️ Skipped Tests (%d/%d)\n\n", len(skipped), len(results)))
 			summary.WriteString("| Base Image | Platform |\n")
 			summary.WriteString("|------------|----------|\n")
 			for _, c := range skipped {
@@ -626,22 +656,25 @@ func printResults(results []testResult) {
 	// Always print to stdout for local runs and CI logging
 	fmt.Println("\n=== Test Results Summary ===")
 
-	fmt.Println("\nSuccessful tests:")
-	fmt.Println("--------------------------------")
-	for _, result := range success {
-		fmt.Printf("✅ %s %s\n", result.sdk, result.base)
+	if len(success) > 0 {
+		fmt.Printf("\n✅ Successful tests (%d/%d)\n", len(success), len(results))
+		for _, result := range success {
+			fmt.Printf("✅ %s %s\n", result.sdk, result.base)
+		}
 	}
 
-	fmt.Println("\nSkipped tests:")
-	fmt.Println("--------------------------------")
-	for _, c := range skipped {
-		fmt.Printf("⚠️ %s for platform %s\n", c.base, platform)
+	if len(failed) > 0 {
+		fmt.Printf("\n❌ Failed tests (%d/%d)\n", len(failed), len(results))
+		for _, result := range failed {
+			fmt.Printf("❌ %s %s\n", result.sdk, result.base)
+		}
 	}
 
-	fmt.Println("\nFailed tests:")
-	fmt.Println("--------------------------------")
-	for _, result := range failed {
-		fmt.Printf("❌ %s %s\n", result.sdk, result.base)
+	if len(skipped) > 0 {
+		fmt.Printf("\n⚠️ Skipped tests (%d/%d)\n", len(skipped), len(results))
+		for _, c := range skipped {
+			fmt.Printf("⚠️ %s for platform %s\n", c.base, platform)
+		}
 	}
 
 	fmt.Println("\n=========================")
