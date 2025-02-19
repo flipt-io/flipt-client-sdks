@@ -451,7 +451,7 @@ func rubyTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	_, err := root.
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-ruby")).
-		WithDirectory(fmt.Sprintf("/src/ext/linux_%s", architecture), t.engine.Directory("/output")).
+		WithDirectory(fmt.Sprintf("/src/lib/ext/linux_%s", architecture), t.engine.Directory("/output")).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
