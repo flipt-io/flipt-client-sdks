@@ -565,10 +565,11 @@ func csharpTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-csharp"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", "obj/", "bin/"},
 		}).
-		WithDirectory(fmt.Sprintf("/src/ext/ffi/linux_%s", architecture), t.engine.Directory("/output")).
+		WithDirectory(fmt.Sprintf("src/FliptClient/ext/ffi/linux_%s", architecture), t.engine.Directory("/output")).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
+		WithExec(args("dotnet clean")).
 		WithExec(args("dotnet restore")).
 		WithExec(args("dotnet build")).
 		WithExec(args("dotnet test")).
@@ -657,21 +658,24 @@ func printResults(results []testResult) {
 	fmt.Println("\n=== Test Results Summary ===")
 
 	if len(success) > 0 {
-		fmt.Printf("\n✅ Successful tests (%d/%d)\n", len(success), len(results))
+		fmt.Printf("\nSuccessful tests (%d/%d)\n", len(success), len(results))
+		fmt.Println("--------------------------------")
 		for _, result := range success {
 			fmt.Printf("✅ %s %s\n", result.sdk, result.base)
 		}
 	}
 
 	if len(failed) > 0 {
-		fmt.Printf("\n❌ Failed tests (%d/%d)\n", len(failed), len(results))
+		fmt.Printf("\nFailed tests (%d/%d)\n", len(failed), len(results))
+		fmt.Println("--------------------------------")
 		for _, result := range failed {
 			fmt.Printf("❌ %s %s\n", result.sdk, result.base)
 		}
 	}
 
 	if len(skipped) > 0 {
-		fmt.Printf("\n⚠️ Skipped tests (%d/%d)\n", len(skipped), len(results))
+		fmt.Printf("\nSkipped tests (%d/%d)\n", len(skipped), len(results))
+		fmt.Println("--------------------------------")
 		for _, c := range skipped {
 			fmt.Printf("⚠️ %s for platform %s\n", c.base, platform)
 		}

@@ -66,15 +66,24 @@ namespace FliptClient
         private static string GetLibraryName()
         {
             string libraryName = GetPlatformLibraryPath();
-            string libraryPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, libraryName);
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string directPath = Path.Combine(baseDir, libraryName);
+            string runtimePath = Path.Combine(baseDir, "runtimes", libraryName);
 
-            if (!File.Exists(libraryPath))
+            Console.WriteLine($"Searching for library at:");
+            Console.WriteLine($"- {directPath}");
+            Console.WriteLine($"- {runtimePath}");
+
+            if (File.Exists(directPath))
             {
-                // Try to find the library in the NuGet package structure
-                libraryPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "runtimes", libraryName);
+                return directPath;
+            }
+            if (File.Exists(runtimePath))
+            {
+                return runtimePath;
             }
 
-            return libraryPath;
+            throw new FileNotFoundException($"Native library not found. Searched:\n{directPath}\n{runtimePath}");
         }
 
         private static string GetPlatformLibraryPath()
