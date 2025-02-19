@@ -93,7 +93,7 @@ namespace FliptClient
                 }
                 else if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
                 {
-                    libraryPath = "runtimes/linux-arm64/native/libfliptengine.so";
+                    libraryPath = "runtimes/linux-aarch64/native/libfliptengine.so";
                 }
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -104,7 +104,7 @@ namespace FliptClient
                 }
                 else if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
                 {
-                    libraryPath = "runtimes/osx-arm64/native/libfliptengine.dylib";
+                    libraryPath = "runtimes/osx-aarch64/native/libfliptengine.dylib";
                 }
             }
 
