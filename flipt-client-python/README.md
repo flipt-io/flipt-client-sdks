@@ -32,6 +32,13 @@ By default, the SDK will poll the Flipt server for new flag state at a regular i
 
 When in streaming mode, the SDK will connect to the Flipt server and open a persistent connection that will remain open until the client is closed. The SDK will then receive flag state changes in real-time.
 
+### Error Strategies
+
+The client supports the following error strategies:
+
+- `fail`: The client will throw an error if the flag state cannot be fetched. This is the default behavior.
+- `fallback`: The client will maintain the last known good state and use that state for evaluation in case of an error.
+
 ## Supported Architectures
 
 This SDK currently supports the following OSes/architectures:
