@@ -83,28 +83,28 @@ namespace FliptClient
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                libraryPath = "runtimes/win-x64/native/fliptengine.dll";
+                libraryPath = "win-x64/native/fliptengine.dll";
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
                 if (RuntimeInformation.ProcessArchitecture == Architecture.X64)
                 {
-                    libraryPath = "runtimes/linux-x64/native/libfliptengine.so";
+                    libraryPath = "linux-x64/native/libfliptengine.so";
                 }
                 else if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
                 {
-                    libraryPath = "runtimes/linux-arm64/native/libfliptengine.so";
+                    libraryPath = "linux-arm64/native/libfliptengine.so";
                 }
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
                 if (RuntimeInformation.ProcessArchitecture == Architecture.X64)
                 {
-                    libraryPath = "runtimes/osx-x64/native/libfliptengine.dylib";
+                    libraryPath = "osx-x64/native/libfliptengine.dylib";
                 }
                 else if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
                 {
-                    libraryPath = "runtimes/osx-arm64/native/libfliptengine.dylib";
+                    libraryPath = "osx-arm64/native/libfliptengine.dylib";
                 }
             }
 
