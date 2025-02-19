@@ -547,7 +547,7 @@ func csharpTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-csharp"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", "obj/", "bin/"},
 		}).
-		WithDirectory(fmt.Sprintf("/src/ext/linux_%s", architecture), t.engine.Directory("/output")).
+		WithDirectory(fmt.Sprintf("/src/ext/ffi/linux_%s", architecture), t.engine.Directory("/output")).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
