@@ -30,4 +30,4 @@ mockito = "1.4.0"
 
 [lib]
 name = "fliptengine"
-crate-type = ["staticlib"]
+crate-type = ["rlib", "dylib", "staticlib"]

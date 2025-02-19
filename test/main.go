@@ -7,6 +7,7 @@ import (
 	"log"
 	"maps"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 
@@ -14,17 +15,40 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type testPlatform string
+
+const (
+	linuxAMD64 testPlatform = "linux/amd64"
+	linuxARM64 testPlatform = "linux/arm64"
+)
+
+func (p testPlatform) String() string {
+	return string(p)
+}
+
+type testArchitecture string
+
+const (
+	amd64 testArchitecture = "x86_64"
+	arm64 testArchitecture = "aarch64"
+)
+
+func (a testArchitecture) String() string {
+	return string(a)
+}
+
 var (
-	architecture = "x86_64"
-	platform     = "linux/amd64"
+	architecture = amd64
+	platform     = linuxAMD64
 	sdks         string
 	sema         = make(chan struct{}, 10)
 )
 
 // containerConfig holds the base configuration for a test container
 type containerConfig struct {
-	base     string
-	commands []string
+	base      string
+	commands  []string
+	platforms []testPlatform
 }
 
 // testConfig holds the complete test configuration
@@ -76,9 +100,17 @@ var sdkToConfig = map[string]testConfig{
 			commands: []string{"apk update", "apk add --no-cache build-base"},
 		},
 	}, fn: goTests},
-	"node":    {containers: []containerConfig{{base: "node:21.2-bookworm"}}, fn: nodeTests},
-	"ruby":    {containers: []containerConfig{{base: "ruby:3.1-bookworm"}}, fn: rubyTests},
-	"java":    {containers: []containerConfig{{base: "gradle:8.5.0-jdk11"}}, fn: javaTests},
+	"node": {containers: []containerConfig{{base: "node:21.2-bookworm"}}, fn: nodeTests},
+	"ruby": {containers: []containerConfig{
+		{base: "ruby:3.1-bookworm"},
+		{base: "ruby:3.1-bullseye"},
+		{base: "ruby:3.1-alpine"},
+	}, fn: rubyTests},
+	"java": {containers: []containerConfig{
+		{base: "gradle:8-jdk11"},
+		{base: "gradle:8-jdk11-focal"},
+		{base: "gradle:8-jdk11-alpine", platforms: []testPlatform{linuxAMD64}},
+	}, fn: javaTests},
 	"browser": {containers: []containerConfig{{base: "node:21.2-bookworm"}}, fn: browserTests},
 	"dart":    {containers: []containerConfig{{base: "dart:stable"}}, fn: dartTests},
 	"react":   {containers: []containerConfig{{base: "node:21.2-bookworm"}}, fn: reactTests},
@@ -150,10 +182,21 @@ func run() error {
 		Platform: dagger.Platform(platform),
 	})
 
+	var skipped []containerConfig
+
 	for lang, t := range tests {
 		lang, t := lang, t
 		for _, c := range t.containers {
 			c := c
+
+			if len(c.platforms) > 0 {
+				// filter out containers that don't match the current platform if specified
+				if !slices.Contains(c.platforms, platform) {
+					fmt.Printf("skipping %s for platform %s\n", c.base, platform)
+					skipped = append(skipped, c)
+					continue
+				}
+			}
 
 			g.Go(take(func() error {
 				testCase := &testCase{
@@ -208,13 +251,19 @@ func run() error {
 		}
 	}
 
+	fmt.Println("\nSkipped tests:")
+	for _, c := range skipped {
+		fmt.Printf("⚠️ %s for platform %s\n", c.base, platform)
+	}
+
 	fmt.Println("\nFailed tests:")
 	for _, result := range results {
 		if result.err != nil {
 			fmt.Printf("❌ %s %s\n", result.sdk, result.base)
 		}
 	}
-	fmt.Println("=========================")
+
+	fmt.Println("\n=========================")
 
 	return err
 }
@@ -238,10 +287,9 @@ func detectPlatform(client *dagger.Client) error {
 		return nil
 	}
 
-	platform = string(daggerPlatform)
-	if strings.Contains(platform, "arm64") || strings.Contains(platform, "aarch64") {
-		platform = "linux/arm64"
-		architecture = "aarch64"
+	if strings.Contains(string(daggerPlatform), "arm64") || strings.Contains(string(daggerPlatform), "aarch64") {
+		platform = linuxARM64
+		architecture = arm64
 	}
 	return nil
 }
@@ -276,11 +324,22 @@ func createBaseContainer(client *dagger.Client, config containerConfig) *dagger.
 // getFFITestContainer builds the shared object library for the Rust core, and the Flipt container for the client libraries to run
 // their tests against.
 func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
-	target := fmt.Sprintf("%s-unknown-linux-musl", architecture)
+	var (
+		target = fmt.Sprintf("%s-unknown-linux-musl", architecture)
+
+		// Create cache volumes for Cargo
+		cargoRegistry = client.CacheVolume("cargo-registry-" + target)
+		cargoGit      = client.CacheVolume("cargo-git-" + target)
+		targetCache   = client.CacheVolume("cargo-target-" + target)
+	)
 
 	return client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform(platform),
 	}).From("rust:1.83.0-bullseye").
+		// Mount cargo caches
+		WithMountedCache("/usr/local/cargo/registry", cargoRegistry).
+		WithMountedCache("/usr/local/cargo/git", cargoGit).
+		WithMountedCache("/src/target", targetCache).
 		WithExec(args("apt-get update")).
 		WithExec(args("apt-get install -y build-essential musl-dev musl-tools")).
 		WithExec([]string{"rustup", "target", "add", target}).
@@ -292,7 +351,6 @@ func getFFITestContainer(_ context.Context, client *dagger.Client, hostDirectory
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
 		WithFile("/src/.cargo/config.toml", hostDirectory.File(".cargo/config.toml")).
-		WithExec(args("cargo clean")).
 		WithExec(args("cargo build -p flipt-engine-ffi --release --target " + target)).
 		// Copy the static lib to where the wrapper build script can find it
 		WithExec([]string{"cp", fmt.Sprintf("/src/target/%s/release/libfliptengine.a", target), "/src/flipt-engine-ffi/"}).
@@ -407,7 +465,7 @@ func rubyTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 // javaTests run the java integration tests suite against a container running Flipt.
 func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	// previously gradle:8.5.0-jdk11
-	path := strings.ReplaceAll(architecture, "_", "-")
+	path := strings.ReplaceAll(architecture.String(), "_", "-")
 	_, err := root.
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-java"), dagger.ContainerWithDirectoryOpts{
