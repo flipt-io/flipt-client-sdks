@@ -115,6 +115,7 @@ The `FliptEvaluationClient.builder()` method returns a `FliptEvaluationClient.Bu
 - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
 - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
 - `fetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
+- `errorStrategy`: The error strategy to use when fetching flag state. If not provide, the client will be default to fail. See the [Error Strategies](#error-strategies) section for more information.
 
 ### Authentication
 
@@ -126,7 +127,7 @@ The `FliptEvaluationClient` supports the following authentication strategies:
 
 ### Error Strategies
 
-The client supports the following error strategies:
+The client `errorStrategy` method supports the following error strategies:
 
 - `fail`: The client will throw an error if the flag state cannot be fetched. This is the default behavior.
 - `fallback`: The client will maintain the last known good state and use that state for evaluation in case of an error.
