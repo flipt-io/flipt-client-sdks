@@ -8,7 +8,7 @@ jlong JNICALL Java_io_flipt_client_CLibrary_initializeEngine(
     const char *namespace_c = (*env)->GetStringUTFChars(env, namespace_, 0);
     const char *opts_c = (*env)->GetStringUTFChars(env, opts, 0);
 
-    void *engine = initialize_engine(namespace_c, opts_c);
+    void *engine = initialize_engine_ffi(namespace_c, opts_c);
 
     (*env)->ReleaseStringUTFChars(env, namespace_, namespace_c);
     (*env)->ReleaseStringUTFChars(env, opts, opts_c);
@@ -20,12 +20,12 @@ jstring JNICALL Java_io_flipt_client_CLibrary_evaluateVariant(
         JNIEnv *env, jobject obj, jlong enginePtr, jstring evaluationRequest) {
     const char *eval_request_c = (*env)->GetStringUTFChars(env, evaluationRequest, 0);
 
-    const char *result = evaluate_variant((void *) enginePtr, eval_request_c);
+    const char *result = evaluate_variant_ffi((void *) enginePtr, eval_request_c);
 
     (*env)->ReleaseStringUTFChars(env, evaluationRequest, eval_request_c);
 
     jstring result_j = (*env)->NewStringUTF(env, result);
-    destroy_string((char *) result); // Free the result string
+    destroy_string_ffi((char *) result); // Free the result string
 
     return result_j;
 }
@@ -34,12 +34,12 @@ jstring JNICALL Java_io_flipt_client_CLibrary_evaluateBoolean(
         JNIEnv *env, jobject obj, jlong enginePtr, jstring evaluationRequest) {
     const char *eval_request_c = (*env)->GetStringUTFChars(env, evaluationRequest, 0);
 
-    const char *result = evaluate_boolean((void *) enginePtr, eval_request_c);
+    const char *result = evaluate_boolean_ffi((void *) enginePtr, eval_request_c);
 
     (*env)->ReleaseStringUTFChars(env, evaluationRequest, eval_request_c);
 
     jstring result_j = (*env)->NewStringUTF(env, result);
-    destroy_string((char *) result); // Free the result string
+    destroy_string_ffi((char *) result); // Free the result string
 
     return result_j;
 }
@@ -48,34 +48,34 @@ jstring JNICALL Java_io_flipt_client_CLibrary_evaluateBatch(
         JNIEnv *env, jobject obj, jlong enginePtr, jstring batchEvaluationRequest) {
     const char *batch_request_c = (*env)->GetStringUTFChars(env, batchEvaluationRequest, 0);
 
-    const char *result = evaluate_batch((void *) enginePtr, batch_request_c);
+    const char *result = evaluate_batch_ffi((void *) enginePtr, batch_request_c);
 
     (*env)->ReleaseStringUTFChars(env, batchEvaluationRequest, batch_request_c);
 
     jstring result_j = (*env)->NewStringUTF(env, result);
-    destroy_string((char *) result); // Free the result string
+    destroy_string_ffi((char *) result); // Free the result string
 
     return result_j;
 }
 
 jstring JNICALL Java_io_flipt_client_CLibrary_listFlags(
         JNIEnv *env, jobject obj, jlong enginePtr) {
-    const char *result = list_flags((void *) enginePtr);
+    const char *result = list_flags_ffi((void *) enginePtr);
 
     jstring result_j = (*env)->NewStringUTF(env, result);
-    destroy_string((char *) result); // Free the result string
+    destroy_string_ffi((char *) result); // Free the result string
 
     return result_j;
 }
 
 void JNICALL Java_io_flipt_client_CLibrary_destroyEngine(
         JNIEnv *env, jobject obj, jlong enginePtr) {
-    destroy_engine((void *) enginePtr);
+    destroy_engine_ffi((void *) enginePtr);
 }
 
 void JNICALL Java_io_flipt_client_CLibrary_destroyString(
         JNIEnv *env, jobject obj, jstring ptr) {
     const char *str = (*env)->GetStringUTFChars(env, ptr, 0);
-    destroy_string((char *) str);
+    destroy_string_ffi((char *) str);
     (*env)->ReleaseStringUTFChars(env, ptr, str);
 }
