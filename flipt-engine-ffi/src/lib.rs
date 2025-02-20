@@ -137,7 +137,9 @@ fn get_or_create_runtime() -> &'static Handle {
 
     // Return either the existing runtime's handle or our created runtime's handle
     match Handle::try_current() {
-        Ok(handle) => unsafe { std::mem::transmute(&handle) },
+        Ok(handle) => unsafe {
+            std::mem::transmute::<&tokio::runtime::Handle, &tokio::runtime::Handle>(&handle)
+        },
         Err(_) => unsafe { RUNTIME.as_ref().unwrap().handle() },
     }
 }
@@ -274,10 +276,7 @@ pub unsafe extern "C" fn initialize_engine_rust(
         };
 
         // Safe JSON parsing with error handling
-        let engine_opts: EngineOpts = match serde_json::from_str(bytes_str_repr) {
-            Ok(opts) => opts,
-            Err(_) => EngineOpts::default(),
-        };
+        let engine_opts: EngineOpts = serde_json::from_str(bytes_str_repr).unwrap_or_default();
 
         let mut fetcher_builder = HTTPFetcherBuilder::new(
             &engine_opts
