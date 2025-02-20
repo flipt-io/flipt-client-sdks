@@ -18,7 +18,7 @@ func (s *CSharpSDK) Build(ctx context.Context, client *dagger.Client, hostDirect
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-csharp"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", "obj/", "bin/"},
 		}).
-		WithDirectory("/src/src/FliptClient/ext/ffi", hostDirectory.Directory("tmp/glibc"), dagger.ContainerWithDirectoryOpts{
+		WithDirectory("/src/src/FliptClient/ext/ffi", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
 			Include: defaultInclude,
 		}).
 		WithExec([]string{"dotnet", "build", "-c", "Release"}).

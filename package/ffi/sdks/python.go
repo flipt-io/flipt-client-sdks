@@ -16,7 +16,7 @@ func (s *PythonSDK) Build(ctx context.Context, client *dagger.Client, hostDirect
 	container := client.Container().From("python:3.11-bookworm").
 		WithExec([]string{"pip", "install", "poetry==1.7.0"}).
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-python")).
-		WithDirectory("/src/ext", hostDirectory.Directory("tmp/glibc"), dagger.ContainerWithDirectoryOpts{
+		WithDirectory("/src/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
 			Include: defaultInclude,
 		}).
 		WithFile("/src/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).

@@ -2,9 +2,9 @@ package evaluation
 
 /*
 #cgo CFLAGS: -I./ext
-#cgo darwin,arm64 LDFLAGS: -L${SRCDIR}/ext/darwin_arm64 -lfliptengine  -Wl,-rpath,${SRCDIR}/ext/darwin_arm64
+#cgo darwin,arm64 LDFLAGS: -L${SRCDIR}/ext/darwin_aarch64 -lfliptengine -Wl,-rpath,${SRCDIR}/ext/darwin_aarch64
 #cgo darwin,amd64 LDFLAGS: -L${SRCDIR}/ext/darwin_x86_64 -lfliptengine -Wl,-rpath,${SRCDIR}/ext/darwin_x86_64
-#cgo linux,arm64 LDFLAGS: -L${SRCDIR}/ext/linux_arm64 -lfliptengine  -Wl,-rpath,${SRCDIR}/ext/linux_arm64
+#cgo linux,arm64 LDFLAGS: -L${SRCDIR}/ext/linux_aarch64 -lfliptengine -Wl,-rpath,${SRCDIR}/ext/linux_aarch64
 #cgo linux,amd64 LDFLAGS: -L${SRCDIR}/ext/linux_x86_64 -lfliptengine -Wl,-rpath,${SRCDIR}/ext/linux_x86_64
 #cgo windows,amd64 LDFLAGS: -L${SRCDIR}/ext/windows_x86_64 -lfliptengine -Wl,-rpath,${SRCDIR}/ext/windows_x86_64
 #include <string.h>
@@ -16,6 +16,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"unsafe"
 )
 
@@ -54,17 +55,32 @@ func NewEvaluationClient(opts ...clientOption) (*EvaluationClient, error) {
 
 	b, err := json.Marshal(clientOpts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal client options: %w", err)
+	}
+
+	// Ensure strings are valid
+	if client.namespace == "" {
+		return nil, fmt.Errorf("namespace cannot be empty")
 	}
 
 	cn := C.CString(client.namespace)
+	if cn == nil {
+		return nil, fmt.Errorf("failed to allocate memory for namespace")
+	}
 	defer C.free(unsafe.Pointer(cn))
+
 	co := C.CString(string(b))
+	if co == nil {
+		return nil, fmt.Errorf("failed to allocate memory for options")
+	}
 	defer C.free(unsafe.Pointer(co))
 
 	eng := C.initialize_engine(cn, co)
-	client.engine = eng
+	if eng == nil {
+		return nil, fmt.Errorf("failed to initialize engine: engine pointer is null")
+	}
 
+	client.engine = eng
 	return client, nil
 }
 
@@ -127,6 +143,10 @@ func WithErrorStrategy(errorStrategy ErrorStrategy) clientOption {
 
 // EvaluateVariant performs evaluation for a variant flag.
 func (e *EvaluationClient) EvaluateVariant(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantEvaluationResponse, error) {
+	if e.engine == nil {
+		return nil, errors.New("engine not initialized")
+	}
+
 	ereq, err := json.Marshal(EvaluationRequest{
 		FlagKey:  flagKey,
 		EntityId: entityID,
@@ -159,6 +179,10 @@ func (e *EvaluationClient) EvaluateVariant(_ context.Context, flagKey, entityID 
 
 // EvaluateBoolean performs evaluation for a boolean flag.
 func (e *EvaluationClient) EvaluateBoolean(_ context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanEvaluationResponse, error) {
+	if e.engine == nil {
+		return nil, errors.New("engine not initialized")
+	}
+
 	ereq, err := json.Marshal(EvaluationRequest{
 		FlagKey:  flagKey,
 		EntityId: entityID,
@@ -191,6 +215,10 @@ func (e *EvaluationClient) EvaluateBoolean(_ context.Context, flagKey, entityID 
 
 // EvaluateBatch performs evaluation for a batch of flags.
 func (e *EvaluationClient) EvaluateBatch(_ context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
+	if e.engine == nil {
+		return nil, errors.New("engine not initialized")
+	}
+
 	requestsBytes, err := json.Marshal(requests)
 	if err != nil {
 		return nil, err
@@ -218,6 +246,10 @@ func (e *EvaluationClient) EvaluateBatch(_ context.Context, requests []*Evaluati
 }
 
 func (e *EvaluationClient) ListFlags(_ context.Context) ([]Flag, error) {
+	if e.engine == nil {
+		return nil, errors.New("engine not initialized")
+	}
+
 	flags := C.list_flags(e.engine)
 	defer C.destroy_string(flags)
 
@@ -238,7 +270,9 @@ func (e *EvaluationClient) ListFlags(_ context.Context) ([]Flag, error) {
 
 // Close cleans up the allocated engine as it was initialized in the constructor.
 func (e *EvaluationClient) Close() error {
-	// Destroy the engine to clean up allocated memory on dynamic library side.
-	C.destroy_engine(e.engine)
+	if e.engine != nil {
+		C.destroy_engine(e.engine)
+		e.engine = nil
+	}
 	return nil
 }

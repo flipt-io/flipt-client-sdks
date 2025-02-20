@@ -4,17 +4,15 @@ from .base import SDK
 
 class JavaSDK(SDK):
     def get_current_version(self):
-        filename = self._get_update_file()
-        with open(os.path.join(self.path, filename), "r") as f:
+        with open(os.path.join(self.path, "build.gradle"), "r") as f:
             content = f.read()
             match = re.search(r"version\s*=\s*'([\d.]+)'", content)
             if match:
                 return match.group(1)
-        raise ValueError(f"Version not found in {filename}")
+        raise ValueError(f"Version not found in build.gradle")
 
     def update_version(self, new_version):
-        filename = self._get_update_file()
-        file_path = os.path.join(self.path, filename)
+        file_path = os.path.join(self.path, "build.gradle")
         with open(file_path, "r") as f:
             content = f.read()
 
@@ -24,8 +22,3 @@ class JavaSDK(SDK):
 
         with open(file_path, "w") as f:
             f.write(updated_content)
-
-    def _get_update_file(self) -> str:
-        if self.name.endswith("-musl"):
-            return "build.musl.gradle"
-        return "build.gradle"

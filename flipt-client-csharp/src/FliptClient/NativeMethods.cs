@@ -66,15 +66,20 @@ namespace FliptClient
         private static string GetLibraryName()
         {
             string libraryName = GetPlatformLibraryPath();
-            string libraryPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, libraryName);
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string directPath = Path.Combine(baseDir, libraryName);
+            string runtimePath = Path.Combine(baseDir, "runtimes", libraryName);
 
-            if (!File.Exists(libraryPath))
+            if (File.Exists(directPath))
             {
-                // Try to find the library in the NuGet package structure
-                libraryPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "runtimes", libraryName);
+                return directPath;
+            }
+            if (File.Exists(runtimePath))
+            {
+                return runtimePath;
             }
 
-            return libraryPath;
+            throw new FileNotFoundException($"Native library not found. Searched:\n{directPath}\n{runtimePath}");
         }
 
         private static string GetPlatformLibraryPath()
@@ -83,28 +88,28 @@ namespace FliptClient
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                libraryPath = "runtimes/win-x64/native/fliptengine.dll";
+                libraryPath = "win-x64/native/fliptengine.dll";
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
                 if (RuntimeInformation.ProcessArchitecture == Architecture.X64)
                 {
-                    libraryPath = "runtimes/linux-x64/native/libfliptengine.so";
+                    libraryPath = "linux-x64/native/libfliptengine.so";
                 }
                 else if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
                 {
-                    libraryPath = "runtimes/linux-arm64/native/libfliptengine.so";
+                    libraryPath = "linux-arm64/native/libfliptengine.so";
                 }
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
                 if (RuntimeInformation.ProcessArchitecture == Architecture.X64)
                 {
-                    libraryPath = "runtimes/osx-x64/native/libfliptengine.dylib";
+                    libraryPath = "osx-x64/native/libfliptengine.dylib";
                 }
                 else if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
                 {
-                    libraryPath = "runtimes/osx-arm64/native/libfliptengine.dylib";
+                    libraryPath = "osx-arm64/native/libfliptengine.dylib";
                 }
             }
 

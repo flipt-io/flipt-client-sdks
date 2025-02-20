@@ -9,3 +9,5 @@ pubspec.lock
 # Shared libraries
 lib/src/ffi/**/*.so
 lib/src/ffi/**/*.dylib
+lib/src/ffi/**/*.a
+lib/src/ffi/**/*.dll

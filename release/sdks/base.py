@@ -9,8 +9,7 @@ class SDK(ABC):
 
     @property
     def path(self) -> str:
-        name = self.name.split("-musl")[0]
-        return os.path.join("..", name)
+        return os.path.join("..", self.name)
 
     @abstractmethod
     def get_current_version(self) -> str:
