@@ -17,8 +17,7 @@ use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Once;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::runtime::Builder;
@@ -110,37 +109,22 @@ pub struct Engine {
     stop_signal: Arc<AtomicBool>,
 }
 
-static RUNTIME_INIT: Once = Once::new();
-static mut RUNTIME: Option<Runtime> = None;
+static RUNTIME: OnceLock<Runtime> = OnceLock::new();
 
 fn get_or_create_runtime() -> &'static Handle {
-    RUNTIME_INIT.call_once(|| {
-        // Try to get the current runtime handle
-        match Handle::try_current() {
-            // If we're already in a runtime, we don't need to create one
-            Ok(_) => {}
-            // If we're not in a runtime, create one
-            Err(_) => {
-                let rt = Builder::new_multi_thread()
-                    .thread_name("flipt-engine-ffi")
-                    .enable_all()
-                    .build()
-                    .expect("Failed to create runtime");
-
-                // SAFETY: We're only calling this once, protected by RUNTIME_INIT
-                unsafe {
-                    RUNTIME = Some(rt);
-                }
-            }
-        }
+    let runtime = RUNTIME.get_or_init(|| {
+        // If we're not in a runtime, create one
+        Builder::new_multi_thread()
+            .thread_name("flipt-engine-ffi")
+            .enable_all()
+            .build()
+            .expect("Failed to create runtime")
     });
 
     // Return either the existing runtime's handle or our created runtime's handle
     match Handle::try_current() {
-        Ok(handle) => unsafe {
-            std::mem::transmute::<&tokio::runtime::Handle, &tokio::runtime::Handle>(&handle)
-        },
-        Err(_) => unsafe { RUNTIME.as_ref().unwrap().handle() },
+        Ok(handle) => unsafe { std::mem::transmute::<&Handle, &'static Handle>(&handle) },
+        Err(_) => runtime.handle(),
     }
 }
 
@@ -252,7 +236,7 @@ unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, FFIE
 ///
 /// This function will initialize an Engine and return a pointer back to the caller.
 #[no_mangle]
-pub unsafe extern "C" fn initialize_engine_ffi(
+pub unsafe extern "C" fn initialize_engine_rust(
     namespace: *const c_char,
     opts: *const c_char,
 ) -> *mut c_void {
@@ -322,7 +306,7 @@ pub unsafe extern "C" fn initialize_engine_ffi(
 ///
 /// This function will take in a pointer to the engine and return a variant evaluation response.
 #[no_mangle]
-pub unsafe extern "C" fn evaluate_variant_ffi(
+pub unsafe extern "C" fn evaluate_variant_rust(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
@@ -336,7 +320,7 @@ pub unsafe extern "C" fn evaluate_variant_ffi(
 ///
 /// This function will take in a pointer to the engine and return a boolean evaluation response.
 #[no_mangle]
-pub unsafe extern "C" fn evaluate_boolean_ffi(
+pub unsafe extern "C" fn evaluate_boolean_rust(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
@@ -350,7 +334,7 @@ pub unsafe extern "C" fn evaluate_boolean_ffi(
 ///
 /// This function will take in a pointer to the engine and return a batch evaluation response.
 #[no_mangle]
-pub unsafe extern "C" fn evaluate_batch_ffi(
+pub unsafe extern "C" fn evaluate_batch_rust(
     engine_ptr: *mut c_void,
     batch_evaluation_request: *const c_char,
 ) -> *const c_char {
@@ -364,7 +348,7 @@ pub unsafe extern "C" fn evaluate_batch_ffi(
 ///
 /// This function will take in a pointer to the engine and return a list of flags for the given namespace.
 #[no_mangle]
-pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_char {
+pub unsafe extern "C" fn list_flags_rust(engine_ptr: *mut c_void) -> *const c_char {
     let res = get_engine(engine_ptr).unwrap().list_flags();
 
     result_to_json_ptr(res)
@@ -374,7 +358,7 @@ pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_cha
 ///
 /// This function will free the memory occupied by the engine.
 #[no_mangle]
-pub unsafe extern "C" fn destroy_engine_ffi(engine_ptr: *mut c_void) {
+pub unsafe extern "C" fn destroy_engine_rust(engine_ptr: *mut c_void) {
     if engine_ptr.is_null() {
         return;
     }
@@ -390,7 +374,7 @@ pub unsafe extern "C" fn destroy_engine_ffi(engine_ptr: *mut c_void) {
 /// This function will take in a pointer to the string and free the memory.
 /// See Rust the safety section in CString::from_raw.
 #[no_mangle]
-pub unsafe extern "C" fn destroy_string_ffi(ptr: *mut c_char) {
+pub unsafe extern "C" fn destroy_string_rust(ptr: *mut c_char) {
     let _ = CString::from_raw(ptr);
 }
 
