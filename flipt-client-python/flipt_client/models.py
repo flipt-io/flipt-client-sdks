@@ -27,12 +27,18 @@ class FetchMode(Enum):
     STREAMING = "streaming"
 
 
+class ErrorStrategy(Enum):
+    FAIL = "fail"
+    FALLBACK = "fallback"
+
+
 class ClientOptions(BaseModel):
     url: Optional[str] = None
     update_interval: Optional[int] = None
     authentication: Optional[AuthenticationStrategy] = None
     reference: Optional[str] = None
     fetch_mode: Optional[FetchMode] = None
+    error_strategy: Optional[ErrorStrategy] = None
 
 
 class VariantEvaluationResponse(BaseModel):
