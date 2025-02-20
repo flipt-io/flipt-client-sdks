@@ -114,8 +114,6 @@ var (
 
 	browserVersions = []containerConfig{
 		{base: "node:21.2-bookworm"},
-		{base: "node:21.2-bullseye"},
-		{base: "node:21.2-alpine"},
 	}
 
 	dartVersions = []containerConfig{
@@ -124,8 +122,6 @@ var (
 
 	reactVersions = []containerConfig{
 		{base: "node:21.2-bookworm"},
-		{base: "node:21.2-bullseye"},
-		{base: "node:21.2-alpine"},
 	}
 
 	csharpVersions = []containerConfig{
@@ -168,6 +164,7 @@ func run() error {
 		tests       = make(map[string]testConfig, len(sdkToConfig))
 		results     = []testResult{}
 		resultsChan = make(chan testResult)
+		wg          sync.WaitGroup // WaitGroup for tracking result senders
 	)
 
 	maps.Copy(tests, sdkToConfig)
@@ -217,6 +214,7 @@ func run() error {
 		for _, c := range t.containers {
 			c := c
 			skipped := false
+			wg.Add(1) // Increment WaitGroup for each test
 
 			if len(c.platforms) > 0 {
 				// filter out containers that don't match the current platform if specified
@@ -226,6 +224,8 @@ func run() error {
 			}
 
 			g.Go(take(func() error {
+				defer wg.Done() // Decrement WaitGroup when test is done
+
 				// if the container is skipped, send a result with the skipped flag set
 				if skipped {
 					resultsChan <- testResult{
@@ -266,20 +266,21 @@ func run() error {
 		}
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(1)
+	var resultsWg sync.WaitGroup
+	resultsWg.Add(1)
 
 	go func() {
-		defer wg.Done()
+		defer resultsWg.Done()
 		for result := range resultsChan {
 			results = append(results, result)
 		}
 	}()
 
 	err = g.Wait()
-	close(resultsChan)
+	wg.Wait()          // Wait for all tests to complete sending results
+	close(resultsChan) // Close channel after all results have been sent
 
-	wg.Wait()
+	resultsWg.Wait() // Wait for all results to be processed
 
 	printResults(results)
 
