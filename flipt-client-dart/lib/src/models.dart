@@ -9,6 +9,13 @@ enum FetchMode {
   streaming,
 }
 
+enum ErrorStrategy{
+  @JsonValue('fail')
+  fail,
+  @JsonValue('fallback')
+  fallback,
+}
+
 /// Options for the Flipt client
 @JsonSerializable()
 class Options {
@@ -19,6 +26,7 @@ class Options {
 
   /// Note: Streaming is currently only supported when using the SDK with Flipt Cloud (https://flipt.io/cloud).
   final FetchMode? fetchMode;
+  final ErrorStrategy? errorStrategy;
 
   Options({
     this.url = 'http://localhost:8080',
@@ -26,6 +34,7 @@ class Options {
     this.updateInterval = 120,
     this.authentication,
     this.fetchMode = FetchMode.polling,
+    this.errorStrategy = ErrorStrategy.fail,
   });
 
   factory Options.fromJson(Map<String, dynamic> json) =>
@@ -38,6 +47,7 @@ class Options {
     String? reference,
     int? updateInterval,
     FetchMode? fetchMode,
+    ErrorStrategy? errorStrategy,
   }) {
     return Options(
       url: url,
@@ -47,6 +57,7 @@ class Options {
         'client_token': token,
       },
       fetchMode: fetchMode,
+      errorStrategy: errorStrategy,
     );
   }
 
@@ -56,6 +67,7 @@ class Options {
     String? reference,
     int? updateInterval,
     FetchMode? fetchMode,
+    ErrorStrategy? errorStrategy,
   }) {
     return Options(
       url: url,
@@ -65,6 +77,7 @@ class Options {
         'jwt_token': token,
       },
       fetchMode: fetchMode,
+      errorStrategy: errorStrategy,
     );
   }
 }
