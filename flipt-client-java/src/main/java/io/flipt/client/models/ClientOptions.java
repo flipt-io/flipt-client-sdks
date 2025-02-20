@@ -12,13 +12,15 @@ public class ClientOptions {
   private final Optional<AuthenticationStrategy> authentication;
   private final Optional<String> reference;
   private final Optional<FetchMode> fetchMode;
+  private final Optional<ErrorStrategy> errorStrategy;
 
   public ClientOptions(
       Optional<String> url,
       Optional<Duration> updateInterval,
       Optional<AuthenticationStrategy> authentication,
       Optional<String> reference,
-      Optional<FetchMode> fetchMode) {
+      Optional<FetchMode> fetchMode,
+      Optional<ErrorStrategy> errorStrategy) {
     this.url = url;
     this.authentication = authentication;
     this.reference = reference;
@@ -30,6 +32,7 @@ public class ClientOptions {
 
     this.updateInterval = setUpdateInterval;
     this.fetchMode = fetchMode;
+    this.errorStrategy = errorStrategy;
   }
 
   @JsonProperty("url")
@@ -55,5 +58,10 @@ public class ClientOptions {
   @JsonProperty("fetch_mode")
   public Optional<FetchMode> getFetchMode() {
     return fetchMode;
+  }
+
+  @JsonProperty("error_strategy")
+  public Optional<ErrorStrategy> getErrorStrategy() {
+    return errorStrategy;
   }
 }
