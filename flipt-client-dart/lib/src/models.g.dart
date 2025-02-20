@@ -13,6 +13,9 @@ Options _$OptionsFromJson(Map<String, dynamic> json) => Options(
       authentication: json['authentication'] as Map<String, dynamic>?,
       fetchMode: $enumDecodeNullable(_$FetchModeEnumMap, json['fetch_mode']) ??
           FetchMode.polling,
+      errorStrategy:
+          $enumDecodeNullable(_$ErrorStrategyEnumMap, json['error_strategy']) ??
+              ErrorStrategy.fail,
     );
 
 Map<String, dynamic> _$OptionsToJson(Options instance) => <String, dynamic>{
@@ -21,11 +24,17 @@ Map<String, dynamic> _$OptionsToJson(Options instance) => <String, dynamic>{
       'update_interval': instance.updateInterval,
       'authentication': instance.authentication,
       'fetch_mode': _$FetchModeEnumMap[instance.fetchMode],
+      'error_strategy': _$ErrorStrategyEnumMap[instance.errorStrategy],
     };
 
 const _$FetchModeEnumMap = {
   FetchMode.polling: 'polling',
   FetchMode.streaming: 'streaming',
+};
+
+const _$ErrorStrategyEnumMap = {
+  ErrorStrategy.fail: 'fail',
+  ErrorStrategy.fallback: 'fallback',
 };
 
 Flag _$FlagFromJson(Map<String, dynamic> json) => Flag(
