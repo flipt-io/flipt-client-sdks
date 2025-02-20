@@ -57,22 +57,13 @@ module Flipt
     # @option opts [String] :reference reference to use for namespace data
     # @option opts [Symbol] :fetch_mode fetch mode to use for the client (:polling or :streaming).
     #   Note: Streaming is currently only supported when using the SDK with Flipt Cloud (https://flipt.io/cloud).
+    # @option opts [Symbol] :error_strategy error strategy to use for the client (:fail or :fallback).
     def initialize(namespace = 'default', opts = {})
       @namespace = namespace
 
-      # set default no auth if not provided
-      authentication = opts.fetch(:authentication, NoAuthentication.new)
-      unless authentication.is_a?(AuthenticationStrategy)
-        raise ArgumentError,
-              'invalid authentication strategy'
-      end
-
-      fetch_mode = opts.fetch(:fetch_mode, :polling)
-      unless %i[polling streaming].include?(fetch_mode)
-        raise ArgumentError, 'invalid fetch mode'
-      end
-
-      opts[:authentication] = authentication.strategy
+      opts[:authentication] = validate_authentication(opts.fetch(:authentication, NoAuthentication.new))
+      opts[:fetch_mode] = validate_fetch_mode(opts.fetch(:fetch_mode, :polling))
+      opts[:error_strategy] = validate_error_strategy(opts.fetch(:error_strategy, :fail))
 
       @engine = self.class.initialize_engine(namespace, opts.to_json)
       ObjectSpace.define_finalizer(self, self.class.finalize(@engine))
@@ -148,6 +139,24 @@ module Flipt
       elsif evaluation_request[:flag_key].nil? || evaluation_request[:flag_key].empty?
         raise ArgumentError, 'flag_key is required'
       end
+    end
+
+    def validate_authentication(authentication)
+      return authentication.strategy if authentication.is_a?(AuthenticationStrategy)
+
+      raise ArgumentError, 'invalid authentication strategy'
+    end
+
+    def validate_fetch_mode(fetch_mode)
+      return fetch_mode if %i[polling streaming].include?(fetch_mode)
+
+      raise ArgumentError, 'invalid fetch mode'
+    end
+
+    def validate_error_strategy(error_strategy)
+      return error_strategy if %i[fail fallback].include?(error_strategy)
+
+      raise ArgumentError, 'invalid error strategy'
     end
   end
 end

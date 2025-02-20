@@ -70,6 +70,7 @@ public class FliptEvaluationClient {
     private String reference;
     private Duration updateInterval;
     private FetchMode fetchMode = FetchMode.POLLING;
+    private ErrorStrategy errorStrategy = ErrorStrategy.FAIL;
 
     public FliptEvaluationClientBuilder() {}
 
@@ -141,6 +142,18 @@ public class FliptEvaluationClient {
     }
 
     /**
+     * errorStrategy defines the behavior how to react to issues with fetching the state from
+     * server.
+     *
+     * @param errorStrategy the error strategy
+     * @return the FliptEvaluationClientBuilder
+     */
+    public FliptEvaluationClientBuilder errorStrategy(ErrorStrategy errorStrategy) {
+      this.errorStrategy = errorStrategy;
+      return this;
+    }
+
+    /**
      * build builds a new FliptEvaluationClient.
      *
      * @return the FliptEvaluationClient
@@ -154,7 +167,8 @@ public class FliptEvaluationClient {
               Optional.ofNullable(updateInterval),
               Optional.ofNullable(authentication),
               Optional.ofNullable(reference),
-              Optional.ofNullable(fetchMode)));
+              Optional.ofNullable(fetchMode),
+              Optional.ofNullable(errorStrategy)));
     }
   }
 
