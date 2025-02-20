@@ -16,13 +16,13 @@ type JavaSDK struct {
 func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error {
 	// the directory structure of the tmp directory is as follows:
 	// tmp/linux_x86_64/
-	// tmp/linux_arm64/
+	// tmp/linux_aarch64/
 	// tmp/darwin_x86_64/
-	// tmp/darwin_arm64/
+	// tmp/darwin_aarch64/
 
 	// we need to convert it to the following structure:
 	// tmp/linux-x86-64/
-	// tmp/linux-arm/
+	// tmp/linux-aarch64/
 	// tmp/darwin-x86-64/
 	// tmp/darwin-aarch64/
 
@@ -37,9 +37,9 @@ func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, hostDirector
 
 	renames := []rename{
 		{old: "linux_x86_64", new: "linux-x86-64"},
-		{old: "linux_arm64", new: "linux-aarch64"},
+		{old: "linux_aarch64", new: "linux-aarch64"},
 		{old: "darwin_x86_64", new: "darwin-x86-64"},
-		{old: "darwin_arm64", new: "darwin-aarch64"},
+		{old: "darwin_aarch64", new: "darwin-aarch64"},
 		{old: "windows_x86_64", new: "win32-x86-64"},
 	}
 

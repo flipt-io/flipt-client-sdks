@@ -166,7 +166,7 @@ func downloadFFI(ctx context.Context, client *dagger.Client, sdk sdks.SDK) error
 		}
 
 		var (
-			out = strings.TrimSuffix(strings.ToLower(strings.ReplaceAll(pkg.ID, "-", "_")), "_musl")
+			out = strings.ToLower(strings.ReplaceAll(pkg.ID, "-", "_"))
 			url = fmt.Sprintf("https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-%s/flipt-engine-ffi-%s.%s", engineTag, pkg.ID, ext)
 		)
 

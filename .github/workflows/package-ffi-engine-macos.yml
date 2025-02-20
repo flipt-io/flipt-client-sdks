@@ -19,16 +19,16 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - name: Darwin-arm64
+          - name: Darwin-aarch64
             target: aarch64-apple-darwin
 
           - name: Darwin-x86_64
             target: x86_64-apple-darwin
 
-          - name: iOS-arm64
+          - name: iOS-aarch64
             target: aarch64-apple-ios
 
-          - name: iOS-arm64-sim
+          - name: iOS-aarch64-sim
             target: aarch64-apple-ios-sim
 
     runs-on: macos-latest

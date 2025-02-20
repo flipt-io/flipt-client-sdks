@@ -19,17 +19,17 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - name: Linux-x86_64-musl
+          - name: Linux-x86_64
             target: x86_64-unknown-linux-musl
 
-          - name: Linux-arm64-musl
+          - name: Linux-aarch64
             target: aarch64-unknown-linux-musl
-
-          - name: Android-arm64
-            target: aarch64-linux-android
 
           - name: Android-x86_64
             target: x86_64-linux-android
+
+          - name: Android-aarch64
+            target: aarch64-linux-android
 
     runs-on: ubuntu-22.04
     env:
@@ -62,14 +62,6 @@ jobs:
         run: |
           which cross || cargo install cross --git https://github.com/cross-rs/cross
           echo "CROSS_NO_WARNINGS=0" >> $GITHUB_ENV
-
-      - name: Set RUSTFLAGS (Android)
-        if: endsWith(matrix.platform.target, '-android')
-        run: echo "RUSTFLAGS=-C target-feature=-crt-static" >> $GITHUB_ENV
-
-      - name: Set RUSTFLAGS (MUSL)
-        if: endsWith(matrix.platform.target, '-musl')
-        run: echo "RUSTFLAGS=-C target-feature=-crt-static" >> $GITHUB_ENV
 
       - name: Build
         uses: actions-rs/cargo@v1
