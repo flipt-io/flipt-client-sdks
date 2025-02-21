@@ -10,8 +10,8 @@
       "component": "flipt-engine-ffi",
       "release-type": "rust"
     },
-    "flipt-engine-wasm": {
-      "component": "flipt-engine-wasm",
+    "flipt-engine-wasm-js": {
+      "component": "flipt-engine-wasm-js",
       "release-type": "rust"
     }
   }

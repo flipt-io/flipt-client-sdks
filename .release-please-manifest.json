@@ -1,4 +1,4 @@
 {
   "flipt-engine-ffi": "0.3.0",
-  "flipt-engine-wasm": "0.2.2"
+  "flipt-engine-wasm-js": "0.2.2"
 }

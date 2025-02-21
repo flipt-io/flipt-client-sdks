@@ -15,40 +15,15 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type testPlatform string
-
-const (
-	linuxAMD64 testPlatform = "linux/amd64"
-	linuxARM64 testPlatform = "linux/arm64"
-)
-
-func (p testPlatform) String() string {
-	return string(p)
-}
-
-type testArchitecture string
-
-const (
-	amd64 testArchitecture = "x86_64"
-	arm64 testArchitecture = "aarch64"
-)
-
-func (a testArchitecture) String() string {
-	return string(a)
-}
-
 var (
-	architecture = amd64
-	platform     = linuxAMD64
-	sdks         string
-	sema         = make(chan struct{}, 10)
+	sdks string
+	sema = make(chan struct{}, 10)
 )
 
 // containerConfig holds the base configuration for a test container
 type containerConfig struct {
-	base      string
-	setup     []string
-	platforms []testPlatform
+	base  string
+	setup []string
 }
 
 // testConfig holds the complete test configuration
@@ -69,16 +44,14 @@ type testFn func(context.Context, *dagger.Container, *testCase) error
 
 // testResult holds the result of a test execution
 type testResult struct {
-	sdk      string
-	base     string
-	err      error
-	platform testPlatform
-	skipped  bool
+	sdk  string
+	base string
+	err  error
 }
 
 const (
 	headerFile = "/src/flipt-engine-ffi/include/flipt_engine.h"
-	wasmDir    = "/src/flipt-engine-wasm/pkg"
+	wasmJSDir  = "/src/flipt-engine-wasm-js/pkg"
 )
 
 var (
@@ -109,7 +82,7 @@ var (
 	javaVersions = []containerConfig{
 		{base: "gradle:8-jdk11"},
 		{base: "gradle:8-jdk11-focal"},
-		{base: "gradle:8-jdk11-alpine", platforms: []testPlatform{linuxAMD64}},
+		{base: "gradle:8-jdk11-alpine"},
 	}
 
 	browserVersions = []containerConfig{
@@ -195,47 +168,22 @@ func run() error {
 		Exclude: []string{".github/", "build/", "tmp/", ".git/"},
 	})
 
-	// Detect the architecture and platform of the host machine
-	err = detectPlatform(client)
-	if err != nil {
-		return err
-	}
-
 	flipt := setupFliptContainer(client, hostDir)
 
 	var g errgroup.Group
 
 	container := client.Container(dagger.ContainerOpts{
-		Platform: dagger.Platform(platform),
+		Platform: dagger.Platform("linux/amd64"),
 	})
 
 	for lang, t := range tests {
 		lang, t := lang, t
 		for _, c := range t.containers {
 			c := c
-			skipped := false
 			wg.Add(1) // Increment WaitGroup for each test
-
-			if len(c.platforms) > 0 {
-				// filter out containers that don't match the current platform if specified
-				if !slices.Contains(c.platforms, platform) {
-					skipped = true
-				}
-			}
 
 			g.Go(take(func() error {
 				defer wg.Done() // Decrement WaitGroup when test is done
-
-				// if the container is skipped, send a result with the skipped flag set
-				if skipped {
-					resultsChan <- testResult{
-						sdk:      lang,
-						base:     c.base,
-						platform: platform,
-						skipped:  true,
-					}
-					return nil
-				}
 
 				testCase := &testCase{
 					sdk:     lang,
@@ -245,9 +193,9 @@ func run() error {
 
 				switch lang {
 				case "node":
-					testCase.engine = getWasmBuildContainer(ctx, client, hostDir, "nodejs")
+					testCase.engine = getWasmJSBuildContainer(ctx, client, hostDir, "nodejs")
 				case "browser", "react":
-					testCase.engine = getWasmBuildContainer(ctx, client, hostDir, "web")
+					testCase.engine = getWasmJSBuildContainer(ctx, client, hostDir, "web")
 				default:
 					testCase.engine = getFFIBuildContainer(ctx, client, hostDir)
 				}
@@ -256,10 +204,9 @@ func run() error {
 
 				err := t.fn(ctx, container, testCase)
 				resultsChan <- testResult{
-					sdk:      lang,
-					base:     c.base,
-					err:      err,
-					platform: platform,
+					sdk:  lang,
+					base: c.base,
+					err:  err,
 				}
 				return err
 			}))
@@ -299,22 +246,6 @@ func take(fn func() error) func() error {
 	}
 }
 
-// detectPlatform detects the platform and architecture of the host machine
-func detectPlatform(client *dagger.Client) error {
-	daggerPlatform, err := client.DefaultPlatform(context.Background())
-	if err != nil {
-		fmt.Println("Error detecting host platform from Dagger: ", err)
-		fmt.Println("Defaulting to platform: linux/amd64, architecture: x86_64")
-		return nil
-	}
-
-	if strings.Contains(string(daggerPlatform), "arm64") || strings.Contains(string(daggerPlatform), "aarch64") {
-		platform = linuxARM64
-		architecture = arm64
-	}
-	return nil
-}
-
 // setupFliptContainer creates a Flipt container with the test data mounted
 func setupFliptContainer(client *dagger.Client, hostDir *dagger.Directory) *dagger.Container {
 	return client.Container().From("flipt/flipt:latest").
@@ -334,7 +265,7 @@ func setupFliptContainer(client *dagger.Client, hostDir *dagger.Directory) *dagg
 // createBaseContainer creates a base container with common settings
 func createBaseContainer(client *dagger.Client, config containerConfig) *dagger.Container {
 	container := client.Container(dagger.ContainerOpts{
-		Platform: dagger.Platform(platform),
+		Platform: dagger.Platform("linux/amd64"),
 	}).From(config.base)
 
 	for _, cmd := range config.setup {
@@ -347,9 +278,9 @@ func createBaseContainer(client *dagger.Client, config containerConfig) *dagger.
 // getFFIBuildContainer builds the shared object library for the Rust core for the client libraries to run
 // their tests against.
 func getFFIBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
-	var (
-		target = fmt.Sprintf("%s-unknown-linux-musl", architecture)
+	const target = "x86_64-unknown-linux-musl"
 
+	var (
 		// Create cache volumes for Cargo
 		cargoRegistry = client.CacheVolume("cargo-registry-" + target)
 		cargoGit      = client.CacheVolume("cargo-git-" + target)
@@ -357,8 +288,8 @@ func getFFIBuildContainer(_ context.Context, client *dagger.Client, hostDirector
 	)
 
 	return client.Container(dagger.ContainerOpts{
-		Platform: dagger.Platform(platform),
-	}).From("rust:1.83.0-bullseye").
+		Platform: dagger.Platform("linux/amd64"),
+	}).From("rust:1.83.0-bullseye"). // requires older version of glibc for best compatibility
 		// Mount cargo caches
 		WithMountedCache("/usr/local/cargo/registry", cargoRegistry).
 		WithMountedCache("/usr/local/cargo/git", cargoGit).
@@ -374,31 +305,37 @@ func getFFIBuildContainer(_ context.Context, client *dagger.Client, hostDirector
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
 		WithFile("/src/.cargo/config.toml", hostDirectory.File(".cargo/config.toml")).
 		WithExec(args("chmod +x /src/flipt-engine-ffi/build.sh")).
-		WithExec(args("/src/flipt-engine-ffi/build.sh linux-" + string(architecture)))
+		WithExec(args("/src/flipt-engine-ffi/build.sh linux-x86_64"))
 }
 
-// getWasmBuildContainer builds the wasm module for the Rust core for the client libraries to run
+// getWasmJSBuildContainer builds the wasm module for the Rust core for the client libraries to run
 // their tests against.
-func getWasmBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory, target string) *dagger.Container {
+func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory, target string) *dagger.Container {
+	var (
+		// Create cache volumes for Cargo
+		cargoRegistry = client.CacheVolume("cargo-registry-" + target)
+		cargoGit      = client.CacheVolume("cargo-git-" + target)
+		targetCache   = client.CacheVolume("cargo-target-" + target)
+	)
+
 	container := client.Container(dagger.ContainerOpts{
-		Platform: dagger.Platform(platform),
+		Platform: dagger.Platform("linux/amd64"),
 	}).From("rust:1.83.0-bullseye").
+		// Mount cargo caches
+		WithMountedCache("/usr/local/cargo/registry", cargoRegistry).
+		WithMountedCache("/usr/local/cargo/git", cargoGit).
+		WithMountedCache("/src/target", targetCache).
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
-		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
+		WithDirectory("/src/flipt-engine-wasm-js", hostDirectory.Directory("flipt-engine-wasm-js"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"pkg/", ".gitignore"},
 		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
-		WithExec(args("cargo build -p flipt-engine-wasm --release")) // Build the wasm module
-
-	if architecture == "aarch64" {
-		container = container.WithExec(args("apt-get update")).
-			WithExec(args("apt-get -y install binaryen"))
-	}
+		WithExec(args("cargo build -p flipt-engine-wasm-js --release")) // Build the wasm module
 
 	return container.WithExec(args("cargo install wasm-pack")). // Install wasm-pack
-									WithWorkdir("/src/flipt-engine-wasm").
+									WithWorkdir("/src/flipt-engine-wasm-js").
 									WithExec(args("wasm-pack build --target " + target)) // Build the wasm package
 }
 
@@ -409,7 +346,7 @@ func pythonTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithExec(args("pip install poetry==1.7.0")).
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-python")).
-		WithDirectory(fmt.Sprintf("/src/ext/linux_%s", architecture), t.engine.Directory("/tmp/ffi")).
+		WithDirectory("/src/ext/linux_x86_64", t.engine.Directory("/tmp/ffi")).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -426,7 +363,7 @@ func goTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	_, err := root.
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-go")).
-		WithDirectory(fmt.Sprintf("/src/ext/linux_%s", architecture), t.engine.Directory("/tmp/ffi")).
+		WithDirectory("/src/ext/linux_x86_64", t.engine.Directory("/tmp/ffi")).
 		WithFile("/src/ext/flipt_engine.h", t.engine.File(headerFile)).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
@@ -446,7 +383,7 @@ func nodeTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "dist/"},
 		}).
-		WithDirectory("/src/dist", t.engine.Directory(wasmDir), dagger.ContainerWithDirectoryOpts{
+		WithDirectory("/src/dist", t.engine.Directory(wasmJSDir), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "package.json", "README.md", "LICENSE"},
 		}).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
@@ -466,7 +403,7 @@ func rubyTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	_, err := root.
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-ruby")).
-		WithDirectory(fmt.Sprintf("/src/lib/ext/linux_%s", architecture), t.engine.Directory("/tmp/ffi")).
+		WithDirectory("/src/lib/ext/linux_x86_64", t.engine.Directory("/tmp/ffi")).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -480,13 +417,12 @@ func rubyTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 // javaTests run the java integration tests suite against a container running Flipt.
 func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	// previously gradle:8.5.0-jdk11
-	path := strings.ReplaceAll(architecture.String(), "_", "-")
 	_, err := root.
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-java"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./.idea/", ".gradle/", "build/"},
 		}).
-		WithDirectory(fmt.Sprintf("/src/src/main/resources/linux-%s", path), t.engine.Directory("/tmp/ffi")).
+		WithDirectory("/src/src/main/resources/linux-x86-64", t.engine.Directory("/tmp/ffi")).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -504,7 +440,7 @@ func browserTests(ctx context.Context, root *dagger.Container, t *testCase) erro
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-browser"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "dist/"},
 		}).
-		WithDirectory("/src/dist", t.engine.Directory(wasmDir), dagger.ContainerWithDirectoryOpts{
+		WithDirectory("/src/dist", t.engine.Directory(wasmJSDir), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "package.json", "README.md", "LICENSE"},
 		}).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
@@ -543,7 +479,7 @@ func dartTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-dart"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", ".dart_tool/"},
 		}).
-		WithDirectory(fmt.Sprintf("/src/lib/src/ffi/linux_%s", architecture), t.engine.Directory("/tmp/ffi")).
+		WithDirectory("/src/lib/src/ffi/linux_x86_64", t.engine.Directory("/tmp/ffi")).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -562,7 +498,7 @@ func csharpTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-csharp"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", "obj/", "bin/"},
 		}).
-		WithDirectory(fmt.Sprintf("/src/src/FliptClient/ext/ffi/linux_%s", architecture), t.engine.Directory("/tmp/ffi")).
+		WithDirectory("/src/src/FliptClient/ext/ffi/linux_x86_64", t.engine.Directory("/tmp/ffi")).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -577,7 +513,6 @@ func csharpTests(ctx context.Context, root *dagger.Container, t *testCase) error
 
 func printResults(results []testResult) {
 	var (
-		skipped []testResult
 		success []testResult
 		failed  []testResult
 
@@ -586,9 +521,7 @@ func printResults(results []testResult) {
 	)
 
 	for _, result := range results {
-		if result.skipped {
-			skipped = append(skipped, result)
-		} else if result.err != nil {
+		if result.err != nil {
 			failed = append(failed, result)
 		} else {
 			success = append(success, result)
@@ -598,13 +531,12 @@ func printResults(results []testResult) {
 	// Sort each slice by sdk + base + platform
 	sortResults := func(results []testResult) {
 		slices.SortFunc(results, func(a, b testResult) int {
-			aKey := fmt.Sprintf("%s-%s-%s", a.sdk, a.base, a.platform)
-			bKey := fmt.Sprintf("%s-%s-%s", b.sdk, b.base, b.platform)
+			aKey := fmt.Sprintf("%s-%s", a.sdk, a.base)
+			bKey := fmt.Sprintf("%s-%s", b.sdk, b.base)
 			return strings.Compare(aKey, bKey)
 		})
 	}
 
-	sortResults(skipped)
 	sortResults(success)
 	sortResults(failed)
 
@@ -617,31 +549,20 @@ func printResults(results []testResult) {
 		// Successful Tests Table
 		if len(success) > 0 {
 			summary.WriteString(fmt.Sprintf("## ✅ Successful Tests (%d/%d)\n\n", len(success), len(results)))
-			summary.WriteString("| SDK | Base Image | Platform |\n")
-			summary.WriteString("|-----|------------|----------|\n")
+			summary.WriteString("| SDK | Base Image |\n")
+			summary.WriteString("|-----|------------|\n")
 			for _, result := range success {
-				summary.WriteString(fmt.Sprintf("| %s | %s | %s |\n", result.sdk, result.base, result.platform))
+				summary.WriteString(fmt.Sprintf("| %s | %s |\n", result.sdk, result.base))
 			}
 		}
 
 		// Failed Tests Table
 		if len(failed) > 0 {
 			summary.WriteString(fmt.Sprintf("\n## ❌ Failed Tests (%d/%d)\n\n", len(failed), len(results)))
-			summary.WriteString("| SDK | Base Image | Platform |\n")
-			summary.WriteString("|-----|------------|----------|\n")
+			summary.WriteString("| SDK | Base Image |\n")
+			summary.WriteString("|-----|------------|\n")
 			for _, result := range failed {
-				summary.WriteString(fmt.Sprintf("| %s | %s | %s |\n",
-					result.sdk, result.base, result.platform))
-			}
-		}
-
-		// Skipped Tests Table
-		if len(skipped) > 0 {
-			summary.WriteString(fmt.Sprintf("\n## ⚠️ Skipped Tests (%d/%d)\n\n", len(skipped), len(results)))
-			summary.WriteString("| Base Image | Platform |\n")
-			summary.WriteString("|------------|----------|\n")
-			for _, c := range skipped {
-				summary.WriteString(fmt.Sprintf("| %s | %s |\n", c.base, platform))
+				summary.WriteString(fmt.Sprintf("| %s | %s |\n", result.sdk, result.base))
 			}
 		}
 
@@ -667,14 +588,6 @@ func printResults(results []testResult) {
 		fmt.Println("--------------------------------")
 		for _, result := range failed {
 			fmt.Printf("❌ %s %s\n", result.sdk, result.base)
-		}
-	}
-
-	if len(skipped) > 0 {
-		fmt.Printf("\nSkipped tests (%d/%d)\n", len(skipped), len(results))
-		fmt.Println("--------------------------------")
-		for _, c := range skipped {
-			fmt.Printf("⚠️ %s for platform %s\n", c.base, platform)
 		}
 	}
 
