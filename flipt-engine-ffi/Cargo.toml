@@ -8,6 +8,10 @@ description = "Flipt FFI Client Engine"
 publish = false
 repository = "https://github.com/flipt-io/flipt-client-sdks"
 
+[lib]
+name = "fliptengine"
+crate-type = ["rlib", "dylib", "staticlib"]
+
 [dependencies]
 libc = { version = "0.2.150", features = ["std"] }
 serde = { version = "1.0.147", features = ["derive"] }
@@ -27,7 +31,3 @@ path = "../flipt-evaluation"
 [dev-dependencies]
 mockall = "0.13.0"
 mockito = "1.4.0"
-
-[lib]
-name = "fliptengine"
-crate-type = ["rlib", "dylib", "staticlib"]
