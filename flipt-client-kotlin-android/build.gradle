@@ -11,7 +11,7 @@ android {
     ndkVersion '25.1.8937393'
     compileSdk 33
     defaultConfig {
-        minSdk 26
+        minSdk 30
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
         ndk {
@@ -43,6 +43,9 @@ android {
         cmake {
             path "src/main/cpp/CMakeLists.txt"
         }
+    }
+    buildFeatures {
+      buildConfig true
     }
 }
 

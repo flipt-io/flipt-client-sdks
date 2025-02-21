@@ -9,6 +9,7 @@ import io.flipt.client.models.FetchMode
 import io.flipt.client.models.Flag
 import io.flipt.client.models.Result
 import io.flipt.client.models.VariantEvaluationResponse
+import io.flipt.client.models.ErrorStrategy
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -36,6 +37,7 @@ class FliptEvaluationClient(namespace: String, options: ClientOptions) {
         private var reference: String? = null
         private var updateInterval: Long? = null
         private var fetchMode = FetchMode.polling
+        private var errorStrategy = ErrorStrategy.FAIL
 
         /**
          * url sets the URL for the Flipt server.
@@ -105,6 +107,18 @@ class FliptEvaluationClient(namespace: String, options: ClientOptions) {
         }
 
         /**
+        * errorStrategy defines the behavior how to react to issues with fetching the state from
+        * server.
+        *
+        * @param errorStrategy the error strategy
+        * @return the FliptEvaluationClientBuilder
+        */
+        fun errorStrategy(errorStrategy: ErrorStrategy): FliptEvaluationClientBuilder {
+          this.errorStrategy = errorStrategy
+          return this
+        }
+
+        /**
          * build builds a new FliptEvaluationClient.
          *
          * @return the FliptEvaluationClient
@@ -119,7 +133,8 @@ class FliptEvaluationClient(namespace: String, options: ClientOptions) {
                     updateInterval,
                     authentication,
                     reference,
-                    fetchMode
+                    fetchMode,
+                    errorStrategy
                 )
             )
         }
