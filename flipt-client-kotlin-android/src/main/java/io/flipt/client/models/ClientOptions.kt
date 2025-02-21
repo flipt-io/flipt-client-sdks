@@ -2,7 +2,6 @@ package io.flipt.client.models
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlin.time.Duration
 
 @Serializable
 data class ClientOptions(
@@ -10,5 +9,6 @@ data class ClientOptions(
     @SerialName("update_interval")private val updateInterval: Long?,
     @SerialName("authentication")private val authentication: AuthenticationStrategy?,
     @SerialName("reference")private val reference: String?,
-    @SerialName("fetch_mode")private val fetchMode: FetchMode?
+    @SerialName("fetch_mode")private val fetchMode: FetchMode?,
+    @SerialName("error_strategy")private val errorStrategy: ErrorStrategy?,
 )

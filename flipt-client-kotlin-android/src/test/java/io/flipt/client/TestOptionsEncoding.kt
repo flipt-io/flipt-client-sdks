@@ -1,6 +1,7 @@
 package io.flipt.client
 import io.flipt.client.models.AuthenticationStrategy
 import io.flipt.client.models.ClientTokenAuthentication
+import io.flipt.client.models.ErrorStrategy
 import io.flipt.client.models.JWTAuthentication
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -23,5 +24,16 @@ class TestOptionsEncoding {
         encoded = json.encodeToString(jwtAuth)
         expected = """{"jwt_token":"jwt"}"""
         assertEquals("output doesn't match expected", expected, encoded)
+    }
+
+    @Test
+    fun testEncodeErrorStrategy() {
+        val json =
+            Json {
+                encodeDefaults = false
+                ignoreUnknownKeys = true
+            }
+        var encoded = json.encodeToString(ErrorStrategy.FALLBACK)
+        assertEquals("output doesn't match expected", """"fallback"""", encoded)
     }
 }
