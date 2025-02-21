@@ -8,7 +8,7 @@ use libc::c_void;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::os::raw::c_char;
 use thiserror::Error;
 
@@ -67,10 +67,9 @@ where
     }
 }
 
-fn result_to_json_ptr<T: Serialize>(result: Result<T, Error>) -> *mut c_char {
+fn result_to_string<T: Serialize>(result: Result<T, Error>) -> String {
     let wasm_response: WASMResponse<T> = result.into();
-    let json_string = serde_json::to_string(&wasm_response).unwrap();
-    CString::new(json_string).unwrap().into_raw()
+    serde_json::to_string(&wasm_response).unwrap()
 }
 
 pub struct Engine {
@@ -164,7 +163,7 @@ pub unsafe extern "C" fn evaluate_variant(
     engine_ptr: *mut c_void,
     evaluation_request_ptr: *const u8,
     evaluation_request_len: usize,
-) -> *const c_char {
+) -> u64 {
     let e = get_engine(engine_ptr).unwrap();
     let evaluation_request = unsafe {
         std::str::from_utf8_unchecked(std::slice::from_raw_parts(
@@ -174,7 +173,10 @@ pub unsafe extern "C" fn evaluate_variant(
     };
 
     let request = get_evaluation_request(evaluation_request);
-    result_to_json_ptr(e.evaluate_variant(&request))
+    let result = result_to_string(e.evaluate_variant(&request));
+    let (ptr, len) = string_to_ptr(&result);
+    std::mem::forget(result); // host owns the string now and must deallocate it
+    return ((ptr as u64) << 32) | len as u64;
 }
 
 /// # Safety
@@ -185,7 +187,7 @@ pub unsafe extern "C" fn evaluate_boolean(
     engine_ptr: *mut c_void,
     evaluation_request_ptr: *const u8,
     evaluation_request_len: usize,
-) -> *const c_char {
+) -> u64 {
     let e = get_engine(engine_ptr).unwrap();
     let evaluation_request = unsafe {
         std::str::from_utf8_unchecked(std::slice::from_raw_parts(
@@ -195,7 +197,10 @@ pub unsafe extern "C" fn evaluate_boolean(
     };
 
     let request = get_evaluation_request(evaluation_request);
-    result_to_json_ptr(e.evaluate_boolean(&request))
+    let result = result_to_string(e.evaluate_boolean(&request));
+    let (ptr, len) = string_to_ptr(&result);
+    std::mem::forget(result); // host owns the string now and must deallocate it
+    return ((ptr as u64) << 32) | len as u64;
 }
 
 /// # Safety
@@ -205,10 +210,13 @@ pub unsafe extern "C" fn evaluate_boolean(
 pub unsafe extern "C" fn evaluate_batch(
     engine_ptr: *mut c_void,
     batch_evaluation_request: *const c_char,
-) -> *const c_char {
+) -> u64 {
     let e = get_engine(engine_ptr).unwrap();
     let requests = get_batch_evaluation_request(batch_evaluation_request);
-    result_to_json_ptr(e.evaluate_batch(requests))
+    let result = result_to_string(e.evaluate_batch(requests));
+    let (ptr, len) = string_to_ptr(&result);
+    std::mem::forget(result); // host owns the string now and must deallocate it
+    return ((ptr as u64) << 32) | len as u64;
 }
 
 /// # Safety
@@ -292,4 +300,13 @@ unsafe fn get_batch_evaluation_request(
     }
 
     evaluation_requests
+}
+
+/// Returns a pointer and size pair for the given string in a way compatible
+/// with WebAssembly numeric types.
+///
+/// Note: This doesn't change the ownership of the String. To intentionally
+/// leak it, use [`std::mem::forget`] on the input after calling this.
+unsafe fn string_to_ptr(s: &str) -> (u32, u32) {
+    return (s.as_ptr() as u32, s.len() as u32);
 }
