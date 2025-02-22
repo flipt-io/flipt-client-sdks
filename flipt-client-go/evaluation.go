@@ -119,7 +119,7 @@ func NewEvaluationClient(ctx context.Context, opts ...clientOption) (*Evaluation
 		mod:            mod,
 		namespace:      "default",
 		httpClient:     &http.Client{},
-		updateInterval: 120 * time.Second, // default 120 seconds
+		updateInterval: 2 * time.Minute, // default 120 seconds
 		stopPolling:    make(chan struct{}),
 	}
 
@@ -138,8 +138,10 @@ func NewEvaluationClient(ctx context.Context, opts ...clientOption) (*Evaluation
 	}
 
 	// initialize engine with fetched state
-	alloc := mod.ExportedFunction("allocate")
-	initializeEngine := mod.ExportedFunction("initialize_engine")
+	var (
+		alloc            = mod.ExportedFunction("allocate")
+		initializeEngine = mod.ExportedFunction("initialize_engine")
+	)
 
 	nsPtr, err := alloc.Call(ctx, uint64(len(client.namespace)))
 	if err != nil {
@@ -250,9 +252,11 @@ func (e *EvaluationClient) startPolling(ctx context.Context) error {
 			}
 
 			// update engine with new state
-			alloc := e.mod.ExportedFunction("allocate")
-			dealloc := e.mod.ExportedFunction("deallocate")
-			snapshot := e.mod.ExportedFunction("snapshot")
+			var (
+				alloc    = e.mod.ExportedFunction("allocate")
+				dealloc  = e.mod.ExportedFunction("deallocate")
+				snapshot = e.mod.ExportedFunction("snapshot") // TODO: implement in Rust
+			)
 
 			pmPtr, err := alloc.Call(ctx, uint64(len(payload)))
 			if err != nil {
