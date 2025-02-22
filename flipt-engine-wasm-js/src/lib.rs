@@ -31,11 +31,12 @@ pub struct Engine {
     store: Snapshot,
 }
 
-impl<T> From<Result<T, Error>> for JsResponse<T>
+impl<T, E> From<Result<T, E>> for JsResponse<T>
 where
     T: Serialize,
+    E: std::error::Error,
 {
-    fn from(value: Result<T, Error>) -> Self {
+    fn from(value: Result<T, E>) -> Self {
         match value {
             Ok(result) => JsResponse {
                 status: Status::Success,
@@ -121,7 +122,8 @@ impl Engine {
 
     pub fn list_flags(&self) -> Result<JsValue, JsValue> {
         let flags = self.store.list_flags(&self.namespace);
-        let response = JsResponse::from(Ok(flags));
+        let infallible_result = Result::<_, std::convert::Infallible>::Ok(flags);
+        let response = JsResponse::from(infallible_result);
         Ok(serde_wasm_bindgen::to_value(&response)?)
     }
 }
