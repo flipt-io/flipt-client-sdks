@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"time"
 
 	_ "embed"
 
@@ -30,9 +33,13 @@ type EvaluationClient struct {
 	url            string
 	authentication any
 	ref            string
-	updateInterval int
+	updateInterval time.Duration
 	fetchMode      FetchMode
 	errorStrategy  ErrorStrategy
+
+	httpClient  *http.Client
+	etag        string
+	stopPolling chan struct{}
 }
 
 // clientOption adds additional configuration for Client parameters
@@ -53,7 +60,7 @@ func WithURL(url string) clientOption {
 }
 
 // WithUpdateInterval allows for specifying how often flag state data should be fetched from an upstream Flipt instance.
-func WithUpdateInterval(updateInterval int) clientOption {
+func WithUpdateInterval(updateInterval time.Duration) clientOption {
 	return func(c *EvaluationClient) {
 		c.updateInterval = updateInterval
 	}
@@ -109,8 +116,11 @@ func NewEvaluationClient(ctx context.Context, opts ...clientOption) (*Evaluation
 	}
 
 	client := &EvaluationClient{
-		mod:       mod,
-		namespace: "default",
+		mod:            mod,
+		namespace:      "default",
+		httpClient:     &http.Client{},
+		updateInterval: 120 * time.Second, // default 120 seconds
+		stopPolling:    make(chan struct{}),
 	}
 
 	for _, opt := range opts {
@@ -121,6 +131,13 @@ func NewEvaluationClient(ctx context.Context, opts ...clientOption) (*Evaluation
 		return nil, fmt.Errorf("namespace cannot be empty")
 	}
 
+	// fetch initial state
+	payload, err := client.fetchSnapshot(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch initial state: %w", err)
+	}
+
+	// initialize engine with fetched state
 	alloc := mod.ExportedFunction("allocate")
 	initializeEngine := mod.ExportedFunction("initialize_engine")
 
@@ -133,8 +150,6 @@ func NewEvaluationClient(ctx context.Context, opts ...clientOption) (*Evaluation
 		return nil, fmt.Errorf("failed to write namespace to memory")
 	}
 
-	// TODO: implement fetching
-	payload := "{\"namespace\": {\"key\": \"default\"}, \"flags\": []}"
 	pmPtr, err := alloc.Call(ctx, uint64(len(payload)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to allocate memory for payload: %w", err)
@@ -149,11 +164,116 @@ func NewEvaluationClient(ctx context.Context, opts ...clientOption) (*Evaluation
 		return nil, fmt.Errorf("failed to initialize engine: %w", err)
 	}
 	enginePtr := res[0]
-
-	// keep enginePtr in memory so it does not get garbage collected
 	client.engine = uint32(enginePtr)
 
+	// start background polling if interval > 0
+	if client.updateInterval > 0 {
+		go client.startPolling(ctx)
+	}
+
 	return client, nil
+}
+
+func (e *EvaluationClient) fetchSnapshot(ctx context.Context) (string, error) {
+	url := fmt.Sprintf("%s/internal/v1/evaluation/snapshot/namespace/%s", e.url, e.namespace)
+	if e.ref != "" {
+		url = fmt.Sprintf("%s?reference=%s", url, e.ref)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("x-flipt-accept-server-version", "1.47.0")
+
+	if e.authentication != nil {
+		switch auth := e.authentication.(type) {
+		case clientTokenAuthentication:
+			req.Header.Set("Authorization", "Bearer "+auth.Token)
+		case jwtAuthentication:
+			req.Header.Set("Authorization", "JWT "+auth.Token)
+		}
+	}
+
+	if e.etag != "" {
+		req.Header.Set("If-None-Match", e.etag)
+	}
+
+	resp, err := e.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch snapshot: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotModified {
+		return "", nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	// store etag if present
+	if etag := resp.Header.Get("ETag"); etag != "" {
+		e.etag = etag
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	return string(body), nil
+}
+
+func (e *EvaluationClient) startPolling(ctx context.Context) error {
+	ticker := time.NewTicker(e.updateInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-e.stopPolling:
+			return nil
+		case <-ticker.C:
+			payload, err := e.fetchSnapshot(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to fetch snapshot: %w", err)
+			}
+
+			// skip update if no changes (304 response)
+			if payload == "" {
+				continue
+			}
+
+			// update engine with new state
+			alloc := e.mod.ExportedFunction("allocate")
+			dealloc := e.mod.ExportedFunction("deallocate")
+			snapshot := e.mod.ExportedFunction("snapshot")
+
+			pmPtr, err := alloc.Call(ctx, uint64(len(payload)))
+			if err != nil {
+				return fmt.Errorf("failed to allocate memory for payload: %w", err)
+			}
+
+			if !e.mod.Memory().Write(uint32(pmPtr[0]), []byte(payload)) {
+				dealloc.Call(ctx, uint64(pmPtr[0]), uint64(len(payload)))
+				return fmt.Errorf("failed to write payload to memory")
+			}
+
+			_, err = snapshot.Call(ctx, uint64(e.engine), pmPtr[0], uint64(len(payload)))
+			if err != nil {
+				dealloc.Call(ctx, uint64(pmPtr[0]), uint64(len(payload)))
+				return fmt.Errorf("failed to update engine: %w", err)
+			}
+
+			// dont defer in loop to avoid stack overflow
+			dealloc.Call(ctx, uint64(pmPtr[0]), uint64(len(payload)))
+		}
+	}
 }
 
 // EvaluateVariant performs evaluation for a variant flag.
@@ -225,7 +345,6 @@ func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*Evalua
 	return batchResult.Result, nil
 }
 
-// Common WASM evaluation logic
 func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, request any) ([]byte, error) {
 	if e.engine == 0 {
 		return nil, errors.New("engine not initialized")
@@ -295,12 +414,15 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 // 	return *fl.Result, nil
 // }
 
-// Close cleans up the allocated engine as it was initialized in the constructor.
+// Close cleans up the allocated resources.
 func (e *EvaluationClient) Close(ctx context.Context) error {
+	close(e.stopPolling)
+
 	if e.engine != 0 {
 		dealloc := e.mod.ExportedFunction("destroy_engine")
 		dealloc.Call(ctx, uint64(e.engine))
 	}
+
 	return e.mod.Close(ctx)
 }
 
