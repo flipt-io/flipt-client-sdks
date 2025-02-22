@@ -35,71 +35,6 @@ type EvaluationClient struct {
 	errorStrategy  ErrorStrategy
 }
 
-// NewEvaluationClient constructs a Client.
-func NewEvaluationClient(ctx context.Context, opts ...clientOption) (*EvaluationClient, error) {
-	runtime := wazero.NewRuntime(ctx)
-	wasi_snapshot_preview1.MustInstantiate(ctx, runtime)
-
-	compiled, err := runtime.CompileModule(ctx, wasm)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compile and load evaluation engine: %w", err)
-	}
-
-	cfg := wazero.NewModuleConfig().WithName("flipt_engine")
-	mod, err := runtime.InstantiateModule(ctx, compiled, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("can't instantiate Wasm module: %w", err)
-	}
-
-	client := &EvaluationClient{
-		mod:       mod,
-		namespace: "default",
-	}
-
-	for _, opt := range opts {
-		opt(client)
-	}
-
-	// Ensure namespace is valid
-	if client.namespace == "" {
-		return nil, fmt.Errorf("namespace cannot be empty")
-	}
-
-	alloc := mod.ExportedFunction("allocate")
-	initializeEngine := mod.ExportedFunction("initialize_engine")
-
-	nsPtr, err := alloc.Call(ctx, uint64(len(client.namespace)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to allocate memory for namespace: %w", err)
-	}
-
-	if !mod.Memory().Write(uint32(nsPtr[0]), []byte(client.namespace)) {
-		return nil, fmt.Errorf("failed to write namespace to memory")
-	}
-
-	// TODO: implement fetching
-	payload := "{\"namespace\": {\"key\": \"default\"}, \"flags\": []}"
-	pmPtr, err := alloc.Call(ctx, uint64(len(payload)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to allocate memory for payload: %w", err)
-	}
-
-	if !mod.Memory().Write(uint32(pmPtr[0]), []byte(payload)) {
-		return nil, fmt.Errorf("failed to write payload to memory")
-	}
-
-	res, err := initializeEngine.Call(ctx, nsPtr[0], uint64(len(client.namespace)), pmPtr[0], uint64(len(payload)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize engine: %w", err)
-	}
-	enginePtr := res[0]
-
-	// keep enginePtr in memory so it does not get garbage collected
-	client.engine = uint32(enginePtr)
-
-	return client, nil
-}
-
 // clientOption adds additional configuration for Client parameters
 type clientOption func(*EvaluationClient)
 
@@ -157,6 +92,70 @@ func WithErrorStrategy(errorStrategy ErrorStrategy) clientOption {
 	}
 }
 
+// NewEvaluationClient constructs a Client.
+func NewEvaluationClient(ctx context.Context, opts ...clientOption) (*EvaluationClient, error) {
+	runtime := wazero.NewRuntime(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, runtime)
+
+	compiled, err := runtime.CompileModule(ctx, wasm)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile and load evaluation engine: %w", err)
+	}
+
+	cfg := wazero.NewModuleConfig().WithName("flipt_engine")
+	mod, err := runtime.InstantiateModule(ctx, compiled, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("can't instantiate Wasm module: %w", err)
+	}
+
+	client := &EvaluationClient{
+		mod:       mod,
+		namespace: "default",
+	}
+
+	for _, opt := range opts {
+		opt(client)
+	}
+
+	if client.namespace == "" {
+		return nil, fmt.Errorf("namespace cannot be empty")
+	}
+
+	alloc := mod.ExportedFunction("allocate")
+	initializeEngine := mod.ExportedFunction("initialize_engine")
+
+	nsPtr, err := alloc.Call(ctx, uint64(len(client.namespace)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to allocate memory for namespace: %w", err)
+	}
+
+	if !mod.Memory().Write(uint32(nsPtr[0]), []byte(client.namespace)) {
+		return nil, fmt.Errorf("failed to write namespace to memory")
+	}
+
+	// TODO: implement fetching
+	payload := "{\"namespace\": {\"key\": \"default\"}, \"flags\": []}"
+	pmPtr, err := alloc.Call(ctx, uint64(len(payload)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to allocate memory for payload: %w", err)
+	}
+
+	if !mod.Memory().Write(uint32(pmPtr[0]), []byte(payload)) {
+		return nil, fmt.Errorf("failed to write payload to memory")
+	}
+
+	res, err := initializeEngine.Call(ctx, nsPtr[0], uint64(len(client.namespace)), pmPtr[0], uint64(len(payload)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize engine: %w", err)
+	}
+	enginePtr := res[0]
+
+	// keep enginePtr in memory so it does not get garbage collected
+	client.engine = uint32(enginePtr)
+
+	return client, nil
+}
+
 // EvaluateVariant performs evaluation for a variant flag.
 func (e *EvaluationClient) EvaluateVariant(ctx context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantEvaluationResponse, error) {
 	if e.engine == 0 {
@@ -193,6 +192,10 @@ func (e *EvaluationClient) EvaluateVariant(ctx context.Context, flagKey, entityI
 	res, err := evaluateVariant.Call(ctx, uint64(e.engine), ereqPtr[0], uint64(len(ereq)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to evaluate variant: %w", err)
+	}
+
+	if len(res) < 1 {
+		return nil, fmt.Errorf("failed to evaluate variant: no result returned")
 	}
 
 	ptr, len := decodePtr(res[0])
@@ -253,6 +256,10 @@ func (e *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityI
 		return nil, fmt.Errorf("failed to evaluate boolean: %w", err)
 	}
 
+	if len(res) < 1 {
+		return nil, fmt.Errorf("failed to evaluate boolean: no result returned")
+	}
+
 	ptr, len := decodePtr(res[0])
 	defer dealloc.Call(ctx, uint64(ptr), uint64(len))
 
@@ -273,37 +280,57 @@ func (e *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityI
 	return br.Result, nil
 }
 
-// // EvaluateBatch performs evaluation for a batch of flags.
-// func (e *EvaluationClient) EvaluateBatch(_ context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
-// 	if e.engine == 0 {
-// 		return nil, errors.New("engine not initialized")
-// 	}
+// EvaluateBatch performs evaluation for a batch of flags.
+func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
+	if e.engine == 0 {
+		return nil, errors.New("engine not initialized")
+	}
 
-// 	requestsBytes, err := json.Marshal(requests)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	requestsBytes, err := json.Marshal(requests)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal evaluation requests: %w", err)
+	}
 
-// 	cr := C.CString(string(requestsBytes))
-// 	defer C.free(unsafe.Pointer(cr))
+	alloc := e.mod.ExportedFunction("allocate")
+	dealloc := e.mod.ExportedFunction("deallocate")
 
-// 	batch := C.evaluate_batch(e.engine, cr)
-// 	defer C.destroy_string(batch)
+	requestsPtr, err := alloc.Call(ctx, uint64(len(requestsBytes)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to allocate memory for evaluation requests: %w", err)
+	}
 
-// 	b := C.GoBytes(unsafe.Pointer(batch), (C.int)(C.strlen(batch)))
+	defer dealloc.Call(ctx, requestsPtr[0], uint64(len(requestsBytes)))
 
-// 	var br *BatchResult
+	if !e.mod.Memory().Write(uint32(requestsPtr[0]), requestsBytes) {
+		return nil, fmt.Errorf("failed to write evaluation requests to memory")
+	}
 
-// 	if err := json.Unmarshal(b, &br); err != nil {
-// 		return nil, err
-// 	}
+	evaluateBatch := e.mod.ExportedFunction("evaluate_batch")
 
-// 	if br.Status != statusSuccess {
-// 		return nil, errors.New(br.ErrorMessage)
-// 	}
+	res, err := evaluateBatch.Call(ctx, uint64(e.engine), requestsPtr[0], uint64(len(requestsBytes)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to evaluate batch: %w", err)
+	}
 
-// 	return br.Result, nil
-// }
+	if len(res) < 1 {
+		return nil, fmt.Errorf("failed to evaluate batch: no result returned")
+	}
+
+	ptr, len := decodePtr(res[0])
+	defer dealloc.Call(ctx, uint64(ptr), uint64(len))
+
+	b, ok := e.mod.Memory().Read(ptr, len)
+	if !ok {
+		return nil, fmt.Errorf("failed to read batch result from memory")
+	}
+
+	var br *BatchResult
+	if err := json.Unmarshal(b, &br); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal batch result: %w", err)
+	}
+
+	return br.Result, nil
+}
 
 // func (e *EvaluationClient) ListFlags(_ context.Context) ([]Flag, error) {
 // 	if e.engine == nil {
@@ -330,6 +357,10 @@ func (e *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityI
 
 // Close cleans up the allocated engine as it was initialized in the constructor.
 func (e *EvaluationClient) Close(ctx context.Context) error {
+	if e.engine != 0 {
+		dealloc := e.mod.ExportedFunction("destroy_engine")
+		dealloc.Call(ctx, uint64(e.engine))
+	}
 	return e.mod.Close(ctx)
 }
 

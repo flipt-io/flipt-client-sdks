@@ -176,7 +176,7 @@ pub unsafe extern "C" fn evaluate_variant(
     let result = result_to_string(e.evaluate_variant(&request));
     let (ptr, len) = string_to_ptr(&result);
     std::mem::forget(result); // host owns the string now and must deallocate it
-    return ((ptr as u64) << 32) | len as u64;
+    return ((ptr as u64) << 32) | len as u64; // return u64 with ptr and len as high and low bits
 }
 
 /// # Safety
@@ -200,7 +200,7 @@ pub unsafe extern "C" fn evaluate_boolean(
     let result = result_to_string(e.evaluate_boolean(&request));
     let (ptr, len) = string_to_ptr(&result);
     std::mem::forget(result); // host owns the string now and must deallocate it
-    return ((ptr as u64) << 32) | len as u64;
+    return ((ptr as u64) << 32) | len as u64; // return u64 with ptr and len as high and low bits
 }
 
 /// # Safety
@@ -209,14 +209,21 @@ pub unsafe extern "C" fn evaluate_boolean(
 #[no_mangle]
 pub unsafe extern "C" fn evaluate_batch(
     engine_ptr: *mut c_void,
-    batch_evaluation_request: *const c_char,
+    batch_evaluation_request_ptr: *const u8,
+    batch_evaluation_request_len: usize,
 ) -> u64 {
     let e = get_engine(engine_ptr).unwrap();
-    let requests = get_batch_evaluation_request(batch_evaluation_request);
+    let evaluation_requests = unsafe {
+        std::str::from_utf8_unchecked(std::slice::from_raw_parts(
+            batch_evaluation_request_ptr,
+            batch_evaluation_request_len,
+        ))
+    };
+    let requests = get_batch_evaluation_request(evaluation_requests);
     let result = result_to_string(e.evaluate_batch(requests));
     let (ptr, len) = string_to_ptr(&result);
     std::mem::forget(result); // host owns the string now and must deallocate it
-    return ((ptr as u64) << 32) | len as u64;
+    return ((ptr as u64) << 32) | len as u64; // return u64 with ptr and len as high and low bits
 }
 
 /// # Safety
@@ -271,14 +278,9 @@ unsafe fn get_evaluation_request(evaluation_request: &str) -> EvaluationRequest 
     }
 }
 
-unsafe fn get_batch_evaluation_request(
-    batch_evaluation_request: *const c_char,
-) -> Vec<EvaluationRequest> {
-    let evaluation_request_bytes = CStr::from_ptr(batch_evaluation_request).to_bytes();
-    let bytes_str_repr = std::str::from_utf8(evaluation_request_bytes).unwrap();
-
+unsafe fn get_batch_evaluation_request(batch_evaluation_request: &str) -> Vec<EvaluationRequest> {
     let batch_eval_request: Vec<WASMEvaluationRequest> =
-        serde_json::from_str(bytes_str_repr).unwrap();
+        serde_json::from_str(batch_evaluation_request).unwrap();
 
     let mut evaluation_requests: Vec<EvaluationRequest> =
         Vec::with_capacity(batch_eval_request.len());
