@@ -66,53 +66,53 @@ func TestBoolean(t *testing.T) {
 	assert.Equal(t, "MATCH_EVALUATION_REASON", boolean.Reason)
 }
 
-// func TestBatch(t *testing.T) {
-// 	batch, err := evaluationClient.EvaluateBatch(context.TODO(), []*flipt.EvaluationRequest{
-// 		{
-// 			FlagKey:  "flag1",
-// 			EntityId: "someentity",
-// 			Context: map[string]string{
-// 				"fizz": "buzz",
-// 			},
-// 		},
-// 		{
-// 			FlagKey:  "flag_boolean",
-// 			EntityId: "someentity",
-// 			Context: map[string]string{
-// 				"fizz": "buzz",
-// 			},
-// 		},
-// 		{
-// 			FlagKey:  "notfound",
-// 			EntityId: "someentity",
-// 			Context: map[string]string{
-// 				"fizz": "buzz",
-// 			},
-// 		},
-// 	})
-// 	require.NoError(t, err)
+func TestBatch(t *testing.T) {
+	batch, err := evaluationClient.EvaluateBatch(context.TODO(), []*flipt.EvaluationRequest{
+		{
+			FlagKey:  "flag1",
+			EntityId: "someentity",
+			Context: map[string]string{
+				"fizz": "buzz",
+			},
+		},
+		{
+			FlagKey:  "flag_boolean",
+			EntityId: "someentity",
+			Context: map[string]string{
+				"fizz": "buzz",
+			},
+		},
+		{
+			FlagKey:  "notfound",
+			EntityId: "someentity",
+			Context: map[string]string{
+				"fizz": "buzz",
+			},
+		},
+	})
+	require.NoError(t, err)
 
-// 	assert.Len(t, batch.Responses, 3)
+	assert.Len(t, batch.Responses, 3)
 
-// 	variant := batch.Responses[0]
-// 	assert.Equal(t, "VARIANT_EVALUATION_RESPONSE_TYPE", variant.Type)
-// 	assert.True(t, variant.VariantEvaluationResponse.Match)
-// 	assert.Equal(t, "flag1", variant.VariantEvaluationResponse.FlagKey)
-// 	assert.Equal(t, "MATCH_EVALUATION_REASON", variant.VariantEvaluationResponse.Reason)
-// 	assert.Contains(t, variant.VariantEvaluationResponse.SegmentKeys, "segment1")
+	variant := batch.Responses[0]
+	assert.Equal(t, "VARIANT_EVALUATION_RESPONSE_TYPE", variant.Type)
+	assert.True(t, variant.VariantEvaluationResponse.Match)
+	assert.Equal(t, "flag1", variant.VariantEvaluationResponse.FlagKey)
+	assert.Equal(t, "MATCH_EVALUATION_REASON", variant.VariantEvaluationResponse.Reason)
+	assert.Contains(t, variant.VariantEvaluationResponse.SegmentKeys, "segment1")
 
-// 	boolean := batch.Responses[1]
-// 	assert.Equal(t, "BOOLEAN_EVALUATION_RESPONSE_TYPE", boolean.Type)
-// 	assert.Equal(t, "flag_boolean", boolean.BooleanEvaluationResponse.FlagKey)
-// 	assert.True(t, boolean.BooleanEvaluationResponse.Enabled)
-// 	assert.Equal(t, "MATCH_EVALUATION_REASON", boolean.BooleanEvaluationResponse.Reason)
+	boolean := batch.Responses[1]
+	assert.Equal(t, "BOOLEAN_EVALUATION_RESPONSE_TYPE", boolean.Type)
+	assert.Equal(t, "flag_boolean", boolean.BooleanEvaluationResponse.FlagKey)
+	assert.True(t, boolean.BooleanEvaluationResponse.Enabled)
+	assert.Equal(t, "MATCH_EVALUATION_REASON", boolean.BooleanEvaluationResponse.Reason)
 
-// 	errorResponse := batch.Responses[2]
-// 	assert.Equal(t, "ERROR_EVALUATION_RESPONSE_TYPE", errorResponse.Type)
-// 	assert.Equal(t, "notfound", errorResponse.ErrorEvaluationResponse.FlagKey)
-// 	assert.Equal(t, "default", errorResponse.ErrorEvaluationResponse.NamespaceKey)
-// 	assert.Equal(t, "NOT_FOUND_ERROR_EVALUATION_REASON", errorResponse.ErrorEvaluationResponse.Reason)
-// }
+	errorResponse := batch.Responses[2]
+	assert.Equal(t, "ERROR_EVALUATION_RESPONSE_TYPE", errorResponse.Type)
+	assert.Equal(t, "notfound", errorResponse.ErrorEvaluationResponse.FlagKey)
+	assert.Equal(t, "default", errorResponse.ErrorEvaluationResponse.NamespaceKey)
+	assert.Equal(t, "NOT_FOUND_ERROR_EVALUATION_REASON", errorResponse.ErrorEvaluationResponse.Reason)
+}
 
 // func TestListFlags(t *testing.T) {
 // 	response, err := evaluationClient.ListFlags(context.TODO())
