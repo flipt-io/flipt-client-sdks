@@ -158,79 +158,82 @@ func NewEvaluationClient(ctx context.Context, opts ...clientOption) (*Evaluation
 
 // EvaluateVariant performs evaluation for a variant flag.
 func (e *EvaluationClient) EvaluateVariant(ctx context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantEvaluationResponse, error) {
-	if e.engine == 0 {
-		return nil, errors.New("engine not initialized")
-	}
-
-	ereq, err := json.Marshal(EvaluationRequest{
+	request := EvaluationRequest{
 		FlagKey:  flagKey,
 		EntityId: entityID,
 		Context:  evalContext,
-	})
+	}
+
+	result, err := e.evaluateWASM(ctx, "evaluate_variant", request)
 	if err != nil {
 		return nil, err
 	}
 
-	var (
-		alloc   = e.mod.ExportedFunction("allocate")
-		dealloc = e.mod.ExportedFunction("deallocate")
-	)
-
-	ereqPtr, err := alloc.Call(ctx, uint64(len(ereq)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to allocate memory for evaluation request: %w", err)
+	var variantResult *VariantResult
+	if err := json.Unmarshal(result, &variantResult); err != nil {
+		return nil, err
 	}
 
-	defer dealloc.Call(ctx, ereqPtr[0], uint64(len(ereq)))
-
-	if !e.mod.Memory().Write(uint32(ereqPtr[0]), ereq) {
-		return nil, fmt.Errorf("failed to write evaluation request to memory")
+	if variantResult.Status != statusSuccess {
+		return nil, errors.New(variantResult.ErrorMessage)
 	}
 
-	evaluateVariant := e.mod.ExportedFunction("evaluate_variant")
-
-	res, err := evaluateVariant.Call(ctx, uint64(e.engine), ereqPtr[0], uint64(len(ereq)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to evaluate variant: %w", err)
-	}
-
-	if len(res) < 1 {
-		return nil, fmt.Errorf("failed to evaluate variant: no result returned")
-	}
-
-	ptr, len := decodePtr(res[0])
-	defer dealloc.Call(ctx, uint64(ptr), uint64(len))
-
-	b, ok := e.mod.Memory().Read(ptr, len)
-	if !ok {
-		return nil, fmt.Errorf("failed to read variant result from memory")
-	}
-
-	var vr *VariantResult
-	if err := json.Unmarshal(b, &vr); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal variant result: %w", err)
-	}
-
-	if vr.Status != statusSuccess {
-		return nil, errors.New(vr.ErrorMessage)
-	}
-
-	return vr.Result, nil
+	return variantResult.Result, nil
 }
 
 // EvaluateBoolean performs evaluation for a boolean flag.
 func (e *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanEvaluationResponse, error) {
+	request := EvaluationRequest{
+		FlagKey:  flagKey,
+		EntityId: entityID,
+		Context:  evalContext,
+	}
+
+	result, err := e.evaluateWASM(ctx, "evaluate_boolean", request)
+	if err != nil {
+		return nil, err
+	}
+
+	var booleanResult *BooleanResult
+	if err := json.Unmarshal(result, &booleanResult); err != nil {
+		return nil, err
+	}
+
+	if booleanResult.Status != statusSuccess {
+		return nil, errors.New(booleanResult.ErrorMessage)
+	}
+
+	return booleanResult.Result, nil
+}
+
+// EvaluateBatch performs evaluation for a batch of flags.
+func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
+	result, err := e.evaluateWASM(ctx, "evaluate_batch", requests)
+	if err != nil {
+		return nil, err
+	}
+
+	var batchResult *BatchResult
+	if err := json.Unmarshal(result, &batchResult); err != nil {
+		return nil, err
+	}
+
+	if batchResult.Status != statusSuccess {
+		return nil, errors.New(batchResult.ErrorMessage)
+	}
+
+	return batchResult.Result, nil
+}
+
+// Common WASM evaluation logic
+func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, request any) ([]byte, error) {
 	if e.engine == 0 {
 		return nil, errors.New("engine not initialized")
 	}
 
-	ereq, err := json.Marshal(EvaluationRequest{
-		FlagKey:  flagKey,
-		EntityId: entityID,
-		Context:  evalContext,
-	})
+	reqBytes, err := json.Marshal(request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal evaluation request: %w", err)
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	var (
@@ -238,26 +241,24 @@ func (e *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityI
 		dealloc = e.mod.ExportedFunction("deallocate")
 	)
 
-	ereqPtr, err := alloc.Call(ctx, uint64(len(ereq)))
+	reqPtr, err := alloc.Call(ctx, uint64(len(reqBytes)))
 	if err != nil {
-		return nil, fmt.Errorf("failed to allocate memory for evaluation request: %w", err)
+		return nil, fmt.Errorf("failed to allocate memory for request: %w", err)
+	}
+	defer dealloc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
+
+	if !e.mod.Memory().Write(uint32(reqPtr[0]), reqBytes) {
+		return nil, fmt.Errorf("failed to write request to memory")
 	}
 
-	defer dealloc.Call(ctx, ereqPtr[0], uint64(len(ereq)))
-
-	if !e.mod.Memory().Write(uint32(ereqPtr[0]), ereq) {
-		return nil, fmt.Errorf("failed to write evaluation request to memory")
-	}
-
-	evaluateBoolean := e.mod.ExportedFunction("evaluate_boolean")
-
-	res, err := evaluateBoolean.Call(ctx, uint64(e.engine), ereqPtr[0], uint64(len(ereq)))
+	evalFunc := e.mod.ExportedFunction(funcName)
+	res, err := evalFunc.Call(ctx, uint64(e.engine), reqPtr[0], uint64(len(reqBytes)))
 	if err != nil {
-		return nil, fmt.Errorf("failed to evaluate boolean: %w", err)
+		return nil, fmt.Errorf("failed to call %s: %w", funcName, err)
 	}
 
 	if len(res) < 1 {
-		return nil, fmt.Errorf("failed to evaluate boolean: no result returned")
+		return nil, fmt.Errorf("failed to call %s: no result returned", funcName)
 	}
 
 	ptr, len := decodePtr(res[0])
@@ -265,71 +266,10 @@ func (e *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityI
 
 	b, ok := e.mod.Memory().Read(ptr, len)
 	if !ok {
-		return nil, fmt.Errorf("failed to read boolean result from memory")
+		return nil, fmt.Errorf("failed to read result from memory")
 	}
 
-	var br *BooleanResult
-	if err := json.Unmarshal(b, &br); err != nil {
-		return nil, err
-	}
-
-	if br.Status != statusSuccess {
-		return nil, errors.New(br.ErrorMessage)
-	}
-
-	return br.Result, nil
-}
-
-// EvaluateBatch performs evaluation for a batch of flags.
-func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
-	if e.engine == 0 {
-		return nil, errors.New("engine not initialized")
-	}
-
-	requestsBytes, err := json.Marshal(requests)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal evaluation requests: %w", err)
-	}
-
-	alloc := e.mod.ExportedFunction("allocate")
-	dealloc := e.mod.ExportedFunction("deallocate")
-
-	requestsPtr, err := alloc.Call(ctx, uint64(len(requestsBytes)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to allocate memory for evaluation requests: %w", err)
-	}
-
-	defer dealloc.Call(ctx, requestsPtr[0], uint64(len(requestsBytes)))
-
-	if !e.mod.Memory().Write(uint32(requestsPtr[0]), requestsBytes) {
-		return nil, fmt.Errorf("failed to write evaluation requests to memory")
-	}
-
-	evaluateBatch := e.mod.ExportedFunction("evaluate_batch")
-
-	res, err := evaluateBatch.Call(ctx, uint64(e.engine), requestsPtr[0], uint64(len(requestsBytes)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to evaluate batch: %w", err)
-	}
-
-	if len(res) < 1 {
-		return nil, fmt.Errorf("failed to evaluate batch: no result returned")
-	}
-
-	ptr, len := decodePtr(res[0])
-	defer dealloc.Call(ctx, uint64(ptr), uint64(len))
-
-	b, ok := e.mod.Memory().Read(ptr, len)
-	if !ok {
-		return nil, fmt.Errorf("failed to read batch result from memory")
-	}
-
-	var br *BatchResult
-	if err := json.Unmarshal(b, &br); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal batch result: %w", err)
-	}
-
-	return br.Result, nil
+	return b, nil
 }
 
 // func (e *EvaluationClient) ListFlags(_ context.Context) ([]Flag, error) {
