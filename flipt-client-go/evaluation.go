@@ -59,6 +59,13 @@ func WithURL(url string) clientOption {
 	}
 }
 
+// WithRef allows for specifying a reference to fetch feature data from.
+func WithRef(ref string) clientOption {
+	return func(c *EvaluationClient) {
+		c.ref = ref
+	}
+}
+
 // WithUpdateInterval allows for specifying how often flag state data should be fetched from an upstream Flipt instance.
 func WithUpdateInterval(updateInterval time.Duration) clientOption {
 	return func(c *EvaluationClient) {
@@ -349,6 +356,22 @@ func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*Evalua
 	return batchResult.Result, nil
 }
 
+// Close cleans up the allocated resources.
+func (e *EvaluationClient) Close(ctx context.Context) error {
+	close(e.stopPolling)
+
+	if e.engine != 0 {
+		dealloc := e.mod.ExportedFunction("destroy_engine")
+		dealloc.Call(ctx, uint64(e.engine))
+	}
+
+	return e.mod.Close(ctx)
+}
+
+func decodePtr(ptr uint64) (uint32, uint32) {
+	return uint32(ptr >> 32), uint32(ptr)
+}
+
 func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, request any) ([]byte, error) {
 	if e.engine == 0 {
 		return nil, errors.New("engine not initialized")
@@ -393,20 +416,4 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 	}
 
 	return b, nil
-}
-
-// Close cleans up the allocated resources.
-func (e *EvaluationClient) Close(ctx context.Context) error {
-	close(e.stopPolling)
-
-	if e.engine != 0 {
-		dealloc := e.mod.ExportedFunction("destroy_engine")
-		dealloc.Call(ctx, uint64(e.engine))
-	}
-
-	return e.mod.Close(ctx)
-}
-
-func decodePtr(ptr uint64) (uint32, uint32) {
-	return uint32(ptr >> 32), uint32(ptr)
 }
