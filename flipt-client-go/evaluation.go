@@ -395,29 +395,6 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 	return b, nil
 }
 
-// func (e *EvaluationClient) ListFlags(_ context.Context) ([]Flag, error) {
-// 	if e.engine == nil {
-// 		return nil, errors.New("engine not initialized")
-// 	}
-
-// 	flags := C.list_flags(e.engine)
-// 	defer C.destroy_string(flags)
-
-// 	b := C.GoBytes(unsafe.Pointer(flags), (C.int)(C.strlen(flags)))
-
-// 	var fl *ListFlagsResult
-
-// 	if err := json.Unmarshal(b, &fl); err != nil {
-// 		return nil, err
-// 	}
-
-// 	if fl.Status != statusSuccess {
-// 		return nil, errors.New(fl.ErrorMessage)
-// 	}
-
-// 	return *fl.Result, nil
-// }
-
 // Close cleans up the allocated resources.
 func (e *EvaluationClient) Close(ctx context.Context) error {
 	close(e.stopPolling)

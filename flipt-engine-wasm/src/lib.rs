@@ -1,6 +1,6 @@
 use fliptevaluation::error::Error;
 use fliptevaluation::models::source;
-use fliptevaluation::store::Snapshot;
+use fliptevaluation::store::{Snapshot, Store};
 use fliptevaluation::{
     batch_evaluation, boolean_evaluation, variant_evaluation, EvaluationRequest,
 };
@@ -8,8 +8,6 @@ use libc::c_void;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
-use std::ffi::CStr;
-use std::os::raw::c_char;
 use thiserror::Error;
 
 #[derive(Deserialize)]
@@ -47,11 +45,12 @@ pub enum WASMError {
     NullPointer,
 }
 
-impl<T> From<Result<T, Error>> for WASMResponse<T>
+impl<T, E> From<Result<T, E>> for WASMResponse<T>
 where
     T: Serialize,
+    E: std::error::Error,
 {
-    fn from(value: Result<T, Error>) -> Self {
+    fn from(value: Result<T, E>) -> Self {
         match value {
             Ok(result) => WASMResponse {
                 status: Status::Success,
@@ -67,7 +66,7 @@ where
     }
 }
 
-fn result_to_string<T: Serialize>(result: Result<T, Error>) -> String {
+fn result_to_string<T: Serialize, E: std::error::Error>(result: Result<T, E>) -> String {
     let wasm_response: WASMResponse<T> = result.into();
     serde_json::to_string(&wasm_response).unwrap()
 }
@@ -97,12 +96,12 @@ impl Engine {
     }
 
     pub fn evaluate_boolean(&self, request: &EvaluationRequest) -> Result<String, Error> {
-        let result = boolean_evaluation(&self.store, &self.namespace, &request)?;
+        let result = boolean_evaluation(&self.store, &self.namespace, request)?;
         serde_json::to_string(&result).map_err(|e| Error::InvalidJSON(e.to_string()))
     }
 
     pub fn evaluate_variant(&self, request: &EvaluationRequest) -> Result<String, Error> {
-        let result = variant_evaluation(&self.store, &self.namespace, &request)?;
+        let result = variant_evaluation(&self.store, &self.namespace, request)?;
         serde_json::to_string(&result).map_err(|e| Error::InvalidJSON(e.to_string()))
     }
 
@@ -111,6 +110,11 @@ impl Engine {
         request: Vec<fliptevaluation::EvaluationRequest>,
     ) -> Result<String, Error> {
         let result = batch_evaluation(&self.store, &self.namespace, request)?;
+        serde_json::to_string(&result).map_err(|e| Error::InvalidJSON(e.to_string()))
+    }
+
+    pub fn list_flags(&self) -> Result<String, Error> {
+        let result = self.store.list_flags(&self.namespace);
         serde_json::to_string(&result).map_err(|e| Error::InvalidJSON(e.to_string()))
     }
 }
@@ -176,7 +180,7 @@ pub unsafe extern "C" fn evaluate_variant(
     let result = result_to_string(e.evaluate_variant(&request));
     let (ptr, len) = string_to_ptr(&result);
     std::mem::forget(result); // host owns the string now and must deallocate it
-    return ((ptr as u64) << 32) | len as u64; // return u64 with ptr and len as high and low bits
+    ((ptr as u64) << 32) | len as u64 // return u64 with ptr and len as high and low bits
 }
 
 /// # Safety
@@ -200,7 +204,7 @@ pub unsafe extern "C" fn evaluate_boolean(
     let result = result_to_string(e.evaluate_boolean(&request));
     let (ptr, len) = string_to_ptr(&result);
     std::mem::forget(result); // host owns the string now and must deallocate it
-    return ((ptr as u64) << 32) | len as u64; // return u64 with ptr and len as high and low bits
+    ((ptr as u64) << 32) | len as u64 // return u64 with ptr and len as high and low bits
 }
 
 /// # Safety
@@ -223,7 +227,38 @@ pub unsafe extern "C" fn evaluate_batch(
     let result = result_to_string(e.evaluate_batch(requests));
     let (ptr, len) = string_to_ptr(&result);
     std::mem::forget(result); // host owns the string now and must deallocate it
-    return ((ptr as u64) << 32) | len as u64; // return u64 with ptr and len as high and low bits
+    ((ptr as u64) << 32) | len as u64 // return u64 with ptr and len as high and low bits
+}
+
+/// # Safety
+///
+/// This function will return a list of flags.
+#[no_mangle]
+pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> u64 {
+    let e = get_engine(engine_ptr).unwrap();
+    let result = result_to_string(e.list_flags());
+    let (ptr, len) = string_to_ptr(&result);
+    std::mem::forget(result); // host owns the string now and must deallocate it
+    ((ptr as u64) << 32) | len as u64 // return u64 with ptr and len as high and low bits
+}
+
+/// # Safety
+///
+/// This function will take in a pointer to the engine and snapshot.
+#[no_mangle]
+pub unsafe extern "C" fn snapshot(
+    engine_ptr: *mut c_void,
+    snapshot_ptr: *const u8,
+    snapshot_len: usize,
+) -> u64 {
+    let e = get_engine(engine_ptr).unwrap();
+    let snapshot = unsafe {
+        std::str::from_utf8_unchecked(std::slice::from_raw_parts(snapshot_ptr, snapshot_len))
+    };
+    let result = result_to_string(e.snapshot(snapshot));
+    let (ptr, len) = string_to_ptr(&result);
+    std::mem::forget(result); // host owns the string now and must deallocate it
+    ((ptr as u64) << 32) | len as u64 // return u64 with ptr and len as high and low bits
 }
 
 /// # Safety
@@ -253,8 +288,8 @@ pub extern "C" fn allocate(size: usize) -> *mut c_void {
 ///
 /// This function will free the memory occupied by the engine.
 #[no_mangle]
-pub extern "C" fn deallocate(ptr: *mut c_void, size: usize) {
-    let buf = unsafe { Vec::from_raw_parts(ptr, size, size) };
+pub unsafe extern "C" fn deallocate(ptr: *mut c_void, size: usize) {
+    let buf = Vec::from_raw_parts(ptr, size, size);
     std::mem::drop(buf);
 }
 
@@ -310,5 +345,5 @@ unsafe fn get_batch_evaluation_request(batch_evaluation_request: &str) -> Vec<Ev
 /// Note: This doesn't change the ownership of the String. To intentionally
 /// leak it, use [`std::mem::forget`] on the input after calling this.
 unsafe fn string_to_ptr(s: &str) -> (u32, u32) {
-    return (s.as_ptr() as u32, s.len() as u32);
+    (s.as_ptr() as u32, s.len() as u32)
 }
