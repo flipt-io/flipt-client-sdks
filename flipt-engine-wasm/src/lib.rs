@@ -101,21 +101,21 @@ impl Engine {
         &self,
         request: &EvaluationRequest,
     ) -> Result<BooleanEvaluationResponse, Error> {
-        Ok(boolean_evaluation(&self.store, &self.namespace, request)?)
+        boolean_evaluation(&self.store, &self.namespace, request)
     }
 
     pub fn evaluate_variant(
         &self,
         request: &EvaluationRequest,
     ) -> Result<VariantEvaluationResponse, Error> {
-        Ok(variant_evaluation(&self.store, &self.namespace, request)?)
+        variant_evaluation(&self.store, &self.namespace, request)
     }
 
     pub fn evaluate_batch(
         &self,
         request: Vec<fliptevaluation::EvaluationRequest>,
     ) -> Result<BatchEvaluationResponse, Error> {
-        Ok(batch_evaluation(&self.store, &self.namespace, request)?)
+        batch_evaluation(&self.store, &self.namespace, request)
     }
 
     pub fn list_flags(&self) -> Result<Option<Vec<Flag>>, Error> {
