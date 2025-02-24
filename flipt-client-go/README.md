@@ -104,8 +104,21 @@ The `Client` supports the following authentication strategies:
 
 The `Client` supports the following error strategies:
 
-- `Fail`: The client will throw an error if the flag state cannot be fetched. This is the default behavior.
+- `Fail`: The client will return an error for any method calls if the flag state cannot be fetched. This is the default behavior.
 - `Fallback`: The client will maintain the last known good state and use that state for evaluation in case of an error.
+
+### `Err` Method
+
+The `Err` method can be used to check the last error that occurred regardless of the error strategy. This allows you to handle errors in a more flexible way and decide what to do based on the error.
+
+```go
+err := evaluationClient.Err()
+if err != nil {
+  log.Fatal(err)
+}
+```
+
+In the case of non-fetch related errors, the client will stop polling or streaming for flag state changes and return the error for all subsequent method calls.
 
 ## Memory Management
 
