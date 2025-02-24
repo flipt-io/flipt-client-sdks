@@ -142,16 +142,23 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 	)
 
 	client := &EvaluationClient{
-		runtime:        runtime,
-		mod:            mod,
+		runtime: runtime,
+		mod:     mod,
+
+		// default values
 		namespace:      "default",
 		url:            "http://localhost:8080",
-		httpClient:     &http.Client{},
 		updateInterval: 2 * time.Minute, // default 120 seconds
-		stopPolling:    make(chan struct{}),
-		allocFunc:      allocFunc,
-		deallocFunc:    deallocFunc,
-		snapshotFunc:   snapshotFunc,
+		errorStrategy:  ErrorStrategyFail,
+		fetchMode:      FetchModePolling,
+
+		httpClient:  &http.Client{},
+		stopPolling: make(chan struct{}),
+
+		// cache WASM functions
+		allocFunc:    allocFunc,
+		deallocFunc:  deallocFunc,
+		snapshotFunc: snapshotFunc,
 	}
 
 	for _, opt := range opts {
