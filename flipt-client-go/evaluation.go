@@ -24,6 +24,12 @@ var (
 
 const statusSuccess = "success"
 
+type snapshot struct {
+	payload string
+	etag    string
+	err     error
+}
+
 // EvaluationClient wraps the functionality of evaluating Flipt feature flags.
 type EvaluationClient struct {
 	runtime wazero.Runtime
@@ -41,10 +47,13 @@ type EvaluationClient struct {
 	fetchMode      FetchMode
 	errorStrategy  ErrorStrategy
 
-	httpClient  *http.Client
-	etag        string
-	err         error
-	stopPolling chan struct{}
+	httpClient *http.Client
+	etag       string
+	err        error
+
+	wg        sync.WaitGroup
+	done      chan struct{}
+	snapshots chan snapshot
 
 	// cached WASM functions
 	allocFunc    api.Function
@@ -79,7 +88,9 @@ func WithRef(ref string) ClientOption {
 // WithUpdateInterval allows for specifying how often flag state data should be fetched from an upstream Flipt instance.
 func WithUpdateInterval(updateInterval time.Duration) ClientOption {
 	return func(c *EvaluationClient) {
-		c.updateInterval = updateInterval
+		if updateInterval > 0 {
+			c.updateInterval = updateInterval
+		}
 	}
 }
 
@@ -152,8 +163,9 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 		errorStrategy:  ErrorStrategyFail,
 		fetchMode:      FetchModePolling,
 
-		httpClient:  &http.Client{},
-		stopPolling: make(chan struct{}),
+		httpClient: &http.Client{},
+		done:       make(chan struct{}),
+		snapshots:  make(chan snapshot, 1),
 
 		// cache WASM functions
 		allocFunc:    allocFunc,
@@ -205,27 +217,29 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 	}
 
 	// fetch initial state
-	payload, err := client.fetchSnapshot(ctx)
-	if err != nil {
+	snapshot := client.fetchSnapshot(ctx, "")
+	if snapshot.err != nil {
 		cleanup = true
-		return nil, fmt.Errorf("failed to fetch initial state: %w", err)
+		return nil, fmt.Errorf("failed to fetch initial state: %w", snapshot.err)
 	}
 
+	client.etag = snapshot.etag
+
 	// allocate payload
-	pmPtr, err := allocFunc.Call(ctx, uint64(len(payload)))
+	pmPtr, err := allocFunc.Call(ctx, uint64(len(snapshot.payload)))
 	if err != nil {
 		cleanup = true
 		return nil, fmt.Errorf("failed to allocate memory for payload: %w", err)
 	}
-	allocations = append(allocations, allocation{pmPtr[0], uint64(len(payload))})
+	allocations = append(allocations, allocation{pmPtr[0], uint64(len(snapshot.payload))})
 
-	if !mod.Memory().Write(uint32(pmPtr[0]), []byte(payload)) {
+	if !mod.Memory().Write(uint32(pmPtr[0]), []byte(snapshot.payload)) {
 		cleanup = true
 		return nil, fmt.Errorf("failed to write payload to memory")
 	}
 
 	// initialize engine
-	res, err := initializeEngine.Call(ctx, nsPtr[0], uint64(len(client.namespace)), pmPtr[0], uint64(len(payload)))
+	res, err := initializeEngine.Call(ctx, nsPtr[0], uint64(len(client.namespace)), pmPtr[0], uint64(len(snapshot.payload)))
 	if err != nil {
 		cleanup = true
 		return nil, fmt.Errorf("failed to initialize engine: %w", err)
@@ -234,9 +248,17 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 	enginePtr := res[0]
 	client.engine = uint32(enginePtr)
 
-	// start background polling if interval > 0
-	if client.updateInterval > 0 {
+	client.wg.Add(1)
+	go client.handleUpdates(ctx)
+
+	client.wg.Add(1)
+	switch client.fetchMode {
+	case FetchModeStreaming:
+		go client.startStreaming(ctx)
+	case FetchModePolling:
 		go client.startPolling(ctx)
+	default:
+		return nil, fmt.Errorf("invalid fetch mode: %s", client.fetchMode)
 	}
 
 	return client, nil
@@ -393,9 +415,14 @@ func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 
 // Close cleans up the allocated resources.
 func (e *EvaluationClient) Close(ctx context.Context) (err error) {
-	close(e.stopPolling)
+	// signal background goroutines to stop
+	close(e.done)
+
+	// wait for all background goroutines to finish
+	e.wg.Wait()
 
 	if e.engine != 0 {
+		// destroy engine
 		dealloc := e.mod.ExportedFunction("destroy_engine")
 		dealloc.Call(ctx, uint64(e.engine))
 	}
@@ -411,7 +438,7 @@ func decodePtr(ptr uint64) (uint32, uint32) {
 // unexported methods
 
 // fetchSnapshot fetches the snapshot for the given namespace.
-func (e *EvaluationClient) fetchSnapshot(ctx context.Context) (string, error) {
+func (e *EvaluationClient) fetchSnapshot(ctx context.Context, etag string) snapshot {
 	url := fmt.Sprintf("%s/internal/v1/evaluation/snapshot/namespace/%s", e.url, e.namespace)
 	if e.ref != "" {
 		url = fmt.Sprintf("%s?reference=%s", url, e.ref)
@@ -419,7 +446,7 @@ func (e *EvaluationClient) fetchSnapshot(ctx context.Context) (string, error) {
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return snapshot{err: fmt.Errorf("failed to create request: %w", err)}
 	}
 
 	req.Header.Set("Accept", "application/json")
@@ -434,43 +461,91 @@ func (e *EvaluationClient) fetchSnapshot(ctx context.Context) (string, error) {
 		}
 	}
 
-	e.mu.RLock()
-	if e.etag != "" {
-		req.Header.Set("If-None-Match", e.etag)
+	if etag != "" {
+		req.Header.Set("If-None-Match", etag)
 	}
-	e.mu.RUnlock()
 
 	resp, err := e.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch snapshot: %w", err)
+		return snapshot{err: fmt.Errorf("failed to fetch snapshot: %w", err)}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotModified {
-		return "", nil
+		return snapshot{err: nil}
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	// store etag if present
-	if etag := resp.Header.Get("ETag"); etag != "" {
-		e.mu.Lock()
-		e.etag = etag
-		e.mu.Unlock()
+		return snapshot{err: fmt.Errorf("unexpected status code: %d", resp.StatusCode)}
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
+		return snapshot{err: fmt.Errorf("failed to read response body: %w", err)}
 	}
 
-	return string(body), nil
+	etag = resp.Header.Get("ETag")
+	return snapshot{payload: string(body), etag: etag, err: nil}
+}
+
+func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
+	defer e.wg.Done()
+
+	for {
+		select {
+		case <-ctx.Done():
+			close(e.snapshots)
+			return nil
+		case <-e.done:
+			close(e.snapshots)
+			return nil
+		case s, ok := <-e.snapshots:
+			if !ok {
+				// we are likely shutting down
+				return nil
+			}
+
+			e.mu.Lock()
+			e.etag = s.etag
+			e.err = s.err
+			e.mu.Unlock()
+
+			// skip update if error
+			if s.err != nil {
+				continue
+			}
+
+			// skip update if no changes (304 response)
+			if s.payload == "" {
+				continue
+			}
+
+			pmPtr, err := e.allocFunc.Call(ctx, uint64(len(s.payload)))
+			if err != nil {
+				return fmt.Errorf("failed to allocate memory for payload: %w", err)
+			}
+
+			if !e.mod.Memory().Write(uint32(pmPtr[0]), []byte(s.payload)) {
+				e.deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
+				return fmt.Errorf("failed to write payload to memory")
+			}
+
+			_, err = e.snapshotFunc.Call(ctx, uint64(e.engine), pmPtr[0], uint64(len(s.payload)))
+			if err != nil {
+				e.deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
+				return fmt.Errorf("failed to update engine: %w", err)
+			}
+
+			// dont defer in loop to avoid stack overflow
+			e.deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
+		}
+	}
 }
 
 // startPolling starts the background polling for the given update interval.
 func (e *EvaluationClient) startPolling(ctx context.Context) error {
+	defer e.wg.Done()
+
 	ticker := time.NewTicker(e.updateInterval)
 	defer ticker.Stop()
 
@@ -478,51 +553,25 @@ func (e *EvaluationClient) startPolling(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-e.stopPolling:
+		case <-e.done:
 			return nil
 		case <-ticker.C:
-			payload, err := e.fetchSnapshot(ctx)
-			if err != nil {
-				e.mu.Lock()
-				e.etag = ""
-				if e.errorStrategy == ErrorStrategyFail {
-					// track error to return on next evaluation
-					e.err = err
-				}
-				e.mu.Unlock()
-				return fmt.Errorf("failed to fetch snapshot: %w", err)
-			} else {
-				// reset error if fetch was successful
-				e.mu.Lock()
-				e.err = nil
-				e.mu.Unlock()
-			}
+			e.mu.RLock()
+			etag := e.etag
+			e.mu.RUnlock()
 
-			// skip update if no changes (304 response)
-			if payload == "" {
-				continue
-			}
-
-			pmPtr, err := e.allocFunc.Call(ctx, uint64(len(payload)))
-			if err != nil {
-				return fmt.Errorf("failed to allocate memory for payload: %w", err)
-			}
-
-			if !e.mod.Memory().Write(uint32(pmPtr[0]), []byte(payload)) {
-				e.deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(payload)))
-				return fmt.Errorf("failed to write payload to memory")
-			}
-
-			_, err = e.snapshotFunc.Call(ctx, uint64(e.engine), pmPtr[0], uint64(len(payload)))
-			if err != nil {
-				e.deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(payload)))
-				return fmt.Errorf("failed to update engine: %w", err)
-			}
-
-			// dont defer in loop to avoid stack overflow
-			e.deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(payload)))
+			e.snapshots <- e.fetchSnapshot(ctx, etag)
 		}
 	}
+}
+
+// startStreaming starts the background streaming.
+func (e *EvaluationClient) startStreaming(_ context.Context) error {
+	defer e.wg.Done()
+
+	// TODO: implement streaming
+
+	return nil
 }
 
 // evaluateWASM evaluates the given function name with the given request.
