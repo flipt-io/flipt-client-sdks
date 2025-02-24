@@ -1,6 +1,7 @@
 package evaluation
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -437,57 +438,6 @@ func decodePtr(ptr uint64) (uint32, uint32) {
 
 // unexported methods
 
-// fetchSnapshot fetches the snapshot for the given namespace.
-func (e *EvaluationClient) fetchSnapshot(ctx context.Context, etag string) snapshot {
-	url := fmt.Sprintf("%s/internal/v1/evaluation/snapshot/namespace/%s", e.url, e.namespace)
-	if e.ref != "" {
-		url = fmt.Sprintf("%s?reference=%s", url, e.ref)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return snapshot{err: fmt.Errorf("failed to create request: %w", err)}
-	}
-
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("x-flipt-accept-server-version", "1.47.0")
-
-	if e.authentication != nil {
-		switch auth := e.authentication.(type) {
-		case clientTokenAuthentication:
-			req.Header.Set("Authorization", "Bearer "+auth.Token)
-		case jwtAuthentication:
-			req.Header.Set("Authorization", "JWT "+auth.Token)
-		}
-	}
-
-	if etag != "" {
-		req.Header.Set("If-None-Match", etag)
-	}
-
-	resp, err := e.httpClient.Do(req)
-	if err != nil {
-		return snapshot{err: fmt.Errorf("failed to fetch snapshot: %w", err)}
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotModified {
-		return snapshot{err: nil}
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return snapshot{err: fmt.Errorf("unexpected status code: %d", resp.StatusCode)}
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return snapshot{err: fmt.Errorf("failed to read response body: %w", err)}
-	}
-
-	etag = resp.Header.Get("ETag")
-	return snapshot{payload: string(body), etag: etag, err: nil}
-}
-
 func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 	defer e.wg.Done()
 
@@ -567,13 +517,128 @@ func (e *EvaluationClient) startPolling(ctx context.Context) error {
 	}
 }
 
+// fetchSnapshot fetches the snapshot for the given namespace.
+func (e *EvaluationClient) fetchSnapshot(ctx context.Context, etag string) snapshot {
+	url := fmt.Sprintf("%s/internal/v1/evaluation/snapshot/namespace/%s", e.url, e.namespace)
+	if e.ref != "" {
+		url = fmt.Sprintf("%s?reference=%s", url, e.ref)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return snapshot{err: fmt.Errorf("failed to create request: %w", err)}
+	}
+
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("x-flipt-accept-server-version", "1.47.0")
+
+	if e.authentication != nil {
+		switch auth := e.authentication.(type) {
+		case clientTokenAuthentication:
+			req.Header.Set("Authorization", "Bearer "+auth.Token)
+		case jwtAuthentication:
+			req.Header.Set("Authorization", "JWT "+auth.Token)
+		}
+	}
+
+	if etag != "" {
+		req.Header.Set("If-None-Match", etag)
+	}
+
+	resp, err := e.httpClient.Do(req)
+	if err != nil {
+		return snapshot{err: fmt.Errorf("failed to fetch snapshot: %w", err)}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotModified {
+		return snapshot{err: nil}
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return snapshot{err: fmt.Errorf("unexpected status code: %d", resp.StatusCode)}
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return snapshot{err: fmt.Errorf("failed to read response body: %w", err)}
+	}
+
+	etag = resp.Header.Get("ETag")
+	return snapshot{payload: string(body), etag: etag, err: nil}
+}
+
+type streamChunk struct {
+	Result streamResult
+}
+
+type streamResult struct {
+	Namespaces map[string]string
+}
+
 // startStreaming starts the background streaming.
-func (e *EvaluationClient) startStreaming(_ context.Context) error {
+func (e *EvaluationClient) startStreaming(ctx context.Context) error {
 	defer e.wg.Done()
 
-	// TODO: implement streaming
+	url := fmt.Sprintf("%s/internal/v1/evaluation/snapshots?[]namespaces=%s", e.url, e.namespace)
 
-	return nil
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("x-flipt-accept-server-version", "1.47.0")
+
+	if e.authentication != nil {
+		switch auth := e.authentication.(type) {
+		case clientTokenAuthentication:
+			req.Header.Set("Authorization", "Bearer "+auth.Token)
+		case jwtAuthentication:
+			req.Header.Set("Authorization", "JWT "+auth.Token)
+		}
+	}
+
+	resp, err := e.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to fetch snapshot: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	reader := bufio.NewReader(resp.Body)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-e.done:
+			return nil
+		default:
+			line, err := reader.ReadBytes('\n')
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					// EOF is expected when the stream is closed
+					return nil
+				}
+
+				return fmt.Errorf("failed to read stream chunk: %w", err)
+			}
+
+			var chunk streamChunk
+			if err := json.Unmarshal(line, &chunk); err != nil {
+				return fmt.Errorf("failed to unmarshal stream chunk: %w", err)
+			}
+
+			for ns, payload := range chunk.Result.Namespaces {
+				if ns == e.namespace {
+					e.snapshots <- snapshot{payload: payload}
+				}
+			}
+		}
+	}
 }
 
 // evaluateWASM evaluates the given function name with the given request.
