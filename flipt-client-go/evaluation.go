@@ -23,9 +23,10 @@ var (
 
 const statusSuccess = "success"
 
-// EvaluationClient wraps the functionality of making variant and boolean evaluation of Flipt feature flags.
+// EvaluationClient wraps the functionality of evaluating Flipt feature flags.
 type EvaluationClient struct {
-	mod api.Module
+	runtime wazero.Runtime
+	mod     api.Module
 
 	engine    uint32
 	namespace string
@@ -113,18 +114,22 @@ func NewEvaluationClient(ctx context.Context, opts ...clientOption) (*Evaluation
 
 	compiled, err := runtime.CompileModule(ctx, wasm)
 	if err != nil {
+		runtime.Close(ctx)
 		return nil, fmt.Errorf("failed to compile and load evaluation engine: %w", err)
 	}
 
 	cfg := wazero.NewModuleConfig().WithName("flipt_engine")
 	mod, err := runtime.InstantiateModule(ctx, compiled, cfg)
 	if err != nil {
+		runtime.Close(ctx)
 		return nil, fmt.Errorf("can't instantiate Wasm module: %w", err)
 	}
 
 	client := &EvaluationClient{
+		runtime:        runtime,
 		mod:            mod,
 		namespace:      "default",
+		url:            "http://localhost:8080",
 		httpClient:     &http.Client{},
 		updateInterval: 2 * time.Minute, // default 120 seconds
 		stopPolling:    make(chan struct{}),
@@ -135,43 +140,76 @@ func NewEvaluationClient(ctx context.Context, opts ...clientOption) (*Evaluation
 	}
 
 	if client.namespace == "" {
+		mod.Close(ctx)
+		runtime.Close(ctx)
 		return nil, fmt.Errorf("namespace cannot be empty")
+	}
+
+	var (
+		alloc            = mod.ExportedFunction("allocate")
+		dealloc          = mod.ExportedFunction("deallocate")
+		initializeEngine = mod.ExportedFunction("initialize_engine")
+	)
+
+	type allocation struct {
+		ptr  uint64
+		size uint64
+	}
+
+	// track allocations that need to be freed in case of error
+	var allocations []allocation
+
+	// cleanup function that only runs if we return an error
+	var cleanup bool
+	defer func() {
+		if cleanup {
+			for _, a := range allocations {
+				dealloc.Call(ctx, a.ptr, a.size)
+			}
+			client.Close(ctx)
+		}
+	}()
+
+	// allocate namespace
+	nsPtr, err := alloc.Call(ctx, uint64(len(client.namespace)))
+	if err != nil {
+		cleanup = true
+		return nil, fmt.Errorf("failed to allocate memory for namespace: %w", err)
+	}
+	allocations = append(allocations, allocation{nsPtr[0], uint64(len(client.namespace))})
+
+	if !mod.Memory().Write(uint32(nsPtr[0]), []byte(client.namespace)) {
+		cleanup = true
+		return nil, fmt.Errorf("failed to write namespace to memory")
 	}
 
 	// fetch initial state
 	payload, err := client.fetchSnapshot(ctx)
 	if err != nil {
+		cleanup = true
 		return nil, fmt.Errorf("failed to fetch initial state: %w", err)
 	}
 
-	// initialize engine with fetched state
-	var (
-		alloc            = mod.ExportedFunction("allocate")
-		initializeEngine = mod.ExportedFunction("initialize_engine")
-	)
-
-	nsPtr, err := alloc.Call(ctx, uint64(len(client.namespace)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to allocate memory for namespace: %w", err)
-	}
-
-	if !mod.Memory().Write(uint32(nsPtr[0]), []byte(client.namespace)) {
-		return nil, fmt.Errorf("failed to write namespace to memory")
-	}
-
+	// allocate payload
 	pmPtr, err := alloc.Call(ctx, uint64(len(payload)))
 	if err != nil {
+		cleanup = true
 		return nil, fmt.Errorf("failed to allocate memory for payload: %w", err)
 	}
+	allocations = append(allocations, allocation{pmPtr[0], uint64(len(payload))})
 
 	if !mod.Memory().Write(uint32(pmPtr[0]), []byte(payload)) {
+		cleanup = true
 		return nil, fmt.Errorf("failed to write payload to memory")
 	}
 
+	// initialize engine
 	res, err := initializeEngine.Call(ctx, nsPtr[0], uint64(len(client.namespace)), pmPtr[0], uint64(len(payload)))
 	if err != nil {
+		cleanup = true
 		return nil, fmt.Errorf("failed to initialize engine: %w", err)
 	}
+
 	enginePtr := res[0]
 	client.engine = uint32(enginePtr)
 
@@ -302,7 +340,11 @@ func (e *EvaluationClient) EvaluateVariant(ctx context.Context, flagKey, entityI
 
 	var variantResult *VariantResult
 	if err := json.Unmarshal(result, &variantResult); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal variant result: %w", err)
+	}
+
+	if variantResult == nil {
+		return nil, errors.New("failed to unmarshal variant result: nil")
 	}
 
 	if variantResult.Status != statusSuccess {
@@ -327,7 +369,11 @@ func (e *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityI
 
 	var booleanResult *BooleanResult
 	if err := json.Unmarshal(result, &booleanResult); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal boolean result: %w", err)
+	}
+
+	if booleanResult == nil {
+		return nil, errors.New("failed to unmarshal boolean result: nil")
 	}
 
 	if booleanResult.Status != statusSuccess {
@@ -346,7 +392,11 @@ func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*Evalua
 
 	var batchResult *BatchResult
 	if err := json.Unmarshal(result, &batchResult); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal batch result: %w", err)
+	}
+
+	if batchResult == nil {
+		return nil, errors.New("failed to unmarshal batch result: nil")
 	}
 
 	if batchResult.Status != statusSuccess {
@@ -356,8 +406,49 @@ func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*Evalua
 	return batchResult.Result, nil
 }
 
+// ListFlags lists all flags.
+func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
+	if e.engine == 0 {
+		return nil, errors.New("engine not initialized")
+	}
+
+	evalFunc := e.mod.ExportedFunction("list_flags")
+	res, err := evalFunc.Call(ctx, uint64(e.engine))
+	if err != nil {
+		return nil, fmt.Errorf("failed to call list_flags: %w", err)
+	}
+
+	if len(res) < 1 {
+		return nil, fmt.Errorf("failed to call list_flags: no result returned")
+	}
+
+	dealloc := e.mod.ExportedFunction("deallocate")
+	ptr, len := decodePtr(res[0])
+	defer dealloc.Call(ctx, uint64(ptr), uint64(len))
+
+	b, ok := e.mod.Memory().Read(ptr, len)
+	if !ok {
+		return nil, fmt.Errorf("failed to read result from memory")
+	}
+
+	var result *ListFlagsResult
+	if err := json.Unmarshal(b, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal flags: %w", err)
+	}
+
+	if result == nil {
+		return nil, errors.New("failed to unmarshal flags: nil")
+	}
+
+	if result.Status != statusSuccess {
+		return nil, errors.New(result.ErrorMessage)
+	}
+
+	return *result.Result, nil
+}
+
 // Close cleans up the allocated resources.
-func (e *EvaluationClient) Close(ctx context.Context) error {
+func (e *EvaluationClient) Close(ctx context.Context) (err error) {
 	close(e.stopPolling)
 
 	if e.engine != 0 {
@@ -365,7 +456,8 @@ func (e *EvaluationClient) Close(ctx context.Context) error {
 		dealloc.Call(ctx, uint64(e.engine))
 	}
 
-	return e.mod.Close(ctx)
+	_ = e.mod.Close(ctx)
+	return e.runtime.Close(ctx)
 }
 
 func decodePtr(ptr uint64) (uint32, uint32) {

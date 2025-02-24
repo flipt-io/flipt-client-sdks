@@ -196,6 +196,8 @@ func run() error {
 					testCase.engine = getWasmJSBuildContainer(ctx, client, hostDir, "nodejs")
 				case "browser", "react":
 					testCase.engine = getWasmJSBuildContainer(ctx, client, hostDir, "web")
+				case "go":
+					testCase.engine = getWasmBuildContainer(ctx, client, hostDir)
 				default:
 					testCase.engine = getFFIBuildContainer(ctx, client, hostDir)
 				}
@@ -280,25 +282,17 @@ func createBaseContainer(client *dagger.Client, config containerConfig) *dagger.
 func getFFIBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
 	const target = "x86_64-unknown-linux-musl"
 
-	var (
-		// Create cache volumes for Cargo
-		cargoRegistry = client.CacheVolume("cargo-registry-" + target)
-		cargoGit      = client.CacheVolume("cargo-git-" + target)
-		targetCache   = client.CacheVolume("cargo-target-" + target)
-	)
-
 	return client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform("linux/amd64"),
 	}).From("rust:1.83.0-bullseye"). // requires older version of glibc for best compatibility
-		// Mount cargo caches
-		WithMountedCache("/usr/local/cargo/registry", cargoRegistry).
-		WithMountedCache("/usr/local/cargo/git", cargoGit).
-		WithMountedCache("/src/target", targetCache).
-		WithExec(args("apt-get update")).
-		WithExec(args("apt-get install -y build-essential musl-dev musl-tools")).
-		WithWorkdir("/src").
-		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
-		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
+						WithExec(args("apt-get update")).
+						WithExec(args("apt-get install -y build-essential musl-dev musl-tools")).
+						WithWorkdir("/src").
+						WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
+						WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"pkg/", ".gitignore"},
+		}).
+		WithDirectory("/src/flipt-engine-wasm-js", hostDirectory.Directory("flipt-engine-wasm-js"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"pkg/", ".gitignore"},
 		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
@@ -308,25 +302,39 @@ func getFFIBuildContainer(_ context.Context, client *dagger.Client, hostDirector
 		WithExec(args("/src/flipt-engine-ffi/build.sh linux-x86_64"))
 }
 
+// getWasmBuildContainer builds the wasm module for the Rust core for the client libraries to run
+// their tests against.
+func getWasmBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
+	const target = "wasm32-wasip1"
+
+	return client.Container(dagger.ContainerOpts{
+		Platform: dagger.Platform("linux/amd64"),
+	}).From("rust:1.83.0-bullseye").
+		WithWorkdir("/src").
+		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
+		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"pkg/", ".gitignore"},
+		}).
+		WithDirectory("/src/flipt-engine-wasm-js", hostDirectory.Directory("flipt-engine-wasm-js"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"pkg/", ".gitignore"},
+		}).
+		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
+		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
+		WithExec(args("rustup target add " + target)).
+		WithExec(args("cargo build -p flipt-engine-wasm --release --target " + target)) // Build the wasm module
+}
+
 // getWasmJSBuildContainer builds the wasm module for the Rust core for the client libraries to run
 // their tests against.
 func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory, target string) *dagger.Container {
-	var (
-		// Create cache volumes for Cargo
-		cargoRegistry = client.CacheVolume("cargo-registry-" + target)
-		cargoGit      = client.CacheVolume("cargo-git-" + target)
-		targetCache   = client.CacheVolume("cargo-target-" + target)
-	)
-
 	container := client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform("linux/amd64"),
 	}).From("rust:1.83.0-bullseye").
-		// Mount cargo caches
-		WithMountedCache("/usr/local/cargo/registry", cargoRegistry).
-		WithMountedCache("/usr/local/cargo/git", cargoGit).
-		WithMountedCache("/src/target", targetCache).
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
+		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"pkg/", ".gitignore"},
+		}).
 		WithDirectory("/src/flipt-engine-wasm-js", hostDirectory.Directory("flipt-engine-wasm-js"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"pkg/", ".gitignore"},
 		}).
@@ -363,13 +371,12 @@ func goTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	_, err := root.
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-go")).
-		WithDirectory("/src/ext/linux_x86_64", t.engine.Directory("/tmp/ffi")).
-		WithFile("/src/ext/flipt_engine.h", t.engine.File(headerFile)).
+		WithFile("/src/ext/flipt_engine_wasm.wasm", t.engine.File("/src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm")).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec(args("go mod download")).
-		WithExec(args("go test -v ./...")).
+		WithExec(args("go test -v -timeout 30s ./...")).
 		Sync(ctx)
 
 	return err

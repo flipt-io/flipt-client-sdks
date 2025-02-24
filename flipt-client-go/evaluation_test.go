@@ -19,7 +19,7 @@ var (
 func init() {
 	fliptUrl = os.Getenv("FLIPT_URL")
 	if fliptUrl == "" {
-		panic("set FLIPT_URL")
+		fliptUrl = "http://localhost:8080"
 	}
 
 	authToken = os.Getenv("FLIPT_AUTH_TOKEN")
@@ -35,12 +35,8 @@ func init() {
 }
 
 func TestInvalidAuthentication(t *testing.T) {
-	client, err := flipt.NewEvaluationClient(context.TODO(), flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication("invalid"))
-	require.NoError(t, err)
-	_, err = client.EvaluateVariant(context.TODO(), "flag1", "someentity", map[string]string{
-		"fizz": "buzz",
-	})
-	assert.EqualError(t, err, "server error: response: HTTP status client error (401 Unauthorized) for url (http://flipt:8080/internal/v1/evaluation/snapshot/namespace/default)")
+	_, err := flipt.NewEvaluationClient(context.TODO(), flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication("invalid"))
+	assert.EqualError(t, err, "failed to fetch initial state: unexpected status code: 401")
 }
 
 func TestVariant(t *testing.T) {
@@ -114,13 +110,13 @@ func TestBatch(t *testing.T) {
 	assert.Equal(t, "NOT_FOUND_ERROR_EVALUATION_REASON", errorResponse.ErrorEvaluationResponse.Reason)
 }
 
-// func TestListFlags(t *testing.T) {
-// 	response, err := evaluationClient.ListFlags(context.TODO())
-// 	require.NoError(t, err)
+func TestListFlags(t *testing.T) {
+	response, err := evaluationClient.ListFlags(context.TODO())
+	require.NoError(t, err)
 
-// 	assert.NotEmpty(t, response)
-// 	assert.Equal(t, 2, len(response))
-// }
+	assert.NotEmpty(t, response)
+	assert.Equal(t, 2, len(response))
+}
 
 func TestVariantFailure(t *testing.T) {
 	_, err := evaluationClient.EvaluateVariant(context.TODO(), "nonexistent", "someentity", map[string]string{
