@@ -371,7 +371,7 @@ func goTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	_, err := root.
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-go")).
-		WithFile("/src/ext/flipt_engine_wasm.wasm", t.engine.File("/src/target/wasm32-wasip1/release/flipt_engine_wasm.opt.wasm")).
+		WithFile("/src/ext/flipt_engine_wasm.wasm", t.engine.File("/src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm")).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
