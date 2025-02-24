@@ -20,11 +20,13 @@ func init() {
 	opts := []flipt.ClientOption{}
 
 	if os.Getenv("FLIPT_URL") != "" {
-		opts = append(opts, flipt.WithURL(os.Getenv("FLIPT_URL")))
+		fliptUrl = os.Getenv("FLIPT_URL")
+		opts = append(opts, flipt.WithURL(fliptUrl))
 	}
 
 	if os.Getenv("FLIPT_AUTH_TOKEN") != "" {
-		opts = append(opts, flipt.WithClientTokenAuthentication(os.Getenv("FLIPT_AUTH_TOKEN")))
+		authToken = os.Getenv("FLIPT_AUTH_TOKEN")
+		opts = append(opts, flipt.WithClientTokenAuthentication(authToken))
 	}
 
 	var err error
