@@ -8,9 +8,7 @@ import (
 	flipt "go.flipt.io/flipt-client"
 )
 
-var (
-	benchClient *flipt.EvaluationClient
-)
+var benchClient *flipt.EvaluationClient
 
 func init() {
 	opts := []flipt.ClientOption{}
