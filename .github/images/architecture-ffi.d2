@@ -1,28 +1,28 @@
-go: {
+csharp: {
   shape: image
-  icon: https://icon.icepanel.io/Technology/svg/Go.svg
+  icon: ./icons/csharp.svg
 }
 
 ruby: {
   shape: image
-  icon: https://icon.icepanel.io/Technology/svg/Ruby.svg
+  icon: ./icons/ruby.svg
 }
 
 python: {
   shape: image
-  icon: https://icon.icepanel.io/Technology/svg/Python.svg
+  icon: ./icons/python.svg
 }
 
-typescript: {
+java: {
   shape: image
-  icon: https://icon.icepanel.io/Technology/svg/TypeScript.svg
+  icon: ./icons/java.svg
 }
 
 flipt-engine-ffi: {
   shape: square
   rust: {
     shape: image
-    icon: https://icon.icepanel.io/Technology/svg/Rust.svg
+    icon: ./icons/rust.svg
   }
 }
 
@@ -30,14 +30,14 @@ flipt-service: {
   shape: square
   flipt: {
     shape: image
-    icon: ./flipt.svg
+    icon: ./icons/flipt.svg
   }
 }
 
-go <-> flipt-engine-ffi
+csharp <-> flipt-engine-ffi
 ruby <-> flipt-engine-ffi
 python <-> flipt-engine-ffi
-typescript <-> flipt-engine-ffi
+java <-> flipt-engine-ffi
 
 flipt-engine-ffi <-> flipt-service: Evaluation State Sync {
   style: {

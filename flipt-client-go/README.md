@@ -1,7 +1,6 @@
 # Flipt Client Go
 
 [![Client tag](https://img.shields.io/github/v/tag/flipt-io/flipt-client-go?filter=v*&label=flipt-client-go)](https://github.com/flipt-io/flipt-client-go)
-[![Client tag (musl)](https://img.shields.io/github/v/tag/flipt-io/flipt-client-go?filter=musl-v*&label=flipt-client-go-musl)](https://github.com/flipt-io/flipt-client-go)
 [![Go Reference](https://pkg.go.dev/badge/go.flipt.io/flipt-client.svg)](https://pkg.go.dev/go.flipt.io/flipt-client)
 
 The `flipt-client-go` library contains the Go source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client.
@@ -14,9 +13,11 @@ go get go.flipt.io/flipt-client
 
 ## How Does It Work?
 
-The `flipt-client-go` library is a wrapper around the [flipt-engine-ffi](https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-engine-ffi) library.
+The `flipt-client-go` library is a wrapper around the [flipt-engine-wasm](https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-engine-wasm) library.
 
-All evaluation happens within the SDK, using the shared library built from the [flipt-engine-ffi](https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-engine-ffi) library.
+All evaluation happens within the SDK, using the shared library built from the [flipt-engine-wasm](https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-engine-wasm) library.
+
+We use the [Wazero](https://github.com/tetratelabs/wazero) library to load the WASM module and call the functions that are exported from the module. Wazero implements a WebAssembly runtime for Go without the need for using CGO.
 
 Because the evaluation happens within the SDK, the SDKs can be used in environments where the Flipt server is not available or reachable after the initial data is fetched.
 
@@ -39,24 +40,10 @@ When in streaming mode, the SDK will connect to the Flipt server and open a pers
 This SDK currently supports the following OSes/architectures:
 
 - Linux x86_64
-- Linux x86_64 (musl)
 - Linux arm64
-- Linux arm64 (musl)
 - MacOS x86_64
 - MacOS arm64
 - Windows x86_64
-
-### Glibc vs Musl
-
-Most Linux distributions use [Glibc](https://en.wikipedia.org/wiki/Glibc), but some distributions like Alpine Linux use [Musl](https://en.wikipedia.org/wiki/Musl). If you are using Alpine Linux, you will need to install the `musl` tagged version of the client.
-
-Example:
-
-```bash
-go get go.flipt.io/flipt-client@musl-v0.0.1
-```
-
-See [flipt-client-sdks #141](https://github.com/flipt-io/flipt-client-sdks/issues/141) for more information.
 
 ## Usage
 
@@ -74,7 +61,7 @@ import (
 )
 
 func main() {
-  evaluationClient, err := flipt.NewEvaluationClient()
+  evaluationClient, err := flipt.NewEvaluationClient(context.Background())
   if err != nil {
     log.Fatal(err)
   }
@@ -127,7 +114,7 @@ The engine that is allocated on the Rust side to compute evaluations for flag st
 **Please be sure to do this to avoid leaking memory!**
 
 ```go
-defer evaluationClient.Close()
+defer evaluationClient.Close(context.Background())
 ```
 
 ## Contributing
