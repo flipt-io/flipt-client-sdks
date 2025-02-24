@@ -67,6 +67,11 @@ export interface ClientOptions {
    */
   reference?: string;
   fetcher?: IFetcher;
+
+  /**
+   * The strategy to use for errors during refresh snapshot calls. {@link ErrorStrategy}
+   */
+  errorStrategy?: ErrorStrategy;
 }
 
 /**
@@ -190,4 +195,14 @@ export interface BatchEvaluationResponse {
   responses: EvaluationResponse[];
   /** Duration of the request in milliseconds. */
   requestDurationMillis: number;
+}
+
+/**
+ * Defines the strategy to handle errors during the flags snapshot update calls.
+ */
+export enum ErrorStrategy {
+  /** The client will throw an error if the flag state cannot be fetched. This is the default behavior. */
+  Fail = 'fail',
+  /** The client will maintain the last known good state and use that state for evaluation in case of an error. */
+  Fallback = 'fallback'
 }
