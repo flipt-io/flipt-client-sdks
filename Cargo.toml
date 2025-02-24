@@ -6,6 +6,9 @@ members = ["./flipt-engine-ffi", "./flipt-engine-wasm", "./flipt-engine-wasm-js"
 strip = true
 rpath = true
 
+[profile.release.package.flipt-engine-wasm]
+opt-level = "s"
+
 [profile.release.package.flipt-engine-wasm-js]
 opt-level = "s"
 

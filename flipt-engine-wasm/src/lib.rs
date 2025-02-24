@@ -1,8 +1,10 @@
 use fliptevaluation::error::Error;
+use fliptevaluation::models::flipt::Flag;
 use fliptevaluation::models::source;
 use fliptevaluation::store::{Snapshot, Store};
 use fliptevaluation::{
-    batch_evaluation, boolean_evaluation, variant_evaluation, EvaluationRequest,
+    batch_evaluation, boolean_evaluation, variant_evaluation, BatchEvaluationResponse,
+    BooleanEvaluationResponse, EvaluationRequest, VariantEvaluationResponse,
 };
 use libc::c_void;
 use serde::{Deserialize, Serialize};
@@ -95,27 +97,29 @@ impl Engine {
         Ok(())
     }
 
-    pub fn evaluate_boolean(&self, request: &EvaluationRequest) -> Result<String, Error> {
-        let result = boolean_evaluation(&self.store, &self.namespace, request)?;
-        serde_json::to_string(&result).map_err(|e| Error::InvalidJSON(e.to_string()))
+    pub fn evaluate_boolean(
+        &self,
+        request: &EvaluationRequest,
+    ) -> Result<BooleanEvaluationResponse, Error> {
+        Ok(boolean_evaluation(&self.store, &self.namespace, request)?)
     }
 
-    pub fn evaluate_variant(&self, request: &EvaluationRequest) -> Result<String, Error> {
-        let result = variant_evaluation(&self.store, &self.namespace, request)?;
-        serde_json::to_string(&result).map_err(|e| Error::InvalidJSON(e.to_string()))
+    pub fn evaluate_variant(
+        &self,
+        request: &EvaluationRequest,
+    ) -> Result<VariantEvaluationResponse, Error> {
+        Ok(variant_evaluation(&self.store, &self.namespace, request)?)
     }
 
     pub fn evaluate_batch(
         &self,
         request: Vec<fliptevaluation::EvaluationRequest>,
-    ) -> Result<String, Error> {
-        let result = batch_evaluation(&self.store, &self.namespace, request)?;
-        serde_json::to_string(&result).map_err(|e| Error::InvalidJSON(e.to_string()))
+    ) -> Result<BatchEvaluationResponse, Error> {
+        Ok(batch_evaluation(&self.store, &self.namespace, request)?)
     }
 
-    pub fn list_flags(&self) -> Result<String, Error> {
-        let result = self.store.list_flags(&self.namespace);
-        serde_json::to_string(&result).map_err(|e| Error::InvalidJSON(e.to_string()))
+    pub fn list_flags(&self) -> Result<Option<Vec<Flag>>, Error> {
+        Ok(self.store.list_flags(&self.namespace))
     }
 }
 
