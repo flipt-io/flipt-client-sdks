@@ -47,39 +47,39 @@ type EvaluationClient struct {
 	stopPolling chan struct{}
 }
 
-// clientOption adds additional configuration for Client parameters
-type clientOption func(*EvaluationClient)
+// ClientOption adds additional configuration for Client parameters
+type ClientOption func(*EvaluationClient)
 
 // WithNamespace allows for specifying which namespace the clients wants to make evaluations from.
-func WithNamespace(namespace string) clientOption {
+func WithNamespace(namespace string) ClientOption {
 	return func(c *EvaluationClient) {
 		c.namespace = namespace
 	}
 }
 
 // WithURL allows for configuring the URL of an upstream Flipt instance to fetch feature data.
-func WithURL(url string) clientOption {
+func WithURL(url string) ClientOption {
 	return func(c *EvaluationClient) {
 		c.url = url
 	}
 }
 
 // WithRef allows for specifying a reference to fetch feature data from.
-func WithRef(ref string) clientOption {
+func WithRef(ref string) ClientOption {
 	return func(c *EvaluationClient) {
 		c.ref = ref
 	}
 }
 
 // WithUpdateInterval allows for specifying how often flag state data should be fetched from an upstream Flipt instance.
-func WithUpdateInterval(updateInterval time.Duration) clientOption {
+func WithUpdateInterval(updateInterval time.Duration) ClientOption {
 	return func(c *EvaluationClient) {
 		c.updateInterval = updateInterval
 	}
 }
 
 // WithClientTokenAuthentication allows authenticating with Flipt using a static client token.
-func WithClientTokenAuthentication(token string) clientOption {
+func WithClientTokenAuthentication(token string) ClientOption {
 	return func(c *EvaluationClient) {
 		c.authentication = clientTokenAuthentication{
 			Token: token,
@@ -88,7 +88,7 @@ func WithClientTokenAuthentication(token string) clientOption {
 }
 
 // WithJWTAuthentication allows authenticating with Flipt using a JSON Web Token.
-func WithJWTAuthentication(token string) clientOption {
+func WithJWTAuthentication(token string) ClientOption {
 	return func(c *EvaluationClient) {
 		c.authentication = jwtAuthentication{
 			Token: token,
@@ -98,21 +98,21 @@ func WithJWTAuthentication(token string) clientOption {
 
 // WithFetchMode allows for specifying the fetch mode for the Flipt client (e.g. polling, streaming).
 // Note: Streaming is currently only supported when using the SDK with Flipt Cloud (https://flipt.io/cloud).
-func WithFetchMode(fetchMode FetchMode) clientOption {
+func WithFetchMode(fetchMode FetchMode) ClientOption {
 	return func(c *EvaluationClient) {
 		c.fetchMode = fetchMode
 	}
 }
 
 // WithErrorStrategy allows for specifying the error strategy for the Flipt client when fetching flag state (e.g. fail, fallback).
-func WithErrorStrategy(errorStrategy ErrorStrategy) clientOption {
+func WithErrorStrategy(errorStrategy ErrorStrategy) ClientOption {
 	return func(c *EvaluationClient) {
 		c.errorStrategy = errorStrategy
 	}
 }
 
 // NewEvaluationClient constructs a Client and performs an initial fetch of flag state.
-func NewEvaluationClient(ctx context.Context, opts ...clientOption) (*EvaluationClient, error) {
+func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*EvaluationClient, error) {
 	runtime := wazero.NewRuntime(ctx)
 	wasi_snapshot_preview1.MustInstantiate(ctx, runtime)
 

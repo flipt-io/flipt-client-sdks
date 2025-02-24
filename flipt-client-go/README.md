@@ -117,6 +117,31 @@ The engine that is allocated on the Rust side to compute evaluations for flag st
 defer evaluationClient.Close(context.Background())
 ```
 
+## Benchmarking
+
+The `flipt-client-go` library includes a benchmarking suite that can be used to test the performance of the SDK.
+
+To run the benchmarks, use the following command:
+
+```bash
+go test -benchmem -run='^$' -bench=. go.flipt.io/flipt-client
+```
+
+You should see output similar to the following:
+
+```
+goos: darwin
+goarch: arm64
+pkg: go.flipt.io/flipt-client
+cpu: Apple M1 Max
+BenchmarkVariantEvaluation-10    	  122054	      9892 ns/op	   36207 B/op	      36 allocs/op
+BenchmarkBooleanEvaluation-10    	  124194	      9141 ns/op	   36095 B/op	      34 allocs/op
+BenchmarkBatchEvaluation-10      	   62458	     19393 ns/op	   36490 B/op	      50 allocs/op
+BenchmarkListFlags-10            	  224454	      5464 ns/op	   23928 B/op	      25 allocs/op
+PASS
+ok  	go.flipt.io/flipt-client	5.746s
+```
+
 ## Contributing
 
 Contributions are welcome! Please feel free to open an issue or submit a Pull Request.

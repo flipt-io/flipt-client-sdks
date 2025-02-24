@@ -17,18 +17,18 @@ var (
 )
 
 func init() {
-	fliptUrl = os.Getenv("FLIPT_URL")
-	if fliptUrl == "" {
-		fliptUrl = "http://localhost:8080"
+	opts := []flipt.ClientOption{}
+
+	if os.Getenv("FLIPT_URL") != "" {
+		opts = append(opts, flipt.WithURL(os.Getenv("FLIPT_URL")))
 	}
 
-	authToken = os.Getenv("FLIPT_AUTH_TOKEN")
-	if authToken == "" {
-		panic("set FLIPT_AUTH_TOKEN")
+	if os.Getenv("FLIPT_AUTH_TOKEN") != "" {
+		opts = append(opts, flipt.WithClientTokenAuthentication(os.Getenv("FLIPT_AUTH_TOKEN")))
 	}
 
 	var err error
-	evaluationClient, err = flipt.NewEvaluationClient(context.TODO(), flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
+	evaluationClient, err = flipt.NewEvaluationClient(context.TODO(), opts...)
 	if err != nil {
 		panic(err)
 	}
