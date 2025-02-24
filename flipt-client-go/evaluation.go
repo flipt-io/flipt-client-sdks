@@ -45,6 +45,11 @@ type EvaluationClient struct {
 	etag        string
 	err         error
 	stopPolling chan struct{}
+
+	// cached WASM functions
+	allocFunc    api.Function
+	deallocFunc  api.Function
+	snapshotFunc api.Function
 }
 
 // ClientOption adds additional configuration for Client parameters
@@ -129,6 +134,13 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 		return nil, fmt.Errorf("can't instantiate Wasm module: %w", err)
 	}
 
+	var (
+		// cache common WASM functions
+		allocFunc    = mod.ExportedFunction("allocate")
+		deallocFunc  = mod.ExportedFunction("deallocate")
+		snapshotFunc = mod.ExportedFunction("snapshot")
+	)
+
 	client := &EvaluationClient{
 		runtime:        runtime,
 		mod:            mod,
@@ -137,6 +149,9 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 		httpClient:     &http.Client{},
 		updateInterval: 2 * time.Minute, // default 120 seconds
 		stopPolling:    make(chan struct{}),
+		allocFunc:      allocFunc,
+		deallocFunc:    deallocFunc,
+		snapshotFunc:   snapshotFunc,
 	}
 
 	for _, opt := range opts {
@@ -144,16 +159,11 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 	}
 
 	if client.namespace == "" {
-		mod.Close(ctx)
 		runtime.Close(ctx)
 		return nil, fmt.Errorf("namespace cannot be empty")
 	}
 
-	var (
-		alloc            = mod.ExportedFunction("allocate")
-		dealloc          = mod.ExportedFunction("deallocate")
-		initializeEngine = mod.ExportedFunction("initialize_engine")
-	)
+	var initializeEngine = mod.ExportedFunction("initialize_engine")
 
 	type allocation struct {
 		ptr  uint64
@@ -168,14 +178,14 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 	defer func() {
 		if cleanup {
 			for _, a := range allocations {
-				dealloc.Call(ctx, a.ptr, a.size)
+				deallocFunc.Call(ctx, a.ptr, a.size)
 			}
 			client.Close(ctx)
 		}
 	}()
 
 	// allocate namespace
-	nsPtr, err := alloc.Call(ctx, uint64(len(client.namespace)))
+	nsPtr, err := allocFunc.Call(ctx, uint64(len(client.namespace)))
 	if err != nil {
 		cleanup = true
 		return nil, fmt.Errorf("failed to allocate memory for namespace: %w", err)
@@ -195,7 +205,7 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 	}
 
 	// allocate payload
-	pmPtr, err := alloc.Call(ctx, uint64(len(payload)))
+	pmPtr, err := allocFunc.Call(ctx, uint64(len(payload)))
 	if err != nil {
 		cleanup = true
 		return nil, fmt.Errorf("failed to allocate memory for payload: %w", err)
@@ -350,9 +360,8 @@ func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 		return nil, fmt.Errorf("failed to call list_flags: no result returned")
 	}
 
-	dealloc := e.mod.ExportedFunction("deallocate")
 	ptr, len := decodePtr(res[0])
-	defer dealloc.Call(ctx, uint64(ptr), uint64(len))
+	defer e.deallocFunc.Call(ctx, uint64(ptr), uint64(len))
 
 	b, ok := e.mod.Memory().Read(ptr, len)
 	if !ok {
@@ -487,31 +496,24 @@ func (e *EvaluationClient) startPolling(ctx context.Context) error {
 				continue
 			}
 
-			// update engine with new state
-			var (
-				alloc    = e.mod.ExportedFunction("allocate")
-				dealloc  = e.mod.ExportedFunction("deallocate")
-				snapshot = e.mod.ExportedFunction("snapshot")
-			)
-
-			pmPtr, err := alloc.Call(ctx, uint64(len(payload)))
+			pmPtr, err := e.allocFunc.Call(ctx, uint64(len(payload)))
 			if err != nil {
 				return fmt.Errorf("failed to allocate memory for payload: %w", err)
 			}
 
 			if !e.mod.Memory().Write(uint32(pmPtr[0]), []byte(payload)) {
-				dealloc.Call(ctx, uint64(pmPtr[0]), uint64(len(payload)))
+				e.deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(payload)))
 				return fmt.Errorf("failed to write payload to memory")
 			}
 
-			_, err = snapshot.Call(ctx, uint64(e.engine), pmPtr[0], uint64(len(payload)))
+			_, err = e.snapshotFunc.Call(ctx, uint64(e.engine), pmPtr[0], uint64(len(payload)))
 			if err != nil {
-				dealloc.Call(ctx, uint64(pmPtr[0]), uint64(len(payload)))
+				e.deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(payload)))
 				return fmt.Errorf("failed to update engine: %w", err)
 			}
 
 			// dont defer in loop to avoid stack overflow
-			dealloc.Call(ctx, uint64(pmPtr[0]), uint64(len(payload)))
+			e.deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(payload)))
 		}
 	}
 }
@@ -527,16 +529,11 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	var (
-		alloc   = e.mod.ExportedFunction("allocate")
-		dealloc = e.mod.ExportedFunction("deallocate")
-	)
-
-	reqPtr, err := alloc.Call(ctx, uint64(len(reqBytes)))
+	reqPtr, err := e.allocFunc.Call(ctx, uint64(len(reqBytes)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to allocate memory for request: %w", err)
 	}
-	defer dealloc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
+	defer e.deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
 
 	if !e.mod.Memory().Write(uint32(reqPtr[0]), reqBytes) {
 		return nil, fmt.Errorf("failed to write request to memory")
@@ -553,7 +550,7 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 	}
 
 	ptr, len := decodePtr(res[0])
-	defer dealloc.Call(ctx, uint64(ptr), uint64(len))
+	defer e.deallocFunc.Call(ctx, uint64(ptr), uint64(len))
 
 	b, ok := e.mod.Memory().Read(ptr, len)
 	if !ok {
