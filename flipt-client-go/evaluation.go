@@ -228,7 +228,7 @@ func NewEvaluationClient(ctx context.Context, opts ...clientOption) (*Evaluation
 // EvaluateVariant performs evaluation for a variant flag.
 func (e *EvaluationClient) EvaluateVariant(ctx context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantEvaluationResponse, error) {
 	e.mu.RLock()
-	if e.err != nil {
+	if e.err != nil && e.errorStrategy == ErrorStrategyFail {
 		e.mu.RUnlock()
 		return nil, e.err
 	}
@@ -264,7 +264,7 @@ func (e *EvaluationClient) EvaluateVariant(ctx context.Context, flagKey, entityI
 // EvaluateBoolean performs evaluation for a boolean flag.
 func (e *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanEvaluationResponse, error) {
 	e.mu.RLock()
-	if e.err != nil {
+	if e.err != nil && e.errorStrategy == ErrorStrategyFail {
 		e.mu.RUnlock()
 		return nil, e.err
 	}
@@ -300,7 +300,7 @@ func (e *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityI
 // EvaluateBatch performs evaluation for a batch of flags.
 func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
 	e.mu.RLock()
-	if e.err != nil {
+	if e.err != nil && e.errorStrategy == ErrorStrategyFail {
 		e.mu.RUnlock()
 		return nil, e.err
 	}
@@ -330,7 +330,7 @@ func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*Evalua
 // ListFlags lists all flags.
 func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 	e.mu.RLock()
-	if e.err != nil {
+	if e.err != nil && e.errorStrategy == ErrorStrategyFail {
 		e.mu.RUnlock()
 		return nil, e.err
 	}
