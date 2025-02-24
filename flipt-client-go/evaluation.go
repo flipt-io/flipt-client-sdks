@@ -507,7 +507,9 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 
 			e.mu.Lock()
 			e.etag = s.etag
-			e.err = s.err
+			if s.err != nil && e.errorStrategy == ErrorStrategyFail {
+				e.err = s.err
+			}
 			e.mu.Unlock()
 
 			// skip update if error
