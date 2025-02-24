@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	//go:embed ext/flipt_engine_wasm.wasm
+	//go:embed ext/flipt_engine_wasm.opt.wasm
 	wasm []byte
 )
 

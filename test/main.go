@@ -310,6 +310,8 @@ func getWasmBuildContainer(_ context.Context, client *dagger.Client, hostDirecto
 	return client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform("linux/amd64"),
 	}).From("rust:1.83.0-bullseye").
+		WithExec(args("apt-get update")).
+		WithExec(args("apt-get install -y binaryen")).
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
@@ -321,7 +323,8 @@ func getWasmBuildContainer(_ context.Context, client *dagger.Client, hostDirecto
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
 		WithExec(args("rustup target add " + target)).
-		WithExec(args("cargo build -p flipt-engine-wasm --release --target " + target)) // Build the wasm module
+		WithExec(args("cargo build -p flipt-engine-wasm --release --target " + target)).                                                                        // Build the wasm module
+		WithExec(args("wasm-opt -O3 /src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm -o /src/target/wasm32-wasip1/release/flipt_engine_wasm.opt.wasm")) // Optimize the wasm module
 }
 
 // getWasmJSBuildContainer builds the wasm module for the Rust core for the client libraries to run
@@ -330,6 +333,8 @@ func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirec
 	container := client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform("linux/amd64"),
 	}).From("rust:1.83.0-bullseye").
+		WithExec(args("apt-get update")).
+		WithExec(args("apt-get install -y binaryen")).
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
@@ -371,7 +376,7 @@ func goTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	_, err := root.
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-go")).
-		WithFile("/src/ext/flipt_engine_wasm.wasm", t.engine.File("/src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm")).
+		WithFile("/src/ext/flipt_engine_wasm.wasm", t.engine.File("/src/target/wasm32-wasip1/release/flipt_engine_wasm.opt.wasm")).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
