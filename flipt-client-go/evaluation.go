@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	_ "embed"
@@ -27,6 +28,8 @@ const statusSuccess = "success"
 type EvaluationClient struct {
 	runtime wazero.Runtime
 	mod     api.Module
+	// guards access to etag and error state as they are shared between goroutines
+	mu sync.RWMutex
 
 	engine    uint32
 	namespace string
@@ -40,6 +43,7 @@ type EvaluationClient struct {
 
 	httpClient  *http.Client
 	etag        string
+	err         error
 	stopPolling chan struct{}
 }
 
@@ -107,7 +111,7 @@ func WithErrorStrategy(errorStrategy ErrorStrategy) clientOption {
 	}
 }
 
-// NewEvaluationClient constructs a Client.
+// NewEvaluationClient constructs a Client and performs an initial fetch of flag state.
 func NewEvaluationClient(ctx context.Context, opts ...clientOption) (*EvaluationClient, error) {
 	runtime := wazero.NewRuntime(ctx)
 	wasi_snapshot_preview1.MustInstantiate(ctx, runtime)
@@ -221,112 +225,15 @@ func NewEvaluationClient(ctx context.Context, opts ...clientOption) (*Evaluation
 	return client, nil
 }
 
-func (e *EvaluationClient) fetchSnapshot(ctx context.Context) (string, error) {
-	url := fmt.Sprintf("%s/internal/v1/evaluation/snapshot/namespace/%s", e.url, e.namespace)
-	if e.ref != "" {
-		url = fmt.Sprintf("%s?reference=%s", url, e.ref)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("x-flipt-accept-server-version", "1.47.0")
-
-	if e.authentication != nil {
-		switch auth := e.authentication.(type) {
-		case clientTokenAuthentication:
-			req.Header.Set("Authorization", "Bearer "+auth.Token)
-		case jwtAuthentication:
-			req.Header.Set("Authorization", "JWT "+auth.Token)
-		}
-	}
-
-	if e.etag != "" {
-		req.Header.Set("If-None-Match", e.etag)
-	}
-
-	resp, err := e.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch snapshot: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotModified {
-		return "", nil
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	// store etag if present
-	if etag := resp.Header.Get("ETag"); etag != "" {
-		e.etag = etag
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	return string(body), nil
-}
-
-func (e *EvaluationClient) startPolling(ctx context.Context) error {
-	ticker := time.NewTicker(e.updateInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-e.stopPolling:
-			return nil
-		case <-ticker.C:
-			payload, err := e.fetchSnapshot(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to fetch snapshot: %w", err)
-			}
-
-			// skip update if no changes (304 response)
-			if payload == "" {
-				continue
-			}
-
-			// update engine with new state
-			var (
-				alloc    = e.mod.ExportedFunction("allocate")
-				dealloc  = e.mod.ExportedFunction("deallocate")
-				snapshot = e.mod.ExportedFunction("snapshot") // TODO: implement in Rust
-			)
-
-			pmPtr, err := alloc.Call(ctx, uint64(len(payload)))
-			if err != nil {
-				return fmt.Errorf("failed to allocate memory for payload: %w", err)
-			}
-
-			if !e.mod.Memory().Write(uint32(pmPtr[0]), []byte(payload)) {
-				dealloc.Call(ctx, uint64(pmPtr[0]), uint64(len(payload)))
-				return fmt.Errorf("failed to write payload to memory")
-			}
-
-			_, err = snapshot.Call(ctx, uint64(e.engine), pmPtr[0], uint64(len(payload)))
-			if err != nil {
-				dealloc.Call(ctx, uint64(pmPtr[0]), uint64(len(payload)))
-				return fmt.Errorf("failed to update engine: %w", err)
-			}
-
-			// dont defer in loop to avoid stack overflow
-			dealloc.Call(ctx, uint64(pmPtr[0]), uint64(len(payload)))
-		}
-	}
-}
-
 // EvaluateVariant performs evaluation for a variant flag.
 func (e *EvaluationClient) EvaluateVariant(ctx context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantEvaluationResponse, error) {
+	e.mu.RLock()
+	if e.err != nil {
+		e.mu.RUnlock()
+		return nil, e.err
+	}
+	e.mu.RUnlock()
+
 	request := EvaluationRequest{
 		FlagKey:  flagKey,
 		EntityId: entityID,
@@ -356,6 +263,13 @@ func (e *EvaluationClient) EvaluateVariant(ctx context.Context, flagKey, entityI
 
 // EvaluateBoolean performs evaluation for a boolean flag.
 func (e *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanEvaluationResponse, error) {
+	e.mu.RLock()
+	if e.err != nil {
+		e.mu.RUnlock()
+		return nil, e.err
+	}
+	e.mu.RUnlock()
+
 	request := EvaluationRequest{
 		FlagKey:  flagKey,
 		EntityId: entityID,
@@ -385,6 +299,13 @@ func (e *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityI
 
 // EvaluateBatch performs evaluation for a batch of flags.
 func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
+	e.mu.RLock()
+	if e.err != nil {
+		e.mu.RUnlock()
+		return nil, e.err
+	}
+	e.mu.RUnlock()
+
 	result, err := e.evaluateWASM(ctx, "evaluate_batch", requests)
 	if err != nil {
 		return nil, err
@@ -408,6 +329,13 @@ func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*Evalua
 
 // ListFlags lists all flags.
 func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
+	e.mu.RLock()
+	if e.err != nil {
+		e.mu.RUnlock()
+		return nil, e.err
+	}
+	e.mu.RUnlock()
+
 	if e.engine == 0 {
 		return nil, errors.New("engine not initialized")
 	}
@@ -456,7 +384,7 @@ func (e *EvaluationClient) Close(ctx context.Context) (err error) {
 		dealloc.Call(ctx, uint64(e.engine))
 	}
 
-	_ = e.mod.Close(ctx)
+	// closing the runtime will close the module too
 	return e.runtime.Close(ctx)
 }
 
@@ -464,6 +392,131 @@ func decodePtr(ptr uint64) (uint32, uint32) {
 	return uint32(ptr >> 32), uint32(ptr)
 }
 
+// unexported methods
+
+// fetchSnapshot fetches the snapshot for the given namespace.
+func (e *EvaluationClient) fetchSnapshot(ctx context.Context) (string, error) {
+	url := fmt.Sprintf("%s/internal/v1/evaluation/snapshot/namespace/%s", e.url, e.namespace)
+	if e.ref != "" {
+		url = fmt.Sprintf("%s?reference=%s", url, e.ref)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("x-flipt-accept-server-version", "1.47.0")
+
+	if e.authentication != nil {
+		switch auth := e.authentication.(type) {
+		case clientTokenAuthentication:
+			req.Header.Set("Authorization", "Bearer "+auth.Token)
+		case jwtAuthentication:
+			req.Header.Set("Authorization", "JWT "+auth.Token)
+		}
+	}
+
+	e.mu.RLock()
+	if e.etag != "" {
+		req.Header.Set("If-None-Match", e.etag)
+	}
+	e.mu.RUnlock()
+
+	resp, err := e.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch snapshot: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotModified {
+		return "", nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	// store etag if present
+	if etag := resp.Header.Get("ETag"); etag != "" {
+		e.mu.Lock()
+		e.etag = etag
+		e.mu.Unlock()
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	return string(body), nil
+}
+
+// startPolling starts the background polling for the given update interval.
+func (e *EvaluationClient) startPolling(ctx context.Context) error {
+	ticker := time.NewTicker(e.updateInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-e.stopPolling:
+			return nil
+		case <-ticker.C:
+			payload, err := e.fetchSnapshot(ctx)
+			if err != nil {
+				e.mu.Lock()
+				e.etag = ""
+				if e.errorStrategy == ErrorStrategyFail {
+					// track error to return on next evaluation
+					e.err = err
+				}
+				e.mu.Unlock()
+				return fmt.Errorf("failed to fetch snapshot: %w", err)
+			} else {
+				// reset error if fetch was successful
+				e.mu.Lock()
+				e.err = nil
+				e.mu.Unlock()
+			}
+
+			// skip update if no changes (304 response)
+			if payload == "" {
+				continue
+			}
+
+			// update engine with new state
+			var (
+				alloc    = e.mod.ExportedFunction("allocate")
+				dealloc  = e.mod.ExportedFunction("deallocate")
+				snapshot = e.mod.ExportedFunction("snapshot")
+			)
+
+			pmPtr, err := alloc.Call(ctx, uint64(len(payload)))
+			if err != nil {
+				return fmt.Errorf("failed to allocate memory for payload: %w", err)
+			}
+
+			if !e.mod.Memory().Write(uint32(pmPtr[0]), []byte(payload)) {
+				dealloc.Call(ctx, uint64(pmPtr[0]), uint64(len(payload)))
+				return fmt.Errorf("failed to write payload to memory")
+			}
+
+			_, err = snapshot.Call(ctx, uint64(e.engine), pmPtr[0], uint64(len(payload)))
+			if err != nil {
+				dealloc.Call(ctx, uint64(pmPtr[0]), uint64(len(payload)))
+				return fmt.Errorf("failed to update engine: %w", err)
+			}
+
+			// dont defer in loop to avoid stack overflow
+			dealloc.Call(ctx, uint64(pmPtr[0]), uint64(len(payload)))
+		}
+	}
+}
+
+// evaluateWASM evaluates the given function name with the given request.
 func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, request any) ([]byte, error) {
 	if e.engine == 0 {
 		return nil, errors.New("engine not initialized")
