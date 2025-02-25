@@ -324,7 +324,7 @@ func getWasmBuildContainer(_ context.Context, client *dagger.Client, hostDirecto
 		WithExec(args("cargo build -p flipt-engine-wasm --release --target " + target)) // Build the wasm module
 
 	return container.WithExec(args("cargo install wasm-opt")).
-		WithExec(args("wasm-opt --converge --flatten --rereloop -Oz Oz --gufa -o /src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm /src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm"))
+		WithExec(args("wasm-opt --converge --flatten --rereloop -Oz -Oz --gufa -o /src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm /src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm")) // https://blog.arcjet.com/lessons-from-running-webassembly-in-production-with-go-wazero/
 }
 
 // getWasmJSBuildContainer builds the wasm module for the Rust core for the client libraries to run
