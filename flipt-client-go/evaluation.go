@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -23,7 +24,19 @@ var (
 	wasm []byte
 )
 
-const statusSuccess = "success"
+const (
+	statusSuccess = "success"
+
+	fInitializeEngine = "initialize_engine"
+	fAllocate         = "allocate"
+	fDeallocate       = "deallocate"
+	fSnapshot         = "snapshot"
+	fEvaluateVariant  = "evaluate_variant"
+	fEvaluateBoolean  = "evaluate_boolean"
+	fEvaluateBatch    = "evaluate_batch"
+	fListFlags        = "list_flags"
+	fDestroyEngine    = "destroy_engine"
+)
 
 // EvaluationClient wraps the functionality of evaluating Flipt feature flags.
 type EvaluationClient struct {
@@ -43,8 +56,9 @@ type EvaluationClient struct {
 	fetchMode      FetchMode
 	errorStrategy  ErrorStrategy
 
-	httpClient *http.Client
-	etag       string
+	httpClient     *http.Client
+	requestTimeout time.Duration
+	etag           string
 
 	wg   sync.WaitGroup
 	done chan struct{}
@@ -56,6 +70,8 @@ type EvaluationClient struct {
 	allocFunc    api.Function
 	deallocFunc  api.Function
 	snapshotFunc api.Function
+
+	closeOnce sync.Once
 }
 
 // ClientOption adds additional configuration for Client parameters
@@ -124,6 +140,14 @@ func WithErrorStrategy(errorStrategy ErrorStrategy) ClientOption {
 	}
 }
 
+// WithRequestTimeout allows for specifying the request timeout for the Flipt client.
+// Note: this only affects polling mode. Streaming mode will have no timeout set.
+func WithRequestTimeout(timeout time.Duration) ClientOption {
+	return func(c *EvaluationClient) {
+		c.requestTimeout = timeout
+	}
+}
+
 type fetchError error
 
 // NewEvaluationClient constructs a Client and performs an initial fetch of flag state.
@@ -146,9 +170,9 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 
 	var (
 		// cache common WASM functions
-		allocFunc    = mod.ExportedFunction("allocate")
-		deallocFunc  = mod.ExportedFunction("deallocate")
-		snapshotFunc = mod.ExportedFunction("snapshot")
+		allocFunc    = mod.ExportedFunction(fAllocate)
+		deallocFunc  = mod.ExportedFunction(fDeallocate)
+		snapshotFunc = mod.ExportedFunction(fSnapshot)
 	)
 
 	client := &EvaluationClient{
@@ -161,8 +185,7 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 		updateInterval: 2 * time.Minute, // default 120 seconds
 		errorStrategy:  ErrorStrategyFail,
 		fetchMode:      FetchModePolling,
-
-		httpClient: &http.Client{},
+		requestTimeout: 30 * time.Second, // default timeout
 
 		done:         make(chan struct{}),
 		errChan:      make(chan error, 1),
@@ -183,7 +206,24 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 		return nil, fmt.Errorf("namespace cannot be empty")
 	}
 
-	var initializeEngine = mod.ExportedFunction("initialize_engine")
+	transport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   10 * time.Second, // connection timeout
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+	}
+
+	client.httpClient = &http.Client{
+		Transport: transport,
+	}
+
+	// only set timeout for polling mode
+	if client.fetchMode == FetchModePolling {
+		client.httpClient.Timeout = client.requestTimeout
+	}
+	// streaming mode will have no timeout set
+
+	var initializeEngine = mod.ExportedFunction(fInitializeEngine)
 
 	type allocation struct {
 		ptr  uint64
@@ -294,13 +334,9 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 		defer client.wg.Done()
 		switch client.fetchMode {
 		case FetchModeStreaming:
-			if err := client.startStreaming(ctx); err != nil {
-				client.errChan <- err
-			}
+			client.startStreaming(ctx)
 		case FetchModePolling:
-			if err := client.startPolling(ctx); err != nil {
-				client.errChan <- err
-			}
+			client.startPolling(ctx)
 		default:
 			client.errChan <- fmt.Errorf("invalid fetch mode: %s", client.fetchMode)
 			return
@@ -332,7 +368,7 @@ func (e *EvaluationClient) EvaluateVariant(ctx context.Context, flagKey, entityI
 		Context:  evalContext,
 	}
 
-	result, err := e.evaluateWASM(ctx, "evaluate_variant", request)
+	result, err := e.evaluateWASM(ctx, fEvaluateVariant, request)
 	if err != nil {
 		return nil, err
 	}
@@ -368,7 +404,7 @@ func (e *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityI
 		Context:  evalContext,
 	}
 
-	result, err := e.evaluateWASM(ctx, "evaluate_boolean", request)
+	result, err := e.evaluateWASM(ctx, fEvaluateBoolean, request)
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +434,7 @@ func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*Evalua
 	}
 	e.mu.RUnlock()
 
-	result, err := e.evaluateWASM(ctx, "evaluate_batch", requests)
+	result, err := e.evaluateWASM(ctx, fEvaluateBatch, requests)
 	if err != nil {
 		return nil, err
 	}
@@ -432,7 +468,7 @@ func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 		return nil, errors.New("engine not initialized")
 	}
 
-	evalFunc := e.mod.ExportedFunction("list_flags")
+	evalFunc := e.mod.ExportedFunction(fListFlags)
 	res, err := evalFunc.Call(ctx, uint64(e.engine))
 	if err != nil {
 		return nil, fmt.Errorf("failed to call list_flags: %w", err)
@@ -468,24 +504,28 @@ func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 
 // Close cleans up the allocated resources.
 func (e *EvaluationClient) Close(ctx context.Context) (err error) {
-	// signal background goroutines to stop
-	close(e.done)
+	e.closeOnce.Do(func() {
+		// signal background goroutines to stop
+		close(e.done)
 
-	// wait for all background goroutines to finish
-	e.wg.Wait()
+		// wait for all background goroutines to finish
+		e.wg.Wait()
 
-	// close channels
-	close(e.errChan)
-	close(e.snapshotChan)
+		// close channels
+		close(e.errChan)
+		close(e.snapshotChan)
 
-	if e.engine != 0 {
-		// destroy engine
-		dealloc := e.mod.ExportedFunction("destroy_engine")
-		dealloc.Call(ctx, uint64(e.engine))
-	}
+		if e.engine != 0 {
+			// destroy engine
+			dealloc := e.mod.ExportedFunction(fDestroyEngine)
+			dealloc.Call(ctx, uint64(e.engine))
+		}
 
-	// closing the runtime will close the module too
-	return e.runtime.Close(ctx)
+		// closing the runtime will close the module too
+		err = e.runtime.Close(ctx)
+	})
+
+	return
 }
 
 // unexported
@@ -546,16 +586,16 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 }
 
 // startPolling starts the background polling for the given update interval.
-func (e *EvaluationClient) startPolling(ctx context.Context) error {
+func (e *EvaluationClient) startPolling(ctx context.Context) {
 	ticker := time.NewTicker(e.updateInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return
 		case <-e.done:
-			return nil
+			return
 		case <-ticker.C:
 			e.mu.RLock()
 			etag := e.etag
@@ -632,12 +672,14 @@ type streamResult struct {
 }
 
 // startStreaming starts the background streaming.
-func (e *EvaluationClient) startStreaming(ctx context.Context) error {
+// Note: currently any errors cause this method to exit. We still need to implement retries for trying to reconnect.
+func (e *EvaluationClient) startStreaming(ctx context.Context) {
 	url := fmt.Sprintf("%s/internal/v1/evaluation/snapshots?[]namespaces=%s", e.url, e.namespace)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		e.errChan <- fmt.Errorf("failed to create request: %w", err)
+		return
 	}
 
 	req.Header.Set("Accept", "application/json")
@@ -654,33 +696,37 @@ func (e *EvaluationClient) startStreaming(ctx context.Context) error {
 
 	resp, err := e.httpClient.Do(req)
 	if err != nil {
-		return fetchError(fmt.Errorf("failed to fetch snapshot: %w", err))
+		e.errChan <- fetchError(fmt.Errorf("failed to fetch snapshot: %w", err))
+		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
+		e.errChan <- fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
+		return
 	}
 
 	reader := bufio.NewReader(resp.Body)
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return
 		case <-e.done:
-			return nil
+			return
 		default:
 			line, err := reader.ReadBytes('\n')
 			if err != nil {
 				if errors.Is(err, io.EOF) {
-					return nil
+					return
 				}
-				return fetchError(fmt.Errorf("failed to read stream chunk: %w", err))
+				e.errChan <- fetchError(fmt.Errorf("failed to read stream chunk: %w", err))
+				return
 			}
 
 			var chunk streamChunk
 			if err := json.Unmarshal(line, &chunk); err != nil {
-				return fetchError(fmt.Errorf("failed to unmarshal stream chunk: %w", err))
+				e.errChan <- fmt.Errorf("failed to unmarshal stream chunk: %w", err)
+				return
 			}
 
 			for ns, payload := range chunk.Result.Namespaces {
