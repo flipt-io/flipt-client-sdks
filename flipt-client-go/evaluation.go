@@ -42,8 +42,7 @@ const (
 type EvaluationClient struct {
 	runtime wazero.Runtime
 	mod     api.Module
-	// guards access to etag and error state as they are shared between goroutines
-	mu sync.RWMutex
+	mu      sync.RWMutex
 
 	engine    uint32
 	namespace string
@@ -240,7 +239,7 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 			for _, a := range allocations {
 				deallocFunc.Call(ctx, a.ptr, a.size)
 			}
-			client.Close(ctx)
+			runtime.Close(ctx)
 		}
 	}()
 
@@ -264,6 +263,7 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 		return nil, fmt.Errorf("failed to fetch initial state: %w", err)
 	}
 
+	// set initial etag
 	client.etag = snapshot.etag
 
 	// allocate payload
@@ -535,7 +535,7 @@ func decodePtr(ptr uint64) (uint32, uint32) {
 }
 
 type snapshot struct {
-	payload json.RawMessage
+	payload []byte
 	etag    string
 }
 
