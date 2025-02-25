@@ -147,12 +147,16 @@ goos: darwin
 goarch: arm64
 pkg: go.flipt.io/flipt-client
 cpu: Apple M1 Max
-BenchmarkVariantEvaluation-10    	  122054	      9892 ns/op	   36207 B/op	      36 allocs/op
-BenchmarkBooleanEvaluation-10    	  124194	      9141 ns/op	   36095 B/op	      34 allocs/op
-BenchmarkBatchEvaluation-10      	   62458	     19393 ns/op	   36490 B/op	      50 allocs/op
-BenchmarkListFlags-10            	  224454	      5464 ns/op	   23928 B/op	      25 allocs/op
-PASS
-ok  	go.flipt.io/flipt-client	5.746s
+BenchmarkVariantEvaluation/Simple-10              160869              7426 ns/op           12900 B/op         32 allocs/op
+BenchmarkVariantEvaluation/MediumContext-10       106569             11324 ns/op           13365 B/op         48 allocs/op
+BenchmarkVariantEvaluation/LargeContext-10         18770             63237 ns/op           21763 B/op        228 allocs/op
+BenchmarkBooleanEvaluation/Simple-10              181298              6624 ns/op           12788 B/op         30 allocs/op
+BenchmarkBooleanEvaluation/MediumContext-10       114070             10429 ns/op           13253 B/op         46 allocs/op
+BenchmarkBooleanEvaluation/LargeContext-10         19189             62621 ns/op           21650 B/op        226 allocs/op
+BenchmarkBatchEvaluation/Simple-10                 74679             16137 ns/op           13181 B/op         46 allocs/op
+BenchmarkBatchEvaluation/MediumBatch-10            15253             79676 ns/op           24290 B/op        301 allocs/op
+BenchmarkBatchEvaluation/LargeBatch-10               405           2942603 ns/op          489492 B/op      10383 allocs/op
+BenchmarkListFlags-10                             289599              4141 ns/op           12280 B/op         23 allocs/op
 ```
 
 ## Contributing
