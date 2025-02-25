@@ -2,12 +2,13 @@
 
 This document describes the architecture of the client-side SDKs for Flipt.
 
-The Flipt client-side SDKs are currently broken down into two main implementations:
+The Flipt client-side SDKs are currently broken down into three main implementations:
 
 - [FFI](#ffi)
-- [WebAssembly](#webassembly)
+- [WebAssembly JS](#webassembly-js)
+- [WebAssembly Non-JS](#webassemblys)
 
-Your use case will determine which implementation is best for you. The FFI implementation is designed to be embedded in native language client SDKs, while the WebAssembly implementation is designed to be embedded in client-side SDKs that run in the browser.
+Your use case will determine which implementation is best for you. The FFI implementation is designed to be embedded in native language client SDKs, while the WebAssembly implementations are designed to be embedded in client-side SDKs where we cannot use the FFI implementation.
 
 ## FFI
 
@@ -30,16 +31,9 @@ You can refer to the architecture diagram below:
 The [`flipt-engine-ffi`](./flipt-engine-ffi) library is responsible for the following:
 
 - Polling for evaluation state from the Flipt server.
+- Subscribing to changes to the evaluation state from the Flipt server via streaming (Flipt Cloud only).
 - Unmarshalling the evaluation state from JSON to memory.
 - Implementing the store trait to allow for the evaluation state to be stored in memory and accessed by the evaluation logic in a threadsafe manner.
-
-#### Evaluation Library
-
-The [`flipt-evaluation`](../flipt-evaluation) library is a Rust library responsible for the following:
-
-- Evaluating context against the evaluation state and returning the evaluation results.
-
-The evaluation logic is extracted into a separate library to allow for the evaluation logic to be reused by both the FFI and WASM engines and eventually by Flipt itself.
 
 #### Client SDKs
 
@@ -50,13 +44,44 @@ The client SDKs are responsible for the following:
 - Unmarshalling the results of the evaluation from JSON to memory and returning the results to the caller.
 - Providing a high-level API for the caller to interact with the client SDK.
 
-## WebAssembly
+## WebAssembly JS
 
-[`flipt-engine-wasm`](./flipt-engine-wasm) is a Rust library that compiles to [WebAssembly](https://webassembly.org/) and is designed to be embedded in the client-side SDKs that run in the browser.
+[`flipt-engine-wasm-js`](./flipt-engine-wasm-js) is a JavaScript library that compiles to [WebAssembly](https://webassembly.org/) and is designed to be embedded in the client-side SDKs that run in the browser.
 
 The client-side SDKs send context to the client engine via the WebAssembly interface and receive the results of the evaluation from the engine.
 
 Because of the current limitations of WebAssembly, the engine is designed to be stateless and does not poll for evaluation state from the Flipt server. Instead, the client-side SDKs are responsible for fetching the evaluation state from the Flipt server and sending it to the engine.
+
+You can refer to the architecture diagram below:
+
+<p align="center">
+    <img src=".github/images/architecture-wasm-js.png" alt="Client SDKs Architecture (WASM JS)" width="500px" />
+</p>
+
+### Responsibilities
+
+#### WASM Engine
+
+The [`flipt-engine-wasm-js`](./flipt-engine-wasm-js) library is responsible for the following:
+
+- Deserializing the evaluation state from JSON to memory.
+- Calling the evaluation logic from the [`flipt-evaluation`](./flipt-evaluation) library to evaluate context against the evaluation state and returning the evaluation results.
+- Serializing the evaluation results from memory to JSON.
+
+#### Client SDKs
+
+The client SDKs are responsible for the following:
+
+- Fetching the evaluation state from the Flipt server.
+- Marshalling context to JSON.
+- Sending context and the evaluation state to the engine via the WebAssembly interface.
+- Unmarshalling the results of the evaluation from JSON to memory and returning the results to the caller.
+
+## WebAssembly 
+
+[`flipt-engine-wasm`](./flipt-engine-wasm) is a Rust library that compiles to [WebAssembly](https://webassembly.org/) and is designed to be embedded in the client-side SDKs that don't run in the browser and also cannot use the FFI implementation.
+
+The client-side SDKs send context to the client engine via the WebAssembly interface and receive the results of the evaluation from the engine.
 
 You can refer to the architecture diagram below:
 
@@ -74,19 +99,10 @@ The [`flipt-engine-wasm`](./flipt-engine-wasm) library is responsible for the fo
 - Calling the evaluation logic from the [`flipt-evaluation`](./flipt-evaluation) library to evaluate context against the evaluation state and returning the evaluation results.
 - Serializing the evaluation results from memory to JSON.
 
-#### Evaluation Library
+## Evaluation Library
 
-The [`flipt-evaluation`](./flipt-evaluation) library is a Rust library responsible for the following:
+The [`flipt-evaluation`](../flipt-evaluation) library is a Rust library responsible for the following:
 
 - Evaluating context against the evaluation state and returning the evaluation results.
 
 The evaluation logic is extracted into a separate library to allow for the evaluation logic to be reused by both the FFI and WASM engines and eventually by Flipt itself.
-
-#### Browser SDK
-
-The browser SDK is responsible for the following:
-
-- Fetching the evaluation state from the Flipt server.
-- Marshalling context to JSON.
-- Sending context and the evaluation state to the engine via the WebAssembly interface.
-- Unmarshalling the results of the evaluation from JSON to memory and returning the results to the caller.

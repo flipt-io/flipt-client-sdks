@@ -17,30 +17,28 @@ var (
 )
 
 func init() {
-	fliptUrl = os.Getenv("FLIPT_URL")
-	if fliptUrl == "" {
-		panic("set FLIPT_URL")
+	opts := []flipt.ClientOption{}
+
+	if os.Getenv("FLIPT_URL") != "" {
+		fliptUrl = os.Getenv("FLIPT_URL")
+		opts = append(opts, flipt.WithURL(fliptUrl))
 	}
 
-	authToken = os.Getenv("FLIPT_AUTH_TOKEN")
-	if authToken == "" {
-		panic("set FLIPT_AUTH_TOKEN")
+	if os.Getenv("FLIPT_AUTH_TOKEN") != "" {
+		authToken = os.Getenv("FLIPT_AUTH_TOKEN")
+		opts = append(opts, flipt.WithClientTokenAuthentication(authToken))
 	}
 
 	var err error
-	evaluationClient, err = flipt.NewEvaluationClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication(authToken))
+	evaluationClient, err = flipt.NewEvaluationClient(context.TODO(), opts...)
 	if err != nil {
 		panic(err)
 	}
 }
 
 func TestInvalidAuthentication(t *testing.T) {
-	client, err := flipt.NewEvaluationClient(flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication("invalid"))
-	require.NoError(t, err)
-	_, err = client.EvaluateVariant(context.TODO(), "flag1", "someentity", map[string]string{
-		"fizz": "buzz",
-	})
-	assert.EqualError(t, err, "server error: response: HTTP status client error (401 Unauthorized) for url (http://flipt:8080/internal/v1/evaluation/snapshot/namespace/default)")
+	_, err := flipt.NewEvaluationClient(context.TODO(), flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication("invalid"))
+	assert.EqualError(t, err, "failed to fetch initial state: unexpected status code: 401")
 }
 
 func TestVariant(t *testing.T) {

@@ -1,4 +1,4 @@
-import { Engine } from '../dist/flipt_engine_wasm.js';
+import { Engine } from '../dist/flipt_engine_wasm_js.js';
 import { serialize, deserialize } from './utils';
 
 import {
