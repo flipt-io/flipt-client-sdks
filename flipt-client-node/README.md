@@ -53,7 +53,7 @@ The `FliptEvaluationClient` constructor accepts two optional arguments:
   - `updateInterval`: The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
   - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
   - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
-  - `errorStrategy`: The error strategy to use when fetching flag state. If not provide, the client will be default to fail. See the [Error Strategies](#error- strategies) section for more information.
+  - `errorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to fail. See the [Error Strategies](#error- strategies) section for more information.
 
 ### Authentication
 
