@@ -11,24 +11,20 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
 
-      - name: Install Stable Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: 1.80.0
-          override: true
+      - name: Install Rust
+        run: rustup update stable
 
       - name: Test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+        run: cargo test --all-features
 
       - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@v0.4.0
+        run: cargo install wasm-pack
 
       - name: Test wasm (js)
         run: wasm-pack test --node
@@ -37,29 +33,20 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
 
-      - name: Install Stable Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          components: rustfmt, clippy
+      - name: Install Rust
+        run: rustup update 1.81.0
 
       - name: Check Formatting
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
 
       - name: Clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
+        run: cargo clippy --all -- -D warnings
 
   coverage:
     name: Coverage
