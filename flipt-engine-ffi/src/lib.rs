@@ -55,11 +55,12 @@ enum FFIError {
     NullPointer,
 }
 
-impl<T> From<Result<T, Error>> for FFIResponse<T>
+impl<T, E> From<Result<T, E>> for FFIResponse<T>
 where
     T: Serialize,
+    E: std::error::Error,
 {
-    fn from(value: Result<T, Error>) -> Self {
+    fn from(value: Result<T, E>) -> Self {
         match value {
             Ok(result) => FFIResponse {
                 status: Status::Success,
@@ -75,7 +76,7 @@ where
     }
 }
 
-fn result_to_json_ptr<T: Serialize>(result: Result<T, Error>) -> *mut c_char {
+fn result_to_json_ptr<T: Serialize, E: std::error::Error>(result: Result<T, E>) -> *mut c_char {
     let ffi_response: FFIResponse<T> = result.into();
     let json_string = serde_json::to_string(&ffi_response).unwrap();
     CString::new(json_string).unwrap().into_raw()
@@ -228,7 +229,7 @@ unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, FFIE
     if engine_ptr.is_null() {
         Err(FFIError::NullPointer)
     } else {
-        Ok(unsafe { &mut *(engine_ptr as *mut Engine) })
+        Ok(&mut *(engine_ptr as *mut Engine))
     }
 }
 
@@ -310,7 +311,10 @@ pub unsafe extern "C" fn evaluate_variant_ffi(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
-    let e = get_engine(engine_ptr).unwrap();
+    let e = match get_engine(engine_ptr) {
+        Ok(e) => e,
+        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
+    };
     let e_req = get_evaluation_request(evaluation_request);
 
     result_to_json_ptr(e.variant(&e_req))
@@ -324,7 +328,10 @@ pub unsafe extern "C" fn evaluate_boolean_ffi(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
-    let e = get_engine(engine_ptr).unwrap();
+    let e = match get_engine(engine_ptr) {
+        Ok(e) => e,
+        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
+    };
     let e_req = get_evaluation_request(evaluation_request);
 
     result_to_json_ptr(e.boolean(&e_req))
@@ -338,7 +345,10 @@ pub unsafe extern "C" fn evaluate_batch_ffi(
     engine_ptr: *mut c_void,
     batch_evaluation_request: *const c_char,
 ) -> *const c_char {
-    let e = get_engine(engine_ptr).unwrap();
+    let e = match get_engine(engine_ptr) {
+        Ok(e) => e,
+        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
+    };
     let req = get_batch_evaluation_request(batch_evaluation_request);
 
     result_to_json_ptr(e.batch(req))
@@ -349,7 +359,10 @@ pub unsafe extern "C" fn evaluate_batch_ffi(
 /// This function will take in a pointer to the engine and return a list of flags for the given namespace.
 #[no_mangle]
 pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_char {
-    let res = get_engine(engine_ptr).unwrap().list_flags();
+    let res = match get_engine(engine_ptr) {
+        Ok(e) => e.list_flags(),
+        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
+    };
 
     result_to_json_ptr(res)
 }

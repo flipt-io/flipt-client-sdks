@@ -129,15 +129,13 @@ impl Engine {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
 
     use std::collections::HashMap;
 
     use super::*;
     use fliptevaluation::EvaluationRequest;
     use wasm_bindgen_test::wasm_bindgen_test;
-
-    // wasm_bindgen_test_configure!(run_in_browser);
 
     #[wasm_bindgen_test]
     fn test_snapshot_with_valid_data() {
