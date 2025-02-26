@@ -646,10 +646,15 @@ func (e *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, er
 	}
 
 	resp, err := e.httpClient.Do(req)
+	if resp != nil {
+		defer func() {
+			io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+		}()
+	}
 	if err != nil {
 		return snapshot{}, fetchError(fmt.Errorf("failed to fetch snapshot: %w", err))
 	}
-	defer resp.Body.Close()
 
 	// always read the entire body so the connection can be reused
 	body, err := io.ReadAll(resp.Body)
@@ -706,23 +711,21 @@ func (e *EvaluationClient) startStreaming(ctx context.Context) {
 	}
 
 	resp, err := e.httpClient.Do(req)
-	if err != nil {
-		if resp != nil {
+	if resp != nil {
+		defer func() {
 			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
-		}
+		}()
+	}
+	if err != nil {
 		e.errChan <- fetchError(fmt.Errorf("failed to fetch snapshot: %w", err))
 		return
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		io.Copy(io.Discard, resp.Body)
-		resp.Body.Close()
 		e.errChan <- fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
 		return
 	}
-
-	defer resp.Body.Close()
 
 	reader := bufio.NewReader(resp.Body)
 	for {
