@@ -131,7 +131,7 @@ unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, WASM
     if engine_ptr.is_null() {
         Err(WASMError::NullPointer)
     } else {
-        Ok(unsafe { &mut *(engine_ptr as *mut Engine) })
+        Ok(&mut *(engine_ptr as *mut Engine))
     }
 }
 
@@ -172,7 +172,10 @@ pub unsafe extern "C" fn evaluate_variant(
     evaluation_request_ptr: *const u8,
     evaluation_request_len: usize,
 ) -> u64 {
-    let e = get_engine(engine_ptr).unwrap();
+    let e = match get_engine(engine_ptr) {
+        Ok(e) => e,
+        Err(e) => return result_to_ptr::<(), _>(Err(e)),
+    };
     let evaluation_request = unsafe {
         std::str::from_utf8_unchecked(std::slice::from_raw_parts(
             evaluation_request_ptr,
@@ -181,10 +184,7 @@ pub unsafe extern "C" fn evaluate_variant(
     };
 
     let request = get_evaluation_request(evaluation_request);
-    let result = result_to_string(e.evaluate_variant(&request));
-    let (ptr, len) = string_to_ptr(&result);
-    std::mem::forget(result); // host owns the string now and must deallocate it
-    ((ptr as u64) << 32) | len as u64 // return u64 with ptr and len as high and low bits
+    result_to_ptr(e.evaluate_variant(&request))
 }
 
 /// # Safety
@@ -196,7 +196,10 @@ pub unsafe extern "C" fn evaluate_boolean(
     evaluation_request_ptr: *const u8,
     evaluation_request_len: usize,
 ) -> u64 {
-    let e = get_engine(engine_ptr).unwrap();
+    let e = match get_engine(engine_ptr) {
+        Ok(e) => e,
+        Err(e) => return result_to_ptr::<(), _>(Err(e)),
+    };
     let evaluation_request = unsafe {
         std::str::from_utf8_unchecked(std::slice::from_raw_parts(
             evaluation_request_ptr,
@@ -205,10 +208,7 @@ pub unsafe extern "C" fn evaluate_boolean(
     };
 
     let request = get_evaluation_request(evaluation_request);
-    let result = result_to_string(e.evaluate_boolean(&request));
-    let (ptr, len) = string_to_ptr(&result);
-    std::mem::forget(result); // host owns the string now and must deallocate it
-    ((ptr as u64) << 32) | len as u64 // return u64 with ptr and len as high and low bits
+    result_to_ptr(e.evaluate_boolean(&request))
 }
 
 /// # Safety
@@ -220,7 +220,10 @@ pub unsafe extern "C" fn evaluate_batch(
     batch_evaluation_request_ptr: *const u8,
     batch_evaluation_request_len: usize,
 ) -> u64 {
-    let e = get_engine(engine_ptr).unwrap();
+    let e = match get_engine(engine_ptr) {
+        Ok(e) => e,
+        Err(e) => return result_to_ptr::<(), _>(Err(e)),
+    };
     let evaluation_requests = unsafe {
         std::str::from_utf8_unchecked(std::slice::from_raw_parts(
             batch_evaluation_request_ptr,
@@ -228,10 +231,7 @@ pub unsafe extern "C" fn evaluate_batch(
         ))
     };
     let requests = get_batch_evaluation_request(evaluation_requests);
-    let result = result_to_string(e.evaluate_batch(requests));
-    let (ptr, len) = string_to_ptr(&result);
-    std::mem::forget(result); // host owns the string now and must deallocate it
-    ((ptr as u64) << 32) | len as u64 // return u64 with ptr and len as high and low bits
+    result_to_ptr(e.evaluate_batch(requests))
 }
 
 /// # Safety
@@ -239,11 +239,11 @@ pub unsafe extern "C" fn evaluate_batch(
 /// This function will return a list of flags.
 #[no_mangle]
 pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> u64 {
-    let e = get_engine(engine_ptr).unwrap();
-    let result = result_to_string(e.list_flags());
-    let (ptr, len) = string_to_ptr(&result);
-    std::mem::forget(result); // host owns the string now and must deallocate it
-    ((ptr as u64) << 32) | len as u64 // return u64 with ptr and len as high and low bits
+    let e = match get_engine(engine_ptr) {
+        Ok(e) => e,
+        Err(e) => return result_to_ptr::<(), _>(Err(e)),
+    };
+    result_to_ptr(e.list_flags())
 }
 
 /// # Safety
@@ -255,14 +255,14 @@ pub unsafe extern "C" fn snapshot(
     snapshot_ptr: *const u8,
     snapshot_len: usize,
 ) -> u64 {
-    let e = get_engine(engine_ptr).unwrap();
+    let e = match get_engine(engine_ptr) {
+        Ok(e) => e,
+        Err(e) => return result_to_ptr::<(), _>(Err(e)),
+    };
     let snapshot = unsafe {
         std::str::from_utf8_unchecked(std::slice::from_raw_parts(snapshot_ptr, snapshot_len))
     };
-    let result = result_to_string(e.snapshot(snapshot));
-    let (ptr, len) = string_to_ptr(&result);
-    std::mem::forget(result); // host owns the string now and must deallocate it
-    ((ptr as u64) << 32) | len as u64 // return u64 with ptr and len as high and low bits
+    result_to_ptr(e.snapshot(snapshot))
 }
 
 /// # Safety
@@ -350,4 +350,16 @@ unsafe fn get_batch_evaluation_request(batch_evaluation_request: &str) -> Vec<Ev
 /// leak it, use [`std::mem::forget`] on the input after calling this.
 unsafe fn string_to_ptr(s: &str) -> (u32, u32) {
     (s.as_ptr() as u32, s.len() as u32)
+}
+
+/// Returns a pointer and size pair for the given result in a way compatible
+/// with WebAssembly numeric types.
+///
+/// Note: This doesn't change the ownership of the String. To intentionally
+/// leak it, use [`std::mem::forget`] on the input after calling this.
+unsafe fn result_to_ptr<T: Serialize, E: std::error::Error>(result: Result<T, E>) -> u64 {
+    let result = result_to_string(result);
+    let (ptr, len) = string_to_ptr(&result);
+    std::mem::forget(result);
+    ((ptr as u64) << 32) | len as u64
 }
