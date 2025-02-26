@@ -59,8 +59,8 @@ type EvaluationClient struct {
 	requestTimeout time.Duration
 	etag           string
 
-	wg   sync.WaitGroup
-	done chan struct{}
+	wg     sync.WaitGroup
+	cancel context.CancelFunc
 
 	errChan      chan error
 	snapshotChan chan snapshot
@@ -100,9 +100,7 @@ func WithRef(ref string) ClientOption {
 // WithUpdateInterval allows for specifying how often flag state data should be fetched from an upstream Flipt instance.
 func WithUpdateInterval(updateInterval time.Duration) ClientOption {
 	return func(c *EvaluationClient) {
-		if updateInterval > 0 {
-			c.updateInterval = updateInterval
-		}
+		c.updateInterval = updateInterval
 	}
 }
 
@@ -150,21 +148,34 @@ func WithRequestTimeout(timeout time.Duration) ClientOption {
 type fetchError error
 
 // NewEvaluationClient constructs a Client and performs an initial fetch of flag state.
-func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*EvaluationClient, error) {
+func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *EvaluationClient, cerr error) {
 	runtime := wazero.NewRuntime(ctx)
-	wasi_snapshot_preview1.MustInstantiate(ctx, runtime)
+
+	// cleanup function that only runs if we return an error
+	defer func() {
+		if cerr != nil {
+			// closing the runtime will release any allocated memory
+			runtime.Close(ctx)
+		}
+	}()
+
+	_, err := wasi_snapshot_preview1.Instantiate(ctx, runtime)
+	if err != nil {
+		cerr = fmt.Errorf("failed to instantiate WASI: %w", err)
+		return
+	}
 
 	compiled, err := runtime.CompileModule(ctx, wasm)
 	if err != nil {
-		runtime.Close(ctx)
-		return nil, fmt.Errorf("failed to compile and load evaluation engine: %w", err)
+		cerr = fmt.Errorf("failed to compile and load evaluation engine: %w", err)
+		return
 	}
 
 	cfg := wazero.NewModuleConfig().WithName("flipt_engine")
 	mod, err := runtime.InstantiateModule(ctx, compiled, cfg)
 	if err != nil {
-		runtime.Close(ctx)
-		return nil, fmt.Errorf("can't instantiate Wasm module: %w", err)
+		cerr = fmt.Errorf("can't instantiate Wasm module: %w", err)
+		return
 	}
 
 	var (
@@ -173,6 +184,8 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 		deallocFunc  = mod.ExportedFunction(fDeallocate)
 		snapshotFunc = mod.ExportedFunction(fSnapshot)
 	)
+
+	ctx, cancel := context.WithCancel(ctx)
 
 	client := &EvaluationClient{
 		runtime: runtime,
@@ -186,7 +199,7 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 		fetchMode:      FetchModePolling,
 		requestTimeout: 30 * time.Second, // default timeout
 
-		done:         make(chan struct{}),
+		cancel:       cancel,
 		errChan:      make(chan error, 1),
 		snapshotChan: make(chan snapshot, 1),
 
@@ -202,7 +215,19 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 
 	if client.namespace == "" {
 		runtime.Close(ctx)
-		return nil, fmt.Errorf("namespace cannot be empty")
+		return nil, errors.New("namespace cannot be empty")
+	}
+
+	if client.url == "" {
+		return nil, errors.New("url cannot be empty")
+	}
+
+	if client.updateInterval <= 0 && client.fetchMode == FetchModePolling {
+		return nil, errors.New("update interval must be greater than 0")
+	}
+
+	if client.requestTimeout <= 0 && client.fetchMode == FetchModePolling {
+		return nil, errors.New("request timeout must be greater than 0")
 	}
 
 	transport := &http.Transport{
@@ -217,50 +242,30 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 	}
 
 	// only set timeout for polling mode
+	// streaming mode will have no timeout set
 	if client.fetchMode == FetchModePolling {
 		client.httpClient.Timeout = client.requestTimeout
 	}
-	// streaming mode will have no timeout set
 
 	var initializeEngine = mod.ExportedFunction(fInitializeEngine)
-
-	type allocation struct {
-		ptr  uint64
-		size uint64
-	}
-
-	// track allocations that need to be freed in case of error
-	var allocations []allocation
-
-	// cleanup function that only runs if we return an error
-	var cleanup bool
-	defer func() {
-		if cleanup {
-			for _, a := range allocations {
-				deallocFunc.Call(ctx, a.ptr, a.size)
-			}
-			runtime.Close(ctx)
-		}
-	}()
 
 	// allocate namespace
 	nsPtr, err := allocFunc.Call(ctx, uint64(len(client.namespace)))
 	if err != nil {
-		cleanup = true
-		return nil, fmt.Errorf("failed to allocate memory for namespace: %w", err)
+		cerr = fmt.Errorf("failed to allocate memory for namespace: %w", err)
+		return
 	}
-	allocations = append(allocations, allocation{nsPtr[0], uint64(len(client.namespace))})
 
 	if !mod.Memory().Write(uint32(nsPtr[0]), []byte(client.namespace)) {
-		cleanup = true
-		return nil, fmt.Errorf("failed to write namespace to memory")
+		cerr = fmt.Errorf("failed to write namespace to memory")
+		return
 	}
 
 	// fetch initial state
 	snapshot, err := client.fetch(ctx, "")
 	if err != nil {
-		cleanup = true
-		return nil, fmt.Errorf("failed to fetch initial state: %w", err)
+		cerr = fmt.Errorf("failed to fetch initial state: %w", err)
+		return
 	}
 
 	// set initial etag
@@ -269,21 +274,20 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 	// allocate payload
 	pmPtr, err := allocFunc.Call(ctx, uint64(len(snapshot.payload)))
 	if err != nil {
-		cleanup = true
-		return nil, fmt.Errorf("failed to allocate memory for payload: %w", err)
+		cerr = fmt.Errorf("failed to allocate memory for payload: %w", err)
+		return
 	}
-	allocations = append(allocations, allocation{pmPtr[0], uint64(len(snapshot.payload))})
 
 	if !mod.Memory().Write(uint32(pmPtr[0]), []byte(snapshot.payload)) {
-		cleanup = true
-		return nil, fmt.Errorf("failed to write payload to memory")
+		cerr = fmt.Errorf("failed to write payload to memory")
+		return
 	}
 
 	// initialize engine
 	res, err := initializeEngine.Call(ctx, nsPtr[0], uint64(len(client.namespace)), pmPtr[0], uint64(len(snapshot.payload)))
 	if err != nil {
-		cleanup = true
-		return nil, fmt.Errorf("failed to initialize engine: %w", err)
+		cerr = fmt.Errorf("failed to initialize engine: %w", err)
+		return
 	}
 
 	enginePtr := res[0]
@@ -295,8 +299,6 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 		for {
 			select {
 			case <-ctx.Done():
-				return
-			case <-client.done:
 				return
 			case err := <-client.errChan:
 				if err == nil {
@@ -315,7 +317,7 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (*Evaluation
 				}
 
 				// if we got a sentinel error we need to signal the background goroutines to stop
-				close(client.done)
+				client.cancel()
 				return
 			}
 		}
@@ -506,7 +508,7 @@ func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 func (e *EvaluationClient) Close(ctx context.Context) (err error) {
 	e.closeOnce.Do(func() {
 		// signal background goroutines to stop
-		close(e.done)
+		e.cancel()
 
 		// wait for all background goroutines to finish
 		e.wg.Wait()
@@ -521,7 +523,7 @@ func (e *EvaluationClient) Close(ctx context.Context) (err error) {
 			dealloc.Call(ctx, uint64(e.engine))
 		}
 
-		// closing the runtime will close the module too
+		// closing the runtime will close the module too and deallocate all memory
 		err = e.runtime.Close(ctx)
 	})
 
@@ -543,9 +545,6 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			close(e.snapshotChan)
-			return nil
-		case <-e.done:
 			close(e.snapshotChan)
 			return nil
 		case s, ok := <-e.snapshotChan:
@@ -590,18 +589,21 @@ func (e *EvaluationClient) startPolling(ctx context.Context) {
 	ticker := time.NewTicker(e.updateInterval)
 	defer ticker.Stop()
 
+	// create a new context for the polling so any timeouts
+	// are independent of the client context
+	fctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	for {
 		select {
 		case <-ctx.Done():
-			return
-		case <-e.done:
 			return
 		case <-ticker.C:
 			e.mu.RLock()
 			etag := e.etag
 			e.mu.RUnlock()
 
-			snapshot, err := e.fetch(ctx, etag)
+			snapshot, err := e.fetch(fctx, etag)
 			if err != nil {
 				e.errChan <- err
 				continue
@@ -676,7 +678,12 @@ type streamResult struct {
 func (e *EvaluationClient) startStreaming(ctx context.Context) {
 	url := fmt.Sprintf("%s/internal/v1/evaluation/snapshots?[]namespaces=%s", e.url, e.namespace)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	// create a new context for the streaming so any timeouts
+	// are independent of the client context
+	fctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(fctx, "GET", url, nil)
 	if err != nil {
 		e.errChan <- fmt.Errorf("failed to create request: %w", err)
 		return
@@ -710,8 +717,6 @@ func (e *EvaluationClient) startStreaming(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			return
-		case <-e.done:
 			return
 		default:
 			line, err := reader.ReadBytes('\n')
