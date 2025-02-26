@@ -214,20 +214,23 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 	}
 
 	if client.namespace == "" {
-		runtime.Close(ctx)
-		return nil, errors.New("namespace cannot be empty")
+		cerr = fmt.Errorf("namespace cannot be empty")
+		return
 	}
 
 	if client.url == "" {
-		return nil, errors.New("url cannot be empty")
+		cerr = fmt.Errorf("url cannot be empty")
+		return
 	}
 
 	if client.updateInterval <= 0 && client.fetchMode == FetchModePolling {
-		return nil, errors.New("update interval must be greater than 0")
+		cerr = fmt.Errorf("update interval must be greater than 0")
+		return
 	}
 
 	if client.requestTimeout <= 0 && client.fetchMode == FetchModePolling {
-		return nil, errors.New("request timeout must be greater than 0")
+		cerr = fmt.Errorf("request timeout must be greater than 0")
+		return
 	}
 
 	transport := &http.Transport{
@@ -648,17 +651,18 @@ func (e *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, er
 	}
 	defer resp.Body.Close()
 
+	// always read the entire body so the connection can be reused
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return snapshot{}, fetchError(fmt.Errorf("failed to read response body: %w", err))
+	}
+
 	if resp.StatusCode == http.StatusNotModified {
 		return snapshot{}, nil
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		return snapshot{}, fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return snapshot{}, fetchError(fmt.Errorf("failed to read response body: %w", err))
 	}
 
 	etag = resp.Header.Get("ETag")
@@ -703,15 +707,22 @@ func (e *EvaluationClient) startStreaming(ctx context.Context) {
 
 	resp, err := e.httpClient.Do(req)
 	if err != nil {
+		if resp != nil {
+			io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+		}
 		e.errChan <- fetchError(fmt.Errorf("failed to fetch snapshot: %w", err))
 		return
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
 		e.errChan <- fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
 		return
 	}
+
+	defer resp.Body.Close()
 
 	reader := bufio.NewReader(resp.Body)
 	for {
