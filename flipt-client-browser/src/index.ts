@@ -1,5 +1,5 @@
-import init, { Engine } from '../dist/flipt_engine_wasm.js';
-import wasm from '../dist/flipt_engine_wasm_bg.wasm';
+import init, { Engine } from '../dist/flipt_engine_wasm_js.js';
+import wasm from '../dist/flipt_engine_wasm_js_bg.wasm';
 import { deserialize, serialize } from './utils';
 import {
   BatchEvaluationResponse,

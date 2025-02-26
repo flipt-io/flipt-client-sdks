@@ -124,7 +124,7 @@ This library uses a WebAssembly (WASM) layer to interact with the Flipt server. 
 
 ### Prerequisites
 
-- [flipt-engine-wasm](../flipt-engine-wasm)
+- [flipt-engine-wasm-js](../flipt-engine-wasm-js)
 
 ### Build
 

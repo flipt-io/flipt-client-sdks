@@ -39,11 +39,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: ${{ matrix.platform.target }}
-          override: true
+        run: rustup update stable
 
       - uses: actions/cache@v4
         with:
@@ -64,11 +60,7 @@ jobs:
           echo "CROSS_NO_WARNINGS=0" >> $GITHUB_ENV
 
       - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: -p flipt-engine-ffi --target ${{ matrix.platform.target }} --release
-          use-cross: true
+        run: cross build --release --target ${{ matrix.platform.target }} --package flipt-engine-ffi
 
       - name: Package
         run: |
