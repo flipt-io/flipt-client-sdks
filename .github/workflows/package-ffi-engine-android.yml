@@ -51,7 +51,7 @@ jobs:
         run: cargo install --force cargo-ndk
 
       - name: Build
-        run: cargo ndk build --platform 30 --target ${{ matrix.platform.arch }} --release
+        run: cargo ndk --platform 30 --target ${{ matrix.platform.arch }} build --release
 
       - name: Package
         run: |
