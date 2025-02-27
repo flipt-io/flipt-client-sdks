@@ -148,7 +148,7 @@ impl Engine {
 
         // Block on initial fetch
         handle.block_on(async {
-            match fetcher.initial_fetch_async().await {
+            match fetcher.initial_fetch().await {
                 Ok(doc) => {
                     let snap = Snapshot::build(&namespace_clone, doc);
                     evaluator_clone.lock().unwrap().replace_snapshot(snap);

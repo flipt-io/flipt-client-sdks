@@ -202,7 +202,7 @@ impl HTTPFetcher {
         rx
     }
 
-    pub async fn initial_fetch_async(&mut self) -> FetchResult {
+    pub async fn initial_fetch(&mut self) -> FetchResult {
         let response = self.fetch().await?;
 
         match response {
@@ -640,7 +640,7 @@ mod tests {
             .authentication(Authentication::None)
             .build();
 
-        let result = fetcher.initial_fetch_async().await;
+        let result = fetcher.initial_fetch().await;
 
         assert!(result.is_ok());
         mock.assert();
