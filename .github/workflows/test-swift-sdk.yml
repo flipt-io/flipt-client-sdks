@@ -80,6 +80,7 @@ jobs:
           mkdir -p flipt-client-swift/Frameworks/iOS/arm64-simulator
           mkdir -p flipt-client-swift/Frameworks/Darwin/arm64
           mkdir -p flipt-client-swift/Frameworks/Darwin/x86_64
+          mkdir -p flipt-client-swift/Frameworks/include
           mv /tmp/flipt-engine-ffi-iOS-aarch64/target/aarch64-apple-ios/release/libfliptengine.a flipt-client-swift/Frameworks/iOS/arm64/
           mv /tmp/flipt-engine-ffi-iOS-aarch64-sim/target/aarch64-apple-ios-sim/release/libfliptengine.a flipt-client-swift/Frameworks/iOS/arm64-simulator/
           mv /tmp/flipt-engine-ffi-Darwin-aarch64/target/aarch64-apple-darwin/release/libfliptengine.a flipt-client-swift/Frameworks/Darwin/arm64/
