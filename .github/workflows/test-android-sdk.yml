@@ -41,7 +41,7 @@ jobs:
           private_key: ${{ secrets.FLIPT_RELEASE_BOT_APP_PEM }}
           installation_id: ${{ secrets.FLIPT_RELEASE_BOT_INSTALLATION_ID }}
 
-      - name: Download Artifact (x86_64)
+      - name: Download Artifact (Android x86_64)
         uses: actions/download-artifact@v4
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
@@ -49,7 +49,7 @@ jobs:
           path: /tmp
           run-id: ${{ inputs.caller_run_id }}
 
-      - name: Download Artifact (arm64)
+      - name: Download Artifact (Android arm64)
         uses: actions/download-artifact@v4
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
@@ -71,7 +71,7 @@ jobs:
           mkdir -p flipt-client-kotlin-android/src/main/cpp/include
           mv /tmp/flipt-engine-ffi-Android-x86_64/target/x86_64-linux-android/release/libfliptengine.a flipt-client-kotlin-android/src/main/cpp/libs/x86_64/
           mv /tmp/flipt-engine-ffi-Android-arm64/target/aarch64-linux-android/release/libfliptengine.a flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a/
-          cp -r flipt-engine-ffi/include/* flipt-client-kotlin-android/src/main/cpp/include
+          cp /tmp/flipt-engine-ffi/include/flipt_engine.h flipt-client-kotlin-android/src/main/cpp/include/
 
       - name: Run Flipt
         env:
