@@ -617,61 +617,123 @@ func (e *EvaluationClient) startPolling(ctx context.Context) {
 	}
 }
 
+// isTransientError determines if an error is transient and should be retried
+func isTransientError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Check for network errors
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return netErr.Timeout()
+	}
+
+	// Check for specific network operation errors
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		return opErr.Temporary() || opErr.Timeout()
+	}
+
+	// Check for DNS temporary failures
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return dnsErr.Temporary()
+	}
+
+	// Some errors are always considered temporary
+	if errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
+
+	return false
+}
+
 // fetch fetches the snapshot for the given namespace.
 func (e *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, error) {
-	url := fmt.Sprintf("%s/internal/v1/evaluation/snapshot/namespace/%s", e.url, e.namespace)
-	if e.ref != "" {
-		url = fmt.Sprintf("%s?reference=%s", url, e.ref)
-	}
+	const (
+		maxRetries = 3
+		baseDelay  = 100 * time.Millisecond
+	)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return snapshot{}, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("x-flipt-accept-server-version", "1.47.0")
-
-	if e.authentication != nil {
-		switch auth := e.authentication.(type) {
-		case clientTokenAuthentication:
-			req.Header.Set("Authorization", "Bearer "+auth.Token)
-		case jwtAuthentication:
-			req.Header.Set("Authorization", "JWT "+auth.Token)
+	var lastErr error
+	for attempt := range maxRetries {
+		if attempt > 0 {
+			// Calculate exponential backoff delay: 100ms, 200ms, 400ms
+			delay := baseDelay * time.Duration(1<<uint(attempt-1))
+			select {
+			case <-ctx.Done():
+				return snapshot{}, ctx.Err()
+			case <-time.After(delay):
+			}
 		}
+
+		url := fmt.Sprintf("%s/internal/v1/evaluation/snapshot/namespace/%s", e.url, e.namespace)
+		if e.ref != "" {
+			url = fmt.Sprintf("%s?reference=%s", url, e.ref)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return snapshot{}, fmt.Errorf("failed to create request: %w", err)
+		}
+
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("x-flipt-accept-server-version", "1.47.0")
+
+		if e.authentication != nil {
+			switch auth := e.authentication.(type) {
+			case clientTokenAuthentication:
+				req.Header.Set("Authorization", "Bearer "+auth.Token)
+			case jwtAuthentication:
+				req.Header.Set("Authorization", "JWT "+auth.Token)
+			}
+		}
+
+		if etag != "" {
+			req.Header.Set("If-None-Match", etag)
+		}
+
+		resp, err := e.httpClient.Do(req)
+		if resp != nil {
+			defer func() {
+				io.Copy(io.Discard, resp.Body)
+				resp.Body.Close()
+			}()
+		}
+		if err != nil {
+			lastErr = err
+			if !isTransientError(err) {
+				return snapshot{}, fetchError(fmt.Errorf("failed to fetch snapshot: %w", err))
+			}
+			continue
+		}
+
+		// always read the entire body so the connection can be reused
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			lastErr = err
+			if !isTransientError(err) {
+				return snapshot{}, fetchError(fmt.Errorf("failed to read response body: %w", err))
+			}
+			continue
+		}
+
+		if resp.StatusCode == http.StatusNotModified {
+			return snapshot{}, nil
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			// Don't retry non-200 status codes as they are likely not transient
+			return snapshot{}, fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
+		}
+
+		etag = resp.Header.Get("ETag")
+		return snapshot{payload: body, etag: etag}, nil
 	}
 
-	if etag != "" {
-		req.Header.Set("If-None-Match", etag)
-	}
-
-	resp, err := e.httpClient.Do(req)
-	if resp != nil {
-		defer func() {
-			io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-		}()
-	}
-	if err != nil {
-		return snapshot{}, fetchError(fmt.Errorf("failed to fetch snapshot: %w", err))
-	}
-
-	// always read the entire body so the connection can be reused
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return snapshot{}, fetchError(fmt.Errorf("failed to read response body: %w", err))
-	}
-
-	if resp.StatusCode == http.StatusNotModified {
-		return snapshot{}, nil
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return snapshot{}, fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
-	}
-
-	etag = resp.Header.Get("ETag")
-	return snapshot{payload: body, etag: etag}, nil
+	// If we get here, we've exhausted our retries
+	return snapshot{}, fetchError(fmt.Errorf("failed after %d retries, last error: %w", maxRetries, lastErr))
 }
 
 type streamChunk struct {
@@ -683,69 +745,118 @@ type streamResult struct {
 }
 
 // startStreaming starts the background streaming.
-// Note: currently any errors cause this method to exit. We still need to implement retries for trying to reconnect.
 func (e *EvaluationClient) startStreaming(ctx context.Context) {
-	url := fmt.Sprintf("%s/internal/v1/evaluation/snapshots?[]namespaces=%s", e.url, e.namespace)
+	const (
+		maxRetries = 3
+		baseDelay  = 100 * time.Millisecond
+	)
 
-	// create a new context for the streaming so any timeouts
-	// are independent of the client context
-	fctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(fctx, "GET", url, nil)
-	if err != nil {
-		e.errChan <- fmt.Errorf("failed to create request: %w", err)
-		return
-	}
-
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("x-flipt-accept-server-version", "1.47.0")
-
-	if e.authentication != nil {
-		switch auth := e.authentication.(type) {
-		case clientTokenAuthentication:
-			req.Header.Set("Authorization", "Bearer "+auth.Token)
-		case jwtAuthentication:
-			req.Header.Set("Authorization", "JWT "+auth.Token)
-		}
-	}
-
-	resp, err := e.httpClient.Do(req)
-	if resp != nil {
-		defer func() {
-			io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-		}()
-	}
-	if err != nil {
-		e.errChan <- fetchError(fmt.Errorf("failed to fetch snapshot: %w", err))
-		return
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		e.errChan <- fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
-		return
-	}
-
-	reader := bufio.NewReader(resp.Body)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
+			var lastErr error
+			for attempt := range maxRetries {
+				if attempt > 0 {
+					// Calculate exponential backoff delay: 100ms, 200ms, 400ms
+					delay := baseDelay * time.Duration(1<<uint(attempt-1))
+					select {
+					case <-ctx.Done():
+						return
+					case <-time.After(delay):
+					}
+				}
+
+				url := fmt.Sprintf("%s/internal/v1/evaluation/snapshots?[]namespaces=%s", e.url, e.namespace)
+
+				// create a new context for the streaming so any timeouts
+				// are independent of the client context
+				fctx, cancel := context.WithCancel(context.Background())
+
+				req, err := http.NewRequestWithContext(fctx, "GET", url, nil)
+				if err != nil {
+					cancel()
+					e.errChan <- fmt.Errorf("failed to create request: %w", err)
+					return
+				}
+
+				req.Header.Set("Accept", "application/json")
+				req.Header.Set("x-flipt-accept-server-version", "1.47.0")
+
+				if e.authentication != nil {
+					switch auth := e.authentication.(type) {
+					case clientTokenAuthentication:
+						req.Header.Set("Authorization", "Bearer "+auth.Token)
+					case jwtAuthentication:
+						req.Header.Set("Authorization", "JWT "+auth.Token)
+					}
+				}
+
+				resp, err := e.httpClient.Do(req)
+				if resp != nil {
+					defer func() {
+						io.Copy(io.Discard, resp.Body)
+						resp.Body.Close()
+					}()
+				}
+				if err != nil {
+					cancel()
+					lastErr = err
+					if !isTransientError(err) {
+						e.errChan <- fetchError(fmt.Errorf("failed to establish stream connection: %w", err))
+						return
+					}
+					continue
+				}
+
+				if resp.StatusCode != http.StatusOK {
+					cancel()
+					// Don't retry non-200 status codes as they are likely not transient
+					e.errChan <- fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
+					return
+				}
+
+				reader := bufio.NewReader(resp.Body)
+				streamErr := e.handleStream(ctx, reader)
+				cancel()
+
+				if streamErr == nil || !isTransientError(streamErr) {
+					if streamErr != nil {
+						e.errChan <- streamErr
+					}
+					return
+				}
+
+				lastErr = streamErr
+				continue
+			}
+
+			// If we get here, we've exhausted our retries
+			e.errChan <- fetchError(fmt.Errorf("failed after %d retries, last error: %w", maxRetries, lastErr))
+			return
+		}
+	}
+}
+
+// handleStream processes the stream data from a reader
+func (e *EvaluationClient) handleStream(ctx context.Context, reader *bufio.Reader) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
 			line, err := reader.ReadBytes('\n')
 			if err != nil {
 				if errors.Is(err, io.EOF) {
-					return
+					return nil
 				}
-				e.errChan <- fetchError(fmt.Errorf("failed to read stream chunk: %w", err))
-				return
+				return fetchError(fmt.Errorf("failed to read stream chunk: %w", err))
 			}
 
 			var chunk streamChunk
 			if err := json.Unmarshal(line, &chunk); err != nil {
-				e.errChan <- fmt.Errorf("failed to unmarshal stream chunk: %w", err)
-				return
+				return fmt.Errorf("failed to unmarshal stream chunk: %w", err)
 			}
 
 			for ns, payload := range chunk.Result.Namespaces {
