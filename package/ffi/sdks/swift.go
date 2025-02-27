@@ -55,7 +55,7 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 	repository := git.
 		WithExec([]string{"git", "clone", "https://github.com/flipt-io/flipt-client-sdks.git", "/src"}).
 		WithWorkdir("/src").
-		WithDirectory("/tmp/ext", hostDirectory.Directory("tmp/glibc")).
+		WithDirectory("/tmp/ext", hostDirectory.Directory("tmp")).
 		WithFile("/tmp/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h"))
 
 	filtered := repository.
@@ -67,9 +67,9 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 				[ -d Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/Headers ] || mkdir -p Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/Headers;
 				[ -d Sources/FliptEngineFFI.xcframework/macos-arm64/Headers ] || mkdir -p Sources/FliptEngineFFI.xcframework/macos-arm64/Headers;
 				[ -d Sources/FliptEngineFFI.xcframework/macos-x86_64/Headers ] || mkdir -p Sources/FliptEngineFFI.xcframework/macos-x86_64/Headers;
-				cp /tmp/ext/ios_arm64/libfliptengine.a Sources/FliptEngineFFI.xcframework/ios-arm64/;
-				cp /tmp/ext/ios_arm64_sim/libfliptengine.a Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/;
-				cp /tmp/ext/darwin_arm64/libfliptengine.a Sources/FliptEngineFFI.xcframework/macos-arm64/;
+				cp /tmp/ext/ios_aarch64/libfliptengine.a Sources/FliptEngineFFI.xcframework/ios-arm64/;
+				cp /tmp/ext/ios_aarch64_sim/libfliptengine.a Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/;
+				cp /tmp/ext/darwin_aarch64/libfliptengine.a Sources/FliptEngineFFI.xcframework/macos-arm64/;
 				cp /tmp/ext/darwin_x86_64/libfliptengine.a Sources/FliptEngineFFI.xcframework/macos-x86_64/;
 				cp /tmp/ext/flipt_engine.h Sources/FliptEngineFFI.xcframework/ios-arm64/Headers;
 				cp /tmp/ext/flipt_engine.h Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/Headers;

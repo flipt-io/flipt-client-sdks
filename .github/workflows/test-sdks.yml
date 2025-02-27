@@ -14,7 +14,14 @@ env:
 
 jobs:
   test:
-    name: Integration Tests
+    strategy:
+      matrix:
+        group:
+          - ffi
+          - wasm
+          - js
+
+    name: Integration Tests (${{ matrix.group }})
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
@@ -24,13 +31,12 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
-          cache: true
 
       - name: Install Dagger
         run: |
           cd /usr/local
           curl -L https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=${{ env.DAGGER_VERSION }} sh
 
-      - name: Run Integration Tests
+      - name: Run Integration Tests (${{ matrix.group }})
         run: |
-          dagger run go run ./test
+          dagger run go run ./test --groups ${{ matrix.group }}
