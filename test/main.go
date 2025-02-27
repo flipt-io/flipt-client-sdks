@@ -16,8 +16,9 @@ import (
 )
 
 var (
-	sdks string
-	sema = make(chan struct{}, 10)
+	sdks   string
+	groups string
+	sema   = make(chan struct{}, 10)
 )
 
 // containerConfig holds the base configuration for a test container
@@ -103,7 +104,7 @@ var (
 	}
 )
 
-// Define test configurations
+// sdkToConfig defines the test configurations for each SDK
 var sdkToConfig = map[string]testConfig{
 	"python":  {containers: pythonVersions, fn: pythonTests},
 	"go":      {containers: goVersions, fn: goTests},
@@ -116,8 +117,16 @@ var sdkToConfig = map[string]testConfig{
 	"csharp":  {containers: csharpVersions, fn: csharpTests},
 }
 
+// sdkGroups defines which SDKs belong to each group
+var sdkGroups = map[string][]string{
+	"ffi":  {"python", "ruby", "java", "dart", "csharp"},
+	"wasm": {"go"},
+	"js":   {"node", "browser", "react"},
+}
+
 func init() {
 	flag.StringVar(&sdks, "sdks", "", "comma separated list of which language(s) to run integration tests for")
+	flag.StringVar(&groups, "groups", "", "comma separated list of which group(s) to run integration tests for")
 }
 
 func main() {
@@ -151,6 +160,22 @@ func run() error {
 				return fmt.Errorf("sdk %s is not supported", language)
 			}
 			subset[language] = testFn
+		}
+
+		tests = subset
+	}
+
+	if groups != "" {
+		l := strings.Split(groups, ",")
+		subset := make(map[string]testConfig, len(l))
+		for _, group := range l {
+			for _, language := range sdkGroups[group] {
+				testFn, ok := sdkToConfig[language]
+				if !ok {
+					return fmt.Errorf("sdk %s is not supported in group %s", language, group)
+				}
+				subset[language] = testFn
+			}
 		}
 
 		tests = subset
