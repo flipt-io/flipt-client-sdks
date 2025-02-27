@@ -337,8 +337,6 @@ func getWasmBuildContainer(_ context.Context, client *dagger.Client, hostDirecto
 	container := client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform("linux/amd64"),
 	}).From("rust:1.83.0-bullseye").
-		WithMountedCache("/usr/local/cargo/registry", client.CacheVolume("cargo-registry")).
-		WithMountedCache("/usr/local/cargo/git", client.CacheVolume("cargo-git")).
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
@@ -362,8 +360,6 @@ func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirec
 	container := client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform("linux/amd64"),
 	}).From("rust:1.83.0-bullseye").
-		WithMountedCache("/usr/local/cargo/registry", client.CacheVolume("cargo-registry")).
-		WithMountedCache("/usr/local/cargo/git", client.CacheVolume("cargo-git")).
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
