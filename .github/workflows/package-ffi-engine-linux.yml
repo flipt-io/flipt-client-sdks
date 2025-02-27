@@ -73,10 +73,6 @@ jobs:
         if: endsWith(matrix.platform.target, '-android')
         run: cargo ndk build --platform 30 --target ${{ matrix.platform.arch }} --release
 
-      - name: Strip
-        if: matrix.platform.name == 'Linux-x86_64'
-        run: strip -x target/${{ matrix.platform.target }}/release/libfliptengine.so
-
       - name: Package
         run: |
           tar -czvf flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz \
