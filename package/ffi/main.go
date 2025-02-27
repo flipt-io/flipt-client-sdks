@@ -23,7 +23,6 @@ var (
 	engineTag string
 	sdksToFn  = map[string]sdks.SDK{
 		"python": &sdks.PythonSDK{},
-		"go":     &sdks.GoSDK{},
 		"ruby":   &sdks.RubySDK{},
 		"java":   &sdks.JavaSDK{},
 		"dart":   &sdks.DartSDK{},
@@ -170,9 +169,9 @@ func downloadFFI(ctx context.Context, client *dagger.Client, sdk sdks.SDK) error
 			url = fmt.Sprintf("https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-%s/flipt-engine-ffi-%s.%s", engineTag, pkg.ID, ext)
 		)
 
-		container := client.Container().From("debian:bookworm-slim").
-			WithExec([]string{"apt-get", "update"}).
-			WithExec([]string{"apt-get", "install", "-y", "wget", "p7zip-full"}).
+		container := client.Container().From("rust:1.83.0-bullseye").
+			WithExec(args("apt-get update")).
+			WithExec(args("apt-get install -y build-essential musl-dev musl-tools")).
 			WithExec(args("mkdir -p /tmp/dl")).
 			WithExec(args("wget %s -O /tmp/dl/%s.%s", url, pkg.ID, ext)).
 			WithExec(args("mkdir -p /tmp/%s", out)).
