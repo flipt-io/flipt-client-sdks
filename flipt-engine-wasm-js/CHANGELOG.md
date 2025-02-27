@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-wasm-js-v0.2.2...flipt-engine-wasm-js-v0.2.2) (2025-02-27)
+
+
+### Miscellaneous Chores
+
+* release 0.2.2 ([92bbd5f](https://github.com/flipt-io/flipt-client-sdks/commit/92bbd5f71b433c4b45044337176090fbea31d0ce))
+
 ## [0.2.2](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-wasm-v0.1.2...flipt-engine-wasm-v0.2.2) (2025-02-06)
 
 
