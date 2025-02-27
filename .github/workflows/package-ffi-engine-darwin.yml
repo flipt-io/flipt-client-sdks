@@ -1,4 +1,4 @@
-name: Package FFI Engine (macOS)
+name: Package FFI Engine (Darwin)
 on:
   pull_request:
     branches: [main]
@@ -19,16 +19,16 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - name: Darwin-arm64
+          - name: Darwin-aarch64
             target: aarch64-apple-darwin
 
           - name: Darwin-x86_64
             target: x86_64-apple-darwin
 
-          - name: iOS-arm64
+          - name: iOS-aarch64
             target: aarch64-apple-ios
 
-          - name: iOS-arm64-sim
+          - name: iOS-aarch64-sim
             target: aarch64-apple-ios-sim
 
     runs-on: macos-latest
@@ -39,11 +39,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: ${{ matrix.platform.target }}
-          override: true
+        run: rustup update stable && rustup target add ${{ matrix.platform.target }}
 
       - uses: actions/cache@v4
         with:
@@ -56,10 +52,7 @@ jobs:
           key: macos-${{ matrix.platform.target}}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: -p flipt-engine-ffi --target ${{ matrix.platform.target }} --release
+        run: cargo build --release --target ${{ matrix.platform.target }} --package flipt-engine-ffi
 
       - name: Strip
         run: strip -x target/${{ matrix.platform.target }}/release/libfliptengine.dylib

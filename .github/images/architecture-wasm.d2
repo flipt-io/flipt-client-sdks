@@ -1,13 +1,13 @@
-javascript: {
+go: {
   shape: image
-  icon: https://icon.icepanel.io/Technology/svg/JavaScript.svg
+  icon: ./icons/go.svg
 }
 
 flipt-engine-wasm: {
   shape: square
   WebAssembly: {
     shape: image
-    icon: https://icon.icepanel.io/Technology/svg/WebAssembly.svg
+    icon: ./icons/wasm.svg
   }
 }
 
@@ -15,11 +15,11 @@ flipt-service: {
   shape: square
   flipt: {
     shape: image
-    icon: ./flipt.svg
+    icon: ./icons/flipt.svg
   }
 }
 
-javascript <-> flipt-service: Evaluation State Sync {
+go <-> flipt-service: Evaluation State Sync {
   style: {
     opacity: 0.9
     stroke-dash: 3
@@ -27,4 +27,4 @@ javascript <-> flipt-service: Evaluation State Sync {
   }
 }
 
-javascript <-> flipt-engine-wasm
+go <-> flipt-engine-wasm

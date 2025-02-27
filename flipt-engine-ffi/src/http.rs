@@ -10,7 +10,6 @@ use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::policies::ExponentialBackoff;
 use reqwest_retry::RetryTransientMiddleware;
 use serde::Deserialize;
-use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 use tokio_util::io::StreamReader;
 
@@ -203,18 +202,17 @@ impl HTTPFetcher {
         rx
     }
 
-    pub fn initial_fetch(&mut self) -> FetchResult {
-        match Handle::try_current() {
-            Ok(handle) => {
-                // We're already in a Tokio runtime, use the existing one
-                handle.block_on(self.initial_fetch_async())
+    pub async fn initial_fetch(&mut self) -> FetchResult {
+        let response = self.fetch().await?;
+
+        match response {
+            Some(resp) => {
+                let document = resp.json::<source::Document>().await.map_err(|e| {
+                    Error::InvalidJSON(format!("failed to parse response body: {}", e))
+                })?;
+                Ok(document)
             }
-            Err(_) => {
-                // No runtime exists, create a new one
-                let runtime = tokio::runtime::Runtime::new()
-                    .map_err(|e| Error::Server(format!("failed to create runtime: {}", e)))?;
-                runtime.block_on(self.initial_fetch_async())
-            }
+            None => Err(Error::Server("no data received from server".into())),
         }
     }
 
@@ -393,20 +391,6 @@ impl HTTPFetcher {
                 .send(Err(e.clone()))
                 .await
                 .map_err(|_| Error::Server("failed to send error".into())),
-        }
-    }
-
-    async fn initial_fetch_async(&mut self) -> FetchResult {
-        let response = self.fetch().await?;
-
-        match response {
-            Some(resp) => {
-                let document = resp.json::<source::Document>().await.map_err(|e| {
-                    Error::InvalidJSON(format!("failed to parse response body: {}", e))
-                })?;
-                Ok(document)
-            }
-            None => Err(Error::Server("no data received from server".into())),
         }
     }
 }
@@ -641,9 +625,9 @@ mod tests {
         assert!(result.is_err())
     }
 
-    #[test]
-    fn test_initial_fetch() {
-        let mut server = Server::new();
+    #[tokio::test]
+    async fn test_initial_fetch() {
+        let mut server = Server::new_async().await;
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
             .with_status(200)
@@ -656,7 +640,7 @@ mod tests {
             .authentication(Authentication::None)
             .build();
 
-        let result = fetcher.initial_fetch();
+        let result = fetcher.initial_fetch().await;
 
         assert!(result.is_ok());
         mock.assert();

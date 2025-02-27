@@ -9,27 +9,10 @@ import (
 	"strings"
 
 	"dagger.io/dagger"
-	"go.flipt.io/flipt/client-sdks/package/ffi/platform"
 )
 
 type GoSDK struct {
 	BaseSDK
-	Libc platform.Libc
-}
-
-func (s *GoSDK) SupportedPlatforms() []platform.Platform {
-	switch s.Libc {
-	case platform.Musl:
-		return []platform.Platform{
-			platform.LinuxArm64Musl,
-			platform.LinuxX86_64Musl,
-			platform.DarwinArm64,
-			platform.DarwinX86_64,
-			platform.WindowsX86_64,
-		}
-	default:
-		return s.BaseSDK.SupportedPlatforms()
-	}
 }
 
 func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error {
@@ -63,7 +46,7 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 		WithExec([]string{"git", "clone", "https://github.com/flipt-io/flipt-client-sdks.git", "/src"}).
 		WithWorkdir("/src").
 		WithFile("/tmp/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
-		WithDirectory("/tmp/ext", hostDirectory.Directory(fmt.Sprintf("tmp/%s", s.Libc)), dagger.ContainerWithDirectoryOpts{Include: defaultInclude})
+		WithDirectory("/tmp/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{Include: defaultInclude})
 
 	filtered := repository.
 		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").

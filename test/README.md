@@ -19,10 +19,23 @@ From the root of this repository you can run:
 dagger run go run ./test
 ```
 
-This will run integration tests for every language that is supported. If you wish to filter specific languages to test, there is a flag `-sdks` which accepts a comma-separated list of values.
+This will run integration tests for every language that is supported. You can filter which tests to run in two ways:
 
-e.g.
+1. By specific languages using the `-sdks` flag which accepts a comma-separated list of values:
 
 ```bash
 dagger run go run ./test -sdks python,ruby
 ```
+
+2. By groups using the `-groups` flag which accepts a comma-separated list of values:
+
+```bash
+dagger run go run ./test -groups ffi,js
+```
+
+The available groups are:
+- `ffi`: Python, Ruby, Java, Dart, C# (SDKs using FFI bindings)
+- `wasm`: Go (SDKs using WebAssembly directly)
+- `js`: Node, Browser, React (SDKs using JavaScript WASM bindings)
+
+You can also combine both flags to run specific SDKs and groups together.

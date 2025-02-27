@@ -1,14 +1,26 @@
-extern crate console_error_panic_hook;
-use wasm_bindgen::prelude::*;
-
+use fliptevaluation::error::Error;
+use fliptevaluation::models::flipt::Flag;
+use fliptevaluation::models::source;
+use fliptevaluation::store::{Snapshot, Store};
 use fliptevaluation::{
-    batch_evaluation, boolean_evaluation, error::Error, models::source, store::Snapshot,
-    store::Store, variant_evaluation,
+    batch_evaluation, boolean_evaluation, variant_evaluation, BatchEvaluationResponse,
+    BooleanEvaluationResponse, EvaluationRequest, VariantEvaluationResponse,
 };
+use libc::c_void;
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
+use std::collections::HashMap;
+use thiserror::Error;
 
-#[derive(Serialize, Deserialize)]
-pub struct JsResponse<T>
+#[derive(Deserialize)]
+struct WASMEvaluationRequest {
+    flag_key: String,
+    entity_id: String,
+    context: Option<Map<String, Value>>,
+}
+
+#[derive(Serialize)]
+struct WASMResponse<T>
 where
     T: Serialize,
 {
@@ -17,7 +29,7 @@ where
     error_message: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Serialize)]
 enum Status {
     #[serde(rename = "success")]
     Success,
@@ -25,24 +37,29 @@ enum Status {
     Failure,
 }
 
-#[wasm_bindgen]
-pub struct Engine {
-    namespace: String,
-    store: Snapshot,
+#[derive(Error, Debug)]
+pub enum WASMError {
+    #[error("Invalid JSON: {0}")]
+    InvalidJson(#[from] serde_json::Error),
+    #[error("Error building snapshot: {0}")]
+    SnapshotBuildError(#[from] Error),
+    #[error("Null pointer error")]
+    NullPointer,
 }
 
-impl<T> From<Result<T, Error>> for JsResponse<T>
+impl<T, E> From<Result<T, E>> for WASMResponse<T>
 where
     T: Serialize,
+    E: std::error::Error,
 {
-    fn from(value: Result<T, Error>) -> Self {
+    fn from(value: Result<T, E>) -> Self {
         match value {
-            Ok(result) => JsResponse {
+            Ok(result) => WASMResponse {
                 status: Status::Success,
                 result: Some(result),
                 error_message: None,
             },
-            Err(e) => JsResponse {
+            Err(e) => WASMResponse {
                 status: Status::Failure,
                 result: None,
                 error_message: Some(e.to_string()),
@@ -51,145 +68,298 @@ where
     }
 }
 
-#[wasm_bindgen]
-impl Engine {
-    #[wasm_bindgen(constructor)]
-    pub fn new(namespace: &str) -> Self {
-        console_error_panic_hook::set_once();
-        let store = Snapshot::empty(namespace);
+fn result_to_string<T: Serialize, E: std::error::Error>(result: Result<T, E>) -> String {
+    let wasm_response: WASMResponse<T> = result.into();
+    serde_json::to_string(&wasm_response).unwrap()
+}
 
-        Self {
+pub struct Engine {
+    namespace: String,
+    store: Snapshot,
+}
+
+impl Engine {
+    pub fn new(namespace: &str, snapshot: &str) -> Result<Self, WASMError> {
+        let doc: source::Document =
+            serde_json::from_str(snapshot).map_err(WASMError::InvalidJson)?;
+        let store = Snapshot::build(namespace, doc).map_err(WASMError::SnapshotBuildError)?;
+
+        Ok(Self {
             namespace: namespace.to_string(),
             store,
-        }
+        })
     }
 
-    pub fn snapshot(&mut self, data: JsValue) -> Result<(), JsValue> {
-        let doc: source::Document = match serde_wasm_bindgen::from_value(data) {
-            Ok(document) => document,
-            Err(e) => {
-                return Err(JsValue::from(e.to_string()));
-            }
-        };
-
-        let store = match Snapshot::build(&self.namespace, doc) {
-            Ok(s) => s,
-            Err(e) => {
-                return Err(JsValue::from(e.to_string()));
-            }
-        };
-
-        self.store = store;
+    pub fn snapshot(&mut self, data: &str) -> Result<(), WASMError> {
+        let doc: source::Document = serde_json::from_str(data).map_err(WASMError::InvalidJson)?;
+        self.store =
+            Snapshot::build(&self.namespace, doc).map_err(WASMError::SnapshotBuildError)?;
         Ok(())
     }
 
-    pub fn evaluate_boolean(&self, request: JsValue) -> Result<JsValue, JsValue> {
-        let result: Result<fliptevaluation::BooleanEvaluationResponse, Error> =
-            match serde_wasm_bindgen::from_value(request) {
-                Ok(req) => boolean_evaluation(&self.store, &self.namespace, &req),
-                Err(e) => Err(Error::InvalidRequest(e.to_string())),
-            };
-
-        let response = JsResponse::from(result);
-
-        Ok(serde_wasm_bindgen::to_value(&response)?)
+    pub fn evaluate_boolean(
+        &self,
+        request: &EvaluationRequest,
+    ) -> Result<BooleanEvaluationResponse, Error> {
+        boolean_evaluation(&self.store, &self.namespace, request)
     }
 
-    pub fn evaluate_variant(&self, request: JsValue) -> Result<JsValue, JsValue> {
-        let result: Result<fliptevaluation::VariantEvaluationResponse, Error> =
-            match serde_wasm_bindgen::from_value(request) {
-                Ok(req) => variant_evaluation(&self.store, &self.namespace, &req),
-                Err(e) => Err(Error::InvalidRequest(e.to_string())),
-            };
-
-        let response = JsResponse::from(result);
-
-        Ok(serde_wasm_bindgen::to_value(&response)?)
+    pub fn evaluate_variant(
+        &self,
+        request: &EvaluationRequest,
+    ) -> Result<VariantEvaluationResponse, Error> {
+        variant_evaluation(&self.store, &self.namespace, request)
     }
 
-    pub fn evaluate_batch(&self, request: JsValue) -> Result<JsValue, JsValue> {
-        let result: Result<fliptevaluation::BatchEvaluationResponse, Error> =
-            match serde_wasm_bindgen::from_value(request) {
-                Ok(req) => batch_evaluation(&self.store, &self.namespace, req),
-                Err(e) => Err(Error::InvalidRequest(e.to_string())),
-            };
-
-        let response = JsResponse::from(result);
-
-        Ok(serde_wasm_bindgen::to_value(&response)?)
+    pub fn evaluate_batch(
+        &self,
+        request: Vec<fliptevaluation::EvaluationRequest>,
+    ) -> Result<BatchEvaluationResponse, Error> {
+        batch_evaluation(&self.store, &self.namespace, request)
     }
 
-    pub fn list_flags(&self) -> Result<JsValue, JsValue> {
-        let flags = self.store.list_flags(&self.namespace);
-        let response = JsResponse::from(Ok(flags));
-        Ok(serde_wasm_bindgen::to_value(&response)?)
+    pub fn list_flags(&self) -> Result<Option<Vec<Flag>>, Error> {
+        Ok(self.store.list_flags(&self.namespace))
     }
 }
 
-#[cfg(test)]
-mod tests {
+/// # Safety
+///
+/// This function should not be called unless an Engine is initiated. It provides a helper
+/// utility to retrieve an Engine instance for evaluation use.
+unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, WASMError> {
+    if engine_ptr.is_null() {
+        Err(WASMError::NullPointer)
+    } else {
+        Ok(&mut *(engine_ptr as *mut Engine))
+    }
+}
 
-    use std::collections::HashMap;
+/// # Safety
+///
+/// This function will initialize an Engine and return a pointer back to the caller.
+#[no_mangle]
+pub unsafe extern "C" fn initialize_engine(
+    namespace_ptr: *const u8,
+    namespace_len: usize,
+    payload_ptr: *const u8,
+    payload_len: usize,
+) -> *mut c_void {
+    let result = std::panic::catch_unwind(|| {
+        let namespace =
+            std::str::from_utf8_unchecked(std::slice::from_raw_parts(namespace_ptr, namespace_len));
+        let payload =
+            std::str::from_utf8_unchecked(std::slice::from_raw_parts(payload_ptr, payload_len));
 
-    use super::*;
-    use fliptevaluation::EvaluationRequest;
-    use wasm_bindgen_test::wasm_bindgen_test;
+        match Engine::new(namespace, payload) {
+            Ok(engine) => Box::into_raw(Box::new(engine)) as *mut c_void,
+            Err(e) => {
+                eprintln!("Error initializing engine: {}", e);
+                std::ptr::null_mut()
+            }
+        }
+    });
 
-    // wasm_bindgen_test_configure!(run_in_browser);
+    result.unwrap_or(std::ptr::null_mut())
+}
 
-    #[wasm_bindgen_test]
-    fn test_snapshot_with_valid_data() {
-        let mut engine = Engine::new("default");
-        let state = r#"
-        {
-         "namespace": { "key": "default"},
-         "flags": [
-             {
-             "key": "flag1",
-             "name": "flag1",
-             "description": "",
-             "enabled": false,
-             "type": "VARIANT_FLAG_TYPE",
-             "createdAt": "2024-09-13T19:37:18.723909Z",
-             "updatedAt": "2024-09-13T19:37:18.723909Z",
-             "rules": [],
-             "rollouts": []
-        }]}"#;
+/// # Safety
+///
+/// This function will take in a pointer to the engine and return a variant evaluation response.
+#[no_mangle]
+pub unsafe extern "C" fn evaluate_variant(
+    engine_ptr: *mut c_void,
+    evaluation_request_ptr: *const u8,
+    evaluation_request_len: usize,
+) -> u64 {
+    let e = match get_engine(engine_ptr) {
+        Ok(e) => e,
+        Err(e) => return result_to_ptr::<(), _>(Err(e)),
+    };
+    let evaluation_request = unsafe {
+        std::str::from_utf8_unchecked(std::slice::from_raw_parts(
+            evaluation_request_ptr,
+            evaluation_request_len,
+        ))
+    };
 
-        let document: source::Document = serde_json::from_str(state).expect("valid snapshot");
-        let data = serde_wasm_bindgen::to_value(&document).unwrap();
-        let result = engine.snapshot(data);
-        assert!(result.is_ok());
-        let flags = engine.list_flags();
-        assert!(flags.is_ok());
+    let request = get_evaluation_request(evaluation_request);
+    result_to_ptr(e.evaluate_variant(&request))
+}
 
-        let eval_req = EvaluationRequest {
-            flag_key: "flag1".to_owned(),
-            entity_id: "one".to_owned(),
-            context: HashMap::new(),
-        };
-        let req = serde_wasm_bindgen::to_value(&eval_req).unwrap();
-        let js_value = engine.evaluate_variant(req.clone());
-        assert!(js_value.is_ok());
+/// # Safety
+///
+/// This function will take in a pointer to the engine and return a boolean evaluation response.
+#[no_mangle]
+pub unsafe extern "C" fn evaluate_boolean(
+    engine_ptr: *mut c_void,
+    evaluation_request_ptr: *const u8,
+    evaluation_request_len: usize,
+) -> u64 {
+    let e = match get_engine(engine_ptr) {
+        Ok(e) => e,
+        Err(e) => return result_to_ptr::<(), _>(Err(e)),
+    };
+    let evaluation_request = unsafe {
+        std::str::from_utf8_unchecked(std::slice::from_raw_parts(
+            evaluation_request_ptr,
+            evaluation_request_len,
+        ))
+    };
 
-        let result = engine.evaluate_boolean(req.clone());
-        assert!(result.is_ok());
+    let request = get_evaluation_request(evaluation_request);
+    result_to_ptr(e.evaluate_boolean(&request))
+}
 
-        let result = engine.evaluate_batch(req);
-        assert!(result.is_ok());
+/// # Safety
+///
+/// This function will take in a pointer to the engine and return a batch evaluation response.
+#[no_mangle]
+pub unsafe extern "C" fn evaluate_batch(
+    engine_ptr: *mut c_void,
+    batch_evaluation_request_ptr: *const u8,
+    batch_evaluation_request_len: usize,
+) -> u64 {
+    let e = match get_engine(engine_ptr) {
+        Ok(e) => e,
+        Err(e) => return result_to_ptr::<(), _>(Err(e)),
+    };
+    let evaluation_requests = unsafe {
+        std::str::from_utf8_unchecked(std::slice::from_raw_parts(
+            batch_evaluation_request_ptr,
+            batch_evaluation_request_len,
+        ))
+    };
+    let requests = get_batch_evaluation_request(evaluation_requests);
+    result_to_ptr(e.evaluate_batch(requests))
+}
+
+/// # Safety
+///
+/// This function will return a list of flags.
+#[no_mangle]
+pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> u64 {
+    let e = match get_engine(engine_ptr) {
+        Ok(e) => e,
+        Err(e) => return result_to_ptr::<(), _>(Err(e)),
+    };
+    result_to_ptr(e.list_flags())
+}
+
+/// # Safety
+///
+/// This function will take in a pointer to the engine and snapshot.
+#[no_mangle]
+pub unsafe extern "C" fn snapshot(
+    engine_ptr: *mut c_void,
+    snapshot_ptr: *const u8,
+    snapshot_len: usize,
+) -> u64 {
+    let e = match get_engine(engine_ptr) {
+        Ok(e) => e,
+        Err(e) => return result_to_ptr::<(), _>(Err(e)),
+    };
+    let snapshot = unsafe {
+        std::str::from_utf8_unchecked(std::slice::from_raw_parts(snapshot_ptr, snapshot_len))
+    };
+    result_to_ptr(e.snapshot(snapshot))
+}
+
+/// # Safety
+///
+/// This function will free the memory occupied by the engine.
+#[no_mangle]
+pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
+    if engine_ptr.is_null() {
+        return;
     }
 
-    #[wasm_bindgen_test]
-    fn test_snapshot_with_invalid_data() {
-        let mut engine = Engine::new("default");
-        let result = engine.snapshot(JsValue::from_str(""));
-        assert!(result.is_err());
-        match result {
-            Ok(_) => panic!("Expected an error, but got Ok"),
-            Err(e) => assert_eq!(
-                e.as_string().unwrap(),
-                "Error: invalid type: string \"\", expected struct Document"
-            ),
+    drop(Box::from_raw(engine_ptr as *mut Engine));
+}
+
+/// # Safety
+///
+/// This function will allocate memory for the engine.
+#[no_mangle]
+pub extern "C" fn allocate(size: usize) -> *mut c_void {
+    let mut buf = vec![0; size];
+    let ptr = buf.as_mut_ptr();
+    std::mem::forget(buf);
+    ptr as *mut c_void
+}
+
+/// # Safety
+///
+/// This function will free the memory occupied by the engine.
+#[no_mangle]
+pub unsafe extern "C" fn deallocate(ptr: *mut c_void, size: usize) {
+    let buf = Vec::from_raw_parts(ptr, size, size);
+    std::mem::drop(buf);
+}
+
+unsafe fn get_evaluation_request(evaluation_request: &str) -> EvaluationRequest {
+    let client_eval_request: WASMEvaluationRequest =
+        serde_json::from_str(evaluation_request).unwrap();
+
+    let mut context_map: HashMap<String, String> = HashMap::new();
+    if let Some(context_value) = client_eval_request.context {
+        for (key, value) in context_value {
+            if let serde_json::Value::String(val) = value {
+                context_map.insert(key, val);
+            }
         }
     }
+
+    EvaluationRequest {
+        flag_key: client_eval_request.flag_key,
+        entity_id: client_eval_request.entity_id,
+        context: context_map,
+    }
+}
+
+unsafe fn get_batch_evaluation_request(batch_evaluation_request: &str) -> Vec<EvaluationRequest> {
+    let batch_eval_request: Vec<WASMEvaluationRequest> =
+        serde_json::from_str(batch_evaluation_request).unwrap();
+
+    let mut evaluation_requests: Vec<EvaluationRequest> =
+        Vec::with_capacity(batch_eval_request.len());
+    for req in batch_eval_request {
+        let mut context_map: HashMap<String, String> = HashMap::new();
+        if let Some(context_value) = req.context {
+            for (key, value) in context_value {
+                if let serde_json::Value::String(val) = value {
+                    context_map.insert(key, val);
+                }
+            }
+        }
+
+        evaluation_requests.push(EvaluationRequest {
+            flag_key: req.flag_key,
+            entity_id: req.entity_id,
+            context: context_map,
+        });
+    }
+
+    evaluation_requests
+}
+
+/// Returns a pointer and size pair for the given string in a way compatible
+/// with WebAssembly numeric types.
+///
+/// Note: This doesn't change the ownership of the String. To intentionally
+/// leak it, use [`std::mem::forget`] on the input after calling this.
+unsafe fn string_to_ptr(s: &str) -> (u32, u32) {
+    (s.as_ptr() as u32, s.len() as u32)
+}
+
+/// Returns a pointer and size pair for the given result in a way compatible
+/// with WebAssembly numeric types.
+///
+/// Note: This doesn't change the ownership of the String. To intentionally
+/// leak it, use [`std::mem::forget`] on the input after calling this.
+unsafe fn result_to_ptr<T: Serialize, E: std::error::Error>(result: Result<T, E>) -> u64 {
+    let result = result_to_string(result);
+    let (ptr, len) = string_to_ptr(&result);
+    std::mem::forget(result);
+    ((ptr as u64) << 32) | len as u64
 }

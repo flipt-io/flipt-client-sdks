@@ -6,7 +6,9 @@
 *.exe~
 *.dll
 *.so
+*.a
 *.dylib
+*.wasm
 
 # Test binary, built with `go test -c`
 *.test
@@ -17,3 +19,4 @@
 # Dependency directories (remove the comment below to include it)
 # vendor/
 Dockerfile
+*.prof

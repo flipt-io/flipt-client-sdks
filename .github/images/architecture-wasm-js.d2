@@ -1,0 +1,30 @@
+javascript: {
+  shape: image
+  icon: ./icons/javascript.svg
+}
+
+flipt-engine-wasm-js: {
+  shape: square
+  WebAssembly: {
+    shape: image
+    icon: ./icons/wasm.svg
+  }
+}
+
+flipt-service: {
+  shape: square
+  flipt: {
+    shape: image
+    icon: ./icons/flipt.svg
+  }
+}
+
+javascript <-> flipt-service: Evaluation State Sync {
+  style: {
+    opacity: 0.9
+    stroke-dash: 3
+    shadow: true
+  }
+}
+
+javascript <-> flipt-engine-wasm-js

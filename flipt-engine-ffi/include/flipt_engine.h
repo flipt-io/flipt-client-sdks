@@ -52,3 +52,12 @@ void destroy_engine(void *engine_ptr);
  * See Rust the safety section in CString::from_raw.
  */
 void destroy_string(char *ptr);
+
+// Add missing external declarations for Rust functions
+extern void* initialize_engine_ffi(const char* namespace, const char* options);
+extern const char* evaluate_boolean_ffi(void* engine, const char* request);
+extern const char* evaluate_variant_ffi(void* engine, const char* request);
+extern const char* evaluate_batch_ffi(void* engine, const char* request);
+extern const char* list_flags_ffi(void* engine);
+extern void destroy_engine_ffi(void* engine);
+extern void destroy_string_ffi(char* str);
