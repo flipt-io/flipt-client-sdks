@@ -32,25 +32,6 @@ func TestMain(m *testing.M) {
 		defer pprof.StopCPUProfile()
 	}
 
-	// Run tests/benchmarks
-	code := m.Run()
-
-	// Memory profiling
-	if *memProfile != "" {
-		f, err := os.Create(*memProfile)
-		if err != nil {
-			panic(err)
-		}
-		defer f.Close()
-		if err := pprof.WriteHeapProfile(f); err != nil {
-			panic(err)
-		}
-	}
-
-	os.Exit(code)
-}
-
-func init() {
 	opts := []flipt.ClientOption{}
 
 	if os.Getenv("FLIPT_URL") != "" {
@@ -69,6 +50,28 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+
+	// Memory profiling
+	defer func() {
+		if *memProfile != "" {
+			f, err := os.Create(*memProfile)
+			if err != nil {
+				panic(err)
+			}
+			defer f.Close()
+			if err := pprof.WriteHeapProfile(f); err != nil {
+				panic(err)
+			}
+		}
+
+		if benchClient != nil {
+			benchClient.Close(context.TODO())
+		}
+	}()
+
+	// Run tests/benchmarks
+	code := m.Run()
+	os.Exit(code)
 }
 
 func generateLargeContext(size int) map[string]string {

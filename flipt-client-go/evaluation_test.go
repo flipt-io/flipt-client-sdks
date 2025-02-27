@@ -7,44 +7,57 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	flipt "go.flipt.io/flipt-client"
 )
 
-var (
-	evaluationClient *flipt.EvaluationClient
-	fliptUrl         string
-	authToken        string
-)
+type EvaluationTestSuite struct {
+	suite.Suite
+	client    *flipt.EvaluationClient
+	fliptUrl  string
+	authToken string
+}
 
-func init() {
+func (s *EvaluationTestSuite) SetupSuite() {
 	opts := []flipt.ClientOption{}
 
 	if os.Getenv("FLIPT_URL") != "" {
-		fliptUrl = os.Getenv("FLIPT_URL")
-		opts = append(opts, flipt.WithURL(fliptUrl))
+		s.fliptUrl = os.Getenv("FLIPT_URL")
+		opts = append(opts, flipt.WithURL(s.fliptUrl))
 	}
 
 	if os.Getenv("FLIPT_AUTH_TOKEN") != "" {
-		authToken = os.Getenv("FLIPT_AUTH_TOKEN")
-		opts = append(opts, flipt.WithClientTokenAuthentication(authToken))
+		s.authToken = os.Getenv("FLIPT_AUTH_TOKEN")
+		opts = append(opts, flipt.WithClientTokenAuthentication(s.authToken))
 	}
 
 	var err error
-	evaluationClient, err = flipt.NewEvaluationClient(context.TODO(), opts...)
-	if err != nil {
-		panic(err)
+	s.client, err = flipt.NewEvaluationClient(context.TODO(), opts...)
+	require.NoError(s.T(), err)
+}
+
+func (s *EvaluationTestSuite) TearDownSuite() {
+	if s.client != nil {
+		err := s.client.Close(context.TODO())
+		require.NoError(s.T(), err)
 	}
 }
 
-func TestInvalidAuthentication(t *testing.T) {
-	_, err := flipt.NewEvaluationClient(context.TODO(), flipt.WithURL(fliptUrl), flipt.WithClientTokenAuthentication("invalid"))
-	assert.EqualError(t, err, "failed to fetch initial state: unexpected status code: 401")
+func TestEvaluationSuite(t *testing.T) {
+	suite.Run(t, new(EvaluationTestSuite))
 }
 
-func TestVariant(t *testing.T) {
-	variant, err := evaluationClient.EvaluateVariant(context.TODO(), "flag1", "someentity", map[string]string{
+func (s *EvaluationTestSuite) TestInvalidAuthentication() {
+	_, err := flipt.NewEvaluationClient(context.TODO(), flipt.WithURL(s.fliptUrl), flipt.WithClientTokenAuthentication("invalid"))
+	assert.EqualError(s.T(), err, "failed to fetch initial state: unexpected status code: 401")
+}
+
+func (s *EvaluationTestSuite) TestVariant() {
+	variant, err := s.client.EvaluateVariant(context.TODO(), "flag1", "someentity", map[string]string{
 		"fizz": "buzz",
 	})
+
+	t := s.T()
 	require.NoError(t, err)
 
 	assert.True(t, variant.Match)
@@ -53,10 +66,12 @@ func TestVariant(t *testing.T) {
 	assert.Contains(t, variant.SegmentKeys, "segment1")
 }
 
-func TestBoolean(t *testing.T) {
-	boolean, err := evaluationClient.EvaluateBoolean(context.TODO(), "flag_boolean", "someentity", map[string]string{
+func (s *EvaluationTestSuite) TestBoolean() {
+	boolean, err := s.client.EvaluateBoolean(context.TODO(), "flag_boolean", "someentity", map[string]string{
 		"fizz": "buzz",
 	})
+
+	t := s.T()
 	require.NoError(t, err)
 
 	assert.Equal(t, "flag_boolean", boolean.FlagKey)
@@ -64,8 +79,8 @@ func TestBoolean(t *testing.T) {
 	assert.Equal(t, "MATCH_EVALUATION_REASON", boolean.Reason)
 }
 
-func TestBatch(t *testing.T) {
-	batch, err := evaluationClient.EvaluateBatch(context.TODO(), []*flipt.EvaluationRequest{
+func (s *EvaluationTestSuite) TestBatch() {
+	batch, err := s.client.EvaluateBatch(context.TODO(), []*flipt.EvaluationRequest{
 		{
 			FlagKey:  "flag1",
 			EntityId: "someentity",
@@ -88,6 +103,8 @@ func TestBatch(t *testing.T) {
 			},
 		},
 	})
+
+	t := s.T()
 	require.NoError(t, err)
 
 	assert.Len(t, batch.Responses, 3)
@@ -112,24 +129,26 @@ func TestBatch(t *testing.T) {
 	assert.Equal(t, "NOT_FOUND_ERROR_EVALUATION_REASON", errorResponse.ErrorEvaluationResponse.Reason)
 }
 
-func TestListFlags(t *testing.T) {
-	response, err := evaluationClient.ListFlags(context.TODO())
+func (s *EvaluationTestSuite) TestListFlags() {
+	response, err := s.client.ListFlags(context.TODO())
+
+	t := s.T()
 	require.NoError(t, err)
 
 	assert.NotEmpty(t, response)
 	assert.Equal(t, 2, len(response))
 }
 
-func TestVariantFailure(t *testing.T) {
-	_, err := evaluationClient.EvaluateVariant(context.TODO(), "nonexistent", "someentity", map[string]string{
+func (s *EvaluationTestSuite) TestVariantFailure() {
+	_, err := s.client.EvaluateVariant(context.TODO(), "nonexistent", "someentity", map[string]string{
 		"fizz": "buzz",
 	})
-	assert.EqualError(t, err, "invalid request: failed to get flag information default/nonexistent")
+	assert.EqualError(s.T(), err, "invalid request: failed to get flag information default/nonexistent")
 }
 
-func TestBooleanFailure(t *testing.T) {
-	_, err := evaluationClient.EvaluateBoolean(context.TODO(), "nonexistent", "someentity", map[string]string{
+func (s *EvaluationTestSuite) TestBooleanFailure() {
+	_, err := s.client.EvaluateBoolean(context.TODO(), "nonexistent", "someentity", map[string]string{
 		"fizz": "buzz",
 	})
-	assert.EqualError(t, err, "invalid request: failed to get flag information default/nonexistent")
+	assert.EqualError(s.T(), err, "invalid request: failed to get flag information default/nonexistent")
 }
