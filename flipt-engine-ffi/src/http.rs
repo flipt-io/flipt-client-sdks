@@ -625,26 +625,26 @@ mod tests {
         assert!(result.is_err())
     }
 
-    // #[test]
-    // fn test_initial_fetch() {
-    //     let mut server = Server::new();
-    //     let mock = server
-    //         .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
-    //         .with_status(200)
-    //         .with_header("content-type", "application/json")
-    //         .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
-    //         .create();
+    #[tokio::test]
+    async fn test_initial_fetch() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .create();
 
-    //     let url = server.url();
-    //     let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
-    //         .authentication(Authentication::None)
-    //         .build();
+        let url = server.url();
+        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
+            .authentication(Authentication::None)
+            .build();
 
-    //     let result = fetcher.initial_fetch();
+        let result = fetcher.initial_fetch_async().await;
 
-    //     assert!(result.is_ok());
-    //     mock.assert();
-    // }
+        assert!(result.is_ok());
+        mock.assert();
+    }
 
     #[test]
     fn test_deserialize_no_auth() {
