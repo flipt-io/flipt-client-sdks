@@ -54,7 +54,7 @@ jobs:
 
       - name: Build
         run: |
-          ./flipt-engine-ffi/build.sh ${{ matrix.platform.target }}
+          ./flipt-engine-ffi/build.sh ${{ matrix.platform.name }}
 
       - name: Package
         run: |
