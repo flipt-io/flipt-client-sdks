@@ -13,7 +13,7 @@ permissions:
 jobs:
   test:
     name: Integration Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
       - name: Enable KVM group perms
@@ -89,10 +89,11 @@ jobs:
             sleep 1
           done
 
-      - name: Install CMake
-        uses: lukka/get-cmake@latest
+      - name: Install Java
+        uses: actions/setup-java@v4
         with:
-          cmakeVersion: "3.19.8"
+          distribution: temurin
+          java-version: 21
 
       - name: Run Integration Tests
         uses: reactivecircus/android-emulator-runner@v2
@@ -101,6 +102,7 @@ jobs:
           FLIPT_AUTH_TOKEN: "secret"
         with:
           api-level: 33
+          ndk: 25.1.8937393
           target: default
           arch: x86_64
           script: ./gradlew connectedAndroidTest

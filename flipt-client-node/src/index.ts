@@ -11,7 +11,8 @@ import {
   BatchEvaluationResponse,
   ErrorEvaluationResponse,
   EvaluationResponse,
-  Flag
+  Flag,
+  ErrorStrategy
 } from './models';
 
 import {
@@ -26,6 +27,7 @@ export class FliptEvaluationClient {
   private fetcher: IFetcher;
   private etag?: string;
   private updateInterval?: NodeJS.Timeout;
+  private errorStrategy?: ErrorStrategy;
 
   private constructor(engine: Engine, fetcher: IFetcher) {
     this.engine = engine;
@@ -43,7 +45,8 @@ export class FliptEvaluationClient {
     options: ClientOptions<AuthenticationStrategy> = {
       url: 'http://localhost:8080',
       reference: '',
-      updateInterval: 120
+      updateInterval: 120,
+      errorStrategy: ErrorStrategy.Fail
     }
   ): Promise<FliptEvaluationClient> {
     let url = options.url ?? 'http://localhost:8080';
@@ -111,7 +114,7 @@ export class FliptEvaluationClient {
     if (options.updateInterval && options.updateInterval > 0) {
       client.startAutoRefresh(options.updateInterval * 1000);
     }
-
+    client.errorStrategy = options.errorStrategy;
     return client;
   }
 
@@ -153,19 +156,26 @@ export class FliptEvaluationClient {
    * @returns {boolean} true if snapshot changed
    */
   public async refresh(): Promise<boolean> {
-    const opts = { etag: this.etag };
-    const resp = await this.fetcher(opts);
+    try {
+      const opts = { etag: this.etag };
+      const resp = await this.fetcher(opts);
 
-    let etag = resp.headers.get('etag');
-    if (this.etag && this.etag === etag) {
-      return false;
+      let etag = resp.headers.get('etag');
+      if (this.etag && this.etag === etag) {
+        return false;
+      }
+
+      this.storeEtag(resp);
+
+      const data = await resp.json();
+      this.engine.snapshot(data);
+      return true;
+    } catch (err) {
+      if (this.errorStrategy === ErrorStrategy.Fail) {
+        throw err; // Re-throw the error
+      }
     }
-
-    this.storeEtag(resp);
-
-    const data = await resp.json();
-    this.engine.snapshot(data);
-    return true;
+    return false;
   }
 
   /**

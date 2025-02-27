@@ -10,7 +10,8 @@ import {
   EvaluationResponse,
   Flag,
   IFetcher,
-  VariantEvaluationResponse
+  VariantEvaluationResponse,
+  ErrorStrategy
 } from './models';
 
 import {
@@ -24,6 +25,7 @@ export class FliptEvaluationClient {
   private engine: Engine;
   private fetcher: IFetcher;
   private etag?: string;
+  private errorStrategy?: ErrorStrategy;
 
   private constructor(engine: Engine, fetcher: IFetcher) {
     this.engine = engine;
@@ -40,7 +42,8 @@ export class FliptEvaluationClient {
     namespace: string = 'default',
     options: ClientOptions = {
       url: 'http://localhost:8080',
-      reference: ''
+      reference: '',
+      errorStrategy: ErrorStrategy.Fail
     }
   ): Promise<FliptEvaluationClient> {
     await init(await wasm());
@@ -104,6 +107,7 @@ export class FliptEvaluationClient {
     engine.snapshot(data);
     const client = new FliptEvaluationClient(engine, fetcher);
     client.storeEtag(resp);
+    client.errorStrategy = options.errorStrategy;
     return client;
   }
 
@@ -122,19 +126,26 @@ export class FliptEvaluationClient {
    * @returns true if snapshot changed
    */
   public async refresh(): Promise<boolean> {
-    const opts = { etag: this.etag };
-    const resp = await this.fetcher(opts);
+    try {
+      const opts = { etag: this.etag };
+      const resp = await this.fetcher(opts);
 
-    let etag = resp.headers.get('etag');
-    if (this.etag && this.etag === etag) {
-      return false;
+      let etag = resp.headers.get('etag');
+      if (this.etag && this.etag === etag) {
+        return false;
+      }
+
+      this.storeEtag(resp);
+
+      const data = await resp.json();
+      this.engine.snapshot(data);
+      return true;
+    } catch (error) {
+      if (this.errorStrategy === ErrorStrategy.Fail) {
+        throw error; // Re-throw the error
+      }
     }
-
-    this.storeEtag(resp);
-
-    const data = await resp.json();
-    this.engine.snapshot(data);
-    return true;
+    return false;
   }
 
   /**

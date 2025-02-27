@@ -1,4 +1,4 @@
-name: Package FFI Engine (macOS)
+name: Package FFI Engine (Darwin)
 on:
   pull_request:
     branches: [main]

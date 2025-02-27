@@ -25,11 +25,13 @@ jobs:
           - name: Linux-aarch64
             target: aarch64-unknown-linux-musl
 
+          - name: Android-arm64
+            target: aarch64-linux-android
+            arch: arm64-v8a
+
           - name: Android-x86_64
             target: x86_64-linux-android
-
-          - name: Android-aarch64
-            target: aarch64-linux-android
+            arch: x86_64
 
     runs-on: ubuntu-22.04
     env:
@@ -39,7 +41,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Rust
-        run: rustup update stable
+        run: rustup update stable && rustup target add ${{ matrix.platform.target }}
 
       - uses: actions/cache@v4
         with:
@@ -59,8 +61,21 @@ jobs:
           which cross || cargo install cross --git https://github.com/cross-rs/cross
           echo "CROSS_NO_WARNINGS=0" >> $GITHUB_ENV
 
+      - name: Install cargo-ndk
+        if: endsWith(matrix.platform.target, '-android')
+        run: cargo install --force cargo-ndk
+
       - name: Build
+        if: ${{ !endsWith(matrix.platform.target, '-android') }}
         run: cross build --release --target ${{ matrix.platform.target }} --package flipt-engine-ffi
+
+      - name: Build (Android)
+        if: endsWith(matrix.platform.target, '-android')
+        run: cargo ndk build --platform 30 --target ${{ matrix.platform.arch }} --release
+
+      - name: Strip
+        if: matrix.platform.name == 'Linux-x86_64'
+        run: strip -x target/${{ matrix.platform.target }}/release/libfliptengine.so
 
       - name: Package
         run: |
