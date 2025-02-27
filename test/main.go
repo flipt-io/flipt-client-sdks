@@ -285,6 +285,8 @@ func getFFIBuildContainer(_ context.Context, client *dagger.Client, hostDirector
 	return client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform("linux/amd64"),
 	}).From("rust:1.83.0-bullseye"). // requires older version of glibc for best compatibility
+						WithMountedCache("/usr/local/cargo/registry", client.CacheVolume("cargo-registry")).
+						WithMountedCache("/usr/local/cargo/git", client.CacheVolume("cargo-git")).
 						WithExec(args("apt-get update")).
 						WithExec(args("apt-get install -y build-essential musl-dev musl-tools")).
 						WithWorkdir("/src").
@@ -310,6 +312,8 @@ func getWasmBuildContainer(_ context.Context, client *dagger.Client, hostDirecto
 	container := client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform("linux/amd64"),
 	}).From("rust:1.83.0-bullseye").
+		WithMountedCache("/usr/local/cargo/registry", client.CacheVolume("cargo-registry")).
+		WithMountedCache("/usr/local/cargo/git", client.CacheVolume("cargo-git")).
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
@@ -324,7 +328,7 @@ func getWasmBuildContainer(_ context.Context, client *dagger.Client, hostDirecto
 		WithExec(args("cargo build -p flipt-engine-wasm --release --target " + target)) // Build the wasm module
 
 	return container.WithExec(args("cargo install wasm-opt")).
-		WithExec(args("wasm-opt --converge --flatten --rereloop -Oz -Oz --gufa -o /src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm /src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm")) // https://blog.arcjet.com/lessons-from-running-webassembly-in-production-with-go-wazero/
+		WithExec(args("wasm-opt --converge --flatten --rereloop -Oz -Oz --gufa -o /src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm /src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm"))
 }
 
 // getWasmJSBuildContainer builds the wasm module for the Rust core for the client libraries to run
@@ -333,6 +337,8 @@ func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirec
 	container := client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform("linux/amd64"),
 	}).From("rust:1.83.0-bullseye").
+		WithMountedCache("/usr/local/cargo/registry", client.CacheVolume("cargo-registry")).
+		WithMountedCache("/usr/local/cargo/git", client.CacheVolume("cargo-git")).
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
