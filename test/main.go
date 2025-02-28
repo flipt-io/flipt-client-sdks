@@ -335,7 +335,7 @@ func getFFIBuildContainer(_ context.Context, client *dagger.Client, hostDirector
 func getWasmBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
 	const target = "wasm32-wasip1"
 
-	container := client.Container(dagger.ContainerOpts{
+	return client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform("linux/amd64"),
 	}).From("rust:1.83.0-bullseye").
 		WithWorkdir("/src").
@@ -349,16 +349,15 @@ func getWasmBuildContainer(_ context.Context, client *dagger.Client, hostDirecto
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
 		WithExec(args("rustup target add " + target)).
-		WithExec(args("cargo build -p flipt-engine-wasm --release --target " + target)) // Build the wasm module
-
-	return container.WithExec(args("cargo install wasm-opt")).
+		WithExec(args("cargo build -p flipt-engine-wasm --release --target " + target)).
+		WithExec(args("cargo install wasm-opt")).
 		WithExec(args("wasm-opt --converge --flatten --rereloop -Oz -Oz --gufa -o /src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm /src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm"))
 }
 
 // getWasmJSBuildContainer builds the wasm module for the Rust core for the client libraries to run
 // their tests against.
 func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory, target string) *dagger.Container {
-	container := client.Container(dagger.ContainerOpts{
+	return client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform("linux/amd64"),
 	}).From("rust:1.83.0-bullseye").
 		WithWorkdir("/src").
@@ -371,11 +370,10 @@ func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirec
 		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
-		WithExec(args("cargo build -p flipt-engine-wasm-js --release")) // Build the wasm module
-
-	return container.WithExec(args("cargo install wasm-opt wasm-pack")). // Install wasm-pack
-										WithWorkdir("/src/flipt-engine-wasm-js").
-										WithExec(args("wasm-pack build --target " + target)) // Build the wasm package
+		WithExec(args("cargo build -p flipt-engine-wasm-js --release")).
+		WithExec(args("cargo install wasm-opt wasm-pack")).
+		WithWorkdir("/src/flipt-engine-wasm-js").
+		WithExec(args("wasm-pack build --target " + target))
 }
 
 // pythonTests runs the python integration test suite against a container running Flipt.
