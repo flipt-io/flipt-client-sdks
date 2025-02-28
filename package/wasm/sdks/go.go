@@ -16,7 +16,10 @@ type GoSDK struct {
 }
 
 func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error {
-	const target = "wasm32-wasip1"
+	const (
+		target   = "wasm32-wasip1"
+		wasmFile = "/src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm"
+	)
 
 	rust := client.Container().From("rust:1.83.0-bookworm").
 		WithWorkdir("/src").
@@ -32,7 +35,7 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 		WithExec(args("rustup target add " + target)).
 		WithExec(args("cargo build -p flipt-engine-wasm --release --target " + target)).
 		WithExec(args("cargo install wasm-opt")).
-		WithExec(args("wasm-opt --converge --flatten --rereloop -Oz -Oz --gufa -o /src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm /src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm"))
+		WithExec(args("wasm-opt --converge --flatten --rereloop -Oz -Oz --gufa -o %s %s", wasmFile, wasmFile))
 
 	pat := os.Getenv("GITHUB_TOKEN")
 	if pat == "" && opts.Push {
@@ -67,7 +70,7 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 	container := git.
 		WithExec(args("git clone https://github.com/flipt-io/flipt-client-sdks.git /src")).
 		WithWorkdir("/src").
-		WithFile("/ext/flipt_engine_wasm.wasm", rust.File("/src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm"))
+		WithFile("/ext/flipt_engine_wasm.wasm", rust.File(wasmFile))
 
 	if !opts.Push {
 		out, err := container.WithExec(args("apt-get update")).
