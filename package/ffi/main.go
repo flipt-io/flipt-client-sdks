@@ -111,6 +111,9 @@ func take(fn func() error) func() error {
 }
 
 func args(args string, a ...any) []string {
+	if len(a) == 0 {
+		return strings.Split(args, " ")
+	}
 	return strings.Split(fmt.Sprintf(args, a...), " ")
 }
 
@@ -157,6 +160,10 @@ func downloadFFI(ctx context.Context, client *dagger.Client, sdk sdks.SDK) error
 
 	packages := sdk.SupportedPlatforms()
 
+	if err := os.RemoveAll("tmp"); err != nil {
+		return fmt.Errorf("failed to remove tmp directory: %w", err)
+	}
+
 	for _, pkg := range packages {
 		pkg := pkg
 
@@ -171,9 +178,10 @@ func downloadFFI(ctx context.Context, client *dagger.Client, sdk sdks.SDK) error
 		)
 
 		container := client.Container().From("debian:bookworm-slim").
-			WithExec([]string{"apt-get", "update"}).
-			WithExec([]string{"apt-get", "install", "-y", "wget", "p7zip-full"}).
+			WithExec(args("apt-get update")).
+			WithExec(args("apt-get install -y wget p7zip-full")).
 			WithExec(args("mkdir -p /tmp/dl")).
+			WithExec(args("wget --spider %s", url)).
 			WithExec(args("wget %s -O /tmp/dl/%s.%s", url, pkg.ID, ext)).
 			WithExec(args("mkdir -p /tmp/%s", out)).
 			WithExec(args("mkdir -p /out/%s", out))

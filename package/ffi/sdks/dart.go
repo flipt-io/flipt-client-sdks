@@ -21,13 +21,21 @@ func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, hostDirector
 			Include: defaultInclude,
 		}).
 		WithWorkdir("/src").
-		WithExec([]string{"dart", "pub", "get"})
+		WithExec(args("dart pub get"))
 
 	var err error
 
 	if !opts.Push {
-		_, err = container.WithExec([]string{"dart", "pub", "publish", "--dry-run"}).Sync(ctx)
-		return err
+		out, err := container.WithExec(args("dart pub publish --dry-run")).
+			WithExec(args("apt-get update")).
+			WithExec(args("apt-get install -y tree")).
+			WithExec(args("tree /src")).
+			Stdout(ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Println(out)
+		return nil
 	}
 
 	// get oidc token for publishing to pub.dev
@@ -39,8 +47,8 @@ func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, hostDirector
 	pubToken := client.SetSecret("pub-token", os.Getenv("PUB_TOKEN"))
 
 	_, err = container.WithSecretVariable("PUB_TOKEN", pubToken).
-		WithExec([]string{"dart", "pub", "token", "add", "https://pub.dev", "--env-var", "PUB_TOKEN"}).
-		WithExec([]string{"dart", "pub", "publish", "--force"}).
+		WithExec(args("dart pub token add https://pub.dev --env-var PUB_TOKEN")).
+		WithExec(args("dart pub publish --force")).
 		Sync(ctx)
 
 	return err

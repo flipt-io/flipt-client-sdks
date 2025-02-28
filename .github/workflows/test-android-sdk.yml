@@ -1,10 +1,8 @@
 name: Test Android SDK
 on:
-  workflow_dispatch:
-    inputs:
-      caller_run_id:
-        type: string
-        required: true
+  workflow_run:
+    workflows: ["Package FFI Engine (Android)"]
+    types: [completed]
 
 permissions:
   contents: write
@@ -14,7 +12,8 @@ jobs:
   test:
     name: Integration Tests
     runs-on: ubuntu-22.04
-    timeout-minutes: 10
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    timeout-minutes: 20
     steps:
       - name: Enable KVM group perms
         run: |
@@ -41,28 +40,28 @@ jobs:
           private_key: ${{ secrets.FLIPT_RELEASE_BOT_APP_PEM }}
           installation_id: ${{ secrets.FLIPT_RELEASE_BOT_INSTALLATION_ID }}
 
-      - name: Download Artifact (x86_64)
+      - name: Download Artifact (Android x86_64)
         uses: actions/download-artifact@v4
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           name: flipt-engine-ffi-Android-x86_64.tar.gz
           path: /tmp
-          run-id: ${{ inputs.caller_run_id }}
+          run-id: ${{ github.event.workflow_run.id }}
 
-      - name: Download Artifact (arm64)
+      - name: Download Artifact (Android arm64)
         uses: actions/download-artifact@v4
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
-          name: flipt-engine-ffi-Android-arm64.tar.gz
+          name: flipt-engine-ffi-Android-aarch64.tar.gz
           path: /tmp
-          run-id: ${{ inputs.caller_run_id }}
+          run-id: ${{ github.event.workflow_run.id }}
 
       - name: Extract Artifacts
         run: |
           mkdir -p /tmp/flipt-engine-ffi-Android-x86_64
-          mkdir -p /tmp/flipt-engine-ffi-Android-arm64
+          mkdir -p /tmp/flipt-engine-ffi-Android-aarch64
           tar -xzvf /tmp/flipt-engine-ffi-Android-x86_64.tar.gz -C /tmp/flipt-engine-ffi-Android-x86_64
-          tar -xzvf /tmp/flipt-engine-ffi-Android-arm64.tar.gz -C /tmp/flipt-engine-ffi-Android-arm64
+          tar -xzvf /tmp/flipt-engine-ffi-Android-aarch64.tar.gz -C /tmp/flipt-engine-ffi-Android-aarch64
 
       - name: Move Artifacts
         run: |
@@ -70,8 +69,8 @@ jobs:
           mkdir -p flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a
           mkdir -p flipt-client-kotlin-android/src/main/cpp/include
           mv /tmp/flipt-engine-ffi-Android-x86_64/target/x86_64-linux-android/release/libfliptengine.a flipt-client-kotlin-android/src/main/cpp/libs/x86_64/
-          mv /tmp/flipt-engine-ffi-Android-arm64/target/aarch64-linux-android/release/libfliptengine.a flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a/
-          cp -r flipt-engine-ffi/include/* flipt-client-kotlin-android/src/main/cpp/include
+          mv /tmp/flipt-engine-ffi-Android-aarch64/target/aarch64-linux-android/release/libfliptengine.a flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a/
+          cp flipt-engine-ffi/include/flipt_engine.h flipt-client-kotlin-android/src/main/cpp/include/
 
       - name: Run Flipt
         env:
