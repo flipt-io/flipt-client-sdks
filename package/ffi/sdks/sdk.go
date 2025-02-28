@@ -2,8 +2,10 @@ package sdks
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"dagger.io/dagger"
 	"go.flipt.io/flipt/client-sdks/package/ffi/platform"
@@ -48,4 +50,11 @@ func isDirEmptyOrNotExist(path string) (bool, error) {
 		return true, nil
 	}
 	return false, err
+}
+
+func args(args string, a ...any) []string {
+	if len(a) == 0 {
+		return strings.Split(args, " ")
+	}
+	return strings.Split(fmt.Sprintf(args, a...), " ")
 }

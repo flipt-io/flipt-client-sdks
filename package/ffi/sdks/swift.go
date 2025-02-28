@@ -48,12 +48,12 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 
 	git := client.Container().From("golang:1.21.3-bookworm").
 		WithSecretVariable("GITHUB_TOKEN", ghToken).
-		WithExec([]string{"git", "config", "--global", "user.email", gitUserEmail}).
-		WithExec([]string{"git", "config", "--global", "user.name", gitUserName}).
-		WithExec([]string{"sh", "-c", `git config --global http.https://github.com/.extraheader "AUTHORIZATION: Basic ${GITHUB_TOKEN}"`})
+		WithExec(args("git config --global user.email %s", gitUserEmail)).
+		WithExec(args("git config --global user.name %s", gitUserName)).
+		WithExec(args("sh -c 'git config --global http.https://github.com/.extraheader \"AUTHORIZATION: Basic ${GITHUB_TOKEN}\"'"))
 
 	repository := git.
-		WithExec([]string{"git", "clone", "https://github.com/flipt-io/flipt-client-sdks.git", "/src"}).
+		WithExec(args("git clone https://github.com/flipt-io/flipt-client-sdks.git /src")).
 		WithWorkdir("/src").
 		WithDirectory("/tmp/ext", hostDirectory.Directory("tmp")).
 		WithFile("/tmp/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h"))
@@ -66,16 +66,13 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 				[ -d Sources/FliptEngineFFI.xcframework/ios-arm64/Headers ] || mkdir -p Sources/FliptEngineFFI.xcframework/ios-arm64/Headers;
 				[ -d Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/Headers ] || mkdir -p Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/Headers;
 				[ -d Sources/FliptEngineFFI.xcframework/macos-arm64/Headers ] || mkdir -p Sources/FliptEngineFFI.xcframework/macos-arm64/Headers;
-				[ -d Sources/FliptEngineFFI.xcframework/macos-x86_64/Headers ] || mkdir -p Sources/FliptEngineFFI.xcframework/macos-x86_64/Headers;
 				cp /tmp/ext/ios_aarch64/libfliptengine.a Sources/FliptEngineFFI.xcframework/ios-arm64/;
 				cp /tmp/ext/ios_aarch64_sim/libfliptengine.a Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/;
 				cp /tmp/ext/darwin_aarch64/libfliptengine.a Sources/FliptEngineFFI.xcframework/macos-arm64/;
-				cp /tmp/ext/darwin_x86_64/libfliptengine.a Sources/FliptEngineFFI.xcframework/macos-x86_64/;
 				cp /tmp/ext/flipt_engine.h Sources/FliptEngineFFI.xcframework/ios-arm64/Headers;
 				cp /tmp/ext/flipt_engine.h Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/Headers;
 				cp /tmp/ext/flipt_engine.h Sources/FliptEngineFFI.xcframework/macos-arm64/Headers;
-				cp /tmp/ext/flipt_engine.h Sources/FliptEngineFFI.xcframework/macos-x86_64/Headers`,
-			"--", opts.Tag})
+			`, "--", opts.Tag})
 
 	_, err := filtered.Sync(ctx)
 	if !opts.Push {
@@ -99,13 +96,7 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 	targetTag := strings.TrimPrefix(opts.Tag, tagPrefix)
 
 	// push to target repo/tag
-	if _, err := filtered.WithExec([]string{
-		"git",
-		"push",
-		"-f",
-		targetRepo,
-		fmt.Sprintf("%s:%s", opts.Tag, targetTag)}).
-		Sync(ctx); err != nil {
+	if _, err := filtered.WithExec(args("git push -f %s %s:%s", targetRepo, opts.Tag, targetTag)).Sync(ctx); err != nil {
 		return err
 	}
 

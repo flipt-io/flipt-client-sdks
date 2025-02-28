@@ -137,8 +137,11 @@ func main() {
 	}
 }
 
-func args(args string) []string {
-	return strings.Split(args, " ")
+func args(args string, a ...any) []string {
+	if len(a) == 0 {
+		return strings.Split(args, " ")
+	}
+	return strings.Split(fmt.Sprintf(args, a...), " ")
 }
 
 func run() error {
@@ -310,8 +313,6 @@ func getFFIBuildContainer(_ context.Context, client *dagger.Client, hostDirector
 	return client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform("linux/amd64"),
 	}).From("rust:1.83.0-bullseye"). // requires older version of glibc for best compatibility
-						WithMountedCache("/usr/local/cargo/registry", client.CacheVolume("cargo-registry")).
-						WithMountedCache("/usr/local/cargo/git", client.CacheVolume("cargo-git")).
 						WithExec(args("apt-get update")).
 						WithExec(args("apt-get install -y build-essential musl-dev musl-tools")).
 						WithWorkdir("/src").
@@ -384,7 +385,7 @@ func pythonTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithExec(args("pip install poetry==1.7.0")).
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-python")).
-		WithDirectory("/src/ext/linux_x86_64", t.engine.Directory("/tmp/ffi")).
+		WithDirectory("/src/ext/linux_x86_64", t.engine.Directory("/src/target/x86_64-unknown-linux-musl/release")).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -440,7 +441,7 @@ func rubyTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	_, err := root.
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-ruby")).
-		WithDirectory("/src/lib/ext/linux_x86_64", t.engine.Directory("/tmp/ffi")).
+		WithDirectory("/src/lib/ext/linux_x86_64", t.engine.Directory("/src/target/x86_64-unknown-linux-musl/release")).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -459,7 +460,7 @@ func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-java"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{"./.idea/", ".gradle/", "build/"},
 		}).
-		WithDirectory("/src/src/main/resources/linux-x86-64", t.engine.Directory("/tmp/ffi")).
+		WithDirectory("/src/src/main/resources/linux-x86-64", t.engine.Directory("/src/target/x86_64-unknown-linux-musl/release")).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -516,7 +517,7 @@ func dartTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-dart"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", ".dart_tool/"},
 		}).
-		WithDirectory("/src/lib/src/ffi/linux_x86_64", t.engine.Directory("/tmp/ffi")).
+		WithDirectory("/src/lib/src/ffi/linux_x86_64", t.engine.Directory("/src/target/x86_64-unknown-linux-musl/release")).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
@@ -535,7 +536,7 @@ func csharpTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-csharp"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", "obj/", "bin/"},
 		}).
-		WithDirectory("/src/src/FliptClient/ext/ffi/linux_x86_64", t.engine.Directory("/tmp/ffi")).
+		WithDirectory("/src/src/FliptClient/ext/ffi/linux_x86_64", t.engine.Directory("/src/target/x86_64-unknown-linux-musl/release")).
 		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
