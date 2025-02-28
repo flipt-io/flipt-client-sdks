@@ -23,7 +23,6 @@ var (
 	engineTag string
 	sdksToFn  = map[string]sdks.SDK{
 		"python": &sdks.PythonSDK{},
-		"go":     &sdks.GoSDK{},
 		"ruby":   &sdks.RubySDK{},
 		"java":   &sdks.JavaSDK{},
 		"dart":   &sdks.DartSDK{},

@@ -21,7 +21,6 @@ func (s *SwiftSDK) SupportedPlatforms() []platform.Platform {
 		platform.IOSArm64,
 		platform.IOSSimArm64,
 		platform.DarwinArm64,
-		platform.DarwinX86_64,
 	}
 }
 
