@@ -1,5 +1,6 @@
 # Changelog
 
+
 ## [0.2.3](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-wasm-js-v0.2.2...flipt-engine-wasm-js-v0.2.3) (2025-02-28)
 
 ### Miscellaneous Chores
