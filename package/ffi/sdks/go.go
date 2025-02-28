@@ -38,12 +38,12 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 
 	git := client.Container().From("golang:1.21.3-bookworm").
 		WithSecretVariable("GITHUB_TOKEN", ghToken).
-		WithExec([]string{"git", "config", "--global", "user.email", gitUserEmail}).
-		WithExec([]string{"git", "config", "--global", "user.name", gitUserName}).
-		WithExec([]string{"sh", "-c", `git config --global http.https://github.com/.extraheader "AUTHORIZATION: Basic ${GITHUB_TOKEN}"`})
+		WithExec(args("git config --global user.email %s", gitUserEmail)).
+		WithExec(args("git config --global user.name %s", gitUserName)).
+		WithExec(args("sh -c 'git config --global http.https://github.com/.extraheader \"AUTHORIZATION: Basic ${GITHUB_TOKEN}\"'"))
 
 	repository := git.
-		WithExec([]string{"git", "clone", "https://github.com/flipt-io/flipt-client-sdks.git", "/src"}).
+		WithExec(args("git clone https://github.com/flipt-io/flipt-client-sdks.git /src")).
 		WithWorkdir("/src").
 		WithFile("/tmp/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithDirectory("/tmp/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{Include: defaultInclude})
