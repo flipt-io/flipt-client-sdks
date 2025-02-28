@@ -26,8 +26,15 @@ func (s *RubySDK) Build(ctx context.Context, client *dagger.Client, hostDirector
 	var err error
 
 	if !opts.Push {
-		_, err = container.Sync(ctx)
-		return err
+		out, err := container.WithExec(args("apt-get update")).
+			WithExec(args("apt-get install -y tree")).
+			WithExec(args("tree /src")).
+			Stdout(ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Println(out)
+		return nil
 	}
 
 	if os.Getenv("RUBYGEMS_API_KEY") == "" {

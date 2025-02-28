@@ -21,16 +21,23 @@ func (s *CSharpSDK) Build(ctx context.Context, client *dagger.Client, hostDirect
 		WithDirectory("/src/src/FliptClient/ext/ffi", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
 			Include: defaultInclude,
 		}).
+		WithExec(args("dotnet restore")).
+		WithExec(args("rm -rf **/bin **/obj")).
 		WithExec(args("dotnet build -c Release")).
 		WithExec(args("dotnet pack -c Release -o bin/Release"))
 
 	var err error
 
 	if !opts.Push {
-		_, err = container.WithExec(args("apt-get update && apt-get install tree")).
+		out, err := container.WithExec(args("apt-get update")).
+			WithExec(args("apt-get install -y tree")).
 			WithExec(args("tree /src")).
-			Sync(ctx)
-		return err
+			Stdout(ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Println(out)
+		return nil
 	}
 
 	if os.Getenv("NUGET_API_KEY") == "" {

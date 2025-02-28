@@ -27,8 +27,15 @@ func (s *PythonSDK) Build(ctx context.Context, client *dagger.Client, hostDirect
 	var err error
 
 	if !opts.Push {
-		_, err = container.Sync(ctx)
-		return err
+		out, err := container.WithExec(args("apt-get update")).
+			WithExec(args("apt-get install -y tree")).
+			WithExec(args("tree /src")).
+			Stdout(ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Println(out)
+		return nil
 	}
 
 	if os.Getenv("PYPI_API_KEY") == "" {
