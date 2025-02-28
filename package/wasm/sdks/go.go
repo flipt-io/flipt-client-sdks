@@ -16,8 +16,26 @@ type GoSDK struct {
 }
 
 func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error {
+	const target = "wasm32-wasip1"
+
+	rust := client.Container().From("rust:1.83.0-bookworm").
+		WithWorkdir("/src").
+		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
+		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"pkg/", ".gitignore"},
+		}).
+		WithDirectory("/src/flipt-engine-wasm-js", hostDirectory.Directory("flipt-engine-wasm-js"), dagger.ContainerWithDirectoryOpts{
+			Exclude: []string{"pkg/", ".gitignore"},
+		}).
+		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
+		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
+		WithExec(args("rustup target add " + target)).
+		WithExec(args("cargo build -p flipt-engine-wasm --release --target " + target)).
+		WithExec(args("cargo install wasm-opt")).
+		WithExec(args("wasm-opt --converge --flatten --rereloop -Oz -Oz --gufa -o /src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm /src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm"))
+
 	pat := os.Getenv("GITHUB_TOKEN")
-	if pat == "" {
+	if pat == "" && opts.Push {
 		return errors.New("GITHUB_TOKEN environment variable must be set")
 	}
 
@@ -39,24 +57,39 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 	git := client.Container().From("golang:1.21.3-bookworm").
 		WithSecretVariable("GITHUB_TOKEN", ghToken).
 		WithExec(args("git config --global user.email %s", gitUserEmail)).
-		WithExec(args("git config --global user.name %s", gitUserName)).
-		WithExec(args("sh -c 'git config --global http.https://github.com/.extraheader \"AUTHORIZATION: Basic ${GITHUB_TOKEN}\"'"))
+		WithExec(args("git config --global user.name %s", gitUserName))
 
-	repository := git.
+	if opts.Push {
+		git = git.
+			WithExec(args("sh -c 'git config --global http.https://github.com/.extraheader \"AUTHORIZATION: Basic ${GITHUB_TOKEN}\"'"))
+	}
+
+	container := git.
 		WithExec(args("git clone https://github.com/flipt-io/flipt-client-sdks.git /src")).
 		WithWorkdir("/src").
-		WithFile("/tmp/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
-		WithDirectory("/tmp/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{Include: defaultInclude})
+		WithFile("/ext/flipt_engine_wasm.wasm", rust.File("/src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm"))
 
-	filtered := repository.
+	if !opts.Push {
+		out, err := container.WithExec(args("apt-get update")).
+			WithExec(args("apt-get install -y tree")).
+			WithExec(args("tree /src/flipt-client-go")).
+			WithExec(args("tree /ext")).
+			Stdout(ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Println(out)
+		return nil
+	}
+
+	filtered := container.
 		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").
 		WithExec([]string{"git", "filter-branch", "-f", "--prune-empty",
 			"--subdirectory-filter", "flipt-client-go",
-			"--tree-filter", "cp -r /tmp/ext .",
+			"--tree-filter", "cp -r /ext .",
 			"--", opts.Tag})
 
-	_, err := filtered.Sync(ctx)
-	if !opts.Push {
+	if _, err := filtered.Sync(ctx); err != nil {
 		return err
 	}
 
@@ -89,7 +122,7 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 
 	// create GitHub release via API
 	releasePayload := fmt.Sprintf(`{"tag_name":"%s","name":"%s","body":"Release %s of the Flipt Go Client SDK"}`, targetTag, targetTag, targetTag)
-	_, err = filtered.WithExec([]string{
+	_, err := filtered.WithExec([]string{
 		"curl",
 		"-X", "POST",
 		"-H", fmt.Sprintf("Authorization: token %s", pat),
