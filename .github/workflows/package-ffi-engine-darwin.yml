@@ -84,29 +84,3 @@ jobs:
         with:
           tag_name: flipt-engine-ffi-${{ github.event.inputs.tag }}
           files: flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz 
-
-  notify:
-    runs-on: ubuntu-latest
-    needs: build
-    env:
-      FLIPT_RELEASE_BOT_APP_ID: ${{ secrets.FLIPT_RELEASE_BOT_APP_ID }}
-      FLIPT_RELEASE_BOT_APP_PEM: ${{ secrets.FLIPT_RELEASE_BOT_APP_PEM }}
-      FLIPT_RELEASE_BOT_INSTALLATION_ID: ${{ secrets.FLIPT_RELEASE_BOT_INSTALLATION_ID }}
-    if: github.repository == 'flipt-io/flipt-client-sdks'
-    steps:
-      - name: Generate token
-        id: generate_token
-        if: env.FLIPT_RELEASE_BOT_APP_ID != '' && env.FLIPT_RELEASE_BOT_APP_PEM != '' && env.FLIPT_RELEASE_BOT_INSTALLATION_ID != ''
-        uses: tibdex/github-app-token@v2
-        with:
-          app_id: ${{ env.FLIPT_RELEASE_BOT_APP_ID }}
-          private_key: ${{ env.FLIPT_RELEASE_BOT_APP_PEM }}
-          installation_id: ${{ env.FLIPT_RELEASE_BOT_INSTALLATION_ID }}
-
-      - name: Trigger Test Swift SDK
-        if: steps.generate_token.outputs.token != ''
-        run: |
-          curl -X POST -H "Authorization: Bearer ${{ steps.generate_token.outputs.token }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/flipt-io/flipt-client-sdks/actions/workflows/test-swift-sdk.yml/dispatches \
-            -d '{"ref":"${{ github.head_ref }}", "inputs":{"caller_run_id":"${{ github.run_id }}"}}' 
