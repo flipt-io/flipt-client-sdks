@@ -76,23 +76,34 @@ jobs:
 
       - name: Move Artifacts
         run: |
-          mkdir -p flipt-client-swift/Frameworks/iOS/arm64
-          mkdir -p flipt-client-swift/Frameworks/iOS/arm64-simulator
-          mkdir -p flipt-client-swift/Frameworks/Darwin/arm64
-          mkdir -p flipt-client-swift/Frameworks/include
-          mv /tmp/flipt-engine-ffi-iOS-aarch64/target/aarch64-apple-ios/release/libfliptengine.a flipt-client-swift/Frameworks/iOS/arm64/
-          mv /tmp/flipt-engine-ffi-iOS-aarch64-sim/target/aarch64-apple-ios-sim/release/libfliptengine.a flipt-client-swift/Frameworks/iOS/arm64-simulator/
-          mv /tmp/flipt-engine-ffi-Darwin-aarch64/target/aarch64-apple-darwin/release/libfliptengine.a flipt-client-swift/Frameworks/Darwin/arm64/
-          cp flipt-engine-ffi/include/flipt_engine.h flipt-client-swift/Frameworks/include/
-          cp flipt-engine-ffi/include/module.modulemap flipt-client-swift/Frameworks/include/
+          mkdir -p flipt-client-swift/Sources/FliptEngineFFI.xcframework/ios-arm64/Headers
+          mkdir -p flipt-client-swift/Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/Headers
+          mkdir -p flipt-client-swift/Sources/FliptEngineFFI.xcframework/macos-arm64/Headers
+
+          mv /tmp/flipt-engine-ffi-iOS-aarch64/libfliptengine.a \
+             flipt-client-swift/Sources/FliptEngineFFI.xcframework/ios-arm64/
+          mv /tmp/flipt-engine-ffi-iOS-aarch64-sim/libfliptengine.a \
+             flipt-client-swift/Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/
+          mv /tmp/flipt-engine-ffi-Darwin-aarch64/libfliptengine.a \
+             flipt-client-swift/Sources/FliptEngineFFI.xcframework/macos-arm64/
+
+          for platform in ios-arm64 ios-arm64-simulator macos-arm64; do
+            cp flipt-engine-ffi/include/flipt_engine.h \
+               flipt-client-swift/Sources/FliptEngineFFI.xcframework/$platform/Headers/
+            cp flipt-engine-ffi/include/module.modulemap \
+               flipt-client-swift/Sources/FliptEngineFFI.xcframework/$platform/Headers/
+          done
 
       - name: Xcode Build
         run: |
           xcodebuild -create-xcframework \
-            -library "flipt-client-swift/Frameworks/iOS/arm64/libfliptengine.a" -headers "flipt-client-swift/Frameworks/include/" \
-            -library "flipt-client-swift/Frameworks/iOS/arm64-simulator/libfliptengine.a" -headers "flipt-client-swift/Frameworks/include/" \
-            -library "flipt-client-swift/Frameworks/Darwin/arm64/libfliptengine.a" -headers "flipt-client-swift/Frameworks/include/" \
-            -output "flipt-client-swift/Frameworks/FliptEngineFFI.xcframework"
+            -library "flipt-client-swift/Sources/FliptEngineFFI.xcframework/ios-arm64/libfliptengine.a" \
+            -headers "flipt-client-swift/Sources/FliptEngineFFI.xcframework/ios-arm64/Headers" \
+            -library "flipt-client-swift/Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/libfliptengine.a" \
+            -headers "flipt-client-swift/Sources/FliptEngineFFI.xcframework/ios-arm64-simulator/Headers" \
+            -library "flipt-client-swift/Sources/FliptEngineFFI.xcframework/macos-arm64/libfliptengine.a" \
+            -headers "flipt-client-swift/Sources/FliptEngineFFI.xcframework/macos-arm64/Headers" \
+            -output "flipt-client-swift/Sources/FliptEngineFFI.xcframework"
 
       - name: Run Flipt
         env:
