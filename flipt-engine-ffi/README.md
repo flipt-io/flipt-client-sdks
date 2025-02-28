@@ -18,7 +18,7 @@ See [ARCHITECTURE.md](../ARCHITECTURE.md).
 ### Build
 
 ```bash
-cargo build --release
+cargo build -p flipt-engine-ffi --release
 ```
 
 There are some language SDKs that might require a C file header which has the definitions of the functions accessible through the FFI layer.
@@ -26,5 +26,5 @@ There are some language SDKs that might require a C file header which has the de
 ### Test
 
 ```bash
-cargo test
+cargo test -p flipt-engine-ffi
 ```
