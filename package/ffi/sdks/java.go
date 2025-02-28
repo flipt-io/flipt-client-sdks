@@ -77,7 +77,7 @@ func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, hostDirector
 			Include: defaultInclude,
 		}).
 		WithWorkdir("/src").
-		WithExec([]string{"gradle", "-x", "test", "build"})
+		WithExec(args("gradle -x test build"))
 
 	var err error
 
@@ -115,7 +115,7 @@ func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, hostDirector
 		WithSecretVariable("MAVEN_PUBLISH_REGISTRY_URL", mavenRegistryUrl).
 		WithSecretVariable("PGP_PRIVATE_KEY", pgpPrivateKey).
 		WithSecretVariable("PGP_PASSPHRASE", pgpPassphrase).
-		WithExec([]string{"gradle", "publish"}).
+		WithExec(args("gradle publish")).
 		Sync(ctx)
 
 	return err

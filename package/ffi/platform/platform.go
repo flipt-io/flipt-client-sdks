@@ -8,8 +8,8 @@ const (
 )
 
 type Platform struct {
-	ID     string
-	Target string
+	ID     string // the download id from the release
+	Target string // the rust target triple
 	Ext    Ext
 }
 

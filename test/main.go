@@ -137,8 +137,11 @@ func main() {
 	}
 }
 
-func args(args string) []string {
-	return strings.Split(args, " ")
+func args(args string, a ...any) []string {
+	if len(a) == 0 {
+		return strings.Split(args, " ")
+	}
+	return strings.Split(fmt.Sprintf(args, a...), " ")
 }
 
 func run() error {

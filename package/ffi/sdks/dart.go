@@ -21,12 +21,12 @@ func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, hostDirector
 			Include: defaultInclude,
 		}).
 		WithWorkdir("/src").
-		WithExec([]string{"dart", "pub", "get"})
+		WithExec(args("dart pub get"))
 
 	var err error
 
 	if !opts.Push {
-		_, err = container.WithExec([]string{"dart", "pub", "publish", "--dry-run"}).Sync(ctx)
+		_, err = container.WithExec(args("dart pub publish --dry-run")).Sync(ctx)
 		return err
 	}
 
@@ -39,8 +39,8 @@ func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, hostDirector
 	pubToken := client.SetSecret("pub-token", os.Getenv("PUB_TOKEN"))
 
 	_, err = container.WithSecretVariable("PUB_TOKEN", pubToken).
-		WithExec([]string{"dart", "pub", "token", "add", "https://pub.dev", "--env-var", "PUB_TOKEN"}).
-		WithExec([]string{"dart", "pub", "publish", "--force"}).
+		WithExec(args("dart pub token add https://pub.dev --env-var PUB_TOKEN")).
+		WithExec(args("dart pub publish --force")).
 		Sync(ctx)
 
 	return err

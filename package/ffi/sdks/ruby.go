@@ -20,8 +20,8 @@ func (s *RubySDK) Build(ctx context.Context, client *dagger.Client, hostDirector
 			Include: defaultInclude,
 		}).
 		WithFile("/src/lib/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
-		WithExec([]string{"bundle", "install"}).
-		WithExec([]string{"bundle", "exec", "rake", "build"})
+		WithExec(args("bundle install")).
+		WithExec(args("bundle exec rake build"))
 
 	var err error
 
@@ -38,7 +38,7 @@ func (s *RubySDK) Build(ctx context.Context, client *dagger.Client, hostDirector
 
 	_, err = container.
 		WithSecretVariable("GEM_HOST_API_KEY", gemHostAPIKeySecret).
-		WithExec([]string{"sh", "-c", "gem push pkg/flipt_client-*.gem"}).
+		WithExec(args("sh -c 'gem push pkg/flipt_client-*.gem'")).
 		Sync(ctx)
 
 	return err
