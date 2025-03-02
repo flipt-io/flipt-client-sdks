@@ -90,6 +90,7 @@ func run() error {
 		g.Go(take(func() error {
 			return s.Build(ctx, client, dir, sdks.BuildOpts{
 				Push: push,
+				Tag:  tag,
 			})
 		}))
 	}

@@ -6,13 +6,17 @@ on:
         description: "SDK(s) to build"
         type: string
         required: true
+      tag:
+        description: "Tag to use for SDK(s)"
+        type: string
+        required: false
 
 permissions:
   contents: write
 
 env:
   NPM_API_KEY: ${{ secrets.NPM_API_KEY }}
-  GO_VERSION: "1.22"
+  GO_VERSION: "1.23"
   DAGGER_VERSION: "0.14.0"
 
 jobs:
@@ -33,6 +37,16 @@ jobs:
           cd /usr/local
           curl -L https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=${{ env.DAGGER_VERSION }} sh
 
+      - name: Generate token
+        id: generate_token
+        uses: tibdex/github-app-token@v2
+        with:
+          app_id: ${{ secrets.FLIPT_RELEASE_BOT_APP_ID }}
+          private_key: ${{ secrets.FLIPT_RELEASE_BOT_APP_PEM }}
+          installation_id: ${{ secrets.FLIPT_RELEASE_BOT_INSTALLATION_ID }}
+
       - name: Build Individual SDK(s)
+        env:
+          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
-          dagger run go run ./package/wasm --sdks=${{ inputs.sdks }} --push=true
+          dagger run go run ./package/wasm --sdks=${{ inputs.sdks }} --push=true --tag=${{ inputs.tag }}
