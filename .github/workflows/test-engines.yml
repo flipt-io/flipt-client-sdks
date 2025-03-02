@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
-        run: rustup update 1.81.0
+        run: rustup update stable
 
       - name: Check Formatting
         run: cargo fmt --all -- --check

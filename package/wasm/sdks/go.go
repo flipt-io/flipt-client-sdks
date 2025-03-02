@@ -43,8 +43,8 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 	}
 
 	var (
-		encodedPAT = base64.URLEncoding.EncodeToString([]byte("pat:" + pat))
-		ghToken    = client.SetSecret("gh-token", encodedPAT)
+		secretPAT        = client.SetSecret("gh-token", pat)
+		secretEncodedPAT = client.SetSecret("gh-token-encoded", base64.URLEncoding.EncodeToString([]byte("pat:"+pat)))
 	)
 
 	var gitUserName = os.Getenv("GIT_USER_NAME")
@@ -58,7 +58,7 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 	}
 
 	git := client.Container().From("golang:1.21.3-bookworm").
-		WithSecretVariable("GITHUB_TOKEN", ghToken).
+		WithSecretVariable("GITHUB_TOKEN", secretEncodedPAT).
 		WithExec(args("git config --global user.email %s", gitUserEmail)).
 		WithExec(args("git config --global user.name %s", gitUserName))
 
@@ -125,14 +125,16 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 
 	// create GitHub release via API
 	releasePayload := fmt.Sprintf(`{"tag_name":"%s","name":"%s","body":"Release %s of the Flipt Go Client SDK"}`, targetTag, targetTag, targetTag)
-	_, err := filtered.WithExec([]string{
-		"curl",
-		"-X", "POST",
-		"-H", fmt.Sprintf("Authorization: token %s", pat),
-		"-H", "Accept: application/vnd.github.v3+json",
-		"-d", releasePayload,
-		fmt.Sprintf("https://api.github.com/repos/flipt-io/flipt-client-go/releases"),
-	}).Sync(ctx)
+	_, err := filtered.
+		WithSecretVariable("GITHUB_TOKEN", secretPAT).
+		WithExec([]string{
+			"curl",
+			"-X", "POST",
+			"-H", "Authorization: token $GITHUB_TOKEN",
+			"-H", "Accept: application/vnd.github.v3+json",
+			"-d", releasePayload,
+			"https://api.github.com/repos/flipt-io/flipt-client-go/releases",
+		}).Sync(ctx)
 
 	return err
 }
