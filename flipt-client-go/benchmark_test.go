@@ -73,7 +73,7 @@ func init() {
 
 func generateLargeContext(size int) map[string]string {
 	context := make(map[string]string)
-	for i := 0; i < size; i++ {
+	for i := range size {
 		context[fmt.Sprintf("key%d", i)] = fmt.Sprintf("value%d", i)
 	}
 	return context

@@ -449,11 +449,11 @@ func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*Evalua
 // ListFlags lists all flags.
 func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 	e.mu.RLock()
+	defer e.mu.RUnlock()
+
 	if e.err != nil && e.errorStrategy == ErrorStrategyFail {
-		e.mu.RUnlock()
 		return nil, e.err
 	}
-	e.mu.RUnlock()
 
 	if e.engine == 0 {
 		return nil, errors.New("engine not initialized")
@@ -563,11 +563,16 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 				return fmt.Errorf("failed to allocate memory for payload: %w", err)
 			}
 
+			e.mu.Lock()
+
 			// write the new payload to memory
 			if !e.mod.Memory().Write(uint32(pmPtr[0]), s.payload) {
 				deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
+				e.mu.Unlock()
 				return fmt.Errorf("failed to write payload to memory")
 			}
+
+			e.mu.Unlock()
 
 			// update the engine with the new snapshot
 			_, err = snapshotFunc.Call(ctx, uint64(e.engine), pmPtr[0], uint64(len(s.payload)))
@@ -793,9 +798,12 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 	}
 	defer deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
 
+	e.mu.Lock()
 	if !e.mod.Memory().Write(uint32(reqPtr[0]), reqBytes) {
+		e.mu.Unlock()
 		return nil, fmt.Errorf("failed to write request to memory")
 	}
+	e.mu.Unlock()
 
 	evalFunc := e.mod.ExportedFunction(funcName)
 	res, err := evalFunc.Call(ctx, uint64(e.engine), reqPtr[0], uint64(len(reqBytes)))
@@ -810,7 +818,9 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 	ptr, length := decodePtr(res[0])
 	defer deallocFunc.Call(ctx, uint64(ptr), uint64(length))
 
+	e.mu.RLock()
 	b, ok := e.mod.Memory().Read(ptr, length)
+	e.mu.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("failed to read result from memory")
 	}
