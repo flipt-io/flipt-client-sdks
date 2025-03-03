@@ -237,6 +237,7 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		initializeEngine = mod.ExportedFunction(fInitializeEngine)
 		allocFunc        = mod.ExportedFunction(fAllocate)
 	)
+
 	// allocate namespace
 	nsPtr, err := allocFunc.Call(ctx, uint64(len(client.namespace)))
 	if err != nil {
@@ -531,7 +532,6 @@ type snapshot struct {
 
 func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 	var (
-		// get functions from module as we they are not goroutine safe and should not be shared
 		allocFunc    = e.mod.ExportedFunction(fAllocate)
 		deallocFunc  = e.mod.ExportedFunction(fDeallocate)
 		snapshotFunc = e.mod.ExportedFunction(fSnapshot)
@@ -815,7 +815,7 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 		return nil, fmt.Errorf("failed to read result from memory")
 	}
 
-	// Make a copy of the result before deallocating
+	// make a copy of the result before deallocating
 	result := make([]byte, len(b))
 	copy(result, b)
 
