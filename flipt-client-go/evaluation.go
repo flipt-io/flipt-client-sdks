@@ -65,11 +65,6 @@ type EvaluationClient struct {
 	errChan      chan error
 	snapshotChan chan snapshot
 
-	// cached WASM functions
-	allocFunc    api.Function
-	deallocFunc  api.Function
-	snapshotFunc api.Function
-
 	closeOnce sync.Once
 }
 
@@ -178,13 +173,6 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		return
 	}
 
-	var (
-		// cache common WASM functions
-		allocFunc    = mod.ExportedFunction(fAllocate)
-		deallocFunc  = mod.ExportedFunction(fDeallocate)
-		snapshotFunc = mod.ExportedFunction(fSnapshot)
-	)
-
 	ctx, cancel := context.WithCancel(ctx)
 
 	client := &EvaluationClient{
@@ -202,11 +190,6 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		cancel:       cancel,
 		errChan:      make(chan error, 1),
 		snapshotChan: make(chan snapshot, 1),
-
-		// cache WASM functions
-		allocFunc:    allocFunc,
-		deallocFunc:  deallocFunc,
-		snapshotFunc: snapshotFunc,
 	}
 
 	for _, opt := range opts {
@@ -250,8 +233,10 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		client.httpClient.Timeout = client.requestTimeout
 	}
 
-	var initializeEngine = mod.ExportedFunction(fInitializeEngine)
-
+	var (
+		initializeEngine = mod.ExportedFunction(fInitializeEngine)
+		allocFunc        = mod.ExportedFunction(fAllocate)
+	)
 	// allocate namespace
 	nsPtr, err := allocFunc.Call(ctx, uint64(len(client.namespace)))
 	if err != nil {
@@ -484,7 +469,8 @@ func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 	}
 
 	ptr, length := decodePtr(res[0])
-	defer e.deallocFunc.Call(ctx, uint64(ptr), uint64(length))
+	deallocFunc := e.mod.ExportedFunction(fDeallocate)
+	defer deallocFunc.Call(ctx, uint64(ptr), uint64(length))
 
 	b, ok := e.mod.Memory().Read(ptr, length)
 	if !ok {
@@ -544,6 +530,13 @@ type snapshot struct {
 }
 
 func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
+	var (
+		// get functions from module as we they are not goroutine safe and should not be shared
+		allocFunc    = e.mod.ExportedFunction(fAllocate)
+		deallocFunc  = e.mod.ExportedFunction(fDeallocate)
+		snapshotFunc = e.mod.ExportedFunction(fSnapshot)
+	)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -565,26 +558,26 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 			}
 
 			// allocate memory for the new payload
-			pmPtr, err := e.allocFunc.Call(ctx, uint64(len(s.payload)))
+			pmPtr, err := allocFunc.Call(ctx, uint64(len(s.payload)))
 			if err != nil {
 				return fmt.Errorf("failed to allocate memory for payload: %w", err)
 			}
 
 			// write the new payload to memory
 			if !e.mod.Memory().Write(uint32(pmPtr[0]), s.payload) {
-				e.deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
+				deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
 				return fmt.Errorf("failed to write payload to memory")
 			}
 
 			// update the engine with the new snapshot
-			_, err = e.snapshotFunc.Call(ctx, uint64(e.engine), pmPtr[0], uint64(len(s.payload)))
+			_, err = snapshotFunc.Call(ctx, uint64(e.engine), pmPtr[0], uint64(len(s.payload)))
 			if err != nil {
-				e.deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
+				deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
 				return fmt.Errorf("failed to update engine: %w", err)
 			}
 
 			// clean up the memory we allocated for the payload
-			e.deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
+			deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
 		}
 	}
 }
@@ -784,16 +777,21 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 		return nil, errors.New("engine not initialized")
 	}
 
+	var (
+		allocFunc   = e.mod.ExportedFunction(fAllocate)
+		deallocFunc = e.mod.ExportedFunction(fDeallocate)
+	)
+
 	reqBytes, err := json.Marshal(request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	reqPtr, err := e.allocFunc.Call(ctx, uint64(len(reqBytes)))
+	reqPtr, err := allocFunc.Call(ctx, uint64(len(reqBytes)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to allocate memory for request: %w", err)
 	}
-	defer e.deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
+	defer deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
 
 	if !e.mod.Memory().Write(uint32(reqPtr[0]), reqBytes) {
 		return nil, fmt.Errorf("failed to write request to memory")
@@ -810,7 +808,7 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 	}
 
 	ptr, length := decodePtr(res[0])
-	defer e.deallocFunc.Call(ctx, uint64(ptr), uint64(length))
+	defer deallocFunc.Call(ctx, uint64(ptr), uint64(length))
 
 	b, ok := e.mod.Memory().Read(ptr, length)
 	if !ok {
