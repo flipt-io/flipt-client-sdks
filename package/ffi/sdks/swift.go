@@ -21,7 +21,6 @@ func (s *SwiftSDK) SupportedPlatforms() []platform.Platform {
 		platform.IOSArm64,
 		platform.IOSSimArm64,
 		platform.DarwinArm64,
-		platform.DarwinX86_64,
 	}
 }
 
@@ -32,8 +31,8 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 	}
 
 	var (
-		encodedPAT = base64.URLEncoding.EncodeToString([]byte("pat:" + pat))
-		ghToken    = client.SetSecret("gh-token", encodedPAT)
+		secretPAT        = client.SetSecret("gh-token", pat)
+		secretEncodedPAT = client.SetSecret("gh-token-encoded", base64.URLEncoding.EncodeToString([]byte("pat:"+pat)))
 	)
 
 	var gitUserName = os.Getenv("GIT_USER_NAME")
@@ -47,7 +46,7 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 	}
 
 	git := client.Container().From("golang:1.21.3-bookworm").
-		WithSecretVariable("GITHUB_TOKEN", ghToken).
+		WithSecretVariable("GITHUB_TOKEN", secretEncodedPAT).
 		WithExec(args("git config --global user.email %s", gitUserEmail)).
 		WithExec(args("git config --global user.name %s", gitUserName)).
 		WithExec(args("sh -c 'git config --global http.https://github.com/.extraheader \"AUTHORIZATION: Basic ${GITHUB_TOKEN}\"'"))
@@ -102,14 +101,16 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 
 	// create GitHub release via API
 	releasePayload := fmt.Sprintf(`{"tag_name":"%s","name":"%s","body":"Release %s of the Flipt Swift Client SDK"}`, targetTag, targetTag, targetTag)
-	_, err = filtered.WithExec([]string{
-		"curl",
-		"-X", "POST",
-		"-H", fmt.Sprintf("Authorization: token %s", pat),
-		"-H", "Accept: application/vnd.github.v3+json",
-		"-d", releasePayload,
-		fmt.Sprintf("https://api.github.com/repos/flipt-io/flipt-client-swift/releases"),
-	}).Sync(ctx)
+	_, err = filtered.
+		WithSecretVariable("GITHUB_TOKEN", secretPAT).
+		WithExec([]string{
+			"curl",
+			"-X", "POST",
+			"-H", "Authorization: token $GITHUB_TOKEN",
+			"-H", "Accept: application/vnd.github.v3+json",
+			"-d", releasePayload,
+			"https://api.github.com/repos/flipt-io/flipt-client-swift/releases",
+		}).Sync(ctx)
 
 	return err
 }

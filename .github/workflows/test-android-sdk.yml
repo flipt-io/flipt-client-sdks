@@ -2,13 +2,34 @@ name: Test Android SDK
 on:
   workflow_run:
     workflows: ["Package FFI Engine (Android)"]
-    types: [completed]
+    types: [requested, completed]
 
 permissions:
   contents: write
   id-token: write
+  statuses: write
 
 jobs:
+  set-status:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == null }}
+    steps:
+      - name: Create Pending Status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = context.payload.workflow_run.head_sha;
+            const { owner, repo } = context.repo;
+            await github.rest.repos.createCommitStatus({
+              owner,
+              repo,
+              sha: sha,
+              state: 'pending',
+              context: 'Android SDK Tests',
+              description: 'Tests are running...',
+              target_url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+            });
+
   test:
     name: Integration Tests
     runs-on: ubuntu-22.04
@@ -107,6 +128,23 @@ jobs:
           script: ./gradlew connectedAndroidTest
           working-directory: ./flipt-client-kotlin-android
           emulator-options: -no-window -no-snapshot -screen no-touch -noaudio -no-boot-anim -camera-back none
+
+      - name: Update Status Check
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = context.payload.workflow_run.head_sha;
+            const { owner, repo } = context.repo;
+            await github.rest.repos.createCommitStatus({
+              owner,
+              repo,
+              sha: sha,
+              state: '${{ job.status }}' === 'success' ? 'success' : 'failure',
+              context: 'Swift SDK Tests',
+              description: '${{ job.status }}' === 'success' ? 'Tests passed' : 'Tests failed',
+              target_url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+            });
 
       - name: (Fail-only) Upload the build reports
         if: failure()

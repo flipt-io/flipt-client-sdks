@@ -3,7 +3,6 @@ on:
   push:
     tags:
       - "flipt-client-go-**"
-      - "flipt-client-go-musl-**"
 
 permissions:
   contents: write
@@ -11,8 +10,8 @@ permissions:
 
 jobs:
   build:
-    uses: ./.github/workflows/package-ffi-sdks.yml
+    uses: ./.github/workflows/package-wasm-sdks.yml
     with:
-      sdks: ${{ startsWith(github.ref, 'refs/tags/flipt-client-go-musl-') && 'go-musl' || 'go' }}
+      sdks: 'go'
       tag: ${{ github.ref }}
     secrets: inherit
