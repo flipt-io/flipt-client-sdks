@@ -1,7 +1,7 @@
 import os
 import argparse
 from semver import VersionInfo
-from prompt_toolkit.shortcuts import radiolist_dialog, yes_no_dialog
+from prompt_toolkit.shortcuts import radiolist_dialog, yes_no_dialog, input_dialog
 from colorama import init, Fore, Style
 from sdks import GoSDK, JavaSDK, JavaScriptSDK, RubySDK, PythonSDK, DartSDK, SwiftSDK, CSharpSDK
 from sdks.base import SDK, TagBasedSDK
@@ -97,8 +97,25 @@ def get_bump_type():
             ("patch", "Patch (0.0.X)"),
             ("minor", "Minor (0.X.0)"),
             ("major", "Major (X.0.0)"),
+            ("manual", "Manual version input"),
         ],
     ).run()
+
+    if bump_type == "manual":
+        version = input_dialog(
+            title="Enter version",
+            text="Enter the new version (e.g. 1.2.3):",
+        ).run()
+        if version:
+            try:
+                # Validate the version format
+                VersionInfo.parse(version)
+                return version
+            except ValueError:
+                print(f"{Fore.RED}Invalid version format. Please use semantic versioning (e.g. 1.2.3){Style.RESET_ALL}")
+                return None
+        return None
+
     return bump_type
 
 def get_pull_request():
@@ -118,23 +135,25 @@ def main():
         print("SDK selection cancelled. Exiting.")
         return
 
-    updated_versions = {}
+    sdk_instance = get_sdk(selected_sdk)
+    current_version = sdk_instance.get_current_version()
 
     bump_type = get_bump_type()
     if bump_type is None:
-        print("Version bump type selection cancelled. Exiting.")
+        print("Version selection cancelled. Exiting.")
         return
 
-    if args.dry_run:
-        print(f"{Fore.YELLOW}[DRY RUN] Would bump {selected_sdk} with {bump_type} version update{Style.RESET_ALL}")
-        sdk_instance = get_sdk(selected_sdk)
-        current_version = sdk_instance.get_current_version()
+    # Determine the new version
+    if isinstance(bump_type, str) and bump_type in ["major", "minor", "patch"]:
         new_version = bump_version(current_version, bump_type)
-        print(f"{Fore.YELLOW}[DRY RUN] Version would change from {current_version} to {new_version}{Style.RESET_ALL}")
     else:
-        updated_versions = update_sdk_version(bump_type, selected_sdk)
+        new_version = bump_type  # Manual version input
 
-    sdk_instance = get_sdk(selected_sdk)
+    if args.dry_run:
+        print(f"{Fore.YELLOW}[DRY RUN] Would update {selected_sdk} from {current_version} to {new_version}{Style.RESET_ALL}")
+    else:
+        sdk_instance.update_version(new_version)
+        print(f"{Fore.CYAN}Updated {selected_sdk} to version {new_version}{Style.RESET_ALL}")
         
     # Check if the SDK supports pull requests
     create_pull_request = False if isinstance(sdk_instance, TagBasedSDK) else get_pull_request()
@@ -142,7 +161,6 @@ def main():
     push_to_main = not (isinstance(sdk_instance, TagBasedSDK) or create_pull_request)
     
     # Add confirmation prompt for tag
-    new_version = updated_versions.get(selected_sdk) or bump_version(sdk_instance.get_current_version(), bump_type)
     tag_confirmation = yes_no_dialog(
         title="Confirm Tag Creation",
         text=f"This will create and push tag v{new_version} for {selected_sdk}.\nDo you want to continue?"

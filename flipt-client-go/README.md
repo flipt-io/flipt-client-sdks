@@ -122,7 +122,7 @@ In the case of non-fetch related errors, the client will stop polling or streami
 
 ## Memory Management
 
-The engine that is allocated on the Rust side to compute evaluations for flag state will not be properly deallocated unless you call the `Close()` method on a `Client` instance.
+The engine that is allocated on the WASM side to compute evaluations for flag state will not be properly deallocated unless you call the `Close()` method on a `Client` instance.
 
 **Please be sure to do this to avoid leaking memory!**
 
