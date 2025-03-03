@@ -52,7 +52,7 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 
 	if opts.Push {
 		git = git.
-			WithExec(args("sh -c 'git config --global http.https://github.com/.extraheader \"AUTHORIZATION: Basic ${GITHUB_TOKEN}\"'"))
+			WithExec([]string{"sh", "-c", "git config --global http.https://github.com/.extraheader \"AUTHORIZATION: Basic ${GITHUB_TOKEN}\""})
 	}
 
 	repository := git.
