@@ -483,10 +483,10 @@ func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 		return nil, fmt.Errorf("failed to call list_flags: no result returned")
 	}
 
-	ptr, len := decodePtr(res[0])
-	defer e.deallocFunc.Call(ctx, uint64(ptr), uint64(len))
+	ptr, length := decodePtr(res[0])
+	defer e.deallocFunc.Call(ctx, uint64(ptr), uint64(length))
 
-	b, ok := e.mod.Memory().Read(ptr, len)
+	b, ok := e.mod.Memory().Read(ptr, length)
 	if !ok {
 		return nil, fmt.Errorf("failed to read result from memory")
 	}
@@ -518,7 +518,6 @@ func (e *EvaluationClient) Close(ctx context.Context) (err error) {
 
 		// close channels
 		close(e.errChan)
-		close(e.snapshotChan)
 
 		if e.engine != 0 {
 			// destroy engine
@@ -565,23 +564,26 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 				continue
 			}
 
+			// allocate memory for the new payload
 			pmPtr, err := e.allocFunc.Call(ctx, uint64(len(s.payload)))
 			if err != nil {
 				return fmt.Errorf("failed to allocate memory for payload: %w", err)
 			}
 
-			if !e.mod.Memory().Write(uint32(pmPtr[0]), []byte(s.payload)) {
+			// write the new payload to memory
+			if !e.mod.Memory().Write(uint32(pmPtr[0]), s.payload) {
 				e.deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
 				return fmt.Errorf("failed to write payload to memory")
 			}
 
+			// update the engine with the new snapshot
 			_, err = e.snapshotFunc.Call(ctx, uint64(e.engine), pmPtr[0], uint64(len(s.payload)))
 			if err != nil {
 				e.deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
 				return fmt.Errorf("failed to update engine: %w", err)
 			}
 
-			// dont defer in loop to avoid stack overflow
+			// clean up the memory we allocated for the payload
 			e.deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
 		}
 	}
@@ -713,7 +715,6 @@ func (e *EvaluationClient) startStreaming(ctx context.Context) {
 	resp, err := e.httpClient.Do(req)
 	if resp != nil {
 		defer func() {
-			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}()
 	}
@@ -733,24 +734,44 @@ func (e *EvaluationClient) startStreaming(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		default:
-			line, err := reader.ReadBytes('\n')
-			if err != nil {
-				if errors.Is(err, io.EOF) {
+			// Create a channel to receive the read result
+			readChan := make(chan struct {
+				line []byte
+				err  error
+			})
+
+			// Start a goroutine to perform the blocking read
+			go func() {
+				line, err := reader.ReadBytes('\n')
+				readChan <- struct {
+					line []byte
+					err  error
+				}{line, err}
+			}()
+
+			// Wait for either the read to complete or context cancellation
+			select {
+			case <-ctx.Done():
+				return
+			case result := <-readChan:
+				if result.err != nil {
+					if errors.Is(result.err, io.EOF) {
+						return
+					}
+					e.errChan <- fetchError(fmt.Errorf("failed to read stream chunk: %w", result.err))
 					return
 				}
-				e.errChan <- fetchError(fmt.Errorf("failed to read stream chunk: %w", err))
-				return
-			}
 
-			var chunk streamChunk
-			if err := json.Unmarshal(line, &chunk); err != nil {
-				e.errChan <- fmt.Errorf("failed to unmarshal stream chunk: %w", err)
-				return
-			}
+				var chunk streamChunk
+				if err := json.Unmarshal(result.line, &chunk); err != nil {
+					e.errChan <- fmt.Errorf("failed to unmarshal stream chunk: %w", err)
+					return
+				}
 
-			for ns, payload := range chunk.Result.Namespaces {
-				if ns == e.namespace {
-					e.snapshotChan <- snapshot{payload: payload}
+				for ns, payload := range chunk.Result.Namespaces {
+					if ns == e.namespace {
+						e.snapshotChan <- snapshot{payload: payload}
+					}
 				}
 			}
 		}
@@ -788,13 +809,17 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 		return nil, fmt.Errorf("failed to call %s: no result returned", funcName)
 	}
 
-	ptr, len := decodePtr(res[0])
-	defer e.deallocFunc.Call(ctx, uint64(ptr), uint64(len))
+	ptr, length := decodePtr(res[0])
+	defer e.deallocFunc.Call(ctx, uint64(ptr), uint64(length))
 
-	b, ok := e.mod.Memory().Read(ptr, len)
+	b, ok := e.mod.Memory().Read(ptr, length)
 	if !ok {
 		return nil, fmt.Errorf("failed to read result from memory")
 	}
 
-	return b, nil
+	// Make a copy of the result before deallocating
+	result := make([]byte, len(b))
+	copy(result, b)
+
+	return result, nil
 }
