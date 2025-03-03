@@ -125,12 +125,12 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 
 	// create GitHub release via API
 	releasePayload := fmt.Sprintf(`{"tag_name":"%s","name":"%s","body":"Release %s of the Flipt Go Client SDK"}`, targetTag, targetTag, targetTag)
+	token, _ := secretPAT.Plaintext(ctx)
 	_, err := filtered.
-		WithSecretVariable("GITHUB_TOKEN", secretPAT).
 		WithExec([]string{
 			"curl",
 			"-X", "POST",
-			"-H", "Authorization: token $GITHUB_TOKEN",
+			"-H", fmt.Sprintf("Authorization: token %s", token),
 			"-H", "Accept: application/vnd.github.v3+json",
 			"-d", releasePayload,
 			"https://api.github.com/repos/flipt-io/flipt-client-go/releases",
