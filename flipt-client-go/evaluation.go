@@ -448,8 +448,8 @@ func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*Evalua
 
 // ListFlags lists all flags.
 func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 
 	if e.err != nil && e.errorStrategy == ErrorStrategyFail {
 		return nil, e.err
