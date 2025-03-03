@@ -518,7 +518,6 @@ func (e *EvaluationClient) Close(ctx context.Context) (err error) {
 
 		// close channels
 		close(e.errChan)
-		close(e.snapshotChan)
 
 		if e.engine != 0 {
 			// destroy engine
