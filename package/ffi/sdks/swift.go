@@ -48,8 +48,12 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 	git := client.Container().From("golang:1.21.3-bookworm").
 		WithSecretVariable("GITHUB_TOKEN", secretEncodedPAT).
 		WithExec(args("git config --global user.email %s", gitUserEmail)).
-		WithExec(args("git config --global user.name %s", gitUserName)).
-		WithExec(args("sh -c 'git config --global http.https://github.com/.extraheader \"AUTHORIZATION: Basic ${GITHUB_TOKEN}\"'"))
+		WithExec(args("git config --global user.name %s", gitUserName))
+
+	if opts.Push {
+		git = git.
+			WithExec(args("git config --global http.https://github.com/.extraheader 'AUTHORIZATION: Basic ${GITHUB_TOKEN}'"))
+	}
 
 	repository := git.
 		WithExec(args("git clone https://github.com/flipt-io/flipt-client-sdks.git /src")).
@@ -103,14 +107,8 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 	releasePayload := fmt.Sprintf(`{"tag_name":"%s","name":"%s","body":"Release %s of the Flipt Swift Client SDK"}`, targetTag, targetTag, targetTag)
 	_, err = filtered.
 		WithSecretVariable("GITHUB_TOKEN", secretPAT).
-		WithExec([]string{
-			"curl",
-			"-X", "POST",
-			"-H", "Authorization: token $GITHUB_TOKEN",
-			"-H", "Accept: application/vnd.github.v3+json",
-			"-d", releasePayload,
-			"https://api.github.com/repos/flipt-io/flipt-client-swift/releases",
-		}).Sync(ctx)
+		WithExec(args("curl -X POST -H 'Authorization: token ${GITHUB_TOKEN}' -H 'Accept: application/vnd.github.v3+json' -d '%s' https://api.github.com/repos/flipt-io/flipt-client-swift/releases", releasePayload)).
+		Sync(ctx)
 
 	return err
 }
