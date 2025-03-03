@@ -99,7 +99,13 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 	targetTag := strings.TrimPrefix(opts.Tag, tagPrefix)
 
 	// push to target repo/tag
-	if _, err := filtered.WithExec(args("git push -f %s %s:%s", targetRepo, opts.Tag, targetTag)).Sync(ctx); err != nil {
+	if _, err := filtered.WithExec([]string{
+		"git",
+		"push",
+		"-f",
+		targetRepo,
+		fmt.Sprintf("%s:%s", opts.Tag, targetTag)}).
+		Sync(ctx); err != nil {
 		return err
 	}
 
@@ -107,8 +113,14 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 	releasePayload := fmt.Sprintf(`{"tag_name":"%s","name":"%s","body":"Release %s of the Flipt Swift Client SDK"}`, targetTag, targetTag, targetTag)
 	_, err = filtered.
 		WithSecretVariable("GITHUB_TOKEN", secretPAT).
-		WithExec(args("curl -X POST -H 'Authorization: token ${GITHUB_TOKEN}' -H 'Accept: application/vnd.github.v3+json' -d '%s' https://api.github.com/repos/flipt-io/flipt-client-swift/releases", releasePayload)).
-		Sync(ctx)
+		WithExec([]string{
+			"curl",
+			"-X", "POST",
+			"-H", "Authorization: token $GITHUB_TOKEN",
+			"-H", "Accept: application/vnd.github.v3+json",
+			"-d", releasePayload,
+			"https://api.github.com/repos/flipt-io/flipt-client-swift/releases",
+		}).Sync(ctx)
 
 	return err
 }

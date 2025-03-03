@@ -87,7 +87,10 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 
 	filtered := container.
 		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").
-		WithExec(args("git filter-branch -f --prune-empty --subdirectory-filter flipt-client-go --tree-filter 'cp -r /ext .' -- %s", opts.Tag))
+		WithExec([]string{"git", "filter-branch", "-f", "--prune-empty",
+			"--subdirectory-filter", "flipt-client-go",
+			"--tree-filter", "cp -r /ext .",
+			"--", opts.Tag})
 
 	if _, err := filtered.Sync(ctx); err != nil {
 		return err
@@ -110,7 +113,13 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 	targetTag := strings.TrimPrefix(opts.Tag, tagPrefix)
 
 	// push to target repo/tag
-	if _, err := filtered.WithExec(args("git push -f %s %s:%s", targetRepo, opts.Tag, targetTag)).Sync(ctx); err != nil {
+	if _, err := filtered.WithExec([]string{
+		"git",
+		"push",
+		"-f",
+		targetRepo,
+		fmt.Sprintf("%s:%s", opts.Tag, targetTag)}).
+		Sync(ctx); err != nil {
 		return err
 	}
 
@@ -118,8 +127,14 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 	releasePayload := fmt.Sprintf(`{"tag_name":"%s","name":"%s","body":"Release %s of the Flipt Go Client SDK"}`, targetTag, targetTag, targetTag)
 	_, err := filtered.
 		WithSecretVariable("GITHUB_TOKEN", secretPAT).
-		WithExec(args("curl -X POST -H 'Authorization: token ${GITHUB_TOKEN}' -H 'Accept: application/vnd.github.v3+json' -d '%s' https://api.github.com/repos/flipt-io/flipt-client-go/releases", releasePayload)).
-		Sync(ctx)
+		WithExec([]string{
+			"curl",
+			"-X", "POST",
+			"-H", "Authorization: token $GITHUB_TOKEN",
+			"-H", "Accept: application/vnd.github.v3+json",
+			"-d", releasePayload,
+			"https://api.github.com/repos/flipt-io/flipt-client-go/releases",
+		}).Sync(ctx)
 
 	return err
 }
