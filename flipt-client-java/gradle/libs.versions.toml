@@ -1,7 +1,7 @@
 [versions]
 jackson = "2.18.2"
 jna = "5.16.0"
-junit = "5.11.4"
+junit = "5.12.0"
 
 [libraries]
 jackson-dataformat-xml = { group = "com.fasterxml.jackson.dataformat", name = "jackson-dataformat-xml", version.ref = "jackson" }
