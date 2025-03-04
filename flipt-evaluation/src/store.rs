@@ -80,7 +80,8 @@ impl Snapshot {
             let flag_rules = flag.rules.unwrap_or(vec![]);
 
             for (idx, rule) in flag_rules.into_iter().enumerate() {
-                let rule_id = uuid::Uuid::new_v4().to_string();
+                let index = idx + 1;
+                let rule_id = format!("{}-{}", flag.key, index);
                 let mut eval_rule = flipt::EvaluationRule {
                     id: rule_id.clone(),
                     rank: idx + 1,
