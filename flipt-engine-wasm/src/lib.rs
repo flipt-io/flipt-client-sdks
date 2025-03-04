@@ -355,8 +355,7 @@ unsafe fn string_to_ptr(s: &str) -> (u32, u32) {
 /// Returns a pointer and size pair for the given result in a way compatible
 /// with WebAssembly numeric types.
 ///
-/// Note: This doesn't change the ownership of the String. To intentionally
-/// leak it, use [`std::mem::forget`] on the input after calling this.
+/// Note: This leaks the result string to the caller.
 unsafe fn result_to_ptr<T: Serialize, E: std::error::Error>(result: Result<T, E>) -> u64 {
     let result = result_to_string(result);
     let (ptr, len) = string_to_ptr(&result);
