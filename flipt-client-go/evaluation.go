@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -144,6 +145,12 @@ func WithRequestTimeout(timeout time.Duration) ClientOption {
 
 type fetchError error
 
+func init() {
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	})))
+}
+
 // NewEvaluationClient constructs a Client and performs an initial fetch of flag state.
 func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *EvaluationClient, cerr error) {
 	runtime := wazero.NewRuntime(ctx)
@@ -246,11 +253,13 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		cerr = fmt.Errorf("failed to allocate memory for namespace: %w", err)
 		return
 	}
+	slog.Debug("allocated memory for namespace", "method", "NewEvaluationClient", "ns_ptr", nsPtr[0], "ns_len", len(client.namespace))
 
 	if !mod.Memory().Write(uint32(nsPtr[0]), []byte(client.namespace)) {
 		cerr = fmt.Errorf("failed to write namespace to memory")
 		return
 	}
+	slog.Debug("wrote namespace to memory", "method", "NewEvaluationClient", "ns_ptr", nsPtr[0], "ns_len", len(client.namespace))
 
 	// fetch initial state
 	snapshot, err := client.fetch(ctx, "")
@@ -259,22 +268,22 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		return
 	}
 
-	// set initial etag
-	//client.etag = snapshot.etag
-
 	// allocate payload
 	payloadPtr, err := allocFunc.Call(ctx, uint64(len(snapshot.payload)))
 	if err != nil {
 		cerr = fmt.Errorf("failed to allocate memory for payload: %w", err)
 		return
 	}
+	slog.Debug("allocated memory for initial payload", "method", "NewEvaluationClient", "payload_ptr", payloadPtr[0], "payload_len", len(snapshot.payload))
 
 	if !mod.Memory().Write(uint32(payloadPtr[0]), []byte(snapshot.payload)) {
 		cerr = fmt.Errorf("failed to write payload to memory")
 		return
 	}
+	slog.Debug("wrote initial payload to memory", "method", "NewEvaluationClient", "payload_ptr", payloadPtr[0], "payload_len", len(snapshot.payload))
 
 	// initialize engine
+	slog.Debug("calling initialize_engine", "method", "NewEvaluationClient", "ns_ptr", nsPtr[0], "ns_len", len(client.namespace), "payload_ptr", payloadPtr[0], "payload_len", len(snapshot.payload))
 	res, err := initializeEngine.Call(ctx, nsPtr[0], uint64(len(client.namespace)), payloadPtr[0], uint64(len(snapshot.payload)))
 	if err != nil {
 		cerr = fmt.Errorf("failed to initialize engine: %w", err)
@@ -283,6 +292,7 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 
 	enginePtr := res[0]
 	client.engine = uint32(enginePtr)
+	slog.Debug("engine initialized", "method", "NewEvaluationClient", "engine_ptr", enginePtr)
 
 	client.wg.Add(1)
 	go func() {
@@ -553,6 +563,9 @@ type snapshotResult struct {
 }
 
 func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
+	slog.Info("starting handleUpdates", "method", "handleUpdates")
+	defer slog.Info("exiting handleUpdates", "method", "handleUpdates")
+
 	// Get function references and engine pointer under read lock
 	e.mu.RLock()
 	var (
@@ -563,80 +576,162 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 	)
 	e.mu.RUnlock()
 
+	// Validate initial state
+	if engine == 0 || allocFunc == nil || deallocFunc == nil || snapshotFunc == nil {
+		return fmt.Errorf("invalid initial state: engine=%d, allocFunc=%v, deallocFunc=%v, snapshotFunc=%v",
+			engine, allocFunc != nil, deallocFunc != nil, snapshotFunc != nil)
+	}
+
+	slog.Debug("handleUpdates initialized with valid state", "method", "handleUpdates", "engine", engine)
+
+	// Add recovery to prevent goroutine from crashing
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("recovered from panic in handleUpdates", "method", "handleUpdates", "panic", r)
+			// Try to restart the handler
+			go func() {
+				if err := e.handleUpdates(ctx); err != nil {
+					e.errChan <- err
+				}
+			}()
+		}
+	}()
+
+	var consecutiveErrors int
+	const maxConsecutiveErrors = 3
+
 	for {
 		select {
 		case <-ctx.Done():
-			close(e.snapshotChan)
-			return nil
+			slog.Info("context cancelled, exiting handleUpdates", "method", "handleUpdates")
+			return ctx.Err()
 		case s, ok := <-e.snapshotChan:
 			if !ok {
-				slog.Info("snapshot channel closed, exiting")
+				slog.Info("snapshot channel closed, exiting handleUpdates", "method", "handleUpdates")
 				return nil
 			}
 
+			slog.Debug("starting to process snapshot update", "method", "handleUpdates", "payload_size", len(s.payload))
+
+			// Add more detailed debug logging
+			slog.Debug("snapshot payload content (hex)", "method", "handleUpdates", "payload_hex", fmt.Sprintf("%x", s.payload))
+			slog.Debug("snapshot payload content (string)", "method", "handleUpdates", "payload", string(s.payload))
+
 			length := len(s.payload)
 			if length == 0 {
-				slog.Info("snapshot payload is empty, skipping")
+				slog.Info("snapshot payload is empty, skipping", "method", "handleUpdates")
 				continue
 			}
 
-			// Allocate memory outside lock
-			ptr, err := allocFunc.Call(ctx, uint64(length))
-			if err != nil {
-				return fmt.Errorf("failed to allocate memory for payload: %w", err)
+			// Use a closure to ensure proper lock handling
+			if err := func() error {
+				var (
+					payloadPtr uint64
+					payloadLen uint64
+					resultPtr  uint32
+					resultLen  uint32
+				)
+
+				// First lock scope: allocation and writing
+				{
+					e.memoryBarrier.Lock()
+					ptr, err := allocFunc.Call(ctx, uint64(length))
+					if err != nil {
+						e.memoryBarrier.Unlock()
+						slog.Error("failed to allocate memory", "method", "handleUpdates", "error", err)
+						return err
+					}
+
+					payloadPtr = ptr[0]
+					payloadLen = uint64(length)
+					slog.Debug("allocated memory for snapshot payload", "method", "handleUpdates", "payload_ptr", payloadPtr, "payload_len", payloadLen)
+
+					if ok := e.mod.Memory().Write(uint32(payloadPtr), s.payload); !ok {
+						e.memoryBarrier.Unlock()
+						deallocFunc.Call(ctx, payloadPtr, payloadLen)
+						slog.Error("failed to write payload to memory", "method", "handleUpdates", "payload_size", length, "allocated_size", payloadLen)
+						return fmt.Errorf("failed to write payload to memory")
+					}
+					slog.Debug("wrote snapshot payload to memory", "method", "handleUpdates", "payload_ptr", payloadPtr, "payload_len", payloadLen)
+					e.memoryBarrier.Unlock()
+				}
+
+				// Call snapshot function without holding the lock
+				slog.Debug("calling snapshot function", "method", "handleUpdates", "engine_ptr", engine, "payload_ptr", payloadPtr, "payload_len", payloadLen)
+				res, err := snapshotFunc.Call(ctx, uint64(engine), payloadPtr, payloadLen)
+				if err != nil {
+					deallocFunc.Call(ctx, payloadPtr, payloadLen)
+					slog.Error("failed to update engine", "method", "handleUpdates", "error", err, "engine_ptr", engine, "payload_ptr", payloadPtr, "payload_len", payloadLen)
+					return err
+				}
+
+				resultPtr, resultLen = decodePtr(res[0])
+				slog.Debug("snapshot function returned", "method", "handleUpdates", "result_ptr", resultPtr, "result_len", resultLen)
+
+				// Second lock scope: reading result
+				{
+					e.memoryBarrier.Lock()
+					b, ok := e.mod.Memory().Read(resultPtr, resultLen)
+					if !ok {
+						e.memoryBarrier.Unlock()
+						deallocFunc.Call(ctx, payloadPtr, payloadLen)
+						deallocFunc.Call(ctx, uint64(resultPtr), uint64(resultLen))
+						slog.Error("failed to read result from memory", "method", "handleUpdates", "result_ptr", resultPtr, "result_len", resultLen)
+						return fmt.Errorf("failed to read result from memory")
+					}
+
+					// Make a copy of the result before releasing lock
+					result := make([]byte, len(b))
+					copy(result, b)
+					e.memoryBarrier.Unlock()
+					slog.Debug("read result from memory", "method", "handleUpdates", "result_ptr", resultPtr, "result_len", resultLen, "result_size", len(result))
+
+					// Clean up allocated memory
+					slog.Debug("cleaning up allocated memory", "method", "handleUpdates", "payload_ptr", payloadPtr, "payload_len", payloadLen, "result_ptr", resultPtr, "result_len", resultLen)
+					deallocFunc.Call(ctx, payloadPtr, payloadLen)
+					deallocFunc.Call(ctx, uint64(resultPtr), uint64(resultLen))
+					slog.Debug("memory cleanup complete", "method", "handleUpdates")
+
+					var snapshotResult *snapshotResult
+					if err := json.Unmarshal(result, &snapshotResult); err != nil {
+						slog.Error("failed to unmarshal snapshot result", "method", "handleUpdates", "error", err)
+						return err
+					}
+
+					if snapshotResult.Status != statusSuccess {
+						slog.Error("snapshot update failed", "method", "handleUpdates", "error", snapshotResult.ErrorMessage)
+						return fmt.Errorf("snapshot update failed: %s", snapshotResult.ErrorMessage)
+					}
+				}
+
+				return nil
+			}(); err != nil {
+				consecutiveErrors++
+				if consecutiveErrors >= maxConsecutiveErrors {
+					return fmt.Errorf("failed after %d consecutive errors: %w", consecutiveErrors, err)
+				}
+				continue
 			}
 
-			payloadPtr := ptr[0]
-			payloadLen := uint64(length)
-
-			// Write payload to memory using safe memory operation
-			if ok := e.safeMemoryWrite(uint32(payloadPtr), s.payload); !ok {
-				deallocFunc.Call(ctx, payloadPtr, payloadLen)
-				return fmt.Errorf("failed to write payload to memory")
-			}
-
-			// Call snapshot function with copied engine pointer
-			res, err := snapshotFunc.Call(ctx, uint64(engine), payloadPtr, payloadLen)
-			if err != nil {
-				deallocFunc.Call(ctx, payloadPtr, payloadLen)
-				return fmt.Errorf("failed to update engine: %w", err)
-			}
-
-			resultPtr, resultLen := decodePtr(res[0])
-
-			// Read result using safe memory operation
-			b, ok := e.safeMemoryRead(resultPtr, resultLen)
-			if !ok {
-				deallocFunc.Call(ctx, payloadPtr, payloadLen)
-				deallocFunc.Call(ctx, uint64(resultPtr), uint64(resultLen))
-				return fmt.Errorf("failed to read result from memory")
-			}
-
-			// Make a copy of the result before deallocating
-			result := make([]byte, len(b))
-			copy(result, b)
-
-			// Clean up memory for both payload and result
-			deallocFunc.Call(ctx, payloadPtr, payloadLen)
-			deallocFunc.Call(ctx, uint64(resultPtr), uint64(resultLen))
-
-			var snapshotResult *snapshotResult
-			if err := json.Unmarshal(result, &snapshotResult); err != nil {
-				return fmt.Errorf("failed to unmarshal snapshot result: %w", err)
-			}
-
-			if snapshotResult.Status != statusSuccess {
-				return fmt.Errorf("failed to update engine: %s", snapshotResult.ErrorMessage)
-			}
+			// Reset consecutive errors on success
+			consecutiveErrors = 0
 
 			// Successfully updated engine state
-			slog.Info("snapshot update successful")
+			slog.Info("snapshot update successful", "method", "handleUpdates", "engine", engine)
+
+			// Log channel state
+			slog.Debug("channel status", "method", "handleUpdates",
+				"snapshot_chan_len", len(e.snapshotChan),
+				"err_chan_len", len(e.errChan))
 		}
 	}
 }
 
 // startPolling starts the background polling for the given update interval.
 func (e *EvaluationClient) startPolling(ctx context.Context) {
+	slog.Info("starting polling", "method", "startPolling")
+	defer slog.Info("exiting polling", "method", "startPolling")
+
 	ticker := time.NewTicker(e.updateInterval)
 	defer ticker.Stop()
 
@@ -645,33 +740,57 @@ func (e *EvaluationClient) startPolling(ctx context.Context) {
 	fctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Do an initial fetch immediately
+	if err := e.fetchAndSendUpdate(fctx); err != nil {
+		select {
+		case e.errChan <- err:
+			slog.Error("error fetching initial update", "method", "startPolling", "error", err)
+		default:
+			slog.Error("error channel full, dropping error", "method", "startPolling", "error", err)
+		}
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
+			slog.Info("context cancelled, exiting polling", "method", "startPolling")
 			return
 		case <-ticker.C:
-			snapshot, err := e.fetch(fctx, "")
-			if err != nil {
+			if err := e.fetchAndSendUpdate(fctx); err != nil {
 				select {
 				case e.errChan <- err:
+					slog.Error("error fetching update", "method", "startPolling", "error", err)
 				default:
-					// If error channel is full, log and continue
-					slog.Error("error channel full, dropping error", "error", err)
+					slog.Error("error channel full, dropping error", "method", "startPolling", "error", err)
 				}
-				continue
-			}
-
-			slog.Info("snapshot", "payload", string(snapshot.payload))
-
-			// Non-blocking send to snapshot channel
-			select {
-			case e.snapshotChan <- snapshot:
-			default:
-				// If channel is full, log and continue
-				slog.Error("snapshot channel full, dropping update")
 			}
 		}
 	}
+}
+
+// fetchAndSendUpdate handles fetching and sending a single update
+func (e *EvaluationClient) fetchAndSendUpdate(ctx context.Context) error {
+	snapshot, err := e.fetch(ctx, "")
+	if err != nil {
+		return err
+	}
+
+	if len(snapshot.payload) == 0 {
+		slog.Debug("received empty snapshot, skipping", "method", "fetchAndSendUpdate")
+		return nil
+	}
+
+	slog.Info("fetched snapshot update", "method", "fetchAndSendUpdate", "payload_size", len(snapshot.payload))
+
+	// Non-blocking send to snapshot channel
+	select {
+	case e.snapshotChan <- snapshot:
+		slog.Debug("sent snapshot to channel", "method", "fetchAndSendUpdate")
+	default:
+		slog.Error("snapshot channel full, dropping update", "method", "fetchAndSendUpdate")
+	}
+
+	return nil
 }
 
 // fetch fetches the snapshot for the given namespace.
@@ -849,70 +968,91 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 	)
 	e.mu.RUnlock()
 
+	// Validate engine state
+	if engine == 0 || allocFunc == nil || deallocFunc == nil || evalFunc == nil {
+		return nil, fmt.Errorf("invalid engine state: engine=%d, allocFunc=%v, deallocFunc=%v, evalFunc=%v",
+			engine, allocFunc != nil, deallocFunc != nil, evalFunc != nil)
+	}
+
 	reqBytes, err := json.Marshal(request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
+	slog.Debug("marshaled request", "method", "evaluateWASM", "request_size", len(reqBytes))
 
-	// Take memory barrier lock before allocation
-	e.memoryBarrier.Lock()
+	var (
+		reqPtr uint64
+		reqLen uint64
+	)
 
-	// Allocate memory while holding the lock
-	reqPtrRes, err := allocFunc.Call(ctx, uint64(len(reqBytes)))
-	if err != nil {
+	// First lock scope: allocation and writing
+	{
+		e.memoryBarrier.Lock()
+		reqPtrRes, err := allocFunc.Call(ctx, uint64(len(reqBytes)))
+		if err != nil {
+			e.memoryBarrier.Unlock()
+			return nil, fmt.Errorf("failed to allocate memory for request: %w", err)
+		}
+
+		reqPtr = reqPtrRes[0]
+		reqLen = uint64(len(reqBytes))
+		slog.Debug("allocated memory for request", "method", "evaluateWASM", "req_ptr", reqPtr, "req_len", reqLen)
+
+		if ok := e.mod.Memory().Write(uint32(reqPtr), reqBytes); !ok {
+			e.memoryBarrier.Unlock()
+			deallocFunc.Call(ctx, reqPtr, reqLen)
+			slog.Error("failed to write request to memory", "method", "evaluateWASM", "req_ptr", reqPtr, "req_len", reqLen)
+			return nil, fmt.Errorf("failed to write request to memory")
+		}
+		slog.Debug("wrote request to memory", "method", "evaluateWASM", "req_ptr", reqPtr, "req_len", reqLen)
 		e.memoryBarrier.Unlock()
-		return nil, fmt.Errorf("failed to allocate memory for request: %w", err)
 	}
-
-	reqPtr := reqPtrRes[0]
-	reqLen := uint64(len(reqBytes))
-
-	// Write to memory while still holding the lock
-	if ok := e.mod.Memory().Write(uint32(reqPtr), reqBytes); !ok {
-		e.memoryBarrier.Unlock()
-		deallocFunc.Call(ctx, reqPtr, reqLen)
-		return nil, fmt.Errorf("failed to write request to memory")
-	}
-
-	// Release memory barrier lock after writing
-	e.memoryBarrier.Unlock()
 
 	// Call evaluation function with copied engine pointer
+	slog.Debug("calling evaluation function", "method", "evaluateWASM", "function", funcName, "engine_ptr", engine, "req_ptr", reqPtr, "req_len", reqLen)
 	res, err := evalFunc.Call(ctx, uint64(engine), reqPtr, reqLen)
 	if err != nil {
 		deallocFunc.Call(ctx, reqPtr, reqLen)
+		slog.Error("failed to call evaluation function", "method", "evaluateWASM", "function", funcName, "error", err, "engine_ptr", engine, "req_ptr", reqPtr, "req_len", reqLen)
 		return nil, fmt.Errorf("failed to call %s: %w", funcName, err)
 	}
 
 	if len(res) < 1 {
 		deallocFunc.Call(ctx, reqPtr, reqLen)
+		slog.Error("no result returned from evaluation function", "method", "evaluateWASM", "function", funcName)
 		return nil, fmt.Errorf("failed to call %s: no result returned", funcName)
 	}
 
 	resultPtr, resultLen := decodePtr(res[0])
+	slog.Debug("evaluation function returned", "method", "evaluateWASM", "result_ptr", resultPtr, "result_len", resultLen)
 
-	// Take memory barrier lock before reading result
-	e.memoryBarrier.Lock()
+	var result []byte
 
-	// Read memory while holding the lock
-	b, ok := e.mod.Memory().Read(resultPtr, resultLen)
-	if !ok {
+	// Second lock scope: reading result
+	{
+		e.memoryBarrier.Lock()
+		b, ok := e.mod.Memory().Read(resultPtr, resultLen)
+		if !ok {
+			e.memoryBarrier.Unlock()
+			deallocFunc.Call(ctx, reqPtr, reqLen)
+			deallocFunc.Call(ctx, uint64(resultPtr), uint64(resultLen))
+			slog.Error("failed to read result from memory", "method", "evaluateWASM", "result_ptr", resultPtr, "result_len", resultLen)
+			return nil, fmt.Errorf("failed to read result from memory")
+		}
+
+		// Make a copy of the result before releasing lock
+		result = make([]byte, len(b))
+		copy(result, b)
 		e.memoryBarrier.Unlock()
-		deallocFunc.Call(ctx, reqPtr, reqLen)
-		deallocFunc.Call(ctx, uint64(resultPtr), uint64(resultLen))
-		return nil, fmt.Errorf("failed to read result from memory")
 	}
 
-	// Make a copy of the result before releasing lock
-	result := make([]byte, len(b))
-	copy(result, b)
-
-	// Release memory barrier lock
-	e.memoryBarrier.Unlock()
+	slog.Debug("read result from memory", "method", "evaluateWASM", "result_ptr", resultPtr, "result_len", resultLen, "result_size", len(result))
 
 	// Clean up allocated memory
+	slog.Debug("cleaning up allocated memory", "method", "evaluateWASM", "req_ptr", reqPtr, "req_len", reqLen, "result_ptr", resultPtr, "result_len", resultLen)
 	deallocFunc.Call(ctx, reqPtr, reqLen)
 	deallocFunc.Call(ctx, uint64(resultPtr), uint64(resultLen))
+	slog.Debug("memory cleanup complete", "method", "evaluateWASM")
 
 	return result, nil
 }
@@ -922,11 +1062,4 @@ func (e *EvaluationClient) safeMemoryRead(ptr uint32, length uint32) ([]byte, bo
 	e.memoryBarrier.Lock()
 	defer e.memoryBarrier.Unlock()
 	return e.mod.Memory().Read(ptr, length)
-}
-
-// safeMemoryWrite executes a memory write operation with proper locking
-func (e *EvaluationClient) safeMemoryWrite(ptr uint32, data []byte) bool {
-	e.memoryBarrier.Lock()
-	defer e.memoryBarrier.Unlock()
-	return e.mod.Memory().Write(ptr, data)
 }
