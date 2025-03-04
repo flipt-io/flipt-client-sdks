@@ -84,7 +84,7 @@ impl Snapshot {
                 let rule_id = format!("{}-{}", flag.key, index);
                 let mut eval_rule = flipt::EvaluationRule {
                     id: rule_id.clone(),
-                    rank: idx + 1,
+                    rank: index,
                     flag_key: flag.key.clone(),
                     segments: HashMap::new(),
                     segment_operator: rule.segment_operator,
