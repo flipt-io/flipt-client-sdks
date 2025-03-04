@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	_ "embed"
@@ -69,6 +70,9 @@ type EvaluationClient struct {
 	snapshotChan chan snapshot
 
 	closeOnce sync.Once
+
+	// Add atomic flag to track snapshot updates
+	snapshotInProgress atomic.Bool
 }
 
 // ClientOption adds additional configuration for Client parameters
@@ -613,6 +617,9 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 
 			slog.Debug("starting to process snapshot update", "method", "handleUpdates", "payload_size", len(s.payload))
 
+			// Set snapshot in progress flag
+			e.snapshotInProgress.Store(true)
+
 			// Add more detailed debug logging
 			slog.Debug("snapshot payload content (hex)", "method", "handleUpdates", "payload_hex", fmt.Sprintf("%x", s.payload))
 			slog.Debug("snapshot payload content (string)", "method", "handleUpdates", "payload", string(s.payload))
@@ -620,6 +627,7 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 			length := len(s.payload)
 			if length == 0 {
 				slog.Info("snapshot payload is empty, skipping", "method", "handleUpdates")
+				e.snapshotInProgress.Store(false)
 				continue
 			}
 
@@ -707,6 +715,7 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 				return nil
 			}(); err != nil {
 				consecutiveErrors++
+				e.snapshotInProgress.Store(false)
 				if consecutiveErrors >= maxConsecutiveErrors {
 					return fmt.Errorf("failed after %d consecutive errors: %w", consecutiveErrors, err)
 				}
@@ -718,6 +727,9 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 
 			// Successfully updated engine state
 			slog.Info("snapshot update successful", "method", "handleUpdates", "engine", engine)
+
+			// Reset snapshot in progress flag
+			e.snapshotInProgress.Store(false)
 
 			// Log channel state
 			slog.Debug("channel status", "method", "handleUpdates",
@@ -956,6 +968,19 @@ func (e *EvaluationClient) startStreaming(ctx context.Context) {
 func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, request any) ([]byte, error) {
 	if e.engine == 0 {
 		return nil, errors.New("engine not initialized")
+	}
+
+	// Wait for any in-progress snapshot updates to complete
+	for retry := range [5]int{} {
+		if !e.snapshotInProgress.Load() {
+			break
+		}
+		slog.Debug("waiting for snapshot update to complete", "method", "evaluateWASM", "retry", retry)
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	if e.snapshotInProgress.Load() {
+		return nil, fmt.Errorf("timed out waiting for snapshot update to complete")
 	}
 
 	// Get function references and engine pointer under read lock
