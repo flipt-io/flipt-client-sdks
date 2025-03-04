@@ -667,7 +667,7 @@ func (e *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, er
 	}
 
 	if resp.StatusCode == http.StatusNotModified {
-		return snapshot{}, nil
+		return snapshot{etag: etag}, nil
 	}
 
 	if resp.StatusCode != http.StatusOK {
