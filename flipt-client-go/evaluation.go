@@ -19,10 +19,8 @@ import (
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
 
-var (
-	//go:embed ext/flipt_engine_wasm.wasm
-	wasm []byte
-)
+//go:embed ext/flipt_engine_wasm.wasm
+var wasm []byte
 
 const (
 	statusSuccess = "success"
@@ -562,13 +560,14 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 				continue
 			}
 
+			e.mu.Lock()
 			// allocate memory for the new payload
 			pmPtr, err := allocFunc.Call(ctx, uint64(len(s.payload)))
 			if err != nil {
+				e.mu.Unlock()
 				return fmt.Errorf("failed to allocate memory for payload: %w", err)
 			}
 
-			e.mu.Lock()
 			// write the new payload to memory
 			if !e.mod.Memory().Write(uint32(pmPtr[0]), s.payload) {
 				e.mu.Unlock()
@@ -577,12 +576,14 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 			}
 
 			// update the engine with the new snapshot while holding the lock
-			_, err = snapshotFunc.Call(ctx, uint64(e.engine), pmPtr[0], uint64(len(s.payload)))
-			e.mu.Unlock()
+			res, err := snapshotFunc.Call(ctx, uint64(e.engine), pmPtr[0], uint64(len(s.payload)))
 
+			ptr, length := decodePtr(res[0])
 			// always deallocate the memory after we're done with it
 			deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
+			deallocFunc.Call(ctx, uint64(ptr), uint64(length))
 
+			e.mu.Unlock()
 			if err != nil {
 				return fmt.Errorf("failed to update engine: %w", err)
 			}
