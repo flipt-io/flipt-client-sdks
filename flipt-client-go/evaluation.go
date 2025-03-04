@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -148,12 +147,6 @@ func WithRequestTimeout(timeout time.Duration) ClientOption {
 }
 
 type fetchError error
-
-func init() {
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	})))
-}
 
 // NewEvaluationClient constructs a Client and performs an initial fetch of flag state.
 func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *EvaluationClient, cerr error) {
@@ -363,14 +356,19 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 
 // Err returns the last error that occurred.
 func (e *EvaluationClient) Err() error {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	return e.err
 }
 
 // EvaluateVariant performs evaluation for a variant flag.
 func (e *EvaluationClient) EvaluateVariant(ctx context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantEvaluationResponse, error) {
+	e.mu.RLock()
 	if e.err != nil && e.errorStrategy == ErrorStrategyFail {
+		e.mu.RUnlock()
 		return nil, e.err
 	}
+	e.mu.RUnlock()
 
 	request := EvaluationRequest{
 		FlagKey:  flagKey,
@@ -401,9 +399,12 @@ func (e *EvaluationClient) EvaluateVariant(ctx context.Context, flagKey, entityI
 
 // EvaluateBoolean performs evaluation for a boolean flag.
 func (e *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanEvaluationResponse, error) {
+	e.mu.RLock()
 	if e.err != nil && e.errorStrategy == ErrorStrategyFail {
+		e.mu.RUnlock()
 		return nil, e.err
 	}
+	e.mu.RUnlock()
 
 	request := EvaluationRequest{
 		FlagKey:  flagKey,
@@ -434,9 +435,12 @@ func (e *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityI
 
 // EvaluateBatch performs evaluation for a batch of flags.
 func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
+	e.mu.RLock()
 	if e.err != nil && e.errorStrategy == ErrorStrategyFail {
+		e.mu.RUnlock()
 		return nil, e.err
 	}
+	e.mu.RUnlock()
 
 	result, err := e.evaluateWASM(ctx, fEvaluateBatch, requests)
 	if err != nil {
@@ -461,22 +465,36 @@ func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*Evalua
 
 // ListFlags lists all flags.
 func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
+	e.mu.RLock()
 	if e.err != nil && e.errorStrategy == ErrorStrategyFail {
+		e.mu.RUnlock()
 		return nil, e.err
 	}
 
 	if e.engine == 0 {
+		e.mu.RUnlock()
 		return nil, errors.New("engine not initialized")
 	}
 
 	// Get function references and engine pointer under read lock
-	e.mu.RLock()
 	var (
 		deallocFunc   = e.mod.ExportedFunction(fDeallocate)
 		listFlagsFunc = e.mod.ExportedFunction(fListFlags)
 		engine        = e.engine // Copy engine pointer under read lock
 	)
 	e.mu.RUnlock()
+
+	// Wait for any in-progress snapshot updates to complete
+	for range [5]int{} {
+		if !e.snapshotInProgress.Load() {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	if e.snapshotInProgress.Load() {
+		return nil, fmt.Errorf("timed out waiting for snapshot update to complete")
+	}
 
 	// Call list_flags function with copied engine pointer
 	res, err := listFlagsFunc.Call(ctx, uint64(engine))
@@ -492,7 +510,9 @@ func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 	defer deallocFunc.Call(ctx, uint64(resultPtr), uint64(resultLen))
 
 	// Read memory using safe memory operation
-	b, ok := e.safeMemoryRead(resultPtr, resultLen)
+	e.memoryBarrier.RLock()
+	b, ok := e.mod.Memory().Read(resultPtr, resultLen)
+	e.memoryBarrier.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("failed to read result from memory")
 	}
@@ -567,9 +587,6 @@ type snapshotResult struct {
 }
 
 func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
-	slog.Info("starting handleUpdates", "method", "handleUpdates")
-	defer slog.Info("exiting handleUpdates", "method", "handleUpdates")
-
 	// Get function references and engine pointer under read lock
 	e.mu.RLock()
 	var (
@@ -580,53 +597,23 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 	)
 	e.mu.RUnlock()
 
-	// Validate initial state
-	if engine == 0 || allocFunc == nil || deallocFunc == nil || snapshotFunc == nil {
-		return fmt.Errorf("invalid initial state: engine=%d, allocFunc=%v, deallocFunc=%v, snapshotFunc=%v",
-			engine, allocFunc != nil, deallocFunc != nil, snapshotFunc != nil)
-	}
-
-	slog.Debug("handleUpdates initialized with valid state", "method", "handleUpdates", "engine", engine)
-
-	// Add recovery to prevent goroutine from crashing
-	defer func() {
-		if r := recover(); r != nil {
-			slog.Error("recovered from panic in handleUpdates", "method", "handleUpdates", "panic", r)
-			// Try to restart the handler
-			go func() {
-				if err := e.handleUpdates(ctx); err != nil {
-					e.errChan <- err
-				}
-			}()
-		}
-	}()
-
 	var consecutiveErrors int
 	const maxConsecutiveErrors = 3
 
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Info("context cancelled, exiting handleUpdates", "method", "handleUpdates")
 			return ctx.Err()
 		case s, ok := <-e.snapshotChan:
 			if !ok {
-				slog.Info("snapshot channel closed, exiting handleUpdates", "method", "handleUpdates")
 				return nil
 			}
-
-			slog.Debug("starting to process snapshot update", "method", "handleUpdates", "payload_size", len(s.payload))
 
 			// Set snapshot in progress flag
 			e.snapshotInProgress.Store(true)
 
-			// Add more detailed debug logging
-			slog.Debug("snapshot payload content (hex)", "method", "handleUpdates", "payload_hex", fmt.Sprintf("%x", s.payload))
-			slog.Debug("snapshot payload content (string)", "method", "handleUpdates", "payload", string(s.payload))
-
 			length := len(s.payload)
 			if length == 0 {
-				slog.Info("snapshot payload is empty, skipping", "method", "handleUpdates")
 				e.snapshotInProgress.Store(false)
 				continue
 			}
@@ -646,35 +633,28 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 					ptr, err := allocFunc.Call(ctx, uint64(length))
 					if err != nil {
 						e.memoryBarrier.Unlock()
-						slog.Error("failed to allocate memory", "method", "handleUpdates", "error", err)
 						return err
 					}
 
 					payloadPtr = ptr[0]
 					payloadLen = uint64(length)
-					slog.Debug("allocated memory for snapshot payload", "method", "handleUpdates", "payload_ptr", payloadPtr, "payload_len", payloadLen)
 
 					if ok := e.mod.Memory().Write(uint32(payloadPtr), s.payload); !ok {
 						e.memoryBarrier.Unlock()
 						deallocFunc.Call(ctx, payloadPtr, payloadLen)
-						slog.Error("failed to write payload to memory", "method", "handleUpdates", "payload_size", length, "allocated_size", payloadLen)
 						return fmt.Errorf("failed to write payload to memory")
 					}
-					slog.Debug("wrote snapshot payload to memory", "method", "handleUpdates", "payload_ptr", payloadPtr, "payload_len", payloadLen)
 					e.memoryBarrier.Unlock()
 				}
 
 				// Call snapshot function without holding the lock
-				slog.Debug("calling snapshot function", "method", "handleUpdates", "engine_ptr", engine, "payload_ptr", payloadPtr, "payload_len", payloadLen)
 				res, err := snapshotFunc.Call(ctx, uint64(engine), payloadPtr, payloadLen)
 				if err != nil {
 					deallocFunc.Call(ctx, payloadPtr, payloadLen)
-					slog.Error("failed to update engine", "method", "handleUpdates", "error", err, "engine_ptr", engine, "payload_ptr", payloadPtr, "payload_len", payloadLen)
 					return err
 				}
 
 				resultPtr, resultLen = decodePtr(res[0])
-				slog.Debug("snapshot function returned", "method", "handleUpdates", "result_ptr", resultPtr, "result_len", resultLen)
 
 				// Second lock scope: reading result
 				{
@@ -684,7 +664,6 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 						e.memoryBarrier.Unlock()
 						deallocFunc.Call(ctx, payloadPtr, payloadLen)
 						deallocFunc.Call(ctx, uint64(resultPtr), uint64(resultLen))
-						slog.Error("failed to read result from memory", "method", "handleUpdates", "result_ptr", resultPtr, "result_len", resultLen)
 						return fmt.Errorf("failed to read result from memory")
 					}
 
@@ -692,22 +671,17 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 					result := make([]byte, len(b))
 					copy(result, b)
 					e.memoryBarrier.Unlock()
-					slog.Debug("read result from memory", "method", "handleUpdates", "result_ptr", resultPtr, "result_len", resultLen, "result_size", len(result))
 
 					// Clean up allocated memory
-					slog.Debug("cleaning up allocated memory", "method", "handleUpdates", "payload_ptr", payloadPtr, "payload_len", payloadLen, "result_ptr", resultPtr, "result_len", resultLen)
 					deallocFunc.Call(ctx, payloadPtr, payloadLen)
 					deallocFunc.Call(ctx, uint64(resultPtr), uint64(resultLen))
-					slog.Debug("memory cleanup complete", "method", "handleUpdates")
 
 					var snapshotResult *snapshotResult
 					if err := json.Unmarshal(result, &snapshotResult); err != nil {
-						slog.Error("failed to unmarshal snapshot result", "method", "handleUpdates", "error", err)
 						return err
 					}
 
 					if snapshotResult.Status != statusSuccess {
-						slog.Error("snapshot update failed", "method", "handleUpdates", "error", snapshotResult.ErrorMessage)
 						return fmt.Errorf("snapshot update failed: %s", snapshotResult.ErrorMessage)
 					}
 				}
@@ -725,25 +699,14 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 			// Reset consecutive errors on success
 			consecutiveErrors = 0
 
-			// Successfully updated engine state
-			slog.Info("snapshot update successful", "method", "handleUpdates", "engine", engine)
-
 			// Reset snapshot in progress flag
 			e.snapshotInProgress.Store(false)
-
-			// Log channel state
-			slog.Debug("channel status", "method", "handleUpdates",
-				"snapshot_chan_len", len(e.snapshotChan),
-				"err_chan_len", len(e.errChan))
 		}
 	}
 }
 
 // startPolling starts the background polling for the given update interval.
 func (e *EvaluationClient) startPolling(ctx context.Context) {
-	slog.Info("starting polling", "method", "startPolling")
-	defer slog.Info("exiting polling", "method", "startPolling")
-
 	ticker := time.NewTicker(e.updateInterval)
 	defer ticker.Stop()
 
@@ -756,24 +719,19 @@ func (e *EvaluationClient) startPolling(ctx context.Context) {
 	if err := e.fetchAndSendUpdate(fctx); err != nil {
 		select {
 		case e.errChan <- err:
-			slog.Error("error fetching initial update", "method", "startPolling", "error", err)
 		default:
-			slog.Error("error channel full, dropping error", "method", "startPolling", "error", err)
 		}
 	}
 
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Info("context cancelled, exiting polling", "method", "startPolling")
 			return
 		case <-ticker.C:
 			if err := e.fetchAndSendUpdate(fctx); err != nil {
 				select {
 				case e.errChan <- err:
-					slog.Error("error fetching update", "method", "startPolling", "error", err)
 				default:
-					slog.Error("error channel full, dropping error", "method", "startPolling", "error", err)
 				}
 			}
 		}
@@ -788,18 +746,13 @@ func (e *EvaluationClient) fetchAndSendUpdate(ctx context.Context) error {
 	}
 
 	if len(snapshot.payload) == 0 {
-		slog.Debug("received empty snapshot, skipping", "method", "fetchAndSendUpdate")
 		return nil
 	}
-
-	slog.Info("fetched snapshot update", "method", "fetchAndSendUpdate", "payload_size", len(snapshot.payload))
 
 	// Non-blocking send to snapshot channel
 	select {
 	case e.snapshotChan <- snapshot:
-		slog.Debug("sent snapshot to channel", "method", "fetchAndSendUpdate")
 	default:
-		slog.Error("snapshot channel full, dropping update", "method", "fetchAndSendUpdate")
 	}
 
 	return nil
@@ -966,16 +919,18 @@ func (e *EvaluationClient) startStreaming(ctx context.Context) {
 
 // evaluateWASM evaluates the given function name with the given request.
 func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, request any) ([]byte, error) {
+	e.mu.RLock()
 	if e.engine == 0 {
+		e.mu.RUnlock()
 		return nil, errors.New("engine not initialized")
 	}
+	e.mu.RUnlock()
 
 	// Wait for any in-progress snapshot updates to complete
-	for retry := range [5]int{} {
+	for range [5]int{} {
 		if !e.snapshotInProgress.Load() {
 			break
 		}
-		slog.Debug("waiting for snapshot update to complete", "method", "evaluateWASM", "retry", retry)
 		time.Sleep(10 * time.Millisecond)
 	}
 
@@ -993,17 +948,10 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 	)
 	e.mu.RUnlock()
 
-	// Validate engine state
-	if engine == 0 || allocFunc == nil || deallocFunc == nil || evalFunc == nil {
-		return nil, fmt.Errorf("invalid engine state: engine=%d, allocFunc=%v, deallocFunc=%v, evalFunc=%v",
-			engine, allocFunc != nil, deallocFunc != nil, evalFunc != nil)
-	}
-
 	reqBytes, err := json.Marshal(request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-	slog.Debug("marshaled request", "method", "evaluateWASM", "request_size", len(reqBytes))
 
 	var (
 		reqPtr uint64
@@ -1021,35 +969,28 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 
 		reqPtr = reqPtrRes[0]
 		reqLen = uint64(len(reqBytes))
-		slog.Debug("allocated memory for request", "method", "evaluateWASM", "req_ptr", reqPtr, "req_len", reqLen)
 
 		if ok := e.mod.Memory().Write(uint32(reqPtr), reqBytes); !ok {
 			e.memoryBarrier.Unlock()
 			deallocFunc.Call(ctx, reqPtr, reqLen)
-			slog.Error("failed to write request to memory", "method", "evaluateWASM", "req_ptr", reqPtr, "req_len", reqLen)
 			return nil, fmt.Errorf("failed to write request to memory")
 		}
-		slog.Debug("wrote request to memory", "method", "evaluateWASM", "req_ptr", reqPtr, "req_len", reqLen)
 		e.memoryBarrier.Unlock()
 	}
 
 	// Call evaluation function with copied engine pointer
-	slog.Debug("calling evaluation function", "method", "evaluateWASM", "function", funcName, "engine_ptr", engine, "req_ptr", reqPtr, "req_len", reqLen)
 	res, err := evalFunc.Call(ctx, uint64(engine), reqPtr, reqLen)
 	if err != nil {
 		deallocFunc.Call(ctx, reqPtr, reqLen)
-		slog.Error("failed to call evaluation function", "method", "evaluateWASM", "function", funcName, "error", err, "engine_ptr", engine, "req_ptr", reqPtr, "req_len", reqLen)
 		return nil, fmt.Errorf("failed to call %s: %w", funcName, err)
 	}
 
 	if len(res) < 1 {
 		deallocFunc.Call(ctx, reqPtr, reqLen)
-		slog.Error("no result returned from evaluation function", "method", "evaluateWASM", "function", funcName)
 		return nil, fmt.Errorf("failed to call %s: no result returned", funcName)
 	}
 
 	resultPtr, resultLen := decodePtr(res[0])
-	slog.Debug("evaluation function returned", "method", "evaluateWASM", "result_ptr", resultPtr, "result_len", resultLen)
 
 	var result []byte
 
@@ -1061,7 +1002,6 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 			e.memoryBarrier.Unlock()
 			deallocFunc.Call(ctx, reqPtr, reqLen)
 			deallocFunc.Call(ctx, uint64(resultPtr), uint64(resultLen))
-			slog.Error("failed to read result from memory", "method", "evaluateWASM", "result_ptr", resultPtr, "result_len", resultLen)
 			return nil, fmt.Errorf("failed to read result from memory")
 		}
 
@@ -1071,20 +1011,9 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 		e.memoryBarrier.Unlock()
 	}
 
-	slog.Debug("read result from memory", "method", "evaluateWASM", "result_ptr", resultPtr, "result_len", resultLen, "result_size", len(result))
-
 	// Clean up allocated memory
-	slog.Debug("cleaning up allocated memory", "method", "evaluateWASM", "req_ptr", reqPtr, "req_len", reqLen, "result_ptr", resultPtr, "result_len", resultLen)
 	deallocFunc.Call(ctx, reqPtr, reqLen)
 	deallocFunc.Call(ctx, uint64(resultPtr), uint64(resultLen))
-	slog.Debug("memory cleanup complete", "method", "evaluateWASM")
 
 	return result, nil
-}
-
-// safeMemoryRead executes a memory read operation with proper locking
-func (e *EvaluationClient) safeMemoryRead(ptr uint32, length uint32) ([]byte, bool) {
-	e.memoryBarrier.Lock()
-	defer e.memoryBarrier.Unlock()
-	return e.mod.Memory().Read(ptr, length)
 }
