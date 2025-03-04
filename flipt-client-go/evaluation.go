@@ -854,43 +854,65 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	// Allocate memory outside lock
+	// Take memory barrier lock before allocation
+	e.memoryBarrier.Lock()
+
+	// Allocate memory while holding the lock
 	reqPtrRes, err := allocFunc.Call(ctx, uint64(len(reqBytes)))
 	if err != nil {
+		e.memoryBarrier.Unlock()
 		return nil, fmt.Errorf("failed to allocate memory for request: %w", err)
 	}
 
 	reqPtr := reqPtrRes[0]
 	reqLen := uint64(len(reqBytes))
-	defer deallocFunc.Call(ctx, reqPtr, reqLen)
 
-	// Write to memory using safe memory operation
-	if ok := e.safeMemoryWrite(uint32(reqPtr), reqBytes); !ok {
+	// Write to memory while still holding the lock
+	if ok := e.mod.Memory().Write(uint32(reqPtr), reqBytes); !ok {
+		e.memoryBarrier.Unlock()
+		deallocFunc.Call(ctx, reqPtr, reqLen)
 		return nil, fmt.Errorf("failed to write request to memory")
 	}
+
+	// Release memory barrier lock after writing
+	e.memoryBarrier.Unlock()
 
 	// Call evaluation function with copied engine pointer
 	res, err := evalFunc.Call(ctx, uint64(engine), reqPtr, reqLen)
 	if err != nil {
+		deallocFunc.Call(ctx, reqPtr, reqLen)
 		return nil, fmt.Errorf("failed to call %s: %w", funcName, err)
 	}
 
 	if len(res) < 1 {
+		deallocFunc.Call(ctx, reqPtr, reqLen)
 		return nil, fmt.Errorf("failed to call %s: no result returned", funcName)
 	}
 
 	resultPtr, resultLen := decodePtr(res[0])
-	defer deallocFunc.Call(ctx, uint64(resultPtr), uint64(resultLen))
 
-	// Read memory using safe memory operation
-	b, ok := e.safeMemoryRead(resultPtr, resultLen)
+	// Take memory barrier lock before reading result
+	e.memoryBarrier.Lock()
+
+	// Read memory while holding the lock
+	b, ok := e.mod.Memory().Read(resultPtr, resultLen)
 	if !ok {
+		e.memoryBarrier.Unlock()
+		deallocFunc.Call(ctx, reqPtr, reqLen)
+		deallocFunc.Call(ctx, uint64(resultPtr), uint64(resultLen))
 		return nil, fmt.Errorf("failed to read result from memory")
 	}
 
-	// Make a copy of the result before deallocating
+	// Make a copy of the result before releasing lock
 	result := make([]byte, len(b))
 	copy(result, b)
+
+	// Release memory barrier lock
+	e.memoryBarrier.Unlock()
+
+	// Clean up allocated memory
+	deallocFunc.Call(ctx, reqPtr, reqLen)
+	deallocFunc.Call(ctx, uint64(resultPtr), uint64(resultLen))
 
 	return result, nil
 }
