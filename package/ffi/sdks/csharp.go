@@ -47,7 +47,7 @@ func (s *CSharpSDK) Build(ctx context.Context, client *dagger.Client, hostDirect
 	nugetAPIKeySecret := client.SetSecret("nuget-api-key", os.Getenv("NUGET_API_KEY"))
 
 	_, err = container.WithSecretVariable("NUGET_API_KEY", nugetAPIKeySecret).
-		WithExec(args("sh -c 'dotnet nuget push bin/Release/*.nupkg --api-key $NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate'")).
+		WithExec([]string{"sh", "-c", "dotnet nuget push bin/Release/*.nupkg --api-key $NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate"}).
 		Sync(ctx)
 
 	return err
