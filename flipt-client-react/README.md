@@ -1,6 +1,6 @@
 # Flipt React SDK
 
-[![npm](https://img.shields.io/npm/v/@flipt-io/flipt-client-react?label=%40flipt-io%2Fflipt-client-react)](https://www.npmjs.com/package/@flipt-io/flipt-client-react)
+[![flipt-client-react](https://img.shields.io/npm/v/@flipt-io/flipt-client-react?label=%40flipt-io%2Fflipt-client-react)](https://www.npmjs.com/package/@flipt-io/flipt-client-react)
 
 The Flipt React SDK provides a convenient way to integrate [Flipt](https://flipt.io) feature flags into your React applications using a custom hook and a context provider. It is built on top of the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client for the browser.
 

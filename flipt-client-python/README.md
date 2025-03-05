@@ -1,6 +1,6 @@
 # Flipt Client Python
 
-[![pypi](https://img.shields.io/pypi/v/flipt-client.svg)](https://pypi.org/project/flipt-client)
+[![flipt-client-python](https://img.shields.io/pypi/v/flipt-client.svg)](https://pypi.org/project/flipt-client)
 
 The `flipt-client-python` library contains the Python source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client.
 
