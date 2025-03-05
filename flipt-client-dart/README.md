@@ -1,6 +1,6 @@
 # Flipt Client Dart
 
-[![pub package](https://img.shields.io/pub/v/flipt_client.svg)](https://pub.dev/packages/flipt_client)
+[![flipt-client-dart](https://img.shields.io/pub/v/flipt_client.svg)](https://pub.dev/packages/flipt_client)
 
 The `flipt-client-dart` library contains the Dart source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client.
 

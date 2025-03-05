@@ -1,6 +1,6 @@
 # Flipt Client Swift
 
-[![Client tag](https://img.shields.io/github/v/tag/flipt-io/flipt-client-swift?filter=v*&label=flipt-client-swift)](https://github.com/flipt-io/flipt-client-swift)
+[![flipt-client-swift](https://img.shields.io/github/v/tag/flipt-io/flipt-client-swift?filter=v*&label=flipt-client-swift)](https://github.com/flipt-io/flipt-client-swift)
 
 The `flipt-client-swift` library contains the Swift source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client.
 

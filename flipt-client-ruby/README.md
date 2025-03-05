@@ -1,6 +1,6 @@
 # Flipt Client Ruby
 
-[![Gem Version](https://badge.fury.io/rb/flipt_client.svg)](https://badge.fury.io/rb/flipt_client)
+[![flipt-client-ruby](https://badge.fury.io/rb/flipt_client.svg)](https://badge.fury.io/rb/flipt_client)
 
 The `flipt-client-ruby` library contains the Ruby source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client.
 
