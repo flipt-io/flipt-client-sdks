@@ -45,7 +45,7 @@ func (s *RubySDK) Build(ctx context.Context, client *dagger.Client, hostDirector
 
 	_, err = container.
 		WithSecretVariable("GEM_HOST_API_KEY", gemHostAPIKeySecret).
-		WithExec(args("sh -c 'gem push pkg/flipt_client-*.gem'")).
+		WithExec([]string{"sh", "-c", "gem push pkg/flipt_client-*.gem"}).
 		Sync(ctx)
 
 	return err
