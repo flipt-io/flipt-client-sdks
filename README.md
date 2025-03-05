@@ -51,18 +51,18 @@ We are constantly growing our list of supported languages.
 
 Currently, we support the following languages/platforms:
 
-| Language                                       | Implementation |
-| ---------------------------------------------- | -------------- |
-| [Go](./flipt-client-go)                        | WASM           |
-| [Python](./flipt-client-python)                | FFI            |
-| [Ruby](./flipt-client-ruby)                    | FFI            |
-| [NodeJS](./flipt-client-node)                  | WASM           |
-| [Java](./flipt-client-java)                    | FFI            |
-| [JavaScript (Browser)](./flipt-client-browser) | WASM           |
-| [React Web (Browser)](./flipt-client-react)    | WASM           |
-| [Flutter/Dart](./flipt-client-dart)            | FFI            |
-| [C#](./flipt-client-csharp)                    | FFI            |
-| [Swift](./flipt-client-swift)                  | FFI            |
+| Language                                       | Latest Version                                                                                                                                                                                | Implementation |
+|------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------|
+| [Go](./flipt-client-go)                        | [![flipt-client-go](https://img.shields.io/github/v/tag/flipt-io/flipt-client-go?filter=v*&label=flipt-client-go)](https://github.com/flipt-io/flipt-client-go)                               | WASM           |
+| [Python](./flipt-client-python)                | [![flipt-client-python](https://img.shields.io/pypi/v/flipt-client.svg)](https://pypi.org/project/flipt-client)                                                                               | FFI            |
+| [Ruby](./flipt-client-ruby)                    | [![flipt-client-ruby](https://badge.fury.io/rb/flipt_client.svg)](https://badge.fury.io/rb/flipt_client)                                                                                      | FFI            |
+| [NodeJS](./flipt-client-node)                  | [![flipt-client-node](https://img.shields.io/npm/v/@flipt-io/flipt-client?label=%40flipt-io%2Fflipt-client)](https://www.npmjs.com/package/@flipt-io/flipt-client)                            | WASM           |
+| [Java](./flipt-client-java)                    | [![flipt-client-java](https://img.shields.io/maven-central/v/io.flipt/flipt-client-java?label=flipt-client-java)](https://central.sonatype.com/artifact/io.flipt/flipt-client-java)           | FFI            |
+| [JavaScript (Browser)](./flipt-client-browser) | [![flipt-client-browser](https://img.shields.io/npm/v/@flipt-io/flipt-client-browser?label=%40flipt-io%2Fflipt-client-browser)](https://www.npmjs.com/package/@flipt-io/flipt-client-browser) | WASM           |
+| [React Web (Browser)](./flipt-client-react)    | [![flipt-client-react](https://img.shields.io/npm/v/@flipt-io/flipt-client-react?label=%40flipt-io%2Fflipt-client-react)](https://www.npmjs.com/package/@flipt-io/flipt-client-react)         | WASM           |
+| [Flutter/Dart](./flipt-client-dart)            | [![flipt-client-dart](https://img.shields.io/pub/v/flipt_client.svg)](https://pub.dev/packages/flipt_client)                                                                                  | FFI            |
+| [C#](./flipt-client-csharp)                    | [![flipt-client-c#](https://img.shields.io/nuget/v/flipt.client)](https://www.nuget.org/packages/Flipt.Client/)                                                                               | FFI            |
+| [Swift](./flipt-client-swift)                  | [![flipt-client-swift](https://img.shields.io/github/v/tag/flipt-io/flipt-client-swift?filter=v*&label=flipt-client-swift)](https://github.com/flipt-io/flipt-client-swift)                   | FFI            |
 
 Documentation for each client can be found in the README of that client's directory.
 
