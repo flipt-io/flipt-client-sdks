@@ -1,8 +1,5 @@
 name: Lint SDKs
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches-ignore:
       - release/*
