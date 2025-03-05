@@ -2,6 +2,9 @@ name: Package FFI Engine (Darwin)
 on:
   pull_request:
     branches: [main]
+    paths:
+      - "flipt-engine-ffi/**"
+      - "flipt-evaluation/**"
   push:
     tags: ["flipt-engine-ffi-v**"]
   workflow_dispatch:
