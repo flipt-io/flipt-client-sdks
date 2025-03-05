@@ -19,10 +19,8 @@ import (
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
 
-var (
-	//go:embed ext/flipt_engine_wasm.wasm
-	wasm []byte
-)
+//go:embed ext/flipt_engine_wasm.wasm
+var wasm []byte
 
 const (
 	statusSuccess = "success"
@@ -64,11 +62,6 @@ type EvaluationClient struct {
 
 	errChan      chan error
 	snapshotChan chan snapshot
-
-	// cached WASM functions
-	allocFunc    api.Function
-	deallocFunc  api.Function
-	snapshotFunc api.Function
 
 	closeOnce sync.Once
 }
@@ -178,13 +171,6 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		return
 	}
 
-	var (
-		// cache common WASM functions
-		allocFunc    = mod.ExportedFunction(fAllocate)
-		deallocFunc  = mod.ExportedFunction(fDeallocate)
-		snapshotFunc = mod.ExportedFunction(fSnapshot)
-	)
-
 	ctx, cancel := context.WithCancel(ctx)
 
 	client := &EvaluationClient{
@@ -202,11 +188,6 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		cancel:       cancel,
 		errChan:      make(chan error, 1),
 		snapshotChan: make(chan snapshot, 1),
-
-		// cache WASM functions
-		allocFunc:    allocFunc,
-		deallocFunc:  deallocFunc,
-		snapshotFunc: snapshotFunc,
 	}
 
 	for _, opt := range opts {
@@ -250,7 +231,10 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		client.httpClient.Timeout = client.requestTimeout
 	}
 
-	var initializeEngine = mod.ExportedFunction(fInitializeEngine)
+	var (
+		initializeEngine = mod.ExportedFunction(fInitializeEngine)
+		allocFunc        = mod.ExportedFunction(fAllocate)
+	)
 
 	// allocate namespace
 	nsPtr, err := allocFunc.Call(ctx, uint64(len(client.namespace)))
@@ -463,11 +447,11 @@ func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*Evalua
 // ListFlags lists all flags.
 func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 	e.mu.RLock()
+	defer e.mu.RUnlock()
+
 	if e.err != nil && e.errorStrategy == ErrorStrategyFail {
-		e.mu.RUnlock()
 		return nil, e.err
 	}
-	e.mu.RUnlock()
 
 	if e.engine == 0 {
 		return nil, errors.New("engine not initialized")
@@ -484,27 +468,35 @@ func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 	}
 
 	ptr, length := decodePtr(res[0])
-	defer e.deallocFunc.Call(ctx, uint64(ptr), uint64(length))
+	deallocFunc := e.mod.ExportedFunction(fDeallocate)
 
 	b, ok := e.mod.Memory().Read(ptr, length)
 	if !ok {
+		deallocFunc.Call(ctx, uint64(ptr), uint64(length))
 		return nil, fmt.Errorf("failed to read result from memory")
 	}
 
-	var result *ListFlagsResult
-	if err := json.Unmarshal(b, &result); err != nil {
+	// make a copy of the result before deallocating
+	result := make([]byte, len(b))
+	copy(result, b)
+
+	// clean up memory
+	deallocFunc.Call(ctx, uint64(ptr), uint64(length))
+
+	var listResult *ListFlagsResult
+	if err := json.Unmarshal(result, &listResult); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal flags: %w", err)
 	}
 
-	if result == nil {
+	if listResult == nil {
 		return nil, errors.New("failed to unmarshal flags: nil")
 	}
 
-	if result.Status != statusSuccess {
-		return nil, errors.New(result.ErrorMessage)
+	if listResult.Status != statusSuccess {
+		return nil, errors.New(listResult.ErrorMessage)
 	}
 
-	return *result.Result, nil
+	return *listResult.Result, nil
 }
 
 // Close cleans up the allocated resources.
@@ -544,6 +536,12 @@ type snapshot struct {
 }
 
 func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
+	var (
+		allocFunc    = e.mod.ExportedFunction(fAllocate)
+		deallocFunc  = e.mod.ExportedFunction(fDeallocate)
+		snapshotFunc = e.mod.ExportedFunction(fSnapshot)
+	)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -551,7 +549,6 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 			return nil
 		case s, ok := <-e.snapshotChan:
 			if !ok {
-				// we are likely shutting down
 				return nil
 			}
 
@@ -559,32 +556,37 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 			e.etag = s.etag
 			e.mu.Unlock()
 
-			// skip update if no changes (304 response) or error
 			if len(s.payload) == 0 {
 				continue
 			}
 
+			e.mu.Lock()
 			// allocate memory for the new payload
-			pmPtr, err := e.allocFunc.Call(ctx, uint64(len(s.payload)))
+			pmPtr, err := allocFunc.Call(ctx, uint64(len(s.payload)))
 			if err != nil {
+				e.mu.Unlock()
 				return fmt.Errorf("failed to allocate memory for payload: %w", err)
 			}
 
 			// write the new payload to memory
 			if !e.mod.Memory().Write(uint32(pmPtr[0]), s.payload) {
-				e.deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
+				e.mu.Unlock()
+				deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
 				return fmt.Errorf("failed to write payload to memory")
 			}
 
-			// update the engine with the new snapshot
-			_, err = e.snapshotFunc.Call(ctx, uint64(e.engine), pmPtr[0], uint64(len(s.payload)))
+			// update the engine with the new snapshot while holding the lock
+			res, err := snapshotFunc.Call(ctx, uint64(e.engine), pmPtr[0], uint64(len(s.payload)))
+
+			ptr, length := decodePtr(res[0])
+			// always deallocate the memory after we're done with it
+			deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
+			deallocFunc.Call(ctx, uint64(ptr), uint64(length))
+
+			e.mu.Unlock()
 			if err != nil {
-				e.deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
 				return fmt.Errorf("failed to update engine: %w", err)
 			}
-
-			// clean up the memory we allocated for the payload
-			e.deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
 		}
 	}
 }
@@ -665,7 +667,7 @@ func (e *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, er
 	}
 
 	if resp.StatusCode == http.StatusNotModified {
-		return snapshot{}, nil
+		return snapshot{etag: etag}, nil
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -734,13 +736,13 @@ func (e *EvaluationClient) startStreaming(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		default:
-			// Create a channel to receive the read result
+			// create a channel to receive the read result
 			readChan := make(chan struct {
 				line []byte
 				err  error
 			})
 
-			// Start a goroutine to perform the blocking read
+			// start a goroutine to perform the blocking read
 			go func() {
 				line, err := reader.ReadBytes('\n')
 				readChan <- struct {
@@ -749,7 +751,7 @@ func (e *EvaluationClient) startStreaming(ctx context.Context) {
 				}{line, err}
 			}()
 
-			// Wait for either the read to complete or context cancellation
+			// wait for either the read to complete or context cancellation
 			select {
 			case <-ctx.Done():
 				return
@@ -784,42 +786,60 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 		return nil, errors.New("engine not initialized")
 	}
 
+	var (
+		allocFunc   = e.mod.ExportedFunction(fAllocate)
+		deallocFunc = e.mod.ExportedFunction(fDeallocate)
+	)
+
 	reqBytes, err := json.Marshal(request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	reqPtr, err := e.allocFunc.Call(ctx, uint64(len(reqBytes)))
+	e.mu.Lock()
+	reqPtr, err := allocFunc.Call(ctx, uint64(len(reqBytes)))
 	if err != nil {
+		e.mu.Unlock()
 		return nil, fmt.Errorf("failed to allocate memory for request: %w", err)
 	}
-	defer e.deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
 
 	if !e.mod.Memory().Write(uint32(reqPtr[0]), reqBytes) {
+		deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
+		e.mu.Unlock()
 		return nil, fmt.Errorf("failed to write request to memory")
 	}
 
 	evalFunc := e.mod.ExportedFunction(funcName)
 	res, err := evalFunc.Call(ctx, uint64(e.engine), reqPtr[0], uint64(len(reqBytes)))
 	if err != nil {
+		deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
+		e.mu.Unlock()
 		return nil, fmt.Errorf("failed to call %s: %w", funcName, err)
 	}
 
+	// clean up request memory
+	deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
+
 	if len(res) < 1 {
+		e.mu.Unlock()
 		return nil, fmt.Errorf("failed to call %s: no result returned", funcName)
 	}
 
 	ptr, length := decodePtr(res[0])
-	defer e.deallocFunc.Call(ctx, uint64(ptr), uint64(length))
-
 	b, ok := e.mod.Memory().Read(ptr, length)
 	if !ok {
+		deallocFunc.Call(ctx, uint64(ptr), uint64(length))
+		e.mu.Unlock()
 		return nil, fmt.Errorf("failed to read result from memory")
 	}
 
-	// Make a copy of the result before deallocating
+	// make a copy of the result before deallocating
 	result := make([]byte, len(b))
 	copy(result, b)
+
+	// clean up result memory
+	deallocFunc.Call(ctx, uint64(ptr), uint64(length))
+	e.mu.Unlock()
 
 	return result, nil
 }
