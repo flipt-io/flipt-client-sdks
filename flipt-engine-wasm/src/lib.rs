@@ -146,10 +146,31 @@ pub unsafe extern "C" fn initialize_engine(
     payload_len: usize,
 ) -> *mut c_void {
     let result = std::panic::catch_unwind(|| {
+        if namespace_ptr.is_null()
+            || payload_ptr.is_null()
+            || namespace_len == 0
+            || payload_len == 0
+        {
+            eprintln!("Null pointer or zero length in initialize_engine");
+            return std::ptr::null_mut();
+        }
+
         let namespace =
-            std::str::from_utf8_unchecked(std::slice::from_raw_parts(namespace_ptr, namespace_len));
+            match std::str::from_utf8(std::slice::from_raw_parts(namespace_ptr, namespace_len)) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("Invalid UTF-8 in namespace: {}", e);
+                    return std::ptr::null_mut();
+                }
+            };
         let payload =
-            std::str::from_utf8_unchecked(std::slice::from_raw_parts(payload_ptr, payload_len));
+            match std::str::from_utf8(std::slice::from_raw_parts(payload_ptr, payload_len)) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("Invalid UTF-8 in payload: {}", e);
+                    return std::ptr::null_mut();
+                }
+            };
 
         match Engine::new(namespace, payload) {
             Ok(engine) => Box::into_raw(Box::new(engine)) as *mut c_void,
@@ -160,7 +181,10 @@ pub unsafe extern "C" fn initialize_engine(
         }
     });
 
-    result.unwrap_or(std::ptr::null_mut())
+    result.unwrap_or_else(|_| {
+        eprintln!("Panic in initialize_engine");
+        std::ptr::null_mut()
+    })
 }
 
 /// # Safety
@@ -172,19 +196,43 @@ pub unsafe extern "C" fn evaluate_variant(
     evaluation_request_ptr: *const u8,
     evaluation_request_len: usize,
 ) -> u64 {
-    let e = match get_engine(engine_ptr) {
-        Ok(e) => e,
-        Err(e) => return result_to_ptr::<(), _>(Err(e)),
-    };
-    let evaluation_request = unsafe {
-        std::str::from_utf8_unchecked(std::slice::from_raw_parts(
+    let result = std::panic::catch_unwind(|| {
+        let e = match get_engine(engine_ptr) {
+            Ok(e) => e,
+            Err(e) => return result_to_ptr::<VariantEvaluationResponse, _>(Err(e)),
+        };
+
+        if evaluation_request_ptr.is_null() || evaluation_request_len == 0 {
+            return result_to_ptr::<VariantEvaluationResponse, _>(Err(WASMError::NullPointer));
+        }
+
+        let evaluation_request = match std::str::from_utf8(std::slice::from_raw_parts(
             evaluation_request_ptr,
             evaluation_request_len,
-        ))
-    };
+        )) {
+            Ok(s) => s,
+            Err(_) => {
+                return result_to_ptr::<VariantEvaluationResponse, _>(Err(WASMError::InvalidJson(
+                    serde_json::Error::io(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "Invalid UTF-8 in request",
+                    )),
+                )))
+            }
+        };
 
-    let request = get_evaluation_request(evaluation_request);
-    result_to_ptr(e.evaluate_variant(&request))
+        let request = match get_evaluation_request(evaluation_request) {
+            Ok(req) => req,
+            Err(e) => return result_to_ptr::<VariantEvaluationResponse, _>(Err(e)),
+        };
+
+        result_to_ptr(e.evaluate_variant(&request))
+    });
+
+    result.unwrap_or_else(|_| {
+        eprintln!("Panic in evaluate_variant");
+        0
+    })
 }
 
 /// # Safety
@@ -196,19 +244,43 @@ pub unsafe extern "C" fn evaluate_boolean(
     evaluation_request_ptr: *const u8,
     evaluation_request_len: usize,
 ) -> u64 {
-    let e = match get_engine(engine_ptr) {
-        Ok(e) => e,
-        Err(e) => return result_to_ptr::<(), _>(Err(e)),
-    };
-    let evaluation_request = unsafe {
-        std::str::from_utf8_unchecked(std::slice::from_raw_parts(
+    let result = std::panic::catch_unwind(|| {
+        let e = match get_engine(engine_ptr) {
+            Ok(e) => e,
+            Err(e) => return result_to_ptr::<BooleanEvaluationResponse, _>(Err(e)),
+        };
+
+        if evaluation_request_ptr.is_null() || evaluation_request_len == 0 {
+            return result_to_ptr::<BooleanEvaluationResponse, _>(Err(WASMError::NullPointer));
+        }
+
+        let evaluation_request = match std::str::from_utf8(std::slice::from_raw_parts(
             evaluation_request_ptr,
             evaluation_request_len,
-        ))
-    };
+        )) {
+            Ok(s) => s,
+            Err(_) => {
+                return result_to_ptr::<BooleanEvaluationResponse, _>(Err(WASMError::InvalidJson(
+                    serde_json::Error::io(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "Invalid UTF-8 in request",
+                    )),
+                )))
+            }
+        };
 
-    let request = get_evaluation_request(evaluation_request);
-    result_to_ptr(e.evaluate_boolean(&request))
+        let request = match get_evaluation_request(evaluation_request) {
+            Ok(req) => req,
+            Err(e) => return result_to_ptr::<BooleanEvaluationResponse, _>(Err(e)),
+        };
+
+        result_to_ptr(e.evaluate_boolean(&request))
+    });
+
+    result.unwrap_or_else(|_| {
+        eprintln!("Panic in evaluate_boolean");
+        0
+    })
 }
 
 /// # Safety
@@ -220,18 +292,43 @@ pub unsafe extern "C" fn evaluate_batch(
     batch_evaluation_request_ptr: *const u8,
     batch_evaluation_request_len: usize,
 ) -> u64 {
-    let e = match get_engine(engine_ptr) {
-        Ok(e) => e,
-        Err(e) => return result_to_ptr::<(), _>(Err(e)),
-    };
-    let evaluation_requests = unsafe {
-        std::str::from_utf8_unchecked(std::slice::from_raw_parts(
+    let result = std::panic::catch_unwind(|| {
+        let e = match get_engine(engine_ptr) {
+            Ok(e) => e,
+            Err(e) => return result_to_ptr::<BatchEvaluationResponse, _>(Err(e)),
+        };
+
+        if batch_evaluation_request_ptr.is_null() || batch_evaluation_request_len == 0 {
+            return result_to_ptr::<BatchEvaluationResponse, _>(Err(WASMError::NullPointer));
+        }
+
+        let evaluation_requests = match std::str::from_utf8(std::slice::from_raw_parts(
             batch_evaluation_request_ptr,
             batch_evaluation_request_len,
-        ))
-    };
-    let requests = get_batch_evaluation_request(evaluation_requests);
-    result_to_ptr(e.evaluate_batch(requests))
+        )) {
+            Ok(s) => s,
+            Err(_) => {
+                return result_to_ptr::<BatchEvaluationResponse, _>(Err(WASMError::InvalidJson(
+                    serde_json::Error::io(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "Invalid UTF-8 in request",
+                    )),
+                )))
+            }
+        };
+
+        let requests = match get_batch_evaluation_request(evaluation_requests) {
+            Ok(reqs) => reqs,
+            Err(e) => return result_to_ptr::<BatchEvaluationResponse, _>(Err(e)),
+        };
+
+        result_to_ptr(e.evaluate_batch(requests))
+    });
+
+    result.unwrap_or_else(|_| {
+        eprintln!("Panic in evaluate_batch");
+        0
+    })
 }
 
 /// # Safety
@@ -239,11 +336,19 @@ pub unsafe extern "C" fn evaluate_batch(
 /// This function will return a list of flags.
 #[no_mangle]
 pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> u64 {
-    let e = match get_engine(engine_ptr) {
-        Ok(e) => e,
-        Err(e) => return result_to_ptr::<(), _>(Err(e)),
-    };
-    result_to_ptr(e.list_flags())
+    let result = std::panic::catch_unwind(|| {
+        let e = match get_engine(engine_ptr) {
+            Ok(e) => e,
+            Err(e) => return result_to_ptr::<Option<Vec<Flag>>, _>(Err(e)),
+        };
+
+        result_to_ptr(e.list_flags())
+    });
+
+    result.unwrap_or_else(|_| {
+        eprintln!("Panic in list_flags");
+        0
+    })
 }
 
 /// # Safety
@@ -255,14 +360,36 @@ pub unsafe extern "C" fn snapshot(
     snapshot_ptr: *const u8,
     snapshot_len: usize,
 ) -> u64 {
-    let e = match get_engine(engine_ptr) {
-        Ok(e) => e,
-        Err(e) => return result_to_ptr::<(), _>(Err(e)),
-    };
-    let snapshot = unsafe {
-        std::str::from_utf8_unchecked(std::slice::from_raw_parts(snapshot_ptr, snapshot_len))
-    };
-    result_to_ptr(e.snapshot(snapshot))
+    let result = std::panic::catch_unwind(|| {
+        let e = match get_engine(engine_ptr) {
+            Ok(e) => e,
+            Err(e) => return result_to_ptr::<(), _>(Err(e)),
+        };
+
+        if snapshot_ptr.is_null() || snapshot_len == 0 {
+            return result_to_ptr::<(), _>(Err(WASMError::NullPointer));
+        }
+
+        let snapshot =
+            match std::str::from_utf8(std::slice::from_raw_parts(snapshot_ptr, snapshot_len)) {
+                Ok(s) => s,
+                Err(_) => {
+                    return result_to_ptr::<(), _>(Err(WASMError::InvalidJson(
+                        serde_json::Error::io(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "Invalid UTF-8 in snapshot",
+                        )),
+                    )))
+                }
+            };
+
+        result_to_ptr(e.snapshot(snapshot))
+    });
+
+    result.unwrap_or_else(|_| {
+        eprintln!("Panic in snapshot");
+        0
+    })
 }
 
 /// # Safety
@@ -280,26 +407,42 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
 /// # Safety
 ///
 /// This function will allocate memory for the engine.
+/// Returns null if allocation fails or size is 0.
 #[no_mangle]
 pub extern "C" fn allocate(size: usize) -> *mut c_void {
-    let mut buf = vec![0; size];
-    let ptr = buf.as_mut_ptr();
-    std::mem::forget(buf);
-    ptr as *mut c_void
+    if size == 0 {
+        return std::ptr::null_mut();
+    }
+
+    let result = std::panic::catch_unwind(|| {
+        let mut buf = vec![0; size];
+        let ptr = buf.as_mut_ptr();
+        std::mem::forget(buf);
+        ptr as *mut c_void
+    });
+
+    result.unwrap_or(std::ptr::null_mut())
 }
 
 /// # Safety
 ///
 /// This function will free the memory occupied by the engine.
+/// This function will do nothing if the pointer is null or the size is 0.
 #[no_mangle]
 pub unsafe extern "C" fn deallocate(ptr: *mut c_void, size: usize) {
-    let buf = Vec::from_raw_parts(ptr, size, size);
-    std::mem::drop(buf);
+    if ptr.is_null() || size == 0 {
+        return;
+    }
+
+    let _ = std::panic::catch_unwind(|| {
+        let buf = Vec::from_raw_parts(ptr, size, size);
+        std::mem::drop(buf);
+    });
 }
 
-unsafe fn get_evaluation_request(evaluation_request: &str) -> EvaluationRequest {
+unsafe fn get_evaluation_request(evaluation_request: &str) -> Result<EvaluationRequest, WASMError> {
     let client_eval_request: WASMEvaluationRequest =
-        serde_json::from_str(evaluation_request).unwrap();
+        serde_json::from_str(evaluation_request).map_err(WASMError::InvalidJson)?;
 
     let mut context_map: HashMap<String, String> = HashMap::new();
     if let Some(context_value) = client_eval_request.context {
@@ -310,16 +453,18 @@ unsafe fn get_evaluation_request(evaluation_request: &str) -> EvaluationRequest 
         }
     }
 
-    EvaluationRequest {
+    Ok(EvaluationRequest {
         flag_key: client_eval_request.flag_key,
         entity_id: client_eval_request.entity_id,
         context: context_map,
-    }
+    })
 }
 
-unsafe fn get_batch_evaluation_request(batch_evaluation_request: &str) -> Vec<EvaluationRequest> {
+unsafe fn get_batch_evaluation_request(
+    batch_evaluation_request: &str,
+) -> Result<Vec<EvaluationRequest>, WASMError> {
     let batch_eval_request: Vec<WASMEvaluationRequest> =
-        serde_json::from_str(batch_evaluation_request).unwrap();
+        serde_json::from_str(batch_evaluation_request).map_err(WASMError::InvalidJson)?;
 
     let mut evaluation_requests: Vec<EvaluationRequest> =
         Vec::with_capacity(batch_eval_request.len());
@@ -340,14 +485,11 @@ unsafe fn get_batch_evaluation_request(batch_evaluation_request: &str) -> Vec<Ev
         });
     }
 
-    evaluation_requests
+    Ok(evaluation_requests)
 }
 
 /// Returns a pointer and size pair for the given string in a way compatible
 /// with WebAssembly numeric types.
-///
-/// Note: This doesn't change the ownership of the String. To intentionally
-/// leak it, use [`std::mem::forget`] on the input after calling this.
 unsafe fn string_to_ptr(s: &str) -> (u32, u32) {
     (s.as_ptr() as u32, s.len() as u32)
 }
@@ -355,8 +497,7 @@ unsafe fn string_to_ptr(s: &str) -> (u32, u32) {
 /// Returns a pointer and size pair for the given result in a way compatible
 /// with WebAssembly numeric types.
 ///
-/// Note: This doesn't change the ownership of the String. To intentionally
-/// leak it, use [`std::mem::forget`] on the input after calling this.
+/// Note: This leaks the result string to the caller.
 unsafe fn result_to_ptr<T: Serialize, E: std::error::Error>(result: Result<T, E>) -> u64 {
     let result = result_to_string(result);
     let (ptr, len) = string_to_ptr(&result);
