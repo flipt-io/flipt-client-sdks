@@ -236,8 +236,7 @@ unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, FFIE
 /// # Safety
 ///
 /// This function will initialize an Engine and return a pointer back to the caller.
-#[no_mangle]
-pub unsafe extern "C" fn initialize_engine_ffi(
+unsafe extern "C" fn _initialize_engine(
     namespace: *const c_char,
     opts: *const c_char,
 ) -> *mut c_void {
@@ -303,11 +302,117 @@ pub unsafe extern "C" fn initialize_engine_ffi(
     result.unwrap_or(std::ptr::null_mut())
 }
 
-/// # Safety
-///
-/// This function will take in a pointer to the engine and return a variant evaluation response.
+// Public FFI functions
 #[no_mangle]
+#[cfg(target_os = "linux")]
+pub unsafe extern "C" fn initialize_engine_ffi(
+    namespace: *const c_char,
+    opts: *const c_char,
+) -> *mut c_void {
+    _initialize_engine(namespace, opts)
+}
+
+#[no_mangle]
+#[cfg(not(target_os = "linux"))]
+pub unsafe extern "C" fn initialize_engine(
+    namespace: *const c_char,
+    opts: *const c_char,
+) -> *mut c_void {
+    _initialize_engine(namespace, opts)
+}
+
+#[no_mangle]
+#[cfg(target_os = "linux")]
 pub unsafe extern "C" fn evaluate_variant_ffi(
+    engine_ptr: *mut c_void,
+    evaluation_request: *const c_char,
+) -> *const c_char {
+    _evaluate_variant(engine_ptr, evaluation_request)
+}
+
+#[no_mangle]
+#[cfg(not(target_os = "linux"))]
+pub unsafe extern "C" fn evaluate_variant(
+    engine_ptr: *mut c_void,
+    evaluation_request: *const c_char,
+) -> *const c_char {
+    _evaluate_variant(engine_ptr, evaluation_request)
+}
+
+#[no_mangle]
+#[cfg(target_os = "linux")]
+pub unsafe extern "C" fn evaluate_boolean_ffi(
+    engine_ptr: *mut c_void,
+    evaluation_request: *const c_char,
+) -> *const c_char {
+    _evaluate_boolean(engine_ptr, evaluation_request)
+}
+
+#[no_mangle]
+#[cfg(not(target_os = "linux"))]
+pub unsafe extern "C" fn evaluate_boolean(
+    engine_ptr: *mut c_void,
+    evaluation_request: *const c_char,
+) -> *const c_char {
+    _evaluate_boolean(engine_ptr, evaluation_request)
+}
+
+#[no_mangle]
+#[cfg(target_os = "linux")]
+pub unsafe extern "C" fn evaluate_batch_ffi(
+    engine_ptr: *mut c_void,
+    batch_evaluation_request: *const c_char,
+) -> *const c_char {
+    _evaluate_batch(engine_ptr, batch_evaluation_request)
+}
+
+#[no_mangle]
+#[cfg(not(target_os = "linux"))]
+pub unsafe extern "C" fn evaluate_batch(
+    engine_ptr: *mut c_void,
+    batch_evaluation_request: *const c_char,
+) -> *const c_char {
+    _evaluate_batch(engine_ptr, batch_evaluation_request)
+}
+
+#[no_mangle]
+#[cfg(target_os = "linux")]
+pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_char {
+    _list_flags(engine_ptr)
+}
+
+#[no_mangle]
+#[cfg(not(target_os = "linux"))]
+pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> *const c_char {
+    _list_flags(engine_ptr)
+}
+
+#[no_mangle]
+#[cfg(target_os = "linux")]
+pub unsafe extern "C" fn destroy_engine_ffi(engine_ptr: *mut c_void) {
+    _destroy_engine(engine_ptr)
+}
+
+#[no_mangle]
+#[cfg(not(target_os = "linux"))]
+pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
+    _destroy_engine(engine_ptr)
+}
+
+#[no_mangle]
+#[cfg(target_os = "linux")]
+pub unsafe extern "C" fn destroy_string_ffi(ptr: *mut c_char) {
+    _destroy_string(ptr)
+}
+
+#[no_mangle]
+#[cfg(not(target_os = "linux"))]
+pub unsafe extern "C" fn destroy_string(ptr: *mut c_char) {
+    _destroy_string(ptr)
+}
+
+// Private implementation functions
+unsafe extern "C" fn _evaluate_variant(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
@@ -320,11 +425,7 @@ pub unsafe extern "C" fn evaluate_variant_ffi(
     result_to_json_ptr(e.variant(&e_req))
 }
 
-/// # Safety
-///
-/// This function will take in a pointer to the engine and return a boolean evaluation response.
-#[no_mangle]
-pub unsafe extern "C" fn evaluate_boolean_ffi(
+unsafe extern "C" fn _evaluate_boolean(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
@@ -337,11 +438,7 @@ pub unsafe extern "C" fn evaluate_boolean_ffi(
     result_to_json_ptr(e.boolean(&e_req))
 }
 
-/// # Safety
-///
-/// This function will take in a pointer to the engine and return a batch evaluation response.
-#[no_mangle]
-pub unsafe extern "C" fn evaluate_batch_ffi(
+unsafe extern "C" fn _evaluate_batch(
     engine_ptr: *mut c_void,
     batch_evaluation_request: *const c_char,
 ) -> *const c_char {
@@ -354,11 +451,7 @@ pub unsafe extern "C" fn evaluate_batch_ffi(
     result_to_json_ptr(e.batch(req))
 }
 
-/// # Safety
-///
-/// This function will take in a pointer to the engine and return a list of flags for the given namespace.
-#[no_mangle]
-pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_char {
+unsafe extern "C" fn _list_flags(engine_ptr: *mut c_void) -> *const c_char {
     let res = match get_engine(engine_ptr) {
         Ok(e) => e.list_flags(),
         Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
@@ -367,11 +460,7 @@ pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_cha
     result_to_json_ptr(res)
 }
 
-/// # Safety
-///
-/// This function will free the memory occupied by the engine.
-#[no_mangle]
-pub unsafe extern "C" fn destroy_engine_ffi(engine_ptr: *mut c_void) {
+unsafe extern "C" fn _destroy_engine(engine_ptr: *mut c_void) {
     if engine_ptr.is_null() {
         return;
     }
@@ -382,13 +471,30 @@ pub unsafe extern "C" fn destroy_engine_ffi(engine_ptr: *mut c_void) {
     // The engine will be dropped here, cleaning up all resources
 }
 
-/// # Safety
-///
-/// This function will take in a pointer to the string and free the memory.
-/// See Rust the safety section in CString::from_raw.
-#[no_mangle]
-pub unsafe extern "C" fn destroy_string_ffi(ptr: *mut c_char) {
+unsafe extern "C" fn _destroy_string(ptr: *mut c_char) {
     let _ = CString::from_raw(ptr);
+}
+
+// Helper functions
+unsafe fn get_evaluation_request(evaluation_request: *const c_char) -> EvaluationRequest {
+    let evaluation_request_bytes = CStr::from_ptr(evaluation_request).to_bytes();
+    let bytes_str_repr = std::str::from_utf8(evaluation_request_bytes).unwrap();
+    let client_eval_request: FFIEvaluationRequest = serde_json::from_str(bytes_str_repr).unwrap();
+
+    let mut context_map: HashMap<String, String> = HashMap::new();
+    if let Some(context_value) = client_eval_request.context {
+        for (key, value) in context_value {
+            if let serde_json::Value::String(val) = value {
+                context_map.insert(key, val);
+            }
+        }
+    }
+
+    EvaluationRequest {
+        flag_key: client_eval_request.flag_key,
+        entity_id: client_eval_request.entity_id,
+        context: context_map,
+    }
 }
 
 unsafe fn get_batch_evaluation_request(
@@ -420,27 +526,6 @@ unsafe fn get_batch_evaluation_request(
     }
 
     evaluation_requests
-}
-
-unsafe fn get_evaluation_request(evaluation_request: *const c_char) -> EvaluationRequest {
-    let evaluation_request_bytes = CStr::from_ptr(evaluation_request).to_bytes();
-    let bytes_str_repr = std::str::from_utf8(evaluation_request_bytes).unwrap();
-    let client_eval_request: FFIEvaluationRequest = serde_json::from_str(bytes_str_repr).unwrap();
-
-    let mut context_map: HashMap<String, String> = HashMap::new();
-    if let Some(context_value) = client_eval_request.context {
-        for (key, value) in context_value {
-            if let serde_json::Value::String(val) = value {
-                context_map.insert(key, val);
-            }
-        }
-    }
-
-    EvaluationRequest {
-        flag_key: client_eval_request.flag_key,
-        entity_id: client_eval_request.entity_id,
-        context: context_map,
-    }
 }
 
 #[cfg(test)]
