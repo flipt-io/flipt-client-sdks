@@ -789,6 +789,7 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 	var (
 		allocFunc   = e.mod.ExportedFunction(fAllocate)
 		deallocFunc = e.mod.ExportedFunction(fDeallocate)
+		evalFunc    = e.mod.ExportedFunction(funcName)
 	)
 
 	reqBytes, err := json.Marshal(request)
@@ -809,7 +810,6 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 		return nil, fmt.Errorf("failed to write request to memory")
 	}
 
-	evalFunc := e.mod.ExportedFunction(funcName)
 	res, err := evalFunc.Call(ctx, uint64(e.engine), reqPtr[0], uint64(len(reqBytes)))
 	if err != nil {
 		deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))

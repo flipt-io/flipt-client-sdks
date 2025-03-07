@@ -141,7 +141,7 @@ jobs:
               repo,
               sha: sha,
               state: '${{ job.status }}' === 'success' ? 'success' : 'failure',
-              context: 'Swift SDK Tests',
+              context: 'Android SDK Tests',
               description: '${{ job.status }}' === 'success' ? 'Tests passed' : 'Tests failed',
               target_url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
             });
