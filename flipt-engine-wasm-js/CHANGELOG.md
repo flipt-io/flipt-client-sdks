@@ -1,6 +1,18 @@
 # Changelog
 
 
+## [0.2.2](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-wasm-js-v0.2.3...flipt-engine-wasm-js-v0.2.2) (2025-03-07)
+
+
+### Bug Fixes
+
+* Export sym non linux ([#797](https://github.com/flipt-io/flipt-client-sdks/issues/797)) ([b9a4875](https://github.com/flipt-io/flipt-client-sdks/commit/b9a4875d7abf4f0c09f3fe4592b1de70b9e90831))
+
+
+### Miscellaneous Chores
+
+* release 0.2.2 ([92bbd5f](https://github.com/flipt-io/flipt-client-sdks/commit/92bbd5f71b433c4b45044337176090fbea31d0ce))
+
 ## [0.2.3](https://github.com/flipt-io/flipt-client-sdks/compare/flipt-engine-wasm-js-v0.2.2...flipt-engine-wasm-js-v0.2.3) (2025-02-28)
 
 ### Miscellaneous Chores
