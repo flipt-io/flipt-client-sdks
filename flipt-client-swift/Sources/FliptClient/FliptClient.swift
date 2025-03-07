@@ -43,7 +43,7 @@ public class FliptClient {
         let namespaceCString = strdup(namespace)
         let clientOptionsCString = strdup(jsonStr)
 
-        engine = initialize_engine_ffi(namespaceCString, clientOptionsCString)
+        engine = initialize_engine(namespaceCString, clientOptionsCString)
 
         free(namespaceCString)
         free(clientOptionsCString)
@@ -55,7 +55,7 @@ public class FliptClient {
 
     public func close() {
         if let engine = engine {
-            destroy_engine_ffi(engine)
+            destroy_engine(engine)
             self.engine = nil
         }
     }
@@ -80,11 +80,11 @@ public class FliptClient {
 
         let requestCString = strdup(String(data: requestData, encoding: .utf8))
 
-        let variantResponse = evaluate_variant_ffi(engine, requestCString)
+        let variantResponse = evaluate_variant(engine, requestCString)
         free(requestCString)
 
         let responseString = String(cString: variantResponse!)
-        destroy_string_ffi(UnsafeMutablePointer(mutating: variantResponse))
+        destroy_string(UnsafeMutablePointer(mutating: variantResponse))
 
         do {
             let variantResult = try JSONDecoder().decode(VariantResult.self, from: Data(responseString.utf8))
@@ -123,11 +123,11 @@ public class FliptClient {
 
         let requestCString = strdup(String(data: requestData, encoding: .utf8))
 
-        let booleanResponse = evaluate_boolean_ffi(engine, requestCString)
+        let booleanResponse = evaluate_boolean(engine, requestCString)
         free(requestCString)
 
         let responseString = String(cString: booleanResponse!)
-        destroy_string_ffi(UnsafeMutablePointer(mutating: booleanResponse))
+        destroy_string(UnsafeMutablePointer(mutating: booleanResponse))
 
         guard let booleanResult = try? JSONDecoder().decode(BooleanResult.self, from: Data(responseString.utf8)) else {
             throw ClientError.parsingError
@@ -141,10 +141,10 @@ public class FliptClient {
     }
 
     public func listFlags() throws -> [Flag] {
-        let flagsResponse = list_flags_ffi(engine)
+        let flagsResponse = list_flags(engine)
 
         let responseString = String(cString: flagsResponse!)
-        destroy_string_ffi(UnsafeMutablePointer(mutating: flagsResponse))
+        destroy_string(UnsafeMutablePointer(mutating: flagsResponse))
 
         guard let listFlagsResult = try? JSONDecoder().decode(ListFlagsResult.self, from: Data(responseString.utf8)) else {
             throw ClientError.parsingError
@@ -164,11 +164,11 @@ public class FliptClient {
 
         let requestCString = strdup(String(data: requestsData, encoding: .utf8))
 
-        let batchResponse = evaluate_batch_ffi(engine, requestCString)
+        let batchResponse = evaluate_batch(engine, requestCString)
         free(requestCString)
 
         let responseString = String(cString: batchResponse!)
-        destroy_string_ffi(UnsafeMutablePointer(mutating: batchResponse))
+        destroy_string(UnsafeMutablePointer(mutating: batchResponse))
 
         guard let batchResult = try? JSONDecoder().decode(BatchResult.self, from: Data(responseString.utf8)) else {
             throw ClientError.parsingError
