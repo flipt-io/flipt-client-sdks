@@ -4,7 +4,6 @@
   "bump-patch-for-minor-pre-major": true,
   "draft": false,
   "prerelease": false,
-  "last-release-sha": "c9c7acbde5ba408a4672dd8387bc448e191ad4e7",
   "changelog-type": "github",
   "packages": {
     "flipt-engine-ffi": {
