@@ -31,7 +31,7 @@ The FFI-based SDKs are currently supported on the following OSes/architectures:
 
 ### WASM
 
-The [WebAssembly (WASM)](https://webassembly.org/) versions of the client SDKs allow you to evaluate flags in the browser and are OS and architecture agnostic.
+The [WebAssembly (WASM)](https://webassembly.org/) versions of the client SDKs are OS and architecture agnostic.
 
 ## Architecture
 
@@ -39,7 +39,7 @@ The client SDKs are designed to be embedded in end-user applications.
 
 The evaluation logic is written in Rust and can be found in the [flipt-evaluation](./flipt-evaluation/) directory.
 
-The language clients that are used in end-user applications wrap the engine can be found in the `flipt-client-{language}` directories.
+The language clients used in end-user applications wrap the engines can be found in the `flipt-client-{language}` directories.
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md).
 
