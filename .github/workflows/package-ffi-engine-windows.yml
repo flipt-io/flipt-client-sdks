@@ -7,11 +7,6 @@ on:
       - "flipt-evaluation/**"
   push:
     tags: ["flipt-engine-ffi-v**"]
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Tag (e.g. v0.1.0)"
-        required: true
 
 permissions:
   contents: write
@@ -55,6 +50,35 @@ jobs:
             target\${{ matrix.platform.target }}\release\fliptengine.* `
             || true
 
+      - name: Create Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/flipt-engine-ffi-v')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = context.ref.replace('refs/tags/', '');
+            try {
+              await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: tag
+              });
+              console.log(`Release for tag ${tag} already exists`);
+            } catch (error) {
+              if (error.status === 404) {
+                console.log(`Creating new release for tag ${tag}`);
+                await github.rest.repos.createRelease({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  tag_name: tag,
+                  name: tag,
+                  draft: false,
+                  prerelease: false
+                });
+              } else {
+                throw error;
+              }
+            }
+
       - name: Upload Artifact (Pull Request)
         uses: actions/upload-artifact@v4
         if: github.event_name == 'pull_request'
@@ -69,10 +93,3 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: flipt-engine-ffi-${{ matrix.platform.name }}.zip
-
-      - name: Upload Release Assets (Workflow Dispatch)
-        uses: softprops/action-gh-release@v2
-        if: github.event_name == 'workflow_dispatch' && !endswith(github.event.inputs.tag, 'pre')
-        with:
-          tag_name: flipt-engine-ffi-${{ github.event.inputs.tag }}
-          files: flipt-engine-ffi-${{ matrix.platform.name }}.zip 
