@@ -227,7 +227,7 @@ impl Engine {
 ///
 /// This function will initialize an Engine and return a pointer back to the caller.
 #[no_mangle]
-#[cfg(target_os = "linux")]
+#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn initialize_engine_ffi(
     namespace: *const c_char,
     opts: *const c_char,
@@ -239,7 +239,7 @@ pub unsafe extern "C" fn initialize_engine_ffi(
 ///
 /// This function will initialize an Engine and return a pointer back to the caller.
 #[no_mangle]
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn initialize_engine(
     namespace: *const c_char,
     opts: *const c_char,
@@ -251,7 +251,7 @@ pub unsafe extern "C" fn initialize_engine(
 ///
 /// This function will take in a pointer to the engine and return a variant evaluation response.
 #[no_mangle]
-#[cfg(target_os = "linux")]
+#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn evaluate_variant_ffi(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
@@ -263,7 +263,7 @@ pub unsafe extern "C" fn evaluate_variant_ffi(
 ///
 /// This function will take in a pointer to the engine and return a variant evaluation response.
 #[no_mangle]
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn evaluate_variant(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
@@ -275,7 +275,7 @@ pub unsafe extern "C" fn evaluate_variant(
 ///
 /// This function will take in a pointer to the engine and return a boolean evaluation response.
 #[no_mangle]
-#[cfg(target_os = "linux")]
+#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn evaluate_boolean_ffi(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
@@ -287,7 +287,7 @@ pub unsafe extern "C" fn evaluate_boolean_ffi(
 ///
 /// This function will take in a pointer to the engine and return a boolean evaluation response.
 #[no_mangle]
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn evaluate_boolean(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
@@ -299,7 +299,7 @@ pub unsafe extern "C" fn evaluate_boolean(
 ///
 /// This function will take in a pointer to the engine and return a batch evaluation response.
 #[no_mangle]
-#[cfg(target_os = "linux")]
+#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn evaluate_batch_ffi(
     engine_ptr: *mut c_void,
     batch_evaluation_request: *const c_char,
@@ -311,7 +311,7 @@ pub unsafe extern "C" fn evaluate_batch_ffi(
 ///
 /// This function will take in a pointer to the engine and return a batch evaluation response.
 #[no_mangle]
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn evaluate_batch(
     engine_ptr: *mut c_void,
     batch_evaluation_request: *const c_char,
@@ -323,7 +323,7 @@ pub unsafe extern "C" fn evaluate_batch(
 ///
 /// This function will take in a pointer to the engine and return a list of flags.
 #[no_mangle]
-#[cfg(target_os = "linux")]
+#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_char {
     _list_flags(engine_ptr)
 }
@@ -332,7 +332,7 @@ pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_cha
 ///
 /// This function will take in a pointer to the engine and return a list of flags.
 #[no_mangle]
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> *const c_char {
     _list_flags(engine_ptr)
 }
@@ -341,7 +341,7 @@ pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> *const c_char {
 ///
 /// This function will take in a pointer to the engine and destroy it.
 #[no_mangle]
-#[cfg(target_os = "linux")]
+#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn destroy_engine_ffi(engine_ptr: *mut c_void) {
     _destroy_engine(engine_ptr)
 }
@@ -350,7 +350,7 @@ pub unsafe extern "C" fn destroy_engine_ffi(engine_ptr: *mut c_void) {
 ///
 /// This function will take in a pointer to the engine and destroy it.
 #[no_mangle]
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
     _destroy_engine(engine_ptr)
 }
@@ -359,7 +359,7 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
 ///
 /// This function will take in a pointer to a string and destroy it.
 #[no_mangle]
-#[cfg(target_os = "linux")]
+#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn destroy_string_ffi(ptr: *mut c_char) {
     _destroy_string(ptr)
 }
@@ -368,7 +368,7 @@ pub unsafe extern "C" fn destroy_string_ffi(ptr: *mut c_char) {
 ///
 /// This function will take in a pointer to a string and destroy it.
 #[no_mangle]
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn destroy_string(ptr: *mut c_char) {
     _destroy_string(ptr)
 }
