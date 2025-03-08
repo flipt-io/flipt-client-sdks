@@ -64,6 +64,8 @@ type EvaluationClient struct {
 	snapshotChan chan snapshot
 
 	closeOnce sync.Once
+
+	exportedFuncs map[string]api.Function
 }
 
 // ClientOption adds additional configuration for Client parameters
@@ -234,7 +236,17 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 	var (
 		initializeEngine = mod.ExportedFunction(fInitializeEngine)
 		allocFunc        = mod.ExportedFunction(fAllocate)
+		deallocFunc      = mod.ExportedFunction(fDeallocate)
 	)
+
+	client.exportedFuncs = map[string]api.Function{
+		fAllocate:        allocFunc,
+		fDeallocate:      deallocFunc,
+		fEvaluateVariant: mod.ExportedFunction(fEvaluateVariant),
+		fEvaluateBoolean: mod.ExportedFunction(fEvaluateBoolean),
+		fEvaluateBatch:   mod.ExportedFunction(fEvaluateBatch),
+		fListFlags:       mod.ExportedFunction(fListFlags),
+	}
 
 	// allocate namespace
 	nsPtr, err := allocFunc.Call(ctx, uint64(len(client.namespace)))
@@ -344,13 +356,6 @@ func (e *EvaluationClient) Err() error {
 
 // EvaluateVariant performs evaluation for a variant flag.
 func (e *EvaluationClient) EvaluateVariant(ctx context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantEvaluationResponse, error) {
-	e.mu.RLock()
-	if e.err != nil && e.errorStrategy == ErrorStrategyFail {
-		e.mu.RUnlock()
-		return nil, e.err
-	}
-	e.mu.RUnlock()
-
 	request := EvaluationRequest{
 		FlagKey:  flagKey,
 		EntityId: entityID,
@@ -380,13 +385,6 @@ func (e *EvaluationClient) EvaluateVariant(ctx context.Context, flagKey, entityI
 
 // EvaluateBoolean performs evaluation for a boolean flag.
 func (e *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanEvaluationResponse, error) {
-	e.mu.RLock()
-	if e.err != nil && e.errorStrategy == ErrorStrategyFail {
-		e.mu.RUnlock()
-		return nil, e.err
-	}
-	e.mu.RUnlock()
-
 	request := EvaluationRequest{
 		FlagKey:  flagKey,
 		EntityId: entityID,
@@ -416,13 +414,6 @@ func (e *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityI
 
 // EvaluateBatch performs evaluation for a batch of flags.
 func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
-	e.mu.RLock()
-	if e.err != nil && e.errorStrategy == ErrorStrategyFail {
-		e.mu.RUnlock()
-		return nil, e.err
-	}
-	e.mu.RUnlock()
-
 	result, err := e.evaluateWASM(ctx, fEvaluateBatch, requests)
 	if err != nil {
 		return nil, err
@@ -446,6 +437,10 @@ func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*Evalua
 
 // ListFlags lists all flags.
 func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
+	if e.engine == 0 {
+		return nil, errors.New("engine not initialized")
+	}
+
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
@@ -453,11 +448,7 @@ func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 		return nil, e.err
 	}
 
-	if e.engine == 0 {
-		return nil, errors.New("engine not initialized")
-	}
-
-	evalFunc := e.mod.ExportedFunction(fListFlags)
+	evalFunc := e.exportedFuncs[fListFlags]
 	res, err := evalFunc.Call(ctx, uint64(e.engine))
 	if err != nil {
 		return nil, fmt.Errorf("failed to call list_flags: %w", err)
@@ -468,7 +459,7 @@ func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 	}
 
 	ptr, length := decodePtr(res[0])
-	deallocFunc := e.mod.ExportedFunction(fDeallocate)
+	deallocFunc := e.exportedFuncs[fDeallocate]
 
 	b, ok := e.mod.Memory().Read(ptr, length)
 	if !ok {
@@ -537,8 +528,8 @@ type snapshot struct {
 
 func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 	var (
-		allocFunc    = e.mod.ExportedFunction(fAllocate)
-		deallocFunc  = e.mod.ExportedFunction(fDeallocate)
+		allocFunc    = e.exportedFuncs[fAllocate]
+		deallocFunc  = e.exportedFuncs[fDeallocate]
 		snapshotFunc = e.mod.ExportedFunction(fSnapshot)
 	)
 
@@ -786,17 +777,22 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 		return nil, errors.New("engine not initialized")
 	}
 
-	var (
-		allocFunc   = e.mod.ExportedFunction(fAllocate)
-		deallocFunc = e.mod.ExportedFunction(fDeallocate)
-		evalFunc    = e.mod.ExportedFunction(funcName)
-	)
+	e.mu.RLock()
+	if e.err != nil && e.errorStrategy == ErrorStrategyFail {
+		e.mu.RUnlock()
+		return nil, e.err
+	}
+	e.mu.RUnlock()
 
 	reqBytes, err := json.Marshal(request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
+	var (
+		allocFunc   = e.exportedFuncs[fAllocate]
+		deallocFunc = e.exportedFuncs[fDeallocate]
+	)
 	e.mu.Lock()
 	reqPtr, err := allocFunc.Call(ctx, uint64(len(reqBytes)))
 	if err != nil {
@@ -810,7 +806,7 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 		return nil, fmt.Errorf("failed to write request to memory")
 	}
 
-	res, err := evalFunc.Call(ctx, uint64(e.engine), reqPtr[0], uint64(len(reqBytes)))
+	res, err := e.exportedFuncs[funcName].Call(ctx, uint64(e.engine), reqPtr[0], uint64(len(reqBytes)))
 	if err != nil {
 		deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
 		e.mu.Unlock()
