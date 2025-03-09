@@ -23,7 +23,8 @@ import (
 var wasm []byte
 
 const (
-	statusSuccess = "success"
+	defaultNamespace = "default"
+	statusSuccess    = "success"
 
 	fInitializeEngine = "initialize_engine"
 	fAllocate         = "allocate"
@@ -180,7 +181,7 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		mod:     mod,
 
 		// default values
-		namespace:      "default",
+		namespace:      defaultNamespace,
 		url:            "http://localhost:8080",
 		updateInterval: 2 * time.Minute, // default 120 seconds
 		errorStrategy:  ErrorStrategyFail,
@@ -330,14 +331,24 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		}
 	}()
 
+	// create a new context for the polling so any timeouts
+	// are independent of the client context
+	fctx, cancel := context.WithCancel(context.Background())
+
+	client.wg.Add(1)
+	go func() {
+		<-ctx.Done()
+		cancel()
+	}()
+
 	client.wg.Add(1)
 	go func() {
 		defer client.wg.Done()
 		switch client.fetchMode {
 		case FetchModeStreaming:
-			client.startStreaming(ctx)
+			client.startStreaming(fctx)
 		case FetchModePolling:
-			client.startPolling(ctx)
+			client.startPolling(fctx)
 		default:
 			client.errChan <- fmt.Errorf("invalid fetch mode: %s", client.fetchMode)
 			return
@@ -587,11 +598,6 @@ func (e *EvaluationClient) startPolling(ctx context.Context) {
 	ticker := time.NewTicker(e.updateInterval)
 	defer ticker.Stop()
 
-	// create a new context for the polling so any timeouts
-	// are independent of the client context
-	fctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -601,7 +607,7 @@ func (e *EvaluationClient) startPolling(ctx context.Context) {
 			etag := e.etag
 			e.mu.RUnlock()
 
-			snapshot, err := e.fetch(fctx, etag)
+			snapshot, err := e.fetch(ctx, etag)
 			if err != nil {
 				e.errChan <- err
 				continue
@@ -614,59 +620,90 @@ func (e *EvaluationClient) startPolling(ctx context.Context) {
 
 // fetch fetches the snapshot for the given namespace.
 func (e *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, error) {
-	url := fmt.Sprintf("%s/internal/v1/evaluation/snapshot/namespace/%s", e.url, e.namespace)
-	if e.ref != "" {
-		url = fmt.Sprintf("%s?reference=%s", url, e.ref)
-	}
+	const (
+		maxRetries = 3
+		baseDelay  = 100 * time.Millisecond
+	)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return snapshot{}, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("x-flipt-accept-server-version", "1.47.0")
-
-	if e.authentication != nil {
-		switch auth := e.authentication.(type) {
-		case clientTokenAuthentication:
-			req.Header.Set("Authorization", "Bearer "+auth.Token)
-		case jwtAuthentication:
-			req.Header.Set("Authorization", "JWT "+auth.Token)
+	var lastErr error
+	for attempt := range maxRetries {
+		if attempt > 0 {
+			// Calculate exponential backoff delay: 100ms, 200ms, 400ms
+			delay := baseDelay * time.Duration(1<<uint(attempt-1))
+			select {
+			case <-ctx.Done():
+				return snapshot{}, ctx.Err()
+			case <-time.After(delay):
+			}
 		}
-	}
 
-	if etag != "" {
-		req.Header.Set("If-None-Match", etag)
-	}
+		url := fmt.Sprintf("%s/internal/v1/evaluation/snapshot/namespace/%s", e.url, e.namespace)
+		if e.ref != "" {
+			url = fmt.Sprintf("%s?reference=%s", url, e.ref)
+		}
 
-	resp, err := e.httpClient.Do(req)
-	if resp != nil {
-		defer func() {
-			io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-		}()
-	}
-	if err != nil {
-		return snapshot{}, fetchError(fmt.Errorf("failed to fetch snapshot: %w", err))
-	}
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return snapshot{}, fmt.Errorf("failed to create request: %w", err)
+		}
 
-	// always read the entire body so the connection can be reused
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return snapshot{}, fetchError(fmt.Errorf("failed to read response body: %w", err))
-	}
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("x-flipt-accept-server-version", "1.47.0")
 
-	if resp.StatusCode == http.StatusNotModified {
-		return snapshot{etag: etag}, nil
-	}
+		if e.authentication != nil {
+			switch auth := e.authentication.(type) {
+			case clientTokenAuthentication:
+				req.Header.Set("Authorization", "Bearer "+auth.Token)
+			case jwtAuthentication:
+				req.Header.Set("Authorization", "JWT "+auth.Token)
+			}
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		return snapshot{}, fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
-	}
+		if etag != "" {
+			req.Header.Set("If-None-Match", etag)
+		}
 
-	etag = resp.Header.Get("ETag")
-	return snapshot{payload: body, etag: etag}, nil
+		resp, err := e.httpClient.Do(req)
+		if resp != nil {
+			defer func() {
+				io.Copy(io.Discard, resp.Body)
+				resp.Body.Close()
+			}()
+		}
+
+		if err != nil {
+			lastErr = err
+			if !isTransientError(err) {
+				return snapshot{}, fetchError(fmt.Errorf("failed to fetch snapshot: %w", err))
+			}
+			continue
+		}
+
+		// always read the entire body so the connection can be reused
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			lastErr = err
+			if !isTransientError(err) {
+				return snapshot{}, fetchError(fmt.Errorf("failed to read response body: %w", err))
+			}
+			continue
+		}
+
+		if resp.StatusCode == http.StatusNotModified {
+			return snapshot{etag: etag}, nil
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			// Don't retry non-200 status codes as they are likely not transient
+			return snapshot{}, fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
+		}
+
+		etag = resp.Header.Get("ETag")
+		return snapshot{payload: body, etag: etag}, nil
+	} // end of retry loop
+
+	// If we get here, we've exhausted our retries
+	return snapshot{}, fetchError(fmt.Errorf("failed after %d retries, last error: %w", maxRetries, lastErr))
 }
 
 type streamChunk struct {
@@ -678,54 +715,92 @@ type streamResult struct {
 }
 
 // startStreaming starts the background streaming.
-// Note: currently any errors cause this method to exit. We still need to implement retries for trying to reconnect.
 func (e *EvaluationClient) startStreaming(ctx context.Context) {
-	url := fmt.Sprintf("%s/internal/v1/evaluation/snapshots?[]namespaces=%s", e.url, e.namespace)
-
-	// create a new context for the streaming so any timeouts
-	// are independent of the client context
-	fctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(fctx, "GET", url, nil)
+	err := e.initiateStream(ctx)
 	if err != nil {
-		e.errChan <- fmt.Errorf("failed to create request: %w", err)
+		e.errChan <- err
 		return
 	}
+}
 
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("x-flipt-accept-server-version", "1.47.0")
+func (e *EvaluationClient) initiateStream(ctx context.Context) error {
+	const (
+		maxRetries = 3
+		baseDelay  = 100 * time.Millisecond
+	)
 
-	if e.authentication != nil {
-		switch auth := e.authentication.(type) {
-		case clientTokenAuthentication:
-			req.Header.Set("Authorization", "Bearer "+auth.Token)
-		case jwtAuthentication:
-			req.Header.Set("Authorization", "JWT "+auth.Token)
+	var lastErr error
+	for attempt := range maxRetries {
+		if attempt > 0 {
+			// Calculate exponential backoff delay: 100ms, 200ms, 400ms
+			delay := baseDelay * time.Duration(1<<uint(attempt-1))
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(delay):
+			}
+		}
+		url := fmt.Sprintf("%s/internal/v1/evaluation/snapshots?[]namespaces=%s", e.url, e.namespace)
+
+		// create a new context for the streaming so any timeouts
+		// are independent of the client context
+		fctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		req, err := http.NewRequestWithContext(fctx, "GET", url, nil)
+		if err != nil {
+			return fmt.Errorf("failed to create request: %w", err)
+		}
+
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("x-flipt-accept-server-version", "1.47.0")
+
+		if e.authentication != nil {
+			switch auth := e.authentication.(type) {
+			case clientTokenAuthentication:
+				req.Header.Set("Authorization", "Bearer "+auth.Token)
+			case jwtAuthentication:
+				req.Header.Set("Authorization", "JWT "+auth.Token)
+			}
+		}
+
+		resp, err := e.httpClient.Do(req)
+		if resp != nil {
+			defer resp.Body.Close()
+		}
+		if err != nil {
+			lastErr = err
+			if !isTransientError(err) {
+				return fetchError(fmt.Errorf("failed to fetch snapshot: %w", err))
+			}
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			// Don't retry non-200 status codes as they are likely not transient
+			return fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
+		}
+
+		err = e.handleStream(fctx, resp.Body)
+		if err != nil {
+			lastErr = err
+			if !isTransientError(err) {
+				return err
+			}
+			continue
 		}
 	}
 
-	resp, err := e.httpClient.Do(req)
-	if resp != nil {
-		defer func() {
-			resp.Body.Close()
-		}()
-	}
-	if err != nil {
-		e.errChan <- fetchError(fmt.Errorf("failed to fetch snapshot: %w", err))
-		return
-	}
+	// If we get here, we've exhausted our retries
+	return fetchError(fmt.Errorf("failed after %d retries, last error: %w", maxRetries, lastErr))
+}
 
-	if resp.StatusCode != http.StatusOK {
-		e.errChan <- fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
-		return
-	}
-
-	reader := bufio.NewReader(resp.Body)
+func (e *EvaluationClient) handleStream(ctx context.Context, r io.ReadCloser) error {
+	reader := bufio.NewReader(r)
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return nil
 		default:
 			// create a channel to receive the read result
 			readChan := make(chan struct {
@@ -745,20 +820,18 @@ func (e *EvaluationClient) startStreaming(ctx context.Context) {
 			// wait for either the read to complete or context cancellation
 			select {
 			case <-ctx.Done():
-				return
+				return nil
 			case result := <-readChan:
 				if result.err != nil {
 					if errors.Is(result.err, io.EOF) {
-						return
+						return nil
 					}
-					e.errChan <- fetchError(fmt.Errorf("failed to read stream chunk: %w", result.err))
-					return
+					return fetchError(fmt.Errorf("failed to read stream chunk: %w", result.err))
 				}
 
 				var chunk streamChunk
 				if err := json.Unmarshal(result.line, &chunk); err != nil {
-					e.errChan <- fmt.Errorf("failed to unmarshal stream chunk: %w", err)
-					return
+					return fmt.Errorf("failed to unmarshal stream chunk: %w", err)
 				}
 
 				for ns, payload := range chunk.Result.Namespaces {
@@ -793,6 +866,7 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 		allocFunc   = e.exportedFuncs[fAllocate]
 		deallocFunc = e.exportedFuncs[fDeallocate]
 	)
+
 	e.mu.Lock()
 	reqPtr, err := allocFunc.Call(ctx, uint64(len(reqBytes)))
 	if err != nil {
@@ -806,7 +880,14 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 		return nil, fmt.Errorf("failed to write request to memory")
 	}
 
-	res, err := e.exportedFuncs[funcName].Call(ctx, uint64(e.engine), reqPtr[0], uint64(len(reqBytes)))
+	evalFunc, ok := e.exportedFuncs[funcName]
+	if !ok {
+		deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
+		e.mu.Unlock()
+		return nil, fmt.Errorf("failed to call %s: function not found", funcName)
+	}
+
+	res, err := evalFunc.Call(ctx, uint64(e.engine), reqPtr[0], uint64(len(reqBytes)))
 	if err != nil {
 		deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
 		e.mu.Unlock()
@@ -838,4 +919,36 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 	e.mu.Unlock()
 
 	return result, nil
+}
+
+// isTransientError determines if an error is transient and should be retried
+func isTransientError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Check for network errors
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return netErr.Timeout()
+	}
+
+	// Check for specific network operation errors
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		return opErr.Temporary() || opErr.Timeout()
+	}
+
+	// Check for DNS temporary failures
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return dnsErr.Temporary()
+	}
+
+	// Some errors are always considered temporary
+	if errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
+
+	return false
 }
