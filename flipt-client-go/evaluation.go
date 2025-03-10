@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
 	"sync"
@@ -626,18 +627,23 @@ func (e *EvaluationClient) startPolling(ctx context.Context) {
 	}
 }
 
+const (
+	maxRetries = 3
+	baseDelay  = 100 * time.Millisecond
+	maxDelay   = 2 * time.Second
+)
+
 // fetch fetches the snapshot for the given namespace.
 func (e *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, error) {
-	const (
-		maxRetries = 3
-		baseDelay  = 100 * time.Millisecond
-	)
-
 	var lastErr error
 	for attempt := range maxRetries {
 		if attempt > 0 {
-			// calculate exponential backoff delay: 100ms, 200ms, 400ms
-			delay := baseDelay * time.Duration(1<<uint(attempt-1))
+			// calculate exponential backoff with jitter
+			delay := min(baseDelay*time.Duration(1<<uint(attempt-1)), maxDelay)
+			// add jitter: ±10% of the delay
+			jitter := time.Duration(rand.Float64()*float64(delay)*0.2 - float64(delay)*0.1)
+			delay += jitter
+
 			select {
 			case <-ctx.Done():
 				return snapshot{}, ctx.Err()
@@ -731,16 +737,15 @@ func (e *EvaluationClient) startStreaming(ctx context.Context) {
 }
 
 func (e *EvaluationClient) initiateStream(ctx context.Context) error {
-	const (
-		maxRetries = 3
-		baseDelay  = 100 * time.Millisecond
-	)
-
 	var lastErr error
 	for attempt := range maxRetries {
 		if attempt > 0 {
-			// calculate exponential backoff delay: 100ms, 200ms, 400ms
-			delay := baseDelay * time.Duration(1<<uint(attempt-1))
+			// calculate exponential backoff with jitter
+			delay := min(baseDelay*time.Duration(1<<uint(attempt-1)), maxDelay)
+			// add jitter: ±10% of the delay
+			jitter := time.Duration(rand.Float64()*float64(delay)*0.2 - float64(delay)*0.1)
+			delay += jitter
+
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
