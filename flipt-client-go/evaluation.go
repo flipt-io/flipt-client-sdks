@@ -633,9 +633,14 @@ const (
 	maxDelay   = 2 * time.Second
 )
 
-// fetch fetches the snapshot for the given namespace.
-func (e *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, error) {
-	var lastErr error
+// doWithRetry executes the given function with exponential backoff and jitter.
+// It will retry up to maxRetries times if the function returns a transient error.
+func doWithRetry[T any](ctx context.Context, fn func() (T, error)) (T, error) {
+	var (
+		lastErr error
+		zero    T
+	)
+
 	for attempt := range maxRetries {
 		if attempt > 0 {
 			// calculate exponential backoff with jitter
@@ -646,11 +651,29 @@ func (e *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, er
 
 			select {
 			case <-ctx.Done():
-				return snapshot{}, ctx.Err()
+				return zero, ctx.Err()
 			case <-time.After(delay):
 			}
 		}
 
+		result, err := fn()
+		if err == nil {
+			return result, nil
+		}
+
+		lastErr = err
+		if !isTransientError(err) {
+			return zero, err
+		}
+	}
+
+	// if we get here, we've exhausted our retries
+	return zero, fmt.Errorf("failed after %d retries, last error: %w", maxRetries, lastErr)
+}
+
+// fetch fetches the snapshot for the given namespace.
+func (e *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, error) {
+	return doWithRetry(ctx, func() (snapshot, error) {
 		url := fmt.Sprintf("%s/internal/v1/evaluation/snapshot/namespace/%s", e.url, e.namespace)
 		if e.ref != "" {
 			url = fmt.Sprintf("%s?reference=%s", url, e.ref)
@@ -686,21 +709,13 @@ func (e *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, er
 		}
 
 		if err != nil {
-			lastErr = err
-			if !isTransientError(err) {
-				return snapshot{}, fetchError(fmt.Errorf("failed to fetch snapshot: %w", err))
-			}
-			continue
+			return snapshot{}, err
 		}
 
 		// always read the entire body so the connection can be reused
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			lastErr = err
-			if !isTransientError(err) {
-				return snapshot{}, fetchError(fmt.Errorf("failed to read response body: %w", err))
-			}
-			continue
+			return snapshot{}, err
 		}
 
 		if resp.StatusCode == http.StatusNotModified {
@@ -714,10 +729,7 @@ func (e *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, er
 
 		etag = resp.Header.Get("ETag")
 		return snapshot{payload: body, etag: etag}, nil
-	} // end of retry loop
-
-	// if we get here, we've exhausted our retries
-	return snapshot{}, fetchError(fmt.Errorf("failed after %d retries, last error: %w", maxRetries, lastErr))
+	})
 }
 
 type streamChunk struct {
@@ -737,27 +749,12 @@ func (e *EvaluationClient) startStreaming(ctx context.Context) {
 }
 
 func (e *EvaluationClient) initiateStream(ctx context.Context) error {
-	var lastErr error
-	for attempt := range maxRetries {
-		if attempt > 0 {
-			// calculate exponential backoff with jitter
-			delay := min(baseDelay*time.Duration(1<<uint(attempt-1)), maxDelay)
-			// add jitter: ±10% of the delay
-			jitter := time.Duration(rand.Float64()*float64(delay)*0.2 - float64(delay)*0.1)
-			delay += jitter
-
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(delay):
-			}
-		}
-
+	_, err := doWithRetry(ctx, func() (struct{}, error) {
 		url := fmt.Sprintf("%s/internal/v1/evaluation/snapshots?[]namespaces=%s", e.url, e.namespace)
 
 		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
-			return fmt.Errorf("failed to create request: %w", err)
+			return struct{}{}, fmt.Errorf("failed to create request: %w", err)
 		}
 
 		req.Header.Set("Accept", "application/json")
@@ -777,29 +774,21 @@ func (e *EvaluationClient) initiateStream(ctx context.Context) error {
 			defer resp.Body.Close()
 		}
 		if err != nil {
-			lastErr = err
-			if !isTransientError(err) {
-				return fetchError(fmt.Errorf("failed to fetch snapshot: %w", err))
-			}
-			continue
+			return struct{}{}, err
 		}
 
 		if resp.StatusCode != http.StatusOK {
 			// don't retry non-200 status codes as they are likely not transient
-			return fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
+			return struct{}{}, fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
 		}
 
 		if err := e.handleStream(ctx, resp.Body); err != nil {
-			lastErr = err
-			if !isTransientError(err) {
-				return err
-			}
-			continue
+			return struct{}{}, err
 		}
-	}
 
-	// if we get here, we've exhausted our retries
-	return fetchError(fmt.Errorf("failed after %d retries, last error: %w", maxRetries, lastErr))
+		return struct{}{}, nil
+	})
+	return err
 }
 
 func (e *EvaluationClient) handleStream(ctx context.Context, r io.ReadCloser) error {
