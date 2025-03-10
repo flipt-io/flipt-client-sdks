@@ -636,7 +636,7 @@ func (e *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, er
 	var lastErr error
 	for attempt := range maxRetries {
 		if attempt > 0 {
-			// Calculate exponential backoff delay: 100ms, 200ms, 400ms
+			// calculate exponential backoff delay: 100ms, 200ms, 400ms
 			delay := baseDelay * time.Duration(1<<uint(attempt-1))
 			select {
 			case <-ctx.Done():
@@ -702,7 +702,7 @@ func (e *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, er
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			// Don't retry non-200 status codes as they are likely not transient
+			// don't retry non-200 status codes as they are likely not transient
 			return snapshot{}, fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
 		}
 
@@ -710,7 +710,7 @@ func (e *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, er
 		return snapshot{payload: body, etag: etag}, nil
 	} // end of retry loop
 
-	// If we get here, we've exhausted our retries
+	// if we get here, we've exhausted our retries
 	return snapshot{}, fetchError(fmt.Errorf("failed after %d retries, last error: %w", maxRetries, lastErr))
 }
 
@@ -739,7 +739,7 @@ func (e *EvaluationClient) initiateStream(ctx context.Context) error {
 	var lastErr error
 	for attempt := range maxRetries {
 		if attempt > 0 {
-			// Calculate exponential backoff delay: 100ms, 200ms, 400ms
+			// calculate exponential backoff delay: 100ms, 200ms, 400ms
 			delay := baseDelay * time.Duration(1<<uint(attempt-1))
 			select {
 			case <-ctx.Done():
@@ -780,7 +780,7 @@ func (e *EvaluationClient) initiateStream(ctx context.Context) error {
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			// Don't retry non-200 status codes as they are likely not transient
+			// don't retry non-200 status codes as they are likely not transient
 			return fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
 		}
 
@@ -793,7 +793,7 @@ func (e *EvaluationClient) initiateStream(ctx context.Context) error {
 		}
 	}
 
-	// If we get here, we've exhausted our retries
+	// if we get here, we've exhausted our retries
 	return fetchError(fmt.Errorf("failed after %d retries, last error: %w", maxRetries, lastErr))
 }
 
@@ -802,9 +802,9 @@ func (e *EvaluationClient) handleStream(ctx context.Context, r io.ReadCloser) er
 	readChan := make(chan struct {
 		line []byte
 		err  error
-	}, 1) // Buffered channel to prevent goroutine leak
+	}, 1) // buffered channel to prevent goroutine leak
 
-	// Start a goroutine to perform the blocking read
+	// start a goroutine to perform the blocking read
 	go func() {
 		for {
 			select {
@@ -941,25 +941,25 @@ func isTransientError(err error) bool {
 		return false
 	}
 
-	// Check for network errors
+	// check for network errors
 	var netErr net.Error
 	if errors.As(err, &netErr) {
 		return netErr.Timeout()
 	}
 
-	// Check for specific network operation errors
+	// check for specific network operation errors
 	var opErr *net.OpError
 	if errors.As(err, &opErr) {
 		return opErr.Temporary() || opErr.Timeout()
 	}
 
-	// Check for DNS temporary failures
+	// check for DNS temporary failures
 	var dnsErr *net.DNSError
 	if errors.As(err, &dnsErr) {
 		return dnsErr.Temporary()
 	}
 
-	// Some errors are always considered temporary
+	// some errors are always considered temporary
 	if errors.Is(err, io.ErrUnexpectedEOF) {
 		return true
 	}
