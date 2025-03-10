@@ -331,13 +331,15 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		}
 	}()
 
-	// create a new context for the polling so any timeouts
+	// create a new context for the http operations so any timeouts
 	// are independent of the client context
 	fctx, cancel := context.WithCancel(context.Background())
 
 	client.wg.Add(1)
 	go func() {
+		defer client.wg.Done()
 		<-ctx.Done()
+		// cancel the http context so any pending requests are cancelled if we're closing
 		cancel()
 	}()
 
@@ -459,8 +461,12 @@ func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 		return nil, e.err
 	}
 
-	evalFunc := e.exportedFuncs[fListFlags]
-	res, err := evalFunc.Call(ctx, uint64(e.engine))
+	listFlagsFunc, ok := e.exportedFuncs[fListFlags]
+	if !ok {
+		return nil, errors.New("failed to find list_flags function")
+	}
+
+	res, err := listFlagsFunc.Call(ctx, uint64(e.engine))
 	if err != nil {
 		return nil, fmt.Errorf("failed to call list_flags: %w", err)
 	}
@@ -469,8 +475,10 @@ func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 		return nil, fmt.Errorf("failed to call list_flags: no result returned")
 	}
 
-	ptr, length := decodePtr(res[0])
-	deallocFunc := e.exportedFuncs[fDeallocate]
+	var (
+		ptr, length = decodePtr(res[0])
+		deallocFunc = e.exportedFuncs[fDeallocate]
+	)
 
 	b, ok := e.mod.Memory().Read(ptr, length)
 	if !ok {
@@ -548,7 +556,7 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			close(e.snapshotChan)
-			return nil
+			return ctx.Err()
 		case s, ok := <-e.snapshotChan:
 			if !ok {
 				return nil
@@ -716,8 +724,7 @@ type streamResult struct {
 
 // startStreaming starts the background streaming.
 func (e *EvaluationClient) startStreaming(ctx context.Context) {
-	err := e.initiateStream(ctx)
-	if err != nil {
+	if err := e.initiateStream(ctx); err != nil {
 		e.errChan <- err
 		return
 	}
@@ -736,18 +743,14 @@ func (e *EvaluationClient) initiateStream(ctx context.Context) error {
 			delay := baseDelay * time.Duration(1<<uint(attempt-1))
 			select {
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			case <-time.After(delay):
 			}
 		}
+
 		url := fmt.Sprintf("%s/internal/v1/evaluation/snapshots?[]namespaces=%s", e.url, e.namespace)
 
-		// create a new context for the streaming so any timeouts
-		// are independent of the client context
-		fctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		req, err := http.NewRequestWithContext(fctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
 			return fmt.Errorf("failed to create request: %w", err)
 		}
@@ -781,8 +784,7 @@ func (e *EvaluationClient) initiateStream(ctx context.Context) error {
 			return fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
 		}
 
-		err = e.handleStream(fctx, resp.Body)
-		if err != nil {
+		if err := e.handleStream(ctx, resp.Body); err != nil {
 			lastErr = err
 			if !isTransientError(err) {
 				return err
@@ -797,46 +799,58 @@ func (e *EvaluationClient) initiateStream(ctx context.Context) error {
 
 func (e *EvaluationClient) handleStream(ctx context.Context, r io.ReadCloser) error {
 	reader := bufio.NewReader(r)
+	readChan := make(chan struct {
+		line []byte
+		err  error
+	}, 1) // Buffered channel to prevent goroutine leak
+
+	// Start a goroutine to perform the blocking read
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				line, err := reader.ReadBytes('\n')
+				select {
+				case <-ctx.Done():
+					return
+				case readChan <- struct {
+					line []byte
+					err  error
+				}{line, err}:
+				}
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
-		default:
-			// create a channel to receive the read result
-			readChan := make(chan struct {
-				line []byte
-				err  error
-			})
-
-			// start a goroutine to perform the blocking read
-			go func() {
-				line, err := reader.ReadBytes('\n')
-				readChan <- struct {
-					line []byte
-					err  error
-				}{line, err}
-			}()
-
-			// wait for either the read to complete or context cancellation
-			select {
-			case <-ctx.Done():
+			return ctx.Err()
+		case result, ok := <-readChan:
+			if !ok {
 				return nil
-			case result := <-readChan:
-				if result.err != nil {
-					if errors.Is(result.err, io.EOF) {
-						return nil
-					}
-					return fetchError(fmt.Errorf("failed to read stream chunk: %w", result.err))
-				}
+			}
 
-				var chunk streamChunk
-				if err := json.Unmarshal(result.line, &chunk); err != nil {
-					return fmt.Errorf("failed to unmarshal stream chunk: %w", err)
+			if result.err != nil {
+				if errors.Is(result.err, io.EOF) {
+					return nil
 				}
+				return fetchError(fmt.Errorf("failed to read stream chunk: %w", result.err))
+			}
 
-				for ns, payload := range chunk.Result.Namespaces {
-					if ns == e.namespace {
-						e.snapshotChan <- snapshot{payload: payload}
+			var chunk streamChunk
+			if err := json.Unmarshal(result.line, &chunk); err != nil {
+				return fmt.Errorf("failed to unmarshal stream chunk: %w", err)
+			}
+
+			for ns, payload := range chunk.Result.Namespaces {
+				if ns == e.namespace {
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case e.snapshotChan <- snapshot{payload: payload}:
 					}
 				}
 			}
