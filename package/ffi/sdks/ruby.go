@@ -12,12 +12,12 @@ type RubySDK struct {
 	BaseSDK
 }
 
-func (s *RubySDK) Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error {
-	container := client.Container().From("ruby:3.1-bookworm").
+func (s *RubySDK) Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts) error {
+	container = container.From("ruby:3.1-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-ruby")).
 		WithDirectory("/src/lib/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Include: defaultInclude,
+			Include: dynamicInclude,
 		}).
 		WithFile("/src/lib/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithExec(args("bundle install")).

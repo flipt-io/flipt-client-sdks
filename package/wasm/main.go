@@ -88,7 +88,11 @@ func run() error {
 	for _, s := range builds {
 		s := s
 		g.Go(take(func() error {
-			return s.Build(ctx, client, dir, sdks.BuildOpts{
+			container := client.Container(dagger.ContainerOpts{
+				Platform: dagger.Platform("linux/amd64"),
+			})
+
+			return s.Build(ctx, client, container, dir, sdks.BuildOpts{
 				Push: push,
 				Tag:  tag,
 			})

@@ -24,7 +24,7 @@ func (s *SwiftSDK) SupportedPlatforms() []platform.Platform {
 	}
 }
 
-func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error {
+func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts) error {
 	pat := os.Getenv("GITHUB_TOKEN")
 	if pat == "" && opts.Push {
 		return errors.New("GITHUB_TOKEN environment variable must be set")
@@ -45,7 +45,7 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, hostDirecto
 		gitUserEmail = "dev@flipt.io"
 	}
 
-	git := client.Container().From("golang:1.21.3-bookworm").
+	git := container.From("golang:1.21.3-bookworm").
 		WithSecretVariable("GITHUB_TOKEN", secretEncodedPAT).
 		WithExec(args("git config --global user.email %s", gitUserEmail)).
 		WithExec(args("git config --global user.name %s", gitUserName))

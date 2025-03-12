@@ -7,28 +7,30 @@ import (
 	"os/exec"
 
 	"dagger.io/dagger"
+	"go.flipt.io/flipt/client-sdks/package/ffi/platform"
 )
 
-type JavaSDK struct {
+type AndroidSDK struct {
 	BaseSDK
 }
 
-func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts) error {
+func (s *AndroidSDK) SupportedPlatforms() []platform.Platform {
+	return []platform.Platform{
+		platform.AndroidArm64,
+		platform.AndroidX86_64,
+	}
+}
+
+func (s *AndroidSDK) Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts) error {
 	// the directory structure of the tmp directory is as follows:
-	// tmp/linux_x86_64/
-	// tmp/linux_aarch64/
-	// tmp/darwin_x86_64/
-	// tmp/darwin_aarch64/
+	// tmp/x86_64_linux_android/
+	// tmp/aarch64_linux_android/
 
 	// we need to convert it to the following structure:
-	// staging/linux-x86-64/
-	// staging/linux-aarch64/
-	// staging/darwin-x86-64/
-	// staging/darwin-aarch64/
+	// staging/x86_64/
+	// staging/arm64-v8a/
 
-	// this is because JNA expects the library to be in a specific directory structure based on host OS and architecture
-	// see: https://github.com/java-native-access/jna/blob/master/test/com/sun/jna/PlatformTest.java
-	// we can do this on the host and then copy the files into the container
+	// this is because the Android SDK expects the library to be in a specific directory structure based on host OS and architecture
 
 	type rename struct {
 		old string
@@ -36,11 +38,8 @@ func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, container *d
 	}
 
 	renames := []rename{
-		{old: "linux_x86_64", new: "linux-x86-64"},
-		{old: "linux_aarch64", new: "linux-aarch64"},
-		{old: "darwin_x86_64", new: "darwin-x86-64"},
-		{old: "darwin_aarch64", new: "darwin-aarch64"},
-		{old: "windows_x86_64", new: "win32-x86-64"},
+		{old: "x86_64_linux_android", new: "x86_64"},
+		{old: "aarch64_linux_android", new: "arm64-v8a"},
 	}
 
 	for _, rename := range renames {
@@ -71,11 +70,27 @@ func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, container *d
 		}
 	}
 
-	container = container.From("gradle:8.11-jdk11").
-		WithDirectory("/src", hostDirectory.Directory("flipt-client-java")).
-		WithDirectory("/src/src/main/resources", hostDirectory.Directory("staging"), dagger.ContainerWithDirectoryOpts{
-			Include: dynamicInclude,
+	container = container.From("gradle:8.11-jdk17").
+		WithExec(args("mkdir -p /android-sdk/cmdline-tools")).
+		WithEnvVariable("ANDROID_HOME", "/android-sdk").
+		WithWorkdir("/android-sdk/cmdline-tools").
+		WithExec(args("wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip")).
+		WithExec(args("unzip commandlinetools-linux*.zip")).
+		WithWorkdir("/android-sdk/cmdline-tools").
+		WithExec(args("mv cmdline-tools latest")).
+		WithWorkdir("/android-sdk/cmdline-tools/latest").
+		WithExec([]string{"sh", "-c", "yes | bin/sdkmanager --licenses"}).
+		WithExec([]string{"bin/sdkmanager", "--update"}).
+		WithExec([]string{"bin/sdkmanager", "--install", "build-tools;33.0.0"}).
+		WithExec([]string{"bin/sdkmanager", "--install", "platforms;android-33"}).
+		WithExec([]string{"bin/sdkmanager", "--install", "platform-tools"}).
+		WithExec([]string{"bin/sdkmanager", "--install", "cmdline-tools;latest"}).
+		WithExec([]string{"bin/sdkmanager", "--install", "cmake;3.22.1"}).
+		WithDirectory("/src", hostDirectory.Directory("flipt-client-kotlin-android")).
+		WithDirectory("/src/src/main/cpp/libs", hostDirectory.Directory("staging"), dagger.ContainerWithDirectoryOpts{
+			Include: staticInclude,
 		}).
+		WithFile("/src/src/main/cpp/include/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithWorkdir("/src").
 		WithExec(args("gradle -x test build"))
 

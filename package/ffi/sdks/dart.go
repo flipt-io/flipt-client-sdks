@@ -12,13 +12,13 @@ type DartSDK struct {
 	BaseSDK
 }
 
-func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error {
-	container := client.Container().From("dart:stable").
+func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts) error {
+	container = container.From("dart:stable").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-dart"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", ".dart_tool/"},
 		}).
 		WithDirectory("/src/lib/src/ffi", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Include: defaultInclude,
+			Include: dynamicInclude,
 		}).
 		WithWorkdir("/src").
 		WithExec(args("dart pub get"))

@@ -12,12 +12,12 @@ type PythonSDK struct {
 	BaseSDK
 }
 
-func (s *PythonSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error {
-	container := client.Container().From("python:3.11-bookworm").
+func (s *PythonSDK) Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts) error {
+	container = container.From("python:3.11-bookworm").
 		WithExec(args("pip install poetry==1.7.0")).
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-python")).
 		WithDirectory("/src/ext", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Include: defaultInclude,
+			Include: dynamicInclude,
 		}).
 		WithFile("/src/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithWorkdir("/src").

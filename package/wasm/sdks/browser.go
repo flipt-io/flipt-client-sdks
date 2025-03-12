@@ -10,6 +10,6 @@ type BrowserSDK struct {
 	BaseSDK
 }
 
-func (s *BrowserSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error {
-	return buildWasmJS(ctx, client, hostDirectory, opts, "web", "flipt-client-browser")
+func (s *BrowserSDK) Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts) error {
+	return buildWasmJS(ctx, client, container, hostDirectory, opts, "web", "flipt-client-browser")
 }

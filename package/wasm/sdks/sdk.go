@@ -15,13 +15,13 @@ type BuildOpts struct {
 }
 
 type SDK interface {
-	Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error
+	Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts) error
 }
 
 type BaseSDK struct{}
 
-func buildWasmJS(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts, target string, clientDir string) error {
-	rust := client.Container().From("rust:1.83.0-bookworm").
+func buildWasmJS(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts, target string, clientDir string) error {
+	rust := container.From("rust:1.83.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
@@ -45,7 +45,7 @@ func buildWasmJS(ctx context.Context, client *dagger.Client, hostDirectory *dagg
 		return err
 	}
 
-	container := client.Container().From("node:21.2-bookworm").
+	container = container.From("node:21.2-bookworm").
 		WithDirectory("/src", hostDirectory.Directory(clientDir), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "pkg/", "dist/"},
 		}).
