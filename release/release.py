@@ -3,7 +3,7 @@ import argparse
 from semver import VersionInfo
 from prompt_toolkit.shortcuts import radiolist_dialog, yes_no_dialog, input_dialog
 from colorama import init, Fore, Style
-from sdks import GoSDK, JavaSDK, JavaScriptSDK, RubySDK, PythonSDK, DartSDK, SwiftSDK, CSharpSDK
+from sdks import AndroidSDK, GoSDK, JavaSDK, JavaScriptSDK, RubySDK, PythonSDK, DartSDK, SwiftSDK, CSharpSDK
 from sdks.base import SDK, TagBasedSDK
 
 # Initialize colorama
@@ -11,16 +11,17 @@ init(autoreset=True)
 
 def get_sdk(name: str) -> SDK:
     sdk_classes = {
+        "flipt-client-browser": JavaScriptSDK,
+        "flipt-client-csharp": CSharpSDK,
+        "flipt-client-dart": DartSDK,
         "flipt-client-go": GoSDK,
         "flipt-client-java": JavaSDK,
+        "flipt-client-kotlin-android": AndroidSDK,
         "flipt-client-node": JavaScriptSDK,
-        "flipt-client-browser": JavaScriptSDK,
-        "flipt-client-react": JavaScriptSDK,
-        "flipt-client-dart": DartSDK,
         "flipt-client-python": PythonSDK,
+        "flipt-client-react": JavaScriptSDK,
         "flipt-client-ruby": RubySDK,
         "flipt-client-swift": SwiftSDK,
-        "flipt-client-csharp": CSharpSDK,
     }
     return sdk_classes[name](name)
 
@@ -66,16 +67,17 @@ def tag_and_push_version(versions, opts: dict):
 
 def get_sdk_selection() -> str | None:
     sdk_display_names = {
+        "flipt-client-kotlin-android": "Android",
+        "flipt-client-browser": "Browser",
+        "flipt-client-csharp": "C#",
+        "flipt-client-dart": "Dart",
         "flipt-client-go": "Go",
         "flipt-client-java": "Java",
         "flipt-client-node": "Node.js",
-        "flipt-client-browser": "Browser",
-        "flipt-client-react": "React",
-        "flipt-client-dart": "Dart",
         "flipt-client-python": "Python",
+        "flipt-client-react": "React",
         "flipt-client-ruby": "Ruby",
         "flipt-client-swift": "Swift",
-        "flipt-client-csharp": "C#",
     }
 
     selected_sdk = radiolist_dialog(
