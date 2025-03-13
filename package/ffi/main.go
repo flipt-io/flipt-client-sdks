@@ -22,12 +22,13 @@ var (
 	tag       string
 	engineTag string
 	sdksToFn  = map[string]sdks.SDK{
-		"python": &sdks.PythonSDK{},
-		"ruby":   &sdks.RubySDK{},
-		"java":   &sdks.JavaSDK{},
-		"dart":   &sdks.DartSDK{},
-		"csharp": &sdks.CSharpSDK{},
-		"swift":  &sdks.SwiftSDK{},
+		"python":  &sdks.PythonSDK{},
+		"ruby":    &sdks.RubySDK{},
+		"java":    &sdks.JavaSDK{},
+		"dart":    &sdks.DartSDK{},
+		"csharp":  &sdks.CSharpSDK{},
+		"swift":   &sdks.SwiftSDK{},
+		"android": &sdks.AndroidSDK{},
 	}
 	sema = make(chan struct{}, 5)
 )
@@ -88,12 +89,22 @@ func run() error {
 				return err
 			}
 
-			return s.Build(ctx, client, dir, sdks.BuildOpts{
+			container := client.Container(dagger.ContainerOpts{
+				Platform: dagger.Platform("linux/amd64"),
+			})
+
+			return s.Build(ctx, client, container, dir, sdks.BuildOpts{
 				Tag:  tag,
 				Push: push,
 			})
 		}))
 	}
+
+	defer func() {
+		if err := os.RemoveAll("tmp"); err != nil {
+			fmt.Printf("error removing tmp directory: %s\n", err)
+		}
+	}()
 
 	return g.Wait()
 }
@@ -191,6 +202,8 @@ func downloadFFI(ctx context.Context, client *dagger.Client, sdk sdks.SDK) error
 			container = container.WithExec(args("7z x /tmp/dl/%s.%s -o/tmp/%s", pkg.ID, ext, out))
 		}
 
+		// copy the files into the output directory
+		// ex: /tmp/darwin_aarch64/target/aarch64-apple-darwin/release/libfliptengine.a -> /out/darwin_aarch64/libfliptengine.a
 		cmd := []string{"sh", "-c", fmt.Sprintf("cp -r /tmp/%s/target/%s/release/* /out/%s", out, pkg.Target, out)}
 		if _, err := container.
 			WithExec(cmd).

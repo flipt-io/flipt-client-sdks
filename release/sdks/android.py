@@ -2,7 +2,7 @@ import os
 import re
 from .base import SDK
 
-class JavaSDK(SDK):
+class AndroidSDK(SDK):
     def get_current_version(self):
         f = os.path.join(self.path, "build.gradle")
         if not os.path.exists(f):
@@ -19,10 +19,25 @@ class JavaSDK(SDK):
         with open(file_path, "r") as f:
             content = f.read()
 
+        # First update version
         updated_content = re.sub(
             r'(version\s*=\s*["\'])[^"\']+["\']', 
             f"\\g<1>{new_version}\"", 
             content
+        )
+
+        # Second update versionName
+        updated_content = re.sub(
+            r'(versionName\s+)["\']([^"\']+)["\']', 
+            f"\\g<1>\"{new_version}\"", 
+            updated_content
+        )
+
+        # Then increment versionCode
+        updated_content = re.sub(
+            r'(versionCode\s+)(\d+)',
+            lambda m: f"{m.group(1)}{int(m.group(2)) + 1}",
+            updated_content
         )
 
         with open(file_path, "w") as f:

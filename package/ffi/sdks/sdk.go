@@ -11,7 +11,10 @@ import (
 	"go.flipt.io/flipt/client-sdks/package/ffi/platform"
 )
 
-var defaultInclude = []string{"**/*.so", "**/*.dylib", "**/*.dll"}
+var (
+	dynamicInclude = []string{"**/*.so", "**/*.dylib", "**/*.dll"}
+	staticInclude  = []string{"**/*.a"}
+)
 
 type BuildOpts struct {
 	Push bool
@@ -20,7 +23,7 @@ type BuildOpts struct {
 
 type SDK interface {
 	SupportedPlatforms() []platform.Platform
-	Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error
+	Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts) error
 }
 
 type BaseSDK struct{}

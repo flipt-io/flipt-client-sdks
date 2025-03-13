@@ -12,14 +12,14 @@ type CSharpSDK struct {
 	BaseSDK
 }
 
-func (s *CSharpSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error {
-	container := client.Container().From("mcr.microsoft.com/dotnet/sdk:8.0").
+func (s *CSharpSDK) Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts) error {
+	container = container.From("mcr.microsoft.com/dotnet/sdk:8.0").
 		WithWorkdir("/src").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-csharp"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", "obj/", "bin/"},
 		}).
 		WithDirectory("/src/src/FliptClient/ext/ffi", hostDirectory.Directory("tmp"), dagger.ContainerWithDirectoryOpts{
-			Include: defaultInclude,
+			Include: dynamicInclude,
 		}).
 		WithExec(args("dotnet restore")).
 		WithExec(args("rm -rf **/bin **/obj")).

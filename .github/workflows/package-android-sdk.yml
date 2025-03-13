@@ -1,0 +1,17 @@
+name: Package Android SDK
+on:
+  push:
+    tags:
+      - "flipt-client-kotlin-android-**"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build:
+    uses: ./.github/workflows/package-ffi-sdks.yml
+    with:
+      sdks: "android"
+      tag: ${{ github.ref }}
+    secrets: inherit

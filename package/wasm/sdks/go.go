@@ -15,13 +15,13 @@ type GoSDK struct {
 	BaseSDK
 }
 
-func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory *dagger.Directory, opts BuildOpts) error {
+func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts) error {
 	const (
 		target   = "wasm32-wasip1"
 		wasmFile = "/src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm"
 	)
 
-	rust := client.Container().From("rust:1.83.0-bookworm").
+	rust := container.From("rust:1.83.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
@@ -57,7 +57,7 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 		gitUserEmail = "dev@flipt.io"
 	}
 
-	git := client.Container().From("golang:1.21.3-bookworm").
+	git := container.From("golang:1.21.3-bookworm").
 		WithSecretVariable("GITHUB_TOKEN", secretEncodedPAT).
 		WithExec(args("git config --global user.email %s", gitUserEmail)).
 		WithExec(args("git config --global user.name %s", gitUserName))
@@ -67,7 +67,7 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, hostDirectory 
 			WithExec([]string{"sh", "-c", "git config --global http.https://github.com/.extraheader \"AUTHORIZATION: Basic ${GITHUB_TOKEN}\""})
 	}
 
-	container := git.
+	container = git.
 		WithExec(args("git clone https://github.com/flipt-io/flipt-client-sdks.git /src")).
 		WithWorkdir("/src").
 		WithFile("/ext/flipt_engine_wasm.wasm", rust.File(wasmFile))

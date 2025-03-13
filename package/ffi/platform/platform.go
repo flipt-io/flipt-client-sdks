@@ -25,4 +25,6 @@ var (
 	WindowsX86_64 = Platform{ID: "Windows-x86_64", Target: "x86_64-pc-windows-msvc", Ext: Zip}
 	IOSArm64      = Platform{ID: "iOS-aarch64", Target: "aarch64-apple-ios"}
 	IOSSimArm64   = Platform{ID: "iOS-aarch64-sim", Target: "aarch64-apple-ios-sim"}
+	AndroidArm64  = Platform{ID: "Android-aarch64", Target: "aarch64-linux-android"}
+	AndroidX86_64 = Platform{ID: "Android-x86_64", Target: "x86_64-linux-android"}
 )

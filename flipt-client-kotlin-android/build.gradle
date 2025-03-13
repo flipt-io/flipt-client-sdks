@@ -4,10 +4,16 @@ plugins {
     id 'com.android.library' // For library modules
     id 'kotlin-android' // Correct plugin ID for Kotlin Android projects
     id 'org.jetbrains.kotlin.plugin.serialization'
+    id 'maven-publish'
+    id 'signing'
 }
 
+group = 'io.flipt'
+version = '0.0.1-rc.1'
+description = 'Flipt Client SDK'
+
 android {
-    namespace 'io.flipt.client'
+    namespace 'io.flipt'
     ndkVersion '25.1.8937393'
     compileSdk 33
     defaultConfig {
@@ -17,16 +23,21 @@ android {
         ndk {
             abiFilters "x86_64", "arm64-v8a"
         }
-        def fliptUrl = System.getenv("FLIPT_URL") ?: ""
-        def fliptAuthToken = System.getenv("FLIPT_AUTH_TOKEN") ?: ""
-        buildConfigField("String", "FLIPT_URL", "\"$fliptUrl\"")
-        buildConfigField("String", "FLIPT_AUTH_TOKEN", "\"$fliptAuthToken\"")
+        versionCode 1
+        versionName "0.0.1-rc.1"
     }
 
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            // Add test-specific build config fields
+            def fliptUrl = System.getenv("FLIPT_URL") ?: ""
+            def fliptAuthToken = System.getenv("FLIPT_AUTH_TOKEN") ?: ""
+            buildConfigField("String", "FLIPT_URL", "\"$fliptUrl\"")
+            buildConfigField("String", "FLIPT_AUTH_TOKEN", "\"$fliptAuthToken\"")
         }
     }
     compileOptions {
@@ -54,5 +65,61 @@ dependencies {
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit
     androidTestImplementation libs.androidx.espresso.core
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.1.10"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.0"
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            artifactId = 'flipt-client-android'
+            afterEvaluate {
+                from components.release
+            }
+
+            pom {
+                name = 'Flipt Client Android SDK'
+                description = 'Flipt Client Android SDK'
+                url = 'https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-client-kotlin-android'
+
+                licenses {
+                    license {
+                        name = 'MIT'
+                        url = 'https://opensource.org/license/mit/'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id = 'flipt-io'
+                        name = 'Flipt'
+                        email = 'devs@flipt.io'
+                    }
+                }
+
+                scm {
+                    connection = 'scm:git:git://github.com/flipt-io/flipt-client-sdks.git'
+                    developerConnection = 'scm:git:ssh://github.com/flipt-io/flipt-client-sdks.git'
+                    url = 'https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-client-kotlin-android'
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+            def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+            credentials {
+                username "$System.env.MAVEN_USERNAME"
+                password "$System.env.MAVEN_PASSWORD"
+            }
+        }
+    }
+}
+
+signing {
+    def signingKey = System.getenv('PGP_PRIVATE_KEY')
+    def signingPassphrase = System.getenv('PGP_PASSPHRASE')
+    useInMemoryPgpKeys(signingKey, signingPassphrase)
+    sign publishing.publications.maven
 }
