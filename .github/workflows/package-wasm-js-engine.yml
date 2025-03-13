@@ -1,0 +1,71 @@
+name: Package WASM JS Engine
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "flipt-engine-wasm-js/**"
+      - "flipt-evaluation/**"
+  push:
+    tags: ["flipt-engine-wasm-js-v**"]
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - web
+          - node
+
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: rustup update stable
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: wasm-js-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build
+        run: cargo build --release --package flipt-engine-wasm-js
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack wasm-opt
+
+      - name: Wasm-pack
+        run: wasm-pack build --target ${matrix.target}
+
+      - name: Package
+        run: |
+          tar -czvf flipt-engine-wasm-js-${{ matrix.target }}.tar.gz flipt-engine-wasm-js/pkg/* || true
+
+      - name: Upload Artifact (Pull Request)
+        uses: actions/upload-artifact@v4
+        if: github.event_name == 'pull_request'
+        with:
+          name: flipt-engine-wasm-js-${{ matrix.target }}.tar.gz
+          path: flipt-engine-wasm-js-${{ matrix.target }}.tar.gz
+          retention-days: 1
+
+      - name: Upload Release Assets (Tag)
+        uses: softprops/action-gh-release@v2
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/flipt-engine-wasm-js-v')
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: flipt-engine-wasm-js-${{ matrix.target }}.tar.gz

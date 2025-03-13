@@ -1,0 +1,64 @@
+name: Package WASM Engine
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "flipt-engine-wasm/**"
+      - "flipt-evaluation/**"
+  push:
+    tags: ["flipt-engine-wasm-v**"]
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: rustup update stable && rustup target add wasm32-wasi
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: wasm-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build
+        run: cargo build --release --package flipt-engine-wasm --target wasm32-wasi
+
+      - name: Install wasm-opt
+        run: cargo install wasm-opt
+
+      - name: Wasm-opt
+        run: wasm-opt --converge --flatten --rereloop -Oz -Oz --gufa -o target/wasm32-wasip1/release/flipt_engine_wasm.wasm target/wasm32-wasi/release/flipt_engine_wasm.wasm
+
+      - name: Package
+        run: |
+          tar -czvf flipt-engine-wasm.tar.gz target/wasm32-wasip1/release/* || true
+
+      - name: Upload Artifact (Pull Request)
+        uses: actions/upload-artifact@v4
+        if: github.event_name == 'pull_request'
+        with:
+          name: flipt-engine-wasm.tar.gz
+          path: flipt-engine-wasm.tar.gz
+          retention-days: 1
+
+      - name: Upload Release Assets (Tag)
+        uses: softprops/action-gh-release@v2
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/flipt-engine-wasm-v')
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: flipt-engine-wasm.tar.gz
