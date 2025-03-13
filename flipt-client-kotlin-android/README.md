@@ -1,8 +1,8 @@
-# Flipt Client Kotlin Android
+# Flipt Client Android
 
-[![Maven Central](https://img.shields.io/maven-central/v/io.flipt/flipt-client-java?label=flipt-client-java)](https://central.sonatype.com/artifact/io.flipt/flipt-client-java)
+[![Maven Central](https://img.shields.io/maven-central/v/io.flipt/flipt-client-android?label=flipt-client-android)](https://central.sonatype.com/artifact/io.flipt/flipt-client-android)
 
-The `flipt-client-kotlin-android` library contains the Kotlin for Android source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client.
+The `flipt-client-android` library contains the Kotlin for Android source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client.
 
 ## Installation
 
@@ -12,7 +12,7 @@ Add the dependency in your `build.gradle`:
 
 ```groovy
 dependencies {
-    implementation 'io.flipt:flipt-client-kotlin-android:0.x.x'
+    implementation 'io.flipt:flipt-client-android:0.x.x'
 }
 ```
 
@@ -23,14 +23,14 @@ Add the dependency in your `pom.xml`:
 ```xml
 <dependency>
     <groupId>io.flipt</groupId>
-    <artifactId>flipt-client-kotlin-android</artifactId>
+    <artifactId>flipt-client-android</artifactId>
     <version>0.x.x</version>
 </dependency>
 ```
 
 ## How Does It Work?
 
-The `flipt-client-kotlin-android` library is a wrapper around the [flipt-engine-ffi](https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-engine-ffi) library.
+The `flipt-client-android` library is a wrapper around the [flipt-engine-ffi](https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-engine-ffi) library.
 
 All evaluation happens within the SDK, using the shared library built from the [flipt-engine-ffi](https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-engine-ffi) library.
 
@@ -38,7 +38,7 @@ Because the evaluation happens within the SDK, the SDKs can be used in environme
 
 ## Data Fetching
 
-Upon instantiation, the `flipt-client-kotlin-android` library will fetch the flag state from the Flipt server and store it in memory. This means that the first time you use the SDK, it will make a request to the Flipt server.
+Upon instantiation, the `flipt-client-android` library will fetch the flag state from the Flipt server and store it in memory. This means that the first time you use the SDK, it will make a request to the Flipt server.
 
 ### Polling (Default)
 
@@ -114,7 +114,6 @@ The `FliptEvaluationClient` supports the following authentication strategies:
 - No Authentication (default)
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
 - [JWT Authentication](https://docs.flipt.io/authentication/using-jwts)
-
 
 ### Error Strategies
 
