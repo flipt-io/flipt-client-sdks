@@ -4,10 +4,12 @@ plugins {
     id 'com.android.library' // For library modules
     id 'kotlin-android' // Correct plugin ID for Kotlin Android projects
     id 'org.jetbrains.kotlin.plugin.serialization'
+    id 'maven-publish'
+    id 'signing'
 }
 
 android {
-    namespace 'io.flipt.client'
+    namespace 'io.flipt'
     ndkVersion '25.1.8937393'
     compileSdk 33
     defaultConfig {
@@ -59,5 +61,59 @@ dependencies {
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit
     androidTestImplementation libs.androidx.espresso.core
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.1.10"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.0"
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            artifactId = 'flipt-client-android'
+            from components.release
+
+            pom {
+                name = 'Flipt Client Android SDK'
+                description = 'Flipt Client Android SDK'
+                url = 'https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-client-kotlin-android'
+
+                licenses {
+                    license {
+                        name = 'MIT'
+                        url = 'https://opensource.org/license/mit/'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id = 'flipt-io'
+                        name = 'Flipt'
+                        email = 'devs@flipt.io'
+                    }
+                }
+
+                scm {
+                    connection = 'scm:git:git://github.com/flipt-io/flipt-client-sdks.git'
+                    developerConnection = 'scm:git:ssh://github.com/flipt-io/flipt-client-sdks.git'
+                    url = 'https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-client-kotlin-android'
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+            def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+            credentials {
+                username "$System.env.MAVEN_USERNAME"
+                password "$System.env.MAVEN_PASSWORD"
+            }
+        }
+    }
+}
+
+signing {
+    def signingKey = System.getenv('PGP_PRIVATE_KEY')
+    def signingPassphrase = System.getenv('PGP_PASSPHRASE')
+    useInMemoryPgpKeys(signingKey, signingPassphrase)
+    sign publishing.publications.maven
 }
