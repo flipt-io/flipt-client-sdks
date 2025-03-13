@@ -8,6 +8,10 @@ plugins {
     id 'signing'
 }
 
+group = 'io.flipt'
+version = '0.0.1-rc.1'
+description = 'Flipt Client SDK'
+
 android {
     namespace 'io.flipt'
     ndkVersion '25.1.8937393'
@@ -68,7 +72,9 @@ publishing {
     publications {
         maven(MavenPublication) {
             artifactId = 'flipt-client-android'
-            from components.release
+            afterEvaluate {
+                from components.release
+            }
 
             pom {
                 name = 'Flipt Client Android SDK'

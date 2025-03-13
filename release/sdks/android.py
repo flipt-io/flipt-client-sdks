@@ -9,7 +9,7 @@ class AndroidSDK(SDK):
             raise ValueError(f"build.gradle file not found in {self.path}")
         with open(f, "r") as f:
             content = f.read()
-            match = re.search(r'versionName\s+["\']([^"\']+)["\']', content)
+            match = re.search(r'version\s*=\s*["\']([^"\']+)["\']', content)
             if match:
                 return match.group(1)
         raise ValueError(f"Version not found in build.gradle")
@@ -19,11 +19,18 @@ class AndroidSDK(SDK):
         with open(file_path, "r") as f:
             content = f.read()
 
-        # First update versionName
+        # First update version
+        updated_content = re.sub(
+            r'(version\s*=\s*["\'])[^"\']+["\']', 
+            f"\\g<1>{new_version}\"", 
+            content
+        )
+
+        # Second update versionName
         updated_content = re.sub(
             r'(versionName\s+)["\']([^"\']+)["\']', 
             f"\\g<1>\"{new_version}\"", 
-            content
+            updated_content
         )
 
         # Then increment versionCode
