@@ -46,7 +46,7 @@ jobs:
 
       - name: Package
         run: |
-          tar -czvf flipt-engine-wasm.tar.gz target/wasm32-wasip1/release/* || true
+          tar -czvf flipt-engine-wasm.tar.gz target/wasm32-wasip1/release/flipt_engine_wasm.wasm || true
 
       - name: Upload Artifact (Pull Request)
         uses: actions/upload-artifact@v4
