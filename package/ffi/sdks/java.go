@@ -43,12 +43,21 @@ func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, container *d
 		{old: "windows_x86_64", new: "win32-x86-64"},
 	}
 
+	if err := os.RemoveAll("staging"); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll("staging", 0o755); err != nil {
+		return err
+	}
+
 	for _, rename := range renames {
 		tmp := fmt.Sprintf("tmp/%s", rename.old)
 		// if the directory does not exist or is empty, skip it
 		if isEmpty, err := isDirEmptyOrNotExist(tmp); err != nil {
 			return fmt.Errorf("error checking directory %s: %w", tmp, err)
 		} else if isEmpty {
+			fmt.Printf("directory %s is empty or does not exist, skipping\n", tmp)
 			continue
 		}
 

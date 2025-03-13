@@ -100,6 +100,12 @@ func run() error {
 		}))
 	}
 
+	defer func() {
+		if err := os.RemoveAll("tmp"); err != nil {
+			fmt.Printf("error removing tmp directory: %s\n", err)
+		}
+	}()
+
 	return g.Wait()
 }
 

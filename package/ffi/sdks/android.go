@@ -23,8 +23,8 @@ func (s *AndroidSDK) SupportedPlatforms() []platform.Platform {
 
 func (s *AndroidSDK) Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts) error {
 	// the directory structure of the tmp directory is as follows:
-	// tmp/x86_64_linux_android/
-	// tmp/aarch64_linux_android/
+	// tmp/android_x86_64/
+	// tmp/android_aarch64/
 
 	// we need to convert it to the following structure:
 	// staging/x86_64/
@@ -38,8 +38,16 @@ func (s *AndroidSDK) Build(ctx context.Context, client *dagger.Client, container
 	}
 
 	renames := []rename{
-		{old: "x86_64_linux_android", new: "x86_64"},
-		{old: "aarch64_linux_android", new: "arm64-v8a"},
+		{old: "android_x86_64", new: "x86_64"},
+		{old: "android_aarch64", new: "arm64-v8a"},
+	}
+
+	if err := os.RemoveAll("staging"); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll("staging", 0o755); err != nil {
+		return err
 	}
 
 	for _, rename := range renames {
@@ -48,6 +56,7 @@ func (s *AndroidSDK) Build(ctx context.Context, client *dagger.Client, container
 		if isEmpty, err := isDirEmptyOrNotExist(tmp); err != nil {
 			return fmt.Errorf("error checking directory %s: %w", tmp, err)
 		} else if isEmpty {
+			fmt.Printf("directory %s is empty or does not exist, skipping\n", tmp)
 			continue
 		}
 
@@ -80,7 +89,6 @@ func (s *AndroidSDK) Build(ctx context.Context, client *dagger.Client, container
 		WithExec(args("mv cmdline-tools latest")).
 		WithWorkdir("/android-sdk/cmdline-tools/latest").
 		WithExec([]string{"sh", "-c", "yes | bin/sdkmanager --licenses"}).
-		WithExec([]string{"bin/sdkmanager", "--update"}).
 		WithExec([]string{"bin/sdkmanager", "--install", "build-tools;33.0.0"}).
 		WithExec([]string{"bin/sdkmanager", "--install", "platforms;android-33"}).
 		WithExec([]string{"bin/sdkmanager", "--install", "platform-tools"}).
