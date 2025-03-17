@@ -142,7 +142,14 @@ func WithRequestTimeout(timeout time.Duration) ClientOption {
 	}
 }
 
-type fetchError error
+type fetchError struct {
+	code int
+	err  error
+}
+
+func (e fetchError) Error() string {
+	return e.err.Error()
+}
 
 // NewEvaluationClient constructs a Client and performs an initial fetch of flag state.
 func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *EvaluationClient, cerr error) {
@@ -637,8 +644,8 @@ func (c *EvaluationClient) startPolling(ctx context.Context) {
 
 const (
 	maxRetries = 3
-	baseDelay  = 100 * time.Millisecond
-	maxDelay   = 2 * time.Second
+	baseDelay  = 1 * time.Second
+	maxDelay   = 30 * time.Second
 )
 
 // doWithRetry executes the given function with exponential backoff and jitter.
@@ -652,7 +659,7 @@ func doWithRetry[T any](ctx context.Context, fn func() (T, error)) (T, error) {
 	for attempt := range maxRetries {
 		if attempt > 0 {
 			// calculate exponential backoff with jitter
-			delay := min(baseDelay*time.Duration(1<<uint(attempt-1)), maxDelay)
+			delay := min(baseDelay*time.Duration(1<<uint(attempt)), maxDelay)
 			// add jitter: ±10% of the delay
 			jitter := time.Duration(rand.Float64()*float64(delay)*0.2 - float64(delay)*0.1)
 			delay += jitter
@@ -733,8 +740,7 @@ func (c *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, er
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			// don't retry non-200 status codes as they are likely not transient
-			return snapshot{}, fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
+			return snapshot{}, fetchError{resp.StatusCode, fmt.Errorf("unexpected status code: %d", resp.StatusCode)}
 		}
 
 		etag = resp.Header.Get("ETag")
@@ -782,8 +788,7 @@ func (c *EvaluationClient) initiateStream(ctx context.Context) error {
 		}()
 
 		if resp.StatusCode != http.StatusOK {
-			// don't retry non-200 status codes as they are likely not transient
-			return struct{}{}, fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
+			return struct{}{}, fetchError{resp.StatusCode, fmt.Errorf("unexpected status code: %d", resp.StatusCode)}
 		}
 
 		if err := c.handleStream(ctx, resp.Body); err != nil {
@@ -838,7 +843,7 @@ func (c *EvaluationClient) handleStream(ctx context.Context, r io.ReadCloser) er
 				if errors.Is(result.err, io.EOF) {
 					return nil
 				}
-				return fetchError(fmt.Errorf("failed to read stream chunk: %w", result.err))
+				return fetchError{-1, fmt.Errorf("failed to read stream chunk: %w", result.err)}
 			}
 
 			var chunk streamChunk
@@ -939,6 +944,18 @@ func (c *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 // isTransientError determines if an error is transient and should be retried
 func isTransientError(err error) bool {
 	if err == nil {
+		return false
+	}
+
+	// check for specific HTTP status codes if the error is a fetchError
+	var fetchErr fetchError
+	if errors.As(err, &fetchErr) {
+		if fetchErr.code > 400 && (fetchErr.code == http.StatusTooManyRequests ||
+			fetchErr.code == http.StatusBadGateway ||
+			fetchErr.code == http.StatusServiceUnavailable ||
+			fetchErr.code == http.StatusGatewayTimeout) {
+			return true
+		}
 		return false
 	}
 

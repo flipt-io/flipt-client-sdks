@@ -8,7 +8,7 @@ use reqwest::header::{self, HeaderMap};
 use reqwest::Response;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::policies::ExponentialBackoff;
-use reqwest_retry::RetryTransientMiddleware;
+use reqwest_retry::{Jitter, RetryTransientMiddleware};
 use serde::Deserialize;
 use tokio::sync::mpsc;
 use tokio_util::io::StreamReader;
@@ -153,7 +153,11 @@ impl HTTPFetcherBuilder {
     }
 
     pub fn build(self) -> HTTPFetcher {
-        let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
+        let retry_policy = ExponentialBackoff::builder()
+            .retry_bounds(Duration::from_secs(1), Duration::from_secs(30))
+            .jitter(Jitter::Full)
+            .build_with_max_retries(3);
+
         HTTPFetcher {
             base_url: self.base_url,
             namespace: self.namespace,
