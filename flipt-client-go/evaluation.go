@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
 	"sync"
@@ -23,7 +24,8 @@ import (
 var wasm []byte
 
 const (
-	statusSuccess = "success"
+	defaultNamespace = "default"
+	statusSuccess    = "success"
 
 	fInitializeEngine = "initialize_engine"
 	fAllocate         = "allocate"
@@ -175,12 +177,12 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 
 	ctx, cancel := context.WithCancel(ctx)
 
-	client := &EvaluationClient{
+	c := &EvaluationClient{
 		runtime: runtime,
 		mod:     mod,
 
 		// default values
-		namespace:      "default",
+		namespace:      defaultNamespace,
 		url:            "http://localhost:8080",
 		updateInterval: 2 * time.Minute, // default 120 seconds
 		errorStrategy:  ErrorStrategyFail,
@@ -193,25 +195,25 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 	}
 
 	for _, opt := range opts {
-		opt(client)
+		opt(c)
 	}
 
-	if client.namespace == "" {
+	if c.namespace == "" {
 		cerr = fmt.Errorf("namespace cannot be empty")
 		return
 	}
 
-	if client.url == "" {
+	if c.url == "" {
 		cerr = fmt.Errorf("url cannot be empty")
 		return
 	}
 
-	if client.updateInterval <= 0 && client.fetchMode == FetchModePolling {
+	if c.updateInterval <= 0 && c.fetchMode == FetchModePolling {
 		cerr = fmt.Errorf("update interval must be greater than 0")
 		return
 	}
 
-	if client.requestTimeout <= 0 && client.fetchMode == FetchModePolling {
+	if c.requestTimeout <= 0 && c.fetchMode == FetchModePolling {
 		cerr = fmt.Errorf("request timeout must be greater than 0")
 		return
 	}
@@ -223,14 +225,26 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		}).DialContext,
 	}
 
-	client.httpClient = &http.Client{
+	c.httpClient = &http.Client{
 		Transport: transport,
 	}
 
-	// only set timeout for polling mode
-	// streaming mode will have no timeout set
-	if client.fetchMode == FetchModePolling {
-		client.httpClient.Timeout = client.requestTimeout
+	switch c.fetchMode {
+	case FetchModeStreaming:
+		c.url = fmt.Sprintf("%s/internal/v1/evaluation/snapshots?[]namespaces=%s", c.url, c.namespace)
+
+	case FetchModePolling:
+		c.url = fmt.Sprintf("%s/internal/v1/evaluation/snapshot/namespace/%s", c.url, c.namespace)
+		if c.ref != "" {
+			c.url = fmt.Sprintf("%s?reference=%s", c.url, c.ref)
+		}
+
+		// only set timeout for polling mode
+		// streaming mode will have no timeout set
+		c.httpClient.Timeout = c.requestTimeout
+
+	default:
+		return nil, fmt.Errorf("invalid fetch mode: %s", c.fetchMode)
 	}
 
 	var (
@@ -239,7 +253,7 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		deallocFunc      = mod.ExportedFunction(fDeallocate)
 	)
 
-	client.exportedFuncs = map[string]api.Function{
+	c.exportedFuncs = map[string]api.Function{
 		fAllocate:        allocFunc,
 		fDeallocate:      deallocFunc,
 		fEvaluateVariant: mod.ExportedFunction(fEvaluateVariant),
@@ -249,26 +263,26 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 	}
 
 	// allocate namespace
-	nsPtr, err := allocFunc.Call(ctx, uint64(len(client.namespace)))
+	nsPtr, err := allocFunc.Call(ctx, uint64(len(c.namespace)))
 	if err != nil {
 		cerr = fmt.Errorf("failed to allocate memory for namespace: %w", err)
 		return
 	}
 
-	if !mod.Memory().Write(uint32(nsPtr[0]), []byte(client.namespace)) {
+	if !mod.Memory().Write(uint32(nsPtr[0]), []byte(c.namespace)) {
 		cerr = fmt.Errorf("failed to write namespace to memory")
 		return
 	}
 
 	// fetch initial state
-	snapshot, err := client.fetch(ctx, "")
+	snapshot, err := c.fetch(ctx, "")
 	if err != nil {
 		cerr = fmt.Errorf("failed to fetch initial state: %w", err)
 		return
 	}
 
 	// set initial etag
-	client.etag = snapshot.etag
+	c.etag = snapshot.etag
 
 	// allocate payload
 	pmPtr, err := allocFunc.Call(ctx, uint64(len(snapshot.payload)))
@@ -283,86 +297,94 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 	}
 
 	// initialize engine
-	res, err := initializeEngine.Call(ctx, nsPtr[0], uint64(len(client.namespace)), pmPtr[0], uint64(len(snapshot.payload)))
+	res, err := initializeEngine.Call(ctx, nsPtr[0], uint64(len(c.namespace)), pmPtr[0], uint64(len(snapshot.payload)))
 	if err != nil {
 		cerr = fmt.Errorf("failed to initialize engine: %w", err)
 		return
 	}
 
-	enginePtr := res[0]
-	client.engine = uint32(enginePtr)
+	c.engine = uint32(res[0])
 
-	client.wg.Add(1)
+	c.wg.Add(1)
 	go func() {
-		defer client.wg.Done()
+		defer c.wg.Done()
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case err := <-client.errChan:
+			case err := <-c.errChan:
 				if err == nil {
 					continue
 				}
 
-				client.mu.Lock()
-				client.err = err
-				client.mu.Unlock()
+				c.mu.Lock()
+				c.err = err
+				c.mu.Unlock()
 
 				var fetchErr fetchError
 				// if we got a fetch error and the error strategy is to fail, we can continue
 				// as the fetch error will be returned from the evaluation methods
-				if errors.As(err, &fetchErr) && client.errorStrategy == ErrorStrategyFail {
+				if errors.As(err, &fetchErr) && c.errorStrategy == ErrorStrategyFail {
 					continue
 				}
 
 				// if we got a sentinel error we need to signal the background goroutines to stop
-				client.cancel()
+				c.cancel()
 				return
 			}
 		}
 	}()
 
-	client.wg.Add(1)
+	c.wg.Add(1)
 	go func() {
-		defer client.wg.Done()
-		if err := client.handleUpdates(ctx); err != nil {
-			client.errChan <- err
+		defer c.wg.Done()
+		if err := c.handleUpdates(ctx); err != nil {
+			c.errChan <- err
 		}
 	}()
 
-	client.wg.Add(1)
+	// create a new context for the http operations so any timeouts
+	// are independent of the client context
+	fctx, cancel := context.WithCancel(context.Background())
+
+	c.wg.Add(1)
 	go func() {
-		defer client.wg.Done()
-		switch client.fetchMode {
+		defer c.wg.Done()
+		<-ctx.Done()
+		// cancel the http context so any pending requests are cancelled if we're closing
+		cancel()
+	}()
+
+	c.wg.Add(1)
+	go func() {
+		defer c.wg.Done()
+		switch c.fetchMode {
 		case FetchModeStreaming:
-			client.startStreaming(ctx)
+			c.startStreaming(fctx)
 		case FetchModePolling:
-			client.startPolling(ctx)
-		default:
-			client.errChan <- fmt.Errorf("invalid fetch mode: %s", client.fetchMode)
-			return
+			c.startPolling(fctx)
 		}
 	}()
 
-	return client, nil
+	return c, nil
 }
 
 // Err returns the last error that occurred.
-func (e *EvaluationClient) Err() error {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
-	return e.err
+func (c *EvaluationClient) Err() error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.err
 }
 
 // EvaluateVariant performs evaluation for a variant flag.
-func (e *EvaluationClient) EvaluateVariant(ctx context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantEvaluationResponse, error) {
+func (c *EvaluationClient) EvaluateVariant(ctx context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantEvaluationResponse, error) {
 	request := EvaluationRequest{
 		FlagKey:  flagKey,
 		EntityId: entityID,
 		Context:  evalContext,
 	}
 
-	result, err := e.evaluateWASM(ctx, fEvaluateVariant, request)
+	result, err := c.evaluateWASM(ctx, fEvaluateVariant, request)
 	if err != nil {
 		return nil, err
 	}
@@ -384,14 +406,14 @@ func (e *EvaluationClient) EvaluateVariant(ctx context.Context, flagKey, entityI
 }
 
 // EvaluateBoolean performs evaluation for a boolean flag.
-func (e *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanEvaluationResponse, error) {
+func (c *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanEvaluationResponse, error) {
 	request := EvaluationRequest{
 		FlagKey:  flagKey,
 		EntityId: entityID,
 		Context:  evalContext,
 	}
 
-	result, err := e.evaluateWASM(ctx, fEvaluateBoolean, request)
+	result, err := c.evaluateWASM(ctx, fEvaluateBoolean, request)
 	if err != nil {
 		return nil, err
 	}
@@ -413,8 +435,8 @@ func (e *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityI
 }
 
 // EvaluateBatch performs evaluation for a batch of flags.
-func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
-	result, err := e.evaluateWASM(ctx, fEvaluateBatch, requests)
+func (c *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
+	result, err := c.evaluateWASM(ctx, fEvaluateBatch, requests)
 	if err != nil {
 		return nil, err
 	}
@@ -436,20 +458,24 @@ func (e *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*Evalua
 }
 
 // ListFlags lists all flags.
-func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
-	if e.engine == 0 {
+func (c *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
+	if c.engine == 0 {
 		return nil, errors.New("engine not initialized")
 	}
 
-	e.mu.RLock()
-	defer e.mu.RUnlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
-	if e.err != nil && e.errorStrategy == ErrorStrategyFail {
-		return nil, e.err
+	if c.err != nil && c.errorStrategy == ErrorStrategyFail {
+		return nil, c.err
 	}
 
-	evalFunc := e.exportedFuncs[fListFlags]
-	res, err := evalFunc.Call(ctx, uint64(e.engine))
+	listFlagsFunc, ok := c.exportedFuncs[fListFlags]
+	if !ok {
+		return nil, errors.New("failed to find list_flags function")
+	}
+
+	res, err := listFlagsFunc.Call(ctx, uint64(c.engine))
 	if err != nil {
 		return nil, fmt.Errorf("failed to call list_flags: %w", err)
 	}
@@ -458,10 +484,12 @@ func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 		return nil, fmt.Errorf("failed to call list_flags: no result returned")
 	}
 
-	ptr, length := decodePtr(res[0])
-	deallocFunc := e.exportedFuncs[fDeallocate]
+	var (
+		ptr, length = decodePtr(res[0])
+		deallocFunc = c.exportedFuncs[fDeallocate]
+	)
 
-	b, ok := e.mod.Memory().Read(ptr, length)
+	b, ok := c.mod.Memory().Read(ptr, length)
 	if !ok {
 		deallocFunc.Call(ctx, uint64(ptr), uint64(length))
 		return nil, fmt.Errorf("failed to read result from memory")
@@ -491,25 +519,25 @@ func (e *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 }
 
 // Close cleans up the allocated resources.
-func (e *EvaluationClient) Close(ctx context.Context) (err error) {
-	e.closeOnce.Do(func() {
+func (c *EvaluationClient) Close(ctx context.Context) (err error) {
+	c.closeOnce.Do(func() {
 		// signal background goroutines to stop
-		e.cancel()
+		c.cancel()
 
 		// wait for all background goroutines to finish
-		e.wg.Wait()
+		c.wg.Wait()
 
 		// close channels
-		close(e.errChan)
+		close(c.errChan)
 
-		if e.engine != 0 {
+		if c.engine != 0 {
 			// destroy engine
-			dealloc := e.mod.ExportedFunction(fDestroyEngine)
-			dealloc.Call(ctx, uint64(e.engine))
+			dealloc := c.mod.ExportedFunction(fDestroyEngine)
+			dealloc.Call(ctx, uint64(c.engine))
 		}
 
 		// closing the runtime will close the module too and deallocate all memory
-		err = e.runtime.Close(ctx)
+		err = c.runtime.Close(ctx)
 	})
 
 	return
@@ -526,55 +554,55 @@ type snapshot struct {
 	etag    string
 }
 
-func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
+func (c *EvaluationClient) handleUpdates(ctx context.Context) error {
 	var (
-		allocFunc    = e.exportedFuncs[fAllocate]
-		deallocFunc  = e.exportedFuncs[fDeallocate]
-		snapshotFunc = e.mod.ExportedFunction(fSnapshot)
+		allocFunc    = c.exportedFuncs[fAllocate]
+		deallocFunc  = c.exportedFuncs[fDeallocate]
+		snapshotFunc = c.mod.ExportedFunction(fSnapshot)
 	)
 
 	for {
 		select {
 		case <-ctx.Done():
-			close(e.snapshotChan)
-			return nil
-		case s, ok := <-e.snapshotChan:
+			close(c.snapshotChan)
+			return ctx.Err()
+		case s, ok := <-c.snapshotChan:
 			if !ok {
 				return nil
 			}
 
-			e.mu.Lock()
-			e.etag = s.etag
-			e.mu.Unlock()
+			c.mu.Lock()
+			c.etag = s.etag
+			c.mu.Unlock()
 
 			if len(s.payload) == 0 {
 				continue
 			}
 
-			e.mu.Lock()
+			c.mu.Lock()
 			// allocate memory for the new payload
 			pmPtr, err := allocFunc.Call(ctx, uint64(len(s.payload)))
 			if err != nil {
-				e.mu.Unlock()
+				c.mu.Unlock()
 				return fmt.Errorf("failed to allocate memory for payload: %w", err)
 			}
 
 			// write the new payload to memory
-			if !e.mod.Memory().Write(uint32(pmPtr[0]), s.payload) {
-				e.mu.Unlock()
+			if !c.mod.Memory().Write(uint32(pmPtr[0]), s.payload) {
+				c.mu.Unlock()
 				deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
 				return fmt.Errorf("failed to write payload to memory")
 			}
 
 			// update the engine with the new snapshot while holding the lock
-			res, err := snapshotFunc.Call(ctx, uint64(e.engine), pmPtr[0], uint64(len(s.payload)))
+			res, err := snapshotFunc.Call(ctx, uint64(c.engine), pmPtr[0], uint64(len(s.payload)))
 
 			ptr, length := decodePtr(res[0])
 			// always deallocate the memory after we're done with it
 			deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
 			deallocFunc.Call(ctx, uint64(ptr), uint64(length))
 
-			e.mu.Unlock()
+			c.mu.Unlock()
 			if err != nil {
 				return fmt.Errorf("failed to update engine: %w", err)
 			}
@@ -583,90 +611,135 @@ func (e *EvaluationClient) handleUpdates(ctx context.Context) error {
 }
 
 // startPolling starts the background polling for the given update interval.
-func (e *EvaluationClient) startPolling(ctx context.Context) {
-	ticker := time.NewTicker(e.updateInterval)
+func (c *EvaluationClient) startPolling(ctx context.Context) {
+	ticker := time.NewTicker(c.updateInterval)
 	defer ticker.Stop()
-
-	// create a new context for the polling so any timeouts
-	// are independent of the client context
-	fctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			e.mu.RLock()
-			etag := e.etag
-			e.mu.RUnlock()
+			c.mu.RLock()
+			etag := c.etag
+			c.mu.RUnlock()
 
-			snapshot, err := e.fetch(fctx, etag)
+			snapshot, err := c.fetch(ctx, etag)
 			if err != nil {
-				e.errChan <- err
+				c.errChan <- err
 				continue
 			}
 
-			e.snapshotChan <- snapshot
+			c.snapshotChan <- snapshot
 		}
 	}
 }
 
-// fetch fetches the snapshot for the given namespace.
-func (e *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, error) {
-	url := fmt.Sprintf("%s/internal/v1/evaluation/snapshot/namespace/%s", e.url, e.namespace)
-	if e.ref != "" {
-		url = fmt.Sprintf("%s?reference=%s", url, e.ref)
+const (
+	maxRetries = 3
+	baseDelay  = 100 * time.Millisecond
+	maxDelay   = 2 * time.Second
+)
+
+// doWithRetry executes the given function with exponential backoff and jitter.
+// It will retry up to maxRetries times if the function returns a transient error.
+func doWithRetry[T any](ctx context.Context, fn func() (T, error)) (T, error) {
+	var (
+		lastErr error
+		zero    T
+	)
+
+	for attempt := range maxRetries {
+		if attempt > 0 {
+			// calculate exponential backoff with jitter
+			delay := min(baseDelay*time.Duration(1<<uint(attempt-1)), maxDelay)
+			// add jitter: ±10% of the delay
+			jitter := time.Duration(rand.Float64()*float64(delay)*0.2 - float64(delay)*0.1)
+			delay += jitter
+
+			select {
+			case <-ctx.Done():
+				return zero, ctx.Err()
+			case <-time.After(delay):
+			}
+		}
+
+		result, err := fn()
+		if err == nil {
+			return result, nil
+		}
+
+		lastErr = err
+		if !isTransientError(err) {
+			return zero, err
+		}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	// if we get here, we've exhausted our retries
+	return zero, fmt.Errorf("failed after %d retries, last error: %w", maxRetries, lastErr)
+}
+
+func (c *EvaluationClient) newRequest(ctx context.Context) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", c.url, nil)
 	if err != nil {
-		return snapshot{}, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("x-flipt-accept-server-version", "1.47.0")
 
-	if e.authentication != nil {
-		switch auth := e.authentication.(type) {
+	if c.authentication != nil {
+		switch auth := c.authentication.(type) {
 		case clientTokenAuthentication:
 			req.Header.Set("Authorization", "Bearer "+auth.Token)
 		case jwtAuthentication:
 			req.Header.Set("Authorization", "JWT "+auth.Token)
 		}
 	}
+	return req, nil
+}
 
-	if etag != "" {
-		req.Header.Set("If-None-Match", etag)
-	}
+// fetch fetches the snapshot for the given namespace.
+func (c *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, error) {
+	return doWithRetry(ctx, func() (snapshot, error) {
+		req, err := c.newRequest(ctx)
+		if err != nil {
+			return snapshot{}, err
+		}
+		if etag != "" {
+			req.Header.Set("If-None-Match", etag)
+		}
 
-	resp, err := e.httpClient.Do(req)
-	if resp != nil {
-		defer func() {
-			io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-		}()
-	}
-	if err != nil {
-		return snapshot{}, fetchError(fmt.Errorf("failed to fetch snapshot: %w", err))
-	}
+		resp, err := c.httpClient.Do(req)
+		if resp != nil {
+			defer func() {
+				_, _ = io.Copy(io.Discard, resp.Body)
+				resp.Body.Close()
+			}()
+		}
 
-	// always read the entire body so the connection can be reused
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return snapshot{}, fetchError(fmt.Errorf("failed to read response body: %w", err))
-	}
+		if err != nil {
+			return snapshot{}, err
+		}
 
-	if resp.StatusCode == http.StatusNotModified {
-		return snapshot{etag: etag}, nil
-	}
+		// always read the entire body so the connection can be reused
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return snapshot{}, err
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		return snapshot{}, fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
-	}
+		if resp.StatusCode == http.StatusNotModified {
+			return snapshot{etag: etag}, nil
+		}
 
-	etag = resp.Header.Get("ETag")
-	return snapshot{payload: body, etag: etag}, nil
+		if resp.StatusCode != http.StatusOK {
+			// don't retry non-200 status codes as they are likely not transient
+			return snapshot{}, fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
+		}
+
+		etag = resp.Header.Get("ETag")
+		return snapshot{payload: body, etag: etag}, nil
+	})
 }
 
 type streamChunk struct {
@@ -678,92 +751,107 @@ type streamResult struct {
 }
 
 // startStreaming starts the background streaming.
-// Note: currently any errors cause this method to exit. We still need to implement retries for trying to reconnect.
-func (e *EvaluationClient) startStreaming(ctx context.Context) {
-	url := fmt.Sprintf("%s/internal/v1/evaluation/snapshots?[]namespaces=%s", e.url, e.namespace)
-
-	// create a new context for the streaming so any timeouts
-	// are independent of the client context
-	fctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(fctx, "GET", url, nil)
-	if err != nil {
-		e.errChan <- fmt.Errorf("failed to create request: %w", err)
-		return
-	}
-
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("x-flipt-accept-server-version", "1.47.0")
-
-	if e.authentication != nil {
-		switch auth := e.authentication.(type) {
-		case clientTokenAuthentication:
-			req.Header.Set("Authorization", "Bearer "+auth.Token)
-		case jwtAuthentication:
-			req.Header.Set("Authorization", "JWT "+auth.Token)
-		}
-	}
-
-	resp, err := e.httpClient.Do(req)
-	if resp != nil {
-		defer func() {
-			resp.Body.Close()
-		}()
-	}
-	if err != nil {
-		e.errChan <- fetchError(fmt.Errorf("failed to fetch snapshot: %w", err))
-		return
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		e.errChan <- fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
-		return
-	}
-
-	reader := bufio.NewReader(resp.Body)
+func (c *EvaluationClient) startStreaming(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			// create a channel to receive the read result
-			readChan := make(chan struct {
-				line []byte
-				err  error
-			})
+			if err := c.initiateStream(ctx); err != nil {
+				c.errChan <- err
+			}
+		}
+	}
+}
 
-			// start a goroutine to perform the blocking read
-			go func() {
-				line, err := reader.ReadBytes('\n')
-				readChan <- struct {
-					line []byte
-					err  error
-				}{line, err}
-			}()
+func (c *EvaluationClient) initiateStream(ctx context.Context) error {
+	_, err := doWithRetry(ctx, func() (struct{}, error) {
+		req, err := c.newRequest(ctx)
+		if err != nil {
+			return struct{}{}, err
+		}
 
-			// wait for either the read to complete or context cancellation
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return struct{}{}, err
+		}
+
+		defer func() {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+		}()
+
+		if resp.StatusCode != http.StatusOK {
+			// don't retry non-200 status codes as they are likely not transient
+			return struct{}{}, fetchError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
+		}
+
+		if err := c.handleStream(ctx, resp.Body); err != nil {
+			return struct{}{}, err
+		}
+
+		return struct{}{}, nil
+	})
+	return err
+}
+
+func (c *EvaluationClient) handleStream(ctx context.Context, r io.ReadCloser) error {
+	var (
+		reader   = bufio.NewReader(r)
+		readChan = make(chan struct {
+			line []byte
+			err  error
+		}, 1) // buffered channel to prevent goroutine leak
+	)
+
+	// start a goroutine to perform the blocking read
+	go func() {
+		defer close(readChan)
+		for {
 			select {
 			case <-ctx.Done():
 				return
-			case result := <-readChan:
-				if result.err != nil {
-					if errors.Is(result.err, io.EOF) {
-						return
-					}
-					e.errChan <- fetchError(fmt.Errorf("failed to read stream chunk: %w", result.err))
+			default:
+				line, err := reader.ReadBytes('\n')
+				select {
+				case <-ctx.Done():
 					return
+				case readChan <- struct {
+					line []byte
+					err  error
+				}{line, err}:
 				}
+			}
+		}
+	}()
 
-				var chunk streamChunk
-				if err := json.Unmarshal(result.line, &chunk); err != nil {
-					e.errChan <- fmt.Errorf("failed to unmarshal stream chunk: %w", err)
-					return
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case result, ok := <-readChan:
+			if !ok {
+				return nil
+			}
+
+			if result.err != nil {
+				if errors.Is(result.err, io.EOF) {
+					return nil
 				}
+				return fetchError(fmt.Errorf("failed to read stream chunk: %w", result.err))
+			}
 
-				for ns, payload := range chunk.Result.Namespaces {
-					if ns == e.namespace {
-						e.snapshotChan <- snapshot{payload: payload}
+			var chunk streamChunk
+			if err := json.Unmarshal(result.line, &chunk); err != nil {
+				return fmt.Errorf("failed to unmarshal stream chunk: %w", err)
+			}
+
+			for ns, payload := range chunk.Result.Namespaces {
+				if ns == c.namespace {
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case c.snapshotChan <- snapshot{payload: payload}:
 					}
 				}
 			}
@@ -772,17 +860,17 @@ func (e *EvaluationClient) startStreaming(ctx context.Context) {
 }
 
 // evaluateWASM evaluates the given function name with the given request.
-func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, request any) ([]byte, error) {
-	if e.engine == 0 {
+func (c *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, request any) ([]byte, error) {
+	if c.engine == 0 {
 		return nil, errors.New("engine not initialized")
 	}
 
-	e.mu.RLock()
-	if e.err != nil && e.errorStrategy == ErrorStrategyFail {
-		e.mu.RUnlock()
-		return nil, e.err
+	c.mu.RLock()
+	if c.err != nil && c.errorStrategy == ErrorStrategyFail {
+		c.mu.RUnlock()
+		return nil, c.err
 	}
-	e.mu.RUnlock()
+	c.mu.RUnlock()
 
 	reqBytes, err := json.Marshal(request)
 	if err != nil {
@@ -790,26 +878,34 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 	}
 
 	var (
-		allocFunc   = e.exportedFuncs[fAllocate]
-		deallocFunc = e.exportedFuncs[fDeallocate]
+		allocFunc   = c.exportedFuncs[fAllocate]
+		deallocFunc = c.exportedFuncs[fDeallocate]
 	)
-	e.mu.Lock()
+
+	c.mu.Lock()
 	reqPtr, err := allocFunc.Call(ctx, uint64(len(reqBytes)))
 	if err != nil {
-		e.mu.Unlock()
+		c.mu.Unlock()
 		return nil, fmt.Errorf("failed to allocate memory for request: %w", err)
 	}
 
-	if !e.mod.Memory().Write(uint32(reqPtr[0]), reqBytes) {
+	if !c.mod.Memory().Write(uint32(reqPtr[0]), reqBytes) {
 		deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
-		e.mu.Unlock()
+		c.mu.Unlock()
 		return nil, fmt.Errorf("failed to write request to memory")
 	}
 
-	res, err := e.exportedFuncs[funcName].Call(ctx, uint64(e.engine), reqPtr[0], uint64(len(reqBytes)))
+	evalFunc, ok := c.exportedFuncs[funcName]
+	if !ok {
+		deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
+		c.mu.Unlock()
+		return nil, fmt.Errorf("failed to call %s: function not found", funcName)
+	}
+
+	res, err := evalFunc.Call(ctx, uint64(c.engine), reqPtr[0], uint64(len(reqBytes)))
 	if err != nil {
 		deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
-		e.mu.Unlock()
+		c.mu.Unlock()
 		return nil, fmt.Errorf("failed to call %s: %w", funcName, err)
 	}
 
@@ -817,15 +913,15 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 	deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
 
 	if len(res) < 1 {
-		e.mu.Unlock()
+		c.mu.Unlock()
 		return nil, fmt.Errorf("failed to call %s: no result returned", funcName)
 	}
 
 	ptr, length := decodePtr(res[0])
-	b, ok := e.mod.Memory().Read(ptr, length)
+	b, ok := c.mod.Memory().Read(ptr, length)
 	if !ok {
 		deallocFunc.Call(ctx, uint64(ptr), uint64(length))
-		e.mu.Unlock()
+		c.mu.Unlock()
 		return nil, fmt.Errorf("failed to read result from memory")
 	}
 
@@ -835,7 +931,39 @@ func (e *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 
 	// clean up result memory
 	deallocFunc.Call(ctx, uint64(ptr), uint64(length))
-	e.mu.Unlock()
+	c.mu.Unlock()
 
 	return result, nil
+}
+
+// isTransientError determines if an error is transient and should be retried
+func isTransientError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// check for network errors
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return netErr.Timeout()
+	}
+
+	// check for specific network operation errors
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		return opErr.Temporary() || opErr.Timeout()
+	}
+
+	// check for DNS temporary failures
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return dnsErr.Temporary()
+	}
+
+	// some errors are always considered temporary
+	if errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
+
+	return false
 }
