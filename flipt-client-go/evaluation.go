@@ -679,26 +679,33 @@ func doWithRetry[T any](ctx context.Context, fn func() (T, error)) (T, error) {
 	return zero, fmt.Errorf("failed after %d retries, last error: %w", maxRetries, lastErr)
 }
 
+func (c *EvaluationClient) newRequest(ctx context.Context) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", c.url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("x-flipt-accept-server-version", "1.47.0")
+
+	if c.authentication != nil {
+		switch auth := c.authentication.(type) {
+		case clientTokenAuthentication:
+			req.Header.Set("Authorization", "Bearer "+auth.Token)
+		case jwtAuthentication:
+			req.Header.Set("Authorization", "JWT "+auth.Token)
+		}
+	}
+	return req, nil
+}
+
 // fetch fetches the snapshot for the given namespace.
 func (c *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, error) {
 	return doWithRetry(ctx, func() (snapshot, error) {
-		req, err := http.NewRequestWithContext(ctx, "GET", c.url, nil)
+		req, err := c.newRequest(ctx)
 		if err != nil {
-			return snapshot{}, fmt.Errorf("failed to create request: %w", err)
+			return snapshot{}, err
 		}
-
-		req.Header.Set("Accept", "application/json")
-		req.Header.Set("x-flipt-accept-server-version", "1.47.0")
-
-		if c.authentication != nil {
-			switch auth := c.authentication.(type) {
-			case clientTokenAuthentication:
-				req.Header.Set("Authorization", "Bearer "+auth.Token)
-			case jwtAuthentication:
-				req.Header.Set("Authorization", "JWT "+auth.Token)
-			}
-		}
-
 		if etag != "" {
 			req.Header.Set("If-None-Match", etag)
 		}
@@ -706,7 +713,7 @@ func (c *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, er
 		resp, err := c.httpClient.Do(req)
 		if resp != nil {
 			defer func() {
-				io.Copy(io.Discard, resp.Body)
+				_, _ = io.Copy(io.Discard, resp.Body)
 				resp.Body.Close()
 			}()
 		}
@@ -745,38 +752,34 @@ type streamResult struct {
 
 // startStreaming starts the background streaming.
 func (c *EvaluationClient) startStreaming(ctx context.Context) {
-	if err := c.initiateStream(ctx); err != nil {
-		c.errChan <- err
-		return
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			if err := c.initiateStream(ctx); err != nil {
+				c.errChan <- err
+			}
+		}
 	}
 }
 
 func (c *EvaluationClient) initiateStream(ctx context.Context) error {
 	_, err := doWithRetry(ctx, func() (struct{}, error) {
-		req, err := http.NewRequestWithContext(ctx, "GET", c.url, nil)
-		if err != nil {
-			return struct{}{}, fmt.Errorf("failed to create request: %w", err)
-		}
-
-		req.Header.Set("Accept", "application/json")
-		req.Header.Set("x-flipt-accept-server-version", "1.47.0")
-
-		if c.authentication != nil {
-			switch auth := c.authentication.(type) {
-			case clientTokenAuthentication:
-				req.Header.Set("Authorization", "Bearer "+auth.Token)
-			case jwtAuthentication:
-				req.Header.Set("Authorization", "JWT "+auth.Token)
-			}
-		}
-
-		resp, err := c.httpClient.Do(req)
-		if resp != nil {
-			defer resp.Body.Close()
-		}
+		req, err := c.newRequest(ctx)
 		if err != nil {
 			return struct{}{}, err
 		}
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return struct{}{}, err
+		}
+
+		defer func() {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+		}()
 
 		if resp.StatusCode != http.StatusOK {
 			// don't retry non-200 status codes as they are likely not transient
@@ -803,6 +806,7 @@ func (c *EvaluationClient) handleStream(ctx context.Context, r io.ReadCloser) er
 
 	// start a goroutine to perform the blocking read
 	go func() {
+		defer close(readChan)
 		for {
 			select {
 			case <-ctx.Done():

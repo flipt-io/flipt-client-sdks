@@ -102,7 +102,7 @@ func (s *EvaluationTestSuite) TestBatch() {
 	s.Len(batch.Responses, 3)
 
 	variant := batch.Responses[0]
-	s.Equal("VARIANT_EVALUATION_RESPONSE_TYPE", variant.Type)
+	s.Require().Equal("VARIANT_EVALUATION_RESPONSE_TYPE", variant.Type)
 	s.True(variant.VariantEvaluationResponse.Match)
 	s.Equal("flag1", variant.VariantEvaluationResponse.FlagKey)
 	s.Equal("MATCH_EVALUATION_REASON", variant.VariantEvaluationResponse.Reason)
