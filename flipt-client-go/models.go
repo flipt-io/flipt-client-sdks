@@ -28,15 +28,6 @@ const (
 	ErrorStrategyFallback ErrorStrategy = "fallback"
 )
 
-type clientOptions[T any] struct {
-	URL            string        `json:"url,omitempty"`
-	Authentication *T            `json:"authentication,omitempty"`
-	UpdateInterval int           `json:"update_interval,omitempty"`
-	Reference      string        `json:"reference,omitempty"`
-	FetchMode      FetchMode     `json:"fetch_mode,omitempty"`
-	ErrorStrategy  ErrorStrategy `json:"error_strategy,omitempty"`
-}
-
 type Flag struct {
 	Key     string `json:"key"`
 	Enabled bool   `json:"enabled"`
