@@ -52,7 +52,7 @@ jobs:
         run: which wasm-opt || cargo install wasm-opt
 
       - name: Wasm-pack
-        run: wasm-pack build --target ${matrix.target}
+        run: "wasm-pack build --target ${{ matrix.target }}"
 
       - name: Package
         run: |
