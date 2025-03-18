@@ -106,6 +106,7 @@ pub struct HTTPFetcherBuilder {
     namespace: String,
     authentication: HeaderMap,
     reference: Option<String>,
+    request_timeout: Option<Duration>,
     update_interval: Duration,
     mode: FetchMode,
 }
@@ -120,6 +121,8 @@ struct StreamResult {
     namespaces: std::collections::HashMap<String, source::Document>,
 }
 
+static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
+
 impl HTTPFetcherBuilder {
     pub fn new(base_url: &str, namespace: &str) -> Self {
         Self {
@@ -127,6 +130,7 @@ impl HTTPFetcherBuilder {
             namespace: namespace.to_string(),
             authentication: HeaderMap::new(),
             reference: None,
+            request_timeout: None,
             update_interval: Duration::from_secs(120),
             mode: FetchMode::default(),
         }
@@ -142,6 +146,11 @@ impl HTTPFetcherBuilder {
         self
     }
 
+    pub fn request_timeout(mut self, request_timeout: Duration) -> Self {
+        self.request_timeout = Some(request_timeout);
+        self
+    }
+
     pub fn update_interval(mut self, update_interval: Duration) -> Self {
         self.update_interval = update_interval;
         self
@@ -152,16 +161,29 @@ impl HTTPFetcherBuilder {
         self
     }
 
-    pub fn build(self) -> HTTPFetcher {
+    pub fn build(self) -> Result<HTTPFetcher, Error> {
         let retry_policy = ExponentialBackoff::builder()
             .retry_bounds(Duration::from_secs(1), Duration::from_secs(30))
             .jitter(Jitter::Full)
             .build_with_max_retries(3);
 
-        HTTPFetcher {
+        let mut client_builder = reqwest::Client::builder().user_agent(USER_AGENT);
+
+        if let Some(request_timeout) = self.request_timeout {
+            // only set timeout for polling mode
+            if request_timeout.as_nanos() > 0 && matches!(self.mode, FetchMode::Polling) {
+                client_builder = client_builder.timeout(request_timeout);
+            }
+        }
+
+        let client = client_builder
+            .build()
+            .map_err(|e| Error::Internal(format!("failed to create client: {}", e)))?;
+
+        Ok(HTTPFetcher {
             base_url: self.base_url,
             namespace: self.namespace,
-            http_client: ClientBuilder::new(reqwest::Client::new())
+            http_client: ClientBuilder::new(client)
                 .with(RetryTransientMiddleware::new_with_policy(retry_policy))
                 .build(),
             authentication: self.authentication,
@@ -169,7 +191,7 @@ impl HTTPFetcherBuilder {
             reference: self.reference,
             update_interval: self.update_interval,
             mode: self.mode,
-        }
+        })
     }
 }
 
@@ -335,7 +357,7 @@ impl HTTPFetcher {
         sender
             .send(result)
             .await
-            .map_err(|_| Error::Server("failed to send result".into()))
+            .map_err(|_| Error::Internal("failed to send result".into()))
     }
 
     async fn handle_streaming(
@@ -380,7 +402,7 @@ impl HTTPFetcher {
                     match sender.send(value).await {
                         Ok(_) => continue,
                         Err(e) => {
-                            return Err(Error::Server(format!(
+                            return Err(Error::Internal(format!(
                                 "failed to send result to engine {}",
                                 e
                             )))
@@ -394,7 +416,7 @@ impl HTTPFetcher {
             Err(e) => sender
                 .send(Err(e.clone()))
                 .await
-                .map_err(|_| Error::Server("failed to send error".into())),
+                .map_err(|_| Error::Internal("failed to send error".into())),
         }
     }
 }
@@ -424,7 +446,8 @@ mod tests {
         let url = server.url();
         let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
             .authentication(Authentication::None)
-            .build();
+            .build()
+            .unwrap();
 
         let result = fetcher.fetch().await;
 
@@ -452,7 +475,8 @@ mod tests {
         let url = server.url();
         let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
             .reference("123")
-            .build();
+            .build()
+            .unwrap();
 
         let result = fetcher.fetch().await;
 
@@ -475,7 +499,8 @@ mod tests {
         let url = server.url();
         let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
             .authentication(Authentication::None)
-            .build();
+            .build()
+            .unwrap();
 
         fetcher.etag = Some("etag".to_string());
 
@@ -500,7 +525,8 @@ mod tests {
         let url = server.url();
         let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
             .authentication(Authentication::None)
-            .build();
+            .build()
+            .unwrap();
 
         let result = fetcher.fetch().await;
 
@@ -524,7 +550,8 @@ mod tests {
         let url = server.url();
         let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
             .authentication(Authentication::ClientToken("foo".to_string()))
-            .build();
+            .build()
+            .unwrap();
 
         let result = fetcher.fetch().await;
 
@@ -547,7 +574,8 @@ mod tests {
         let url = server.url();
         let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
             .authentication(Authentication::JwtToken("foo".to_string()))
-            .build();
+            .build()
+            .unwrap();
 
         let result = fetcher.fetch().await;
 
@@ -570,7 +598,8 @@ mod tests {
         let url = server.url();
         let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
             .authentication(Authentication::JwtToken("foo".to_string()))
-            .build();
+            .build()
+            .unwrap();
 
         let result = fetcher.fetch().await;
 
@@ -603,7 +632,8 @@ mod tests {
         let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
             .authentication(Authentication::None)
             .mode(FetchMode::Streaming)
-            .build();
+            .build()
+            .unwrap();
 
         let (tx, mut rx) = mpsc::channel(4);
         let result = fetcher.handle_streaming(&tx).await;
@@ -642,7 +672,8 @@ mod tests {
         let url = server.url();
         let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
             .authentication(Authentication::None)
-            .build();
+            .build()
+            .unwrap();
 
         let result = fetcher.initial_fetch().await;
 

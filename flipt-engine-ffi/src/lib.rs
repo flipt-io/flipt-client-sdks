@@ -86,6 +86,7 @@ fn result_to_json_ptr<T: Serialize, E: std::error::Error>(result: Result<T, E>) 
 pub struct EngineOpts {
     url: Option<String>,
     authentication: Option<Authentication>,
+    request_timeout: Option<u64>,
     update_interval: Option<u64>,
     fetch_mode: Option<FetchMode>,
     reference: Option<String>,
@@ -97,6 +98,7 @@ impl Default for EngineOpts {
         Self {
             url: Some("http://localhost:8080".into()),
             authentication: None,
+            request_timeout: None,
             update_interval: Some(120),
             reference: None,
             fetch_mode: Some(FetchMode::default()),
@@ -407,6 +409,10 @@ unsafe extern "C" fn _initialize_engine(
             namespace,
         );
 
+        if let Some(request_timeout) = engine_opts.request_timeout {
+            fetcher_builder = fetcher_builder.request_timeout(Duration::from_secs(request_timeout));
+        }
+
         if let Some(update_interval) = engine_opts.update_interval {
             fetcher_builder = fetcher_builder.update_interval(Duration::from_secs(update_interval));
         }
@@ -423,7 +429,8 @@ unsafe extern "C" fn _initialize_engine(
             fetcher_builder = fetcher_builder.reference(reference);
         }
 
-        let fetcher = fetcher_builder.build();
+        let fetcher = fetcher_builder.build().unwrap();
+
         let evaluator = Evaluator::new(namespace);
 
         let engine = Engine::new(
