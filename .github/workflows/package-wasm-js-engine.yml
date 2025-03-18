@@ -20,7 +20,7 @@ jobs:
       matrix:
         target:
           - web
-          - node
+          - nodejs
 
     runs-on: ubuntu-latest
     env:
@@ -52,7 +52,10 @@ jobs:
         run: cargo install -f wasm-opt
 
       - name: Wasm-pack
-        run: "wasm-pack build --target ${{ matrix.target }}"
+        run: |
+          pushd flipt-engine-wasm-js
+          wasm-pack build --target ${{ matrix.target }}
+          popd
 
       - name: Package
         run: |
