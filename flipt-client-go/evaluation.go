@@ -148,6 +148,9 @@ type fetchError struct {
 }
 
 func (e fetchError) Error() string {
+	if e.err == nil {
+		return fmt.Sprintf("fetch error: %d", e.code)
+	}
 	return e.err.Error()
 }
 
