@@ -39,7 +39,7 @@ jobs:
         run: cargo build --release --package flipt-engine-wasm --target wasm32-wasip1
 
       - name: Install wasm-opt
-        run: which wasm-opt || cargo install wasm-opt
+        run: cargo install -f wasm-opt
 
       - name: Wasm-opt
         run: wasm-opt --converge --flatten --rereloop -Oz -Oz --gufa -o target/wasm32-wasip1/release/flipt_engine_wasm.wasm target/wasm32-wasip1/release/flipt_engine_wasm.wasm

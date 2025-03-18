@@ -46,10 +46,10 @@ jobs:
         run: cargo build --release --package flipt-engine-wasm-js
 
       - name: Install wasm-pack
-        run: which wasm-pack || cargo install wasm-pack
+        run: cargo install -f wasm-pack
 
       - name: Install wasm-opt
-        run: which wasm-opt || cargo install wasm-opt
+        run: cargo install -f wasm-opt
 
       - name: Wasm-pack
         run: "wasm-pack build --target ${{ matrix.target }}"
