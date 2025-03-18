@@ -11,7 +11,9 @@ fn main() {
     let namespace = "default";
     let fetcher = HTTPFetcherBuilder::new("http://localhost:8080", namespace)
         .authentication(Authentication::with_client_token("secret".into()))
-        .build();
+        .build()
+        .unwrap();
+
     let evaluator = Evaluator::new(namespace);
 
     let engine = fliptengine::Engine::new(namespace, fetcher, evaluator, ErrorStrategy::Fail);
