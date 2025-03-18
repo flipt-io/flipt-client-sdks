@@ -37,6 +37,20 @@ By default, the SDK will poll the Flipt server for new flag state at a regular i
 
 When in streaming mode, the SDK will connect to the Flipt server and open a persistent connection that will remain open until the client is closed. The SDK will then receive flag state changes in real-time.
 
+### Retries
+
+The SDK will automatically retry fetching (or initiating streaming) flag state if the client is unable to reach the Flipt server temporarily.
+
+The SDK will retry up to 3 times with an exponential backoff interval between retries. The base delay is 1 second and the maximum delay is 30 seconds.
+
+Retriable errors include:
+
+- `429 Too Many Requests`
+- `502 Bad Gateway`
+- `503 Service Unavailable`
+- `504 Gateway Timeout`
+- Other potential transient network or DNS errors
+
 ## Supported Architectures
 
 This SDK currently supports the following OSes/architectures:
