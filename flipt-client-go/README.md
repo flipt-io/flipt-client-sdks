@@ -100,6 +100,7 @@ The `NewClient` constructor accepts a variadic number of `ClientOption` function
 
 - `WithNamespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
 - `WithURL`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
+- `WithRequestTimeout`: The timeout (in seconds) for total request time to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.
 - `WithUpdateInterval`: The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
 - `With{Method}Authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
 - `WithReference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
