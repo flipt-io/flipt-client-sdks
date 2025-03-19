@@ -8,6 +8,7 @@ import java.util.Optional;
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public class ClientOptions {
   private final Optional<String> url;
+  private final Optional<Long> requestTimeout;
   private final Optional<Long> updateInterval;
   private final Optional<AuthenticationStrategy> authentication;
   private final Optional<String> reference;
