@@ -7,4 +7,5 @@ import kotlinx.serialization.Serializable
 class ErrorEvaluationResponse(
     @SerialName("flag_key") val flagKey: String,
     @SerialName("namespace_key") val namespaceKey: String,
-    @SerialName("reason") val reason: String)
+    @SerialName("reason") val reason: String,
+)

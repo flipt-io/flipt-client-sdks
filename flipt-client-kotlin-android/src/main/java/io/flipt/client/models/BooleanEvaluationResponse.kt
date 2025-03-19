@@ -9,5 +9,5 @@ data class BooleanEvaluationResponse(
     @SerialName("flag_key") val flagKey: String,
     @SerialName("reason") val reason: String,
     @SerialName("request_duration_millis") val requestDurationMillis: Float,
-    @SerialName("timestamp") val timestamp: String
+    @SerialName("timestamp") val timestamp: String,
 )

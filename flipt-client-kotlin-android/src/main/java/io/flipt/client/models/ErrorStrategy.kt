@@ -10,4 +10,3 @@ enum class ErrorStrategy {
     @SerialName("fallback")
     FALLBACK,
 }
-

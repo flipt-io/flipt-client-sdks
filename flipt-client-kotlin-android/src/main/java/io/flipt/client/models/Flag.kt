@@ -7,5 +7,5 @@ import kotlinx.serialization.Serializable
 data class Flag(
     @SerialName("key") val key: String,
     @SerialName("enabled") val enabled: Boolean,
-    @SerialName("type") val type: String
+    @SerialName("type") val type: String,
 )
