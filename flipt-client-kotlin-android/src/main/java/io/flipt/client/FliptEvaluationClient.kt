@@ -4,13 +4,12 @@ import io.flipt.client.models.AuthenticationStrategy
 import io.flipt.client.models.BatchEvaluationResponse
 import io.flipt.client.models.BooleanEvaluationResponse
 import io.flipt.client.models.ClientOptions
+import io.flipt.client.models.ErrorStrategy
 import io.flipt.client.models.EvaluationRequest
 import io.flipt.client.models.FetchMode
 import io.flipt.client.models.Flag
 import io.flipt.client.models.Result
 import io.flipt.client.models.VariantEvaluationResponse
-import io.flipt.client.models.ErrorStrategy
-import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -18,12 +17,16 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.time.Duration
 
-class FliptEvaluationClient(namespace: String, options: ClientOptions) {
+class FliptEvaluationClient(
+    namespace: String,
+    options: ClientOptions,
+) {
     private var engine: Long = 0
-    private val json = Json {
-        encodeDefaults = false
-        ignoreUnknownKeys = true
-    }
+    private val json =
+        Json {
+            encodeDefaults = false
+            ignoreUnknownKeys = true
+        }
 
     init {
         val clientOptionsSerialized = json.encodeToString(options)
@@ -119,15 +122,15 @@ class FliptEvaluationClient(namespace: String, options: ClientOptions) {
         }
 
         /**
-        * errorStrategy defines the behavior how to react to issues with fetching the state from
-        * server.
-        *
-        * @param errorStrategy the error strategy
-        * @return the FliptEvaluationClientBuilder
-        */
+         * errorStrategy defines the behavior how to react to issues with fetching the state from
+         * server.
+         *
+         * @param errorStrategy the error strategy
+         * @return the FliptEvaluationClientBuilder
+         */
         fun errorStrategy(errorStrategy: ErrorStrategy): FliptEvaluationClientBuilder {
-          this.errorStrategy = errorStrategy
-          return this
+            this.errorStrategy = errorStrategy
+            return this
         }
 
         /**
@@ -138,17 +141,19 @@ class FliptEvaluationClient(namespace: String, options: ClientOptions) {
          */
         @Throws(EvaluationException::class)
         fun build(): FliptEvaluationClient {
-            val requestTimeout = if (this.requestTimeout != null) {
-                this.requestTimeout?.inWholeSeconds
-            } else {
-                null
-            }
+            val requestTimeout =
+                if (this.requestTimeout != null) {
+                    this.requestTimeout?.inWholeSeconds
+                } else {
+                    null
+                }
 
-            val updateInterval = if (this.updateInterval != null) {
-                this.updateInterval?.inWholeSeconds
-            } else {
-                null
-            }
+            val updateInterval =
+                if (this.updateInterval != null) {
+                    this.updateInterval?.inWholeSeconds
+                } else {
+                    null
+                }
 
             return FliptEvaluationClient(
                 namespace,
@@ -159,24 +164,23 @@ class FliptEvaluationClient(namespace: String, options: ClientOptions) {
                     authentication,
                     reference,
                     fetchMode,
-                    errorStrategy
-                )
+                    errorStrategy,
+                ),
             )
         }
     }
-
 
     @Serializable
     internal data class InternalEvaluationRequest(
         @SerialName("flag_key") val flagKey: String,
         @SerialName("entity_id") val entityId: String,
-        @SerialName("context") val context: Map<String, String>
+        @SerialName("context") val context: Map<String, String>,
     )
 
     fun evaluateVariant(
         flagKey: String,
         entityId: String,
-        context: Map<String, String>
+        context: Map<String, String>,
     ): VariantEvaluationResponse {
         val evaluationRequest = InternalEvaluationRequest(flagKey, entityId, context)
         val evaluationRequestSerialized = json.encodeToString(evaluationRequest)
@@ -192,7 +196,7 @@ class FliptEvaluationClient(namespace: String, options: ClientOptions) {
     fun evaluateBoolean(
         flagKey: String,
         entityId: String,
-        context: Map<String, String>
+        context: Map<String, String>,
     ): BooleanEvaluationResponse? {
         val evaluationRequest = InternalEvaluationRequest(flagKey, entityId, context)
         val evaluationRequestSerialized = json.encodeToString(evaluationRequest)
@@ -215,10 +219,11 @@ class FliptEvaluationClient(namespace: String, options: ClientOptions) {
         val batchEvaluationRequestSerialized = json.encodeToString(evaluationrequests)
         val value = CLibrary.INSTANCE.evaluateBatch(engine, batchEvaluationRequestSerialized)
 
-        val resp: Result<BatchEvaluationResponse> = json.decodeFromString(
-            Result.serializer(BatchEvaluationResponse.serializer()),
-            value
-        )
+        val resp: Result<BatchEvaluationResponse> =
+            json.decodeFromString(
+                Result.serializer(BatchEvaluationResponse.serializer()),
+                value,
+            )
 
         return resp.result ?: throw EvaluationException(resp.errorMessage ?: "Unknown Error")
     }
@@ -234,8 +239,6 @@ class FliptEvaluationClient(namespace: String, options: ClientOptions) {
     }
 
     companion object {
-        fun builder(): FliptEvaluationClientBuilder {
-            return FliptEvaluationClientBuilder()
-        }
+        fun builder(): FliptEvaluationClientBuilder = FliptEvaluationClientBuilder()
     }
 }

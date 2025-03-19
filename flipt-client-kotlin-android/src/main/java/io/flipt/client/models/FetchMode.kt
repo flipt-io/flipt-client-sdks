@@ -8,5 +8,5 @@ enum class FetchMode {
     POLLING,
 
     @SerialName("streaming")
-    STREAMING
+    STREAMING,
 }

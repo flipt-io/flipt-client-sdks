@@ -7,13 +7,10 @@ import kotlinx.serialization.Serializable
 data class Response(
     @SerialName("type")
     val type: String,
-
     @SerialName("variant_evaluation_response")
     val variantEvaluationResponse: VariantEvaluationResponse?,
-
     @SerialName("boolean_evaluation_response")
     val booleanEvaluationResponse: BooleanEvaluationResponse?,
-
     @SerialName("error_evaluation_response")
-    val errorEvaluationResponse: ErrorEvaluationResponse?
+    val errorEvaluationResponse: ErrorEvaluationResponse?,
 )
