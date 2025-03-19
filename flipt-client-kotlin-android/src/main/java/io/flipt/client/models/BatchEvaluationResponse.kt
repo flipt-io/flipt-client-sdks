@@ -6,5 +6,5 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class BatchEvaluationResponse(
     @SerialName("responses") val responses: Array<Response>,
-    @SerialName("request_duration_millis") val requestDurationMillis: Float
+    @SerialName("request_duration_millis") val requestDurationMillis: Float,
 )

@@ -133,7 +133,6 @@ jobs:
         working-directory: flipt-client-kotlin-android
         run: |
           chmod +x ./gradlew
-          ./gradlew ktlintFormat --continue
           ./gradlew ktlintCheck
 
   lint-go:

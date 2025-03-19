@@ -6,5 +6,5 @@ import kotlinx.serialization.Serializable
 data class EvaluationRequest(
     val flagKey: String,
     val entityId: String,
-    val context: Map<String, String>
+    val context: Map<String, String>,
 )

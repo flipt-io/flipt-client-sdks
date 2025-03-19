@@ -12,5 +12,5 @@ data class VariantEvaluationResponse(
     @SerialName("variant_key")val variantKey: String? = null,
     @SerialName("variant_attachment")val variantAttachment: String? = null,
     @SerialName("request_duration_millis")val requestDurationMillis: Float? = null,
-    @SerialName("timestamp")val timestamp: String? = null
+    @SerialName("timestamp")val timestamp: String? = null,
 )
