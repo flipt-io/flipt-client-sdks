@@ -19,9 +19,15 @@ class JavaSDK(SDK):
         with open(file_path, "r") as f:
             content = f.read()
 
+        # Find the original quote character used
+        match = re.search(r'version\s*=\s*(["\'])([^"\']+)\1', content)
+        if not match:
+            raise ValueError("Could not find version with quotes in build.gradle")
+        
+        quote = match.group(1)  # Capture the quote character used
         updated_content = re.sub(
-            r'(version\s*=\s*["\'])[^"\']+["\']', 
-            f"\\g<1>{new_version}\"", 
+            r'version\s*=\s*["\'][^"\']+["\']', 
+            f'version = {quote}{new_version}{quote}', 
             content
         )
 

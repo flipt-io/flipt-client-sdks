@@ -19,19 +19,29 @@ class AndroidSDK(SDK):
         with open(file_path, "r") as f:
             content = f.read()
 
+        # Find the original quote character used for version
+        version_match = re.search(r'version\s*=\s*(["\'])([^"\']+)\1', content)
+        if not version_match:
+            raise ValueError("Could not find version with quotes in build.gradle")
+        version_quote = version_match.group(1)
+
         # First update version
         updated_content = re.sub(
-            r'(version\s*=\s*["\'])[^"\']+["\']', 
-            f"\\g<1>{new_version}\"", 
+            r'version\s*=\s*["\'][^"\']+["\']',
+            f'version = {version_quote}{new_version}{version_quote}',
             content
         )
 
-        # Second update versionName
-        updated_content = re.sub(
-            r'(versionName\s+)["\']([^"\']+)["\']', 
-            f"\\g<1>\"{new_version}\"", 
-            updated_content
-        )
+        # Find the original quote character used for versionName
+        version_name_match = re.search(r'versionName\s+(["\'])([^"\']+)\1', updated_content)
+        if version_name_match:
+            version_name_quote = version_name_match.group(1)
+            # Second update versionName
+            updated_content = re.sub(
+                r'versionName\s+["\'][^"\']+["\']',
+                f'versionName {version_name_quote}{new_version}{version_name_quote}',
+                updated_content
+            )
 
         # Then increment versionCode
         updated_content = re.sub(
