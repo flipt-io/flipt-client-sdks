@@ -7,6 +7,7 @@ public class FliptClient {
     private var url: String = ""
     private var authentication: Authentication?
     private var ref: String = ""
+    private var requestTimeout: Int = 0
     private var updateInterval: Int = 0
     private var fetchMode: FetchMode = .polling
     private var errorStrategy: ErrorStrategy = .fail
@@ -15,6 +16,7 @@ public class FliptClient {
          url: String = "",
          authentication: Authentication? = nil,
          ref: String = "",
+         requestTimeout: Int = 0,
          updateInterval: Int = 120,
          fetchMode: FetchMode = .polling,
          errorStrategy: ErrorStrategy = .fail) throws {
@@ -22,6 +24,7 @@ public class FliptClient {
         self.url = url
         self.authentication = authentication
         self.ref = ref
+        self.requestTimeout = requestTimeout
         self.updateInterval = updateInterval
         self.fetchMode = fetchMode
         self.errorStrategy = errorStrategy
@@ -29,6 +32,7 @@ public class FliptClient {
         let clientOptions = ClientOptions(
             url: url,
             authentication: authentication,
+            requestTimeout: requestTimeout,
             updateInterval: updateInterval,
             reference: ref,
             fetchMode: fetchMode,

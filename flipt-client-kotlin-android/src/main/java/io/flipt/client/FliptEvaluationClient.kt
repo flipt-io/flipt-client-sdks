@@ -35,7 +35,8 @@ class FliptEvaluationClient(namespace: String, options: ClientOptions) {
         private var url = "http://localhost:8080"
         private var authentication: AuthenticationStrategy? = null
         private var reference: String? = null
-        private var updateInterval: Long? = null
+        private var requestTimeout: Duration? = null
+        private var updateInterval: Duration? = null
         private var fetchMode = FetchMode.polling
         private var errorStrategy = ErrorStrategy.FAIL
 
@@ -73,12 +74,23 @@ class FliptEvaluationClient(namespace: String, options: ClientOptions) {
         }
 
         /**
+         * requestTimeout sets the request timeout for the Flipt server.
+         *
+         * @param requestTimeout the request timeout for the Flipt server
+         * @return the FliptEvaluationClientBuilder
+         */
+        fun requestTimeout(requestTimeout: Duration?): FliptEvaluationClientBuilder {
+            this.requestTimeout = requestTimeout
+            return this
+        }
+
+        /**
          * updateInterval sets the update interval for the Flipt server.
          *
          * @param updateInterval the update interval for the Flipt server
          * @return the FliptEvaluationClientBuilder
          */
-        fun updateInterval(updateInterval: Long?): FliptEvaluationClientBuilder {
+        fun updateInterval(updateInterval: Duration?): FliptEvaluationClientBuilder {
             this.updateInterval = updateInterval
             return this
         }
@@ -126,10 +138,23 @@ class FliptEvaluationClient(namespace: String, options: ClientOptions) {
          */
         @Throws(EvaluationException::class)
         fun build(): FliptEvaluationClient {
+            val requestTimeout = if (this.requestTimeout != null) {
+                this.requestTimeout?.inWholeSeconds
+            } else {
+                null
+            }
+
+            val updateInterval = if (this.updateInterval != null) {
+                this.updateInterval?.inWholeSeconds
+            } else {
+                null
+            }
+
             return FliptEvaluationClient(
                 namespace,
                 ClientOptions(
                     url,
+                    requestTimeout,
                     updateInterval,
                     authentication,
                     reference,

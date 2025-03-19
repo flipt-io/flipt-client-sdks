@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ClientOptions(
     @SerialName("url")private val url: String?,
+    @SerialName("request_timeout")private val requestTimeout: Long?,
     @SerialName("update_interval")private val updateInterval: Long?,
     @SerialName("authentication")private val authentication: AuthenticationStrategy?,
     @SerialName("reference")private val reference: String?,

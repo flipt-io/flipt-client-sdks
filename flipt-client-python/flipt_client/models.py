@@ -34,6 +34,7 @@ class ErrorStrategy(Enum):
 
 class ClientOptions(BaseModel):
     url: Optional[str] = None
+    request_timeout: Optional[int] = None
     update_interval: Optional[int] = None
     authentication: Optional[AuthenticationStrategy] = None
     reference: Optional[str] = None

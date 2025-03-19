@@ -9,6 +9,10 @@ namespace FliptClient.Models
         public string Url { get; set; } = "http://localhost:8080";
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        [JsonPropertyName("request_timeout")]
+        public int RequestTimeout { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("update_interval")]
         public int UpdateInterval { get; set; } = 120;
 

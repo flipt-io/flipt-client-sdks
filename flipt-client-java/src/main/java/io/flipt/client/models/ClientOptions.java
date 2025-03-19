@@ -16,6 +16,7 @@ public class ClientOptions {
 
   public ClientOptions(
       Optional<String> url,
+      Optional<Duration> requestTimeout,
       Optional<Duration> updateInterval,
       Optional<AuthenticationStrategy> authentication,
       Optional<String> reference,
@@ -25,11 +26,17 @@ public class ClientOptions {
     this.authentication = authentication;
     this.reference = reference;
 
+    Optional<Long> setRequestTimeout = Optional.empty();
+    if (requestTimeout.isPresent()) {
+      setRequestTimeout = Optional.of(requestTimeout.get().getSeconds());
+    }
+
     Optional<Long> setUpdateInterval = Optional.empty();
     if (updateInterval.isPresent()) {
       setUpdateInterval = Optional.of(updateInterval.get().getSeconds());
     }
 
+    this.requestTimeout = setRequestTimeout;
     this.updateInterval = setUpdateInterval;
     this.fetchMode = fetchMode;
     this.errorStrategy = errorStrategy;
@@ -38,6 +45,11 @@ public class ClientOptions {
   @JsonProperty("url")
   public Optional<String> getUrl() {
     return url;
+  }
+
+  @JsonProperty("request_timeout")
+  public Optional<Long> getRequestTimeout() {
+    return requestTimeout;
   }
 
   @JsonProperty("update_interval")

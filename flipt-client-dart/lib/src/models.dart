@@ -21,6 +21,7 @@ enum ErrorStrategy{
 class Options {
   final String? url;
   final String? reference;
+  final int? requestTimeout;
   final int? updateInterval;
   final Map<String, dynamic>? authentication;
 
@@ -31,6 +32,7 @@ class Options {
   Options({
     this.url = 'http://localhost:8080',
     this.reference,
+    this.requestTimeout,
     this.updateInterval = 120,
     this.authentication,
     this.fetchMode = FetchMode.polling,
@@ -45,6 +47,7 @@ class Options {
     String token, {
     String? url,
     String? reference,
+    int? requestTimeout,
     int? updateInterval,
     FetchMode? fetchMode,
     ErrorStrategy? errorStrategy,
@@ -52,6 +55,7 @@ class Options {
     return Options(
       url: url,
       reference: reference,
+      requestTimeout: requestTimeout,
       updateInterval: updateInterval,
       authentication: {
         'client_token': token,
@@ -65,6 +69,7 @@ class Options {
     String token, {
     String? url,
     String? reference,
+    int? requestTimeout,
     int? updateInterval,
     FetchMode? fetchMode,
     ErrorStrategy? errorStrategy,
@@ -72,6 +77,7 @@ class Options {
     return Options(
       url: url,
       reference: reference,
+      requestTimeout: requestTimeout,
       updateInterval: updateInterval,
       authentication: {
         'jwt_token': token,
