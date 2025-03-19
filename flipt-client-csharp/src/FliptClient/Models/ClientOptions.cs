@@ -60,8 +60,8 @@ namespace FliptClient.Models
         public string? JwtToken { get; set; }
     }
 
-
-    public class LowercaseEnumConverter<T> : JsonConverter<T> where T : struct, Enum
+    public class LowercaseEnumConverter<T> : JsonConverter<T>
+        where T : struct, Enum
     {
         public override T Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
@@ -70,6 +70,7 @@ namespace FliptClient.Models
             {
                 return value;
             }
+
             throw new JsonException($"Unable to convert \"{enumString}\" to {typeof(T)}.");
         }
 

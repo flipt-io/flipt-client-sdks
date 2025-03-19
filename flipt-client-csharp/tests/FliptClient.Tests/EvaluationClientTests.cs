@@ -15,8 +15,8 @@ namespace FliptClient.Tests
         public EvaluationClientTests(ITestOutputHelper output)
         {
             Console.SetOut(new ConsoleWriter(output));
-            string fliptUrl = Environment.GetEnvironmentVariable("FLIPT_URL");
-            string authToken = Environment.GetEnvironmentVariable("FLIPT_AUTH_TOKEN");
+            string? fliptUrl = Environment.GetEnvironmentVariable("FLIPT_URL");
+            string? authToken = Environment.GetEnvironmentVariable("FLIPT_AUTH_TOKEN");
 
             if (string.IsNullOrEmpty(fliptUrl))
             {
@@ -39,15 +39,18 @@ namespace FliptClient.Tests
 
         public class ConsoleWriter : StringWriter
         {
-            private ITestOutputHelper _output;
+            private readonly ITestOutputHelper _output;
             public ConsoleWriter(ITestOutputHelper output)
             {
                 _output = output;
             }
 
-            public override void WriteLine(string m)
+            public override void WriteLine(string? message)
             {
-                _output.WriteLine(m);
+                if (message != null)
+                {
+                    _output.WriteLine(message);
+                }
             }
         }
 
@@ -59,7 +62,7 @@ namespace FliptClient.Tests
         [Fact]
         public void TestNullFlagKey()
         {
-            Assert.Throws<ArgumentException>(() => _client.EvaluateBoolean(null, "someentity", new Dictionary<string, string>()));
+            Assert.Throws<ArgumentException>(() => _client.EvaluateBoolean(null!, "someentity", new Dictionary<string, string>()));
         }
 
         [Fact]
@@ -71,7 +74,7 @@ namespace FliptClient.Tests
         [Fact]
         public void TestNullEntityId()
         {
-            Assert.Throws<ArgumentException>(() => _client.EvaluateBoolean("flag1", null, new Dictionary<string, string>()));
+            Assert.Throws<ArgumentException>(() => _client.EvaluateBoolean("flag1", null!, new Dictionary<string, string>()));
         }
 
         [Fact]
@@ -84,7 +87,7 @@ namespace FliptClient.Tests
         public void TestEvaluateVariant()
         {
             var context = new Dictionary<string, string> { { "fizz", "buzz" } };
-            var response = _client.EvaluateVariant("flag1", "someentity", context);
+            var response = _client.EvaluateVariant("flag1", "someentity", context)!;
 
             Assert.Equal("flag1", response.FlagKey);
             Assert.True(response.Match);
@@ -97,7 +100,7 @@ namespace FliptClient.Tests
         public void TestEvaluateBoolean()
         {
             var context = new Dictionary<string, string> { { "fizz", "buzz" } };
-            var response = _client.EvaluateBoolean("flag_boolean", "someentity", context);
+            var response = _client.EvaluateBoolean("flag_boolean", "someentity", context)!;
 
             Assert.Equal("flag_boolean", response.FlagKey);
             Assert.True(response.Enabled);
@@ -114,11 +117,11 @@ namespace FliptClient.Tests
                 new EvaluationRequest { FlagKey = "notfound", EntityId = "someentity", Context = new Dictionary<string, string> { { "fizz", "buzz" } } }
             };
 
-            var response = _client.EvaluateBatch(requests);
+            var result = _client.EvaluateBatch(requests)!;
+            Assert.NotNull(result);
+            Assert.Equal(3, result.Responses.Count);
 
-            Assert.Equal(3, response.Responses.Length);
-
-            var variantResponse = response.Responses[0];
+            var variantResponse = result.Responses[0];
             Assert.Equal("VARIANT_EVALUATION_RESPONSE_TYPE", variantResponse.Type);
             Assert.NotNull(variantResponse.VariantEvaluationResponse);
             Assert.Equal("flag1", variantResponse.VariantEvaluationResponse.FlagKey);
@@ -127,14 +130,14 @@ namespace FliptClient.Tests
             Assert.Equal("variant1", variantResponse.VariantEvaluationResponse.VariantKey);
             Assert.Contains("segment1", variantResponse.VariantEvaluationResponse.SegmentKeys);
 
-            var booleanResponse = response.Responses[1];
+            var booleanResponse = result.Responses[1];
             Assert.Equal("BOOLEAN_EVALUATION_RESPONSE_TYPE", booleanResponse.Type);
             Assert.NotNull(booleanResponse.BooleanEvaluationResponse);
             Assert.Equal("flag_boolean", booleanResponse.BooleanEvaluationResponse.FlagKey);
             Assert.True(booleanResponse.BooleanEvaluationResponse.Enabled);
             Assert.Equal("MATCH_EVALUATION_REASON", booleanResponse.BooleanEvaluationResponse.Reason);
 
-            var errorResponse = response.Responses[2];
+            var errorResponse = result.Responses[2];
             Assert.Equal("ERROR_EVALUATION_RESPONSE_TYPE", errorResponse.Type);
             Assert.NotNull(errorResponse.ErrorEvaluationResponse);
             Assert.Equal("notfound", errorResponse.ErrorEvaluationResponse.FlagKey);
@@ -161,7 +164,7 @@ namespace FliptClient.Tests
         [Fact]
         public void TestListFlags()
         {
-            var flags = _client.ListFlags();
+            var flags = _client.ListFlags()!;
             Assert.NotEmpty(flags);
             Assert.Equal(2, flags.Length);
         }

@@ -31,26 +31,21 @@ jobs:
   lint-typescript:
     name: Lint Typescript
     strategy:
+      fail-fast: false
       matrix:
-        node-version: ["20", "21"]
+        sdk: ["flipt-client-node", "flipt-client-browser", "flipt-client-react"]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
 
-      - name: Install Node ${{ matrix.node-version }}
+      - name: Install Node 21
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 21
 
-      - name: Lint Typescript source for flipt-client-node
-        working-directory: flipt-client-node
-        run: |
-          npm ci
-          npm run lint
-
-      - name: Lint Typescript source for flipt-client-react
-        working-directory: flipt-client-react
+      - name: Lint Typescript source for ${{ matrix.sdk }}
+        working-directory: ${{ matrix.sdk }}
         run: |
           npm ci
           npm run lint
@@ -93,3 +88,95 @@ jobs:
           gem install bundler
           bundle install
           bundle exec rubocop
+
+  lint-csharp:
+    name: Lint C#
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        working-directory: flipt-client-csharp
+        run: dotnet restore
+
+      - name: Check formatting
+        working-directory: flipt-client-csharp
+        run: dotnet format style --verify-no-changes --verbosity detailed
+
+      - name: Build with analyzers
+        working-directory: flipt-client-csharp
+        run: dotnet build --no-restore /warnaserror
+
+  lint-kotlin:
+    name: Lint Kotlin
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v3
+
+      - name: Lint Kotlin code
+        working-directory: flipt-client-kotlin-android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew ktlintFormat --continue
+          ./gradlew ktlintCheck
+
+  lint-go:
+    name: Lint Go
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: false
+
+      # Touch the wasm file to ensure it is present at lint time
+      - name: Touch wasm file
+        working-directory: flipt-client-go
+        run: touch ext/flipt_engine_wasm.wasm
+
+      - name: Lint Go code
+        uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: flipt-client-go
+          args: --timeout=5m
+          version: v1.64
+
+  lint-swift:
+    name: Lint Swift
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Install SwiftLint and SwiftFormat
+        run: |
+          brew install swiftlint
+          brew install swiftformat
+
+      - name: Check Swift formatting
+        working-directory: flipt-client-swift
+        run: swiftformat . --lint
+
+      - name: Lint Swift code
+        working-directory: flipt-client-swift
+        run: swiftlint lint --strict

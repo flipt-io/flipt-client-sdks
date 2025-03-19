@@ -501,7 +501,7 @@ func (c *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 
 	b, ok := c.mod.Memory().Read(ptr, length)
 	if !ok {
-		deallocFunc.Call(ctx, uint64(ptr), uint64(length))
+		_, _ = deallocFunc.Call(ctx, uint64(ptr), uint64(length))
 		return nil, fmt.Errorf("failed to read result from memory")
 	}
 
@@ -510,7 +510,9 @@ func (c *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 	copy(result, b)
 
 	// clean up memory
-	deallocFunc.Call(ctx, uint64(ptr), uint64(length))
+	if _, err := deallocFunc.Call(ctx, uint64(ptr), uint64(length)); err != nil {
+		return nil, fmt.Errorf("failed to deallocate memory: %w", err)
+	}
 
 	var listResult *ListFlagsResult
 	if err := json.Unmarshal(result, &listResult); err != nil {
@@ -543,7 +545,7 @@ func (c *EvaluationClient) Close(ctx context.Context) (err error) {
 		if c.engine != 0 {
 			// destroy engine
 			dealloc := c.mod.ExportedFunction(fDestroyEngine)
-			dealloc.Call(ctx, uint64(c.engine))
+			_, _ = dealloc.Call(ctx, uint64(c.engine))
 		}
 
 		// closing the runtime will close the module too and deallocate all memory
@@ -600,7 +602,7 @@ func (c *EvaluationClient) handleUpdates(ctx context.Context) error {
 			// write the new payload to memory
 			if !c.mod.Memory().Write(uint32(pmPtr[0]), s.payload) {
 				c.mu.Unlock()
-				deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
+				_, _ = deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
 				return fmt.Errorf("failed to write payload to memory")
 			}
 
@@ -609,8 +611,14 @@ func (c *EvaluationClient) handleUpdates(ctx context.Context) error {
 
 			ptr, length := decodePtr(res[0])
 			// always deallocate the memory after we're done with it
-			deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload)))
-			deallocFunc.Call(ctx, uint64(ptr), uint64(length))
+			if _, err := deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload))); err != nil {
+				c.mu.Unlock()
+				return fmt.Errorf("failed to deallocate memory: %w", err)
+			}
+			if _, err := deallocFunc.Call(ctx, uint64(ptr), uint64(length)); err != nil {
+				c.mu.Unlock()
+				return fmt.Errorf("failed to deallocate memory: %w", err)
+			}
 
 			c.mu.Unlock()
 			if err != nil {
@@ -891,45 +899,43 @@ func (c *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 	)
 
 	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	reqPtr, err := allocFunc.Call(ctx, uint64(len(reqBytes)))
 	if err != nil {
-		c.mu.Unlock()
 		return nil, fmt.Errorf("failed to allocate memory for request: %w", err)
 	}
 
 	if !c.mod.Memory().Write(uint32(reqPtr[0]), reqBytes) {
-		deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
-		c.mu.Unlock()
+		_, _ = deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
 		return nil, fmt.Errorf("failed to write request to memory")
 	}
 
 	evalFunc, ok := c.exportedFuncs[funcName]
 	if !ok {
-		deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
-		c.mu.Unlock()
+		_, _ = deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
 		return nil, fmt.Errorf("failed to call %s: function not found", funcName)
 	}
 
 	res, err := evalFunc.Call(ctx, uint64(c.engine), reqPtr[0], uint64(len(reqBytes)))
 	if err != nil {
-		deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
-		c.mu.Unlock()
+		_, _ = deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
 		return nil, fmt.Errorf("failed to call %s: %w", funcName, err)
 	}
 
 	// clean up request memory
-	deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes)))
+	if _, err := deallocFunc.Call(ctx, reqPtr[0], uint64(len(reqBytes))); err != nil {
+		return nil, fmt.Errorf("failed to deallocate memory: %w", err)
+	}
 
 	if len(res) < 1 {
-		c.mu.Unlock()
 		return nil, fmt.Errorf("failed to call %s: no result returned", funcName)
 	}
 
 	ptr, length := decodePtr(res[0])
 	b, ok := c.mod.Memory().Read(ptr, length)
 	if !ok {
-		deallocFunc.Call(ctx, uint64(ptr), uint64(length))
-		c.mu.Unlock()
+		_, _ = deallocFunc.Call(ctx, uint64(ptr), uint64(length))
 		return nil, fmt.Errorf("failed to read result from memory")
 	}
 
@@ -938,8 +944,9 @@ func (c *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, re
 	copy(result, b)
 
 	// clean up result memory
-	deallocFunc.Call(ctx, uint64(ptr), uint64(length))
-	c.mu.Unlock()
+	if _, err := deallocFunc.Call(ctx, uint64(ptr), uint64(length)); err != nil {
+		return nil, fmt.Errorf("failed to deallocate memory: %w", err)
+	}
 
 	return result, nil
 }

@@ -16,16 +16,18 @@ namespace FliptClient
             _engine = NativeMethods.InitializeEngine(@namespace, optsJson);
         }
 
-        public VariantEvaluationResponse EvaluateVariant(string flagKey, string entityId, Dictionary<string, string> context)
+        public VariantEvaluationResponse? EvaluateVariant(string flagKey, string entityId, Dictionary<string, string> context)
         {
             if (string.IsNullOrWhiteSpace(flagKey))
             {
                 throw new ArgumentException("flagKey cannot be empty or null");
             }
+
             if (string.IsNullOrWhiteSpace(entityId))
             {
                 throw new ArgumentException("entityId cannot be empty or null");
             }
+
             if (context == null)
             {
                 context = new Dictionary<string, string>();
@@ -40,28 +42,30 @@ namespace FliptClient
 
             string requestJson = JsonSerializer.Serialize(request);
             IntPtr resultPtr = NativeMethods.EvaluateVariant(_engine, requestJson);
-            string resultJson = Marshal.PtrToStringAnsi(resultPtr);
+            string resultJson = Marshal.PtrToStringAnsi(resultPtr) ?? throw new InvalidOperationException("Failed to get result from native code");
             NativeMethods.DestroyString(resultPtr);
 
-            var result = JsonSerializer.Deserialize<VariantResult>(resultJson);
+            var result = JsonSerializer.Deserialize<VariantResult>(resultJson) ?? throw new InvalidOperationException("Failed to deserialize response");
             if (result.Status != "success")
             {
-                throw new Exception(result.ErrorMessage);
+                throw new Exception(result.ErrorMessage ?? "Unknown error");
             }
 
             return result.Response;
         }
 
-        public BooleanEvaluationResponse EvaluateBoolean(string flagKey, string entityId, Dictionary<string, string> context)
+        public BooleanEvaluationResponse? EvaluateBoolean(string flagKey, string entityId, Dictionary<string, string> context)
         {
             if (string.IsNullOrWhiteSpace(flagKey))
             {
                 throw new ArgumentException("flagKey cannot be empty or null");
             }
+
             if (string.IsNullOrWhiteSpace(entityId))
             {
                 throw new ArgumentException("entityId cannot be empty or null");
             }
+
             if (context == null)
             {
                 context = new Dictionary<string, string>();
@@ -76,19 +80,19 @@ namespace FliptClient
 
             string requestJson = JsonSerializer.Serialize(request);
             IntPtr resultPtr = NativeMethods.EvaluateBoolean(_engine, requestJson);
-            string resultJson = Marshal.PtrToStringAnsi(resultPtr);
+            string resultJson = Marshal.PtrToStringAnsi(resultPtr) ?? throw new InvalidOperationException("Failed to get result from native code");
             NativeMethods.DestroyString(resultPtr);
 
-            var result = JsonSerializer.Deserialize<BooleanResult>(resultJson);
+            var result = JsonSerializer.Deserialize<BooleanResult>(resultJson) ?? throw new InvalidOperationException("Failed to deserialize response");
             if (result.Status != "success")
             {
-                throw new Exception(result.ErrorMessage);
+                throw new Exception(result.ErrorMessage ?? "Unknown error");
             }
 
             return result.Response;
         }
 
-        public BatchEvaluationResponse EvaluateBatch(List<EvaluationRequest> requests)
+        public BatchEvaluationResponse? EvaluateBatch(List<EvaluationRequest> requests)
         {
             if (requests == null || requests.Count == 0)
             {
@@ -97,28 +101,28 @@ namespace FliptClient
 
             string requestJson = JsonSerializer.Serialize(requests);
             IntPtr resultPtr = NativeMethods.EvaluateBatch(_engine, requestJson);
-            string resultJson = Marshal.PtrToStringAnsi(resultPtr);
+            string resultJson = Marshal.PtrToStringAnsi(resultPtr) ?? throw new InvalidOperationException("Failed to get result from native code");
             NativeMethods.DestroyString(resultPtr);
 
-            var result = JsonSerializer.Deserialize<BatchResult>(resultJson);
+            var result = JsonSerializer.Deserialize<BatchResult>(resultJson) ?? throw new InvalidOperationException("Failed to deserialize response");
             if (result.Status != "success")
             {
-                throw new Exception(result.ErrorMessage);
+                throw new Exception(result.ErrorMessage ?? "Unknown error");
             }
 
             return result.Response;
         }
 
-        public Flag[] ListFlags()
+        public Flag[]? ListFlags()
         {
             IntPtr resultPtr = NativeMethods.ListFlags(_engine);
-            string resultJson = Marshal.PtrToStringAnsi(resultPtr);
+            string resultJson = Marshal.PtrToStringAnsi(resultPtr) ?? throw new InvalidOperationException("Failed to get result from native code");
             NativeMethods.DestroyString(resultPtr);
 
-            var result = JsonSerializer.Deserialize<ListFlagsResult>(resultJson);
+            var result = JsonSerializer.Deserialize<ListFlagsResult>(resultJson) ?? throw new InvalidOperationException("Failed to deserialize response");
             if (result.Status != "success")
             {
-                throw new Exception(result.ErrorMessage);
+                throw new Exception(result.ErrorMessage ?? "Unknown error");
             }
 
             return result.Response;

@@ -37,7 +37,7 @@ class FliptEvaluationClient(namespace: String, options: ClientOptions) {
         private var reference: String? = null
         private var requestTimeout: Duration? = null
         private var updateInterval: Duration? = null
-        private var fetchMode = FetchMode.polling
+        private var fetchMode = FetchMode.POLLING
         private var errorStrategy = ErrorStrategy.FAIL
 
         /**

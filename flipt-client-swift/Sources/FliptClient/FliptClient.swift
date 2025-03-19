@@ -1,5 +1,5 @@
-import Foundation
 import FliptEngineFFI
+import Foundation
 
 public class FliptClient {
     private var engine: UnsafeMutableRawPointer?
@@ -12,14 +12,16 @@ public class FliptClient {
     private var fetchMode: FetchMode = .polling
     private var errorStrategy: ErrorStrategy = .fail
 
-    public init(namespace: String = "default",
-         url: String = "",
-         authentication: Authentication? = nil,
-         ref: String = "",
-         requestTimeout: Int = 0,
-         updateInterval: Int = 120,
-         fetchMode: FetchMode = .polling,
-         errorStrategy: ErrorStrategy = .fail) throws {
+    public init(
+        namespace: String = "default",
+        url: String = "",
+        authentication: Authentication? = nil,
+        ref: String = "",
+        requestTimeout: Int = 0,
+        updateInterval: Int = 120,
+        fetchMode: FetchMode = .polling,
+        errorStrategy: ErrorStrategy = .fail) throws
+    {
         self.namespace = namespace
         self.url = url
         self.authentication = authentication
@@ -36,8 +38,7 @@ public class FliptClient {
             updateInterval: updateInterval,
             reference: ref,
             fetchMode: fetchMode,
-            errorStrategy: errorStrategy
-        )
+            errorStrategy: errorStrategy)
 
         guard let jsonData = try? JSONEncoder().encode(clientOptions) else {
             throw ClientError.invalidOptions
@@ -58,13 +59,17 @@ public class FliptClient {
     }
 
     public func close() {
-        if let engine = engine {
+        if let engine {
             destroy_engine(engine)
             self.engine = nil
         }
     }
 
-    public func evaluateVariant(flagKey: String, entityID: String, evalContext: [String: String]) throws -> VariantEvaluationResponse {
+    public func evaluateVariant(
+        flagKey: String,
+        entityID: String,
+        evalContext: [String: String]) throws -> VariantEvaluationResponse
+    {
         if flagKey.isEmpty {
             throw ClientError.invalidRequest
         }
@@ -75,8 +80,7 @@ public class FliptClient {
         let evaluationRequest = EvaluationRequest(
             flag_key: flagKey,
             entity_id: entityID,
-            context: evalContext
-        )
+            context: evalContext)
 
         guard let requestData = try? JSONEncoder().encode(evaluationRequest) else {
             throw ClientError.invalidRequest
@@ -87,12 +91,14 @@ public class FliptClient {
         let variantResponse = evaluate_variant(engine, requestCString)
         free(requestCString)
 
-        let responseString = String(cString: variantResponse!)
-        destroy_string(UnsafeMutablePointer(mutating: variantResponse))
+        guard let response = variantResponse else {
+            throw ClientError.evaluationFailed(message: "No response from engine")
+        }
+        let responseString = String(cString: response)
+        destroy_string(UnsafeMutablePointer(mutating: response))
 
         do {
             let variantResult = try JSONDecoder().decode(VariantResult.self, from: Data(responseString.utf8))
-            // Use variantResult here
             if variantResult.status != "success" {
                 throw ClientError.evaluationFailed(message: variantResult.error_message ?? "Unknown error")
             }
@@ -104,10 +110,13 @@ public class FliptClient {
         } catch {
             throw ClientError.parsingError
         }
-
     }
 
-    public func evaluateBoolean(flagKey: String, entityID: String, evalContext: [String: String]) throws -> BooleanEvaluationResponse {
+    public func evaluateBoolean(
+        flagKey: String,
+        entityID: String,
+        evalContext: [String: String]) throws -> BooleanEvaluationResponse
+    {
         if flagKey.isEmpty {
             throw ClientError.invalidRequest
         }
@@ -118,8 +127,7 @@ public class FliptClient {
         let evaluationRequest = EvaluationRequest(
             flag_key: flagKey,
             entity_id: entityID,
-            context: evalContext
-        )
+            context: evalContext)
 
         guard let requestData = try? JSONEncoder().encode(evaluationRequest) else {
             throw ClientError.invalidRequest
@@ -130,8 +138,11 @@ public class FliptClient {
         let booleanResponse = evaluate_boolean(engine, requestCString)
         free(requestCString)
 
-        let responseString = String(cString: booleanResponse!)
-        destroy_string(UnsafeMutablePointer(mutating: booleanResponse))
+        guard let response = booleanResponse else {
+            throw ClientError.evaluationFailed(message: "No response from engine")
+        }
+        let responseString = String(cString: response)
+        destroy_string(UnsafeMutablePointer(mutating: response))
 
         guard let booleanResult = try? JSONDecoder().decode(BooleanResult.self, from: Data(responseString.utf8)) else {
             throw ClientError.parsingError
@@ -141,16 +152,24 @@ public class FliptClient {
             throw ClientError.evaluationFailed(message: booleanResult.error_message ?? "Unknown error")
         }
 
-        return booleanResult.result!
+        guard let result = booleanResult.result else {
+            throw ClientError.evaluationFailed(message: "missing result")
+        }
+
+        return result
     }
 
     public func listFlags() throws -> [Flag] {
         let flagsResponse = list_flags(engine)
 
-        let responseString = String(cString: flagsResponse!)
-        destroy_string(UnsafeMutablePointer(mutating: flagsResponse))
+        guard let response = flagsResponse else {
+            throw ClientError.evaluationFailed(message: "No response from engine")
+        }
+        let responseString = String(cString: response)
+        destroy_string(UnsafeMutablePointer(mutating: response))
 
-        guard let listFlagsResult = try? JSONDecoder().decode(ListFlagsResult.self, from: Data(responseString.utf8)) else {
+        guard let listFlagsResult = try? JSONDecoder().decode(ListFlagsResult.self, from: Data(responseString.utf8))
+        else {
             throw ClientError.parsingError
         }
 
@@ -158,7 +177,11 @@ public class FliptClient {
             throw ClientError.evaluationFailed(message: listFlagsResult.error_message ?? "Unknown error")
         }
 
-        return listFlagsResult.result!
+        guard let result = listFlagsResult.result else {
+            throw ClientError.evaluationFailed(message: "missing result")
+        }
+
+        return result
     }
 
     public func evaluateBatch(requests: [EvaluationRequest]) throws -> BatchEvaluationResponse {
@@ -171,8 +194,11 @@ public class FliptClient {
         let batchResponse = evaluate_batch(engine, requestCString)
         free(requestCString)
 
-        let responseString = String(cString: batchResponse!)
-        destroy_string(UnsafeMutablePointer(mutating: batchResponse))
+        guard let response = batchResponse else {
+            throw ClientError.evaluationFailed(message: "No response from engine")
+        }
+        let responseString = String(cString: response)
+        destroy_string(UnsafeMutablePointer(mutating: response))
 
         guard let batchResult = try? JSONDecoder().decode(BatchResult.self, from: Data(responseString.utf8)) else {
             throw ClientError.parsingError
@@ -182,9 +208,12 @@ public class FliptClient {
             throw ClientError.evaluationFailed(message: batchResult.error_message ?? "Unknown error")
         }
 
-        return batchResult.result!
-    }
+        guard let result = batchResult.result else {
+            throw ClientError.evaluationFailed(message: "missing result")
+        }
 
+        return result
+    }
 
     public enum ClientError: Error {
         case invalidOptions
@@ -211,9 +240,9 @@ public enum Authentication: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .clientToken(let token):
+        case let .clientToken(token):
             try container.encode(token, forKey: .client_token)
-        case .jwtToken(let token):
+        case let .jwtToken(token):
             try container.encode(token, forKey: .jwt_token)
         }
     }
@@ -223,12 +252,12 @@ public struct EvaluationRequest: Codable {
     public let flag_key: String
     public let entity_id: String
     public let context: [String: String]
-    
+
     public init(
         flag_key: String,
         entity_id: String,
-        context: [String: String]
-    ) {
+        context: [String: String])
+    {
         self.flag_key = flag_key
         self.entity_id = entity_id
         self.context = context
