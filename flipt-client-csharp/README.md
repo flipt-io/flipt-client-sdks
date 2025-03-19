@@ -82,6 +82,8 @@ The `EvaluationClient` constructor accepts two optional arguments:
 - `Namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
 - `Options`: An instance of the `ClientOptions` type that supports several options for the client. The structure is:
   - `Url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
+  - `RequestTimeout`: The timeout (in seconds) for total request time to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.
+  - `UpdateInterval`: The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
   - `Authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
   - `Reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
   - `FetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
