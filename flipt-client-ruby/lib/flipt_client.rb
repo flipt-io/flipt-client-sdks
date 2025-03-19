@@ -53,6 +53,7 @@ module Flipt
     # @param opts [Hash] options
     # @option opts [String] :url Flipt server url
     # @option opts [AuthenticationStrategy] :authentication strategy to authenticate with Flipt
+    # @option opts [Integer] :request_timeout timeout in seconds for the request
     # @option opts [Integer] :update_interval interval in seconds to update the cache
     # @option opts [String] :reference reference to use for namespace data
     # @option opts [Symbol] :fetch_mode fetch mode to use for the client (:polling or :streaming).

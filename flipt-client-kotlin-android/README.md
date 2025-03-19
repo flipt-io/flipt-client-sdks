@@ -115,6 +115,7 @@ The `FliptEvaluationClient.builder()` method returns a `FliptEvaluationClient.Bu
 
 - `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
 - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
+- `requestTimeout`: The timeout (Duration) for requests to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.
 - `updateInterval`: The interval (Duration) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
 - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
 - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.

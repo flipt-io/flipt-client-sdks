@@ -9,6 +9,7 @@ part of 'models.dart';
 Options _$OptionsFromJson(Map<String, dynamic> json) => Options(
       url: json['url'] as String? ?? 'http://localhost:8080',
       reference: json['reference'] as String?,
+      requestTimeout: (json['request_timeout'] as num?)?.toInt(),
       updateInterval: (json['update_interval'] as num?)?.toInt() ?? 120,
       authentication: json['authentication'] as Map<String, dynamic>?,
       fetchMode: $enumDecodeNullable(_$FetchModeEnumMap, json['fetch_mode']) ??
@@ -21,6 +22,7 @@ Options _$OptionsFromJson(Map<String, dynamic> json) => Options(
 Map<String, dynamic> _$OptionsToJson(Options instance) => <String, dynamic>{
       'url': instance.url,
       'reference': instance.reference,
+      'request_timeout': instance.requestTimeout,
       'update_interval': instance.updateInterval,
       'authentication': instance.authentication,
       'fetch_mode': _$FetchModeEnumMap[instance.fetchMode],

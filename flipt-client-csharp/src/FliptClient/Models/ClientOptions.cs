@@ -8,16 +8,21 @@ namespace FliptClient.Models
         [JsonPropertyName("url")]
         public string Url { get; set; } = "http://localhost:8080";
 
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("request_timeout")]
+        public int? RequestTimeout { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("update_interval")]
-        public int UpdateInterval { get; set; } = 120;
+        public int? UpdateInterval { get; set; }
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("authentication")]
-        public Authentication Authentication { get; set; }
+        public Authentication? Authentication { get; set; }
 
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("reference")]
-        public string Reference { get; set; }
+        public string? Reference { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("fetch_mode")]
@@ -46,13 +51,13 @@ namespace FliptClient.Models
 
     public class Authentication
     {
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("client_token")]
-        public string ClientToken { get; set; }
+        public string? ClientToken { get; set; }
 
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("jwt_token")]
-        public string JwtToken { get; set; }
+        public string? JwtToken { get; set; }
     }
 
 

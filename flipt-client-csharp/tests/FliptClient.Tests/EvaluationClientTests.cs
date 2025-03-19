@@ -169,9 +169,9 @@ namespace FliptClient.Tests
         [Fact]
         public void TestClientOptions()
         {
-            var options = new ClientOptions{ErrorStrategy=ErrorStrategy.Fallback};
+            var options = new ClientOptions { ErrorStrategy = ErrorStrategy.Fallback };
             string optsJson = JsonSerializer.Serialize(options);
-            string expectedJson = """{"url":"http://localhost:8080","update_interval":120,"authentication":null,"error_strategy":"fallback"}""";
+            string expectedJson = """{"url":"http://localhost:8080","error_strategy":"fallback"}""";
             Assert.Equal(expectedJson, optsJson);
         }
     }
