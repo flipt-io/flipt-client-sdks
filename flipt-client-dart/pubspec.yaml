@@ -19,4 +19,4 @@ flutter:
   - lib/src/ffi/windows_x86_64/fliptengine.dll
 homepage: https://flipt.io
 name: flipt_client
-version: 0.6.1
+version: 0.7.0
