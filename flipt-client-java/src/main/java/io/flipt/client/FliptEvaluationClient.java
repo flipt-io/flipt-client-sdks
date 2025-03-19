@@ -68,6 +68,7 @@ public class FliptEvaluationClient {
     private String url = "http://localhost:8080";
     private AuthenticationStrategy authentication;
     private String reference;
+    private Duration requestTimeout;
     private Duration updateInterval;
     private FetchMode fetchMode = FetchMode.POLLING;
     private ErrorStrategy errorStrategy = ErrorStrategy.FAIL;
@@ -104,6 +105,17 @@ public class FliptEvaluationClient {
      */
     public FliptEvaluationClientBuilder authentication(AuthenticationStrategy authentication) {
       this.authentication = authentication;
+      return this;
+    }
+
+    /**
+     * requestTimeout sets the request timeout for the Flipt server.
+     *
+     * @param requestTimeout the request timeout for the Flipt server
+     * @return the FliptEvaluationClientBuilder
+     */
+    public FliptEvaluationClientBuilder requestTimeout(Duration requestTimeout) {
+      this.requestTimeout = requestTimeout;
       return this;
     }
 
@@ -164,6 +176,7 @@ public class FliptEvaluationClient {
           namespace,
           new ClientOptions(
               Optional.of(url),
+              Optional.ofNullable(requestTimeout),
               Optional.ofNullable(updateInterval),
               Optional.ofNullable(authentication),
               Optional.ofNullable(reference),
