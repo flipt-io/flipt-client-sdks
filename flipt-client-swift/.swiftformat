@@ -1,0 +1,18 @@
+--swiftversion 5.9
+--indent 4
+--maxwidth 120
+--wraparguments before-first
+--wrapparameters before-first
+--wrapcollections before-first
+--closingparen same-line
+--commas inline
+--trimwhitespace always
+--stripunusedargs closure-only
+--self remove
+--importgrouping alphabetized
+--header strip
+--organizetypes class,enum,struct,extension,protocol
+--extensionacl on-declarations
+--allman false
+
+--exclude .build,Package.swift 

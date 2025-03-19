@@ -1,6 +1,7 @@
 using System;
-using System.Runtime.InteropServices;
 using System.IO;
+using System.Runtime.InteropServices;
+using System.Text.Json;
 
 namespace FliptClient
 {
@@ -74,6 +75,7 @@ namespace FliptClient
             {
                 return directPath;
             }
+
             if (File.Exists(runtimePath))
             {
                 return runtimePath;
@@ -84,7 +86,7 @@ namespace FliptClient
 
         private static string GetPlatformLibraryPath()
         {
-            string libraryPath = "";
+            string libraryPath = string.Empty;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
@@ -116,7 +118,8 @@ namespace FliptClient
             return libraryPath;
         }
 
-        private static T GetDelegate<T>(string functionName) where T : Delegate
+        private static T GetDelegate<T>(string functionName)
+            where T : Delegate
         {
             if (_nativeLibraryHandle == IntPtr.Zero)
             {
@@ -130,6 +133,18 @@ namespace FliptClient
             }
 
             return Marshal.GetDelegateForFunctionPointer<T>(procAddress);
+        }
+
+        private static string GetString(IntPtr ptr)
+        {
+            if (ptr == IntPtr.Zero)
+            {
+                return string.Empty;
+            }
+
+            var str = Marshal.PtrToStringUTF8(ptr);
+            DestroyString(ptr);
+            return str ?? string.Empty;
         }
     }
 }
