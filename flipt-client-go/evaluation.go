@@ -2,6 +2,7 @@ package evaluation
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -239,16 +240,17 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		Transport: transport,
 	}
 
+	var initialUrl = fmt.Sprintf("%s/internal/v1/evaluation/snapshot/namespace/%s", c.url, c.namespace)
+	if c.ref != "" {
+		initialUrl = fmt.Sprintf("%s?reference=%s", initialUrl, c.ref)
+	}
+
+	c.url = initialUrl
+
 	switch c.fetchMode {
 	case FetchModeStreaming:
 		c.url = fmt.Sprintf("%s/internal/v1/evaluation/snapshots?[]namespaces=%s", c.url, c.namespace)
-
 	case FetchModePolling:
-		c.url = fmt.Sprintf("%s/internal/v1/evaluation/snapshot/namespace/%s", c.url, c.namespace)
-		if c.ref != "" {
-			c.url = fmt.Sprintf("%s?reference=%s", c.url, c.ref)
-		}
-
 		// only set timeout for polling mode
 		// streaming mode will have no timeout set
 		c.httpClient.Timeout = c.requestTimeout
@@ -285,7 +287,7 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 	}
 
 	// fetch initial state
-	snapshot, err := c.fetch(ctx, "")
+	snapshot, err := c.fetch(ctx, initialUrl, "")
 	if err != nil {
 		cerr = fmt.Errorf("failed to fetch initial state: %w", err)
 		return
@@ -642,7 +644,7 @@ func (c *EvaluationClient) startPolling(ctx context.Context) {
 			etag := c.etag
 			c.mu.RUnlock()
 
-			snapshot, err := c.fetch(ctx, etag)
+			snapshot, err := c.fetch(ctx, c.url, etag)
 			if err != nil {
 				c.errChan <- err
 				continue
@@ -697,8 +699,8 @@ func doWithRetry[T any](ctx context.Context, fn func() (T, error)) (T, error) {
 	return zero, fmt.Errorf("failed after %d retries, last error: %w", maxRetries, lastErr)
 }
 
-func (c *EvaluationClient) newRequest(ctx context.Context) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.url, nil)
+func (c *EvaluationClient) newRequest(ctx context.Context, url string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -718,9 +720,9 @@ func (c *EvaluationClient) newRequest(ctx context.Context) (*http.Request, error
 }
 
 // fetch fetches the snapshot for the given namespace.
-func (c *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, error) {
+func (c *EvaluationClient) fetch(ctx context.Context, url, etag string) (snapshot, error) {
 	return doWithRetry(ctx, func() (snapshot, error) {
-		req, err := c.newRequest(ctx)
+		req, err := c.newRequest(ctx, url)
 		if err != nil {
 			return snapshot{}, err
 		}
@@ -775,7 +777,12 @@ func (c *EvaluationClient) startStreaming(ctx context.Context) {
 			return
 		default:
 			if err := c.initiateStream(ctx); err != nil {
-				c.errChan <- err
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					c.errChan <- err
+				}
 			}
 		}
 	}
@@ -783,7 +790,7 @@ func (c *EvaluationClient) startStreaming(ctx context.Context) {
 
 func (c *EvaluationClient) initiateStream(ctx context.Context) error {
 	_, err := doWithRetry(ctx, func() (struct{}, error) {
-		req, err := c.newRequest(ctx)
+		req, err := c.newRequest(ctx, c.url)
 		if err != nil {
 			return struct{}{}, err
 		}
@@ -793,16 +800,14 @@ func (c *EvaluationClient) initiateStream(ctx context.Context) error {
 			return struct{}{}, err
 		}
 
-		defer func() {
-			_, _ = io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-		}()
+		// Ensure response body is closed when we're done
+		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
 			return struct{}{}, fetchError{resp.StatusCode, fmt.Errorf("unexpected status code: %d", resp.StatusCode)}
 		}
 
-		if err := c.handleStream(ctx, resp.Body); err != nil {
+		if err := c.handleStream(ctx, resp.Body); err != nil && ctx.Err() == nil {
 			return struct{}{}, err
 		}
 
@@ -812,64 +817,41 @@ func (c *EvaluationClient) initiateStream(ctx context.Context) error {
 }
 
 func (c *EvaluationClient) handleStream(ctx context.Context, r io.ReadCloser) error {
-	var (
-		reader   = bufio.NewReader(r)
-		readChan = make(chan struct {
-			line []byte
-			err  error
-		}, 1) // buffered channel to prevent goroutine leak
-	)
-
-	// start a goroutine to perform the blocking read
-	go func() {
-		defer close(readChan)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				line, err := reader.ReadBytes('\n')
-				select {
-				case <-ctx.Done():
-					return
-				case readChan <- struct {
-					line []byte
-					err  error
-				}{line, err}:
-				}
-			}
-		}
-	}()
+	reader := bufio.NewReaderSize(r, 32*1024)
+	var buffer bytes.Buffer
 
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case result, ok := <-readChan:
-			if !ok {
-				return nil
+		default:
+			chunk, err := reader.ReadBytes('\n')
+			if len(chunk) > 0 {
+				buffer.Write(chunk)
+				if json.Valid(buffer.Bytes()) {
+					var chunk streamChunk
+					if err := json.Unmarshal(buffer.Bytes(), &chunk); err != nil {
+						return fmt.Errorf("failed to unmarshal stream chunk: %w", err)
+					}
+
+					for ns, payload := range chunk.Result.Namespaces {
+						if ns == c.namespace {
+							select {
+							case <-ctx.Done():
+								return ctx.Err()
+							case c.snapshotChan <- snapshot{payload: payload}:
+							}
+						}
+					}
+					buffer.Reset()
+				}
 			}
 
-			if result.err != nil {
-				if errors.Is(result.err, io.EOF) {
+			if err != nil {
+				if err == io.EOF {
 					return nil
 				}
-				return fetchError{-1, fmt.Errorf("failed to read stream chunk: %w", result.err)}
-			}
-
-			var chunk streamChunk
-			if err := json.Unmarshal(result.line, &chunk); err != nil {
-				return fmt.Errorf("failed to unmarshal stream chunk: %w", err)
-			}
-
-			for ns, payload := range chunk.Result.Namespaces {
-				if ns == c.namespace {
-					select {
-					case <-ctx.Done():
-						return ctx.Err()
-					case c.snapshotChan <- snapshot{payload: payload}:
-					}
-				}
+				return err
 			}
 		}
 	}
