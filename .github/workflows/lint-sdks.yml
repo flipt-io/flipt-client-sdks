@@ -154,7 +154,7 @@ jobs:
         run: touch ext/flipt_engine_wasm.wasm
 
       - name: Lint Go code
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
           working-directory: flipt-client-go
           args: --timeout=5m

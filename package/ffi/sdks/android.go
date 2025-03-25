@@ -145,7 +145,7 @@ func (s *AndroidSDK) Build(ctx context.Context, client *dagger.Client, container
 		WithSecretVariable("MAVEN_PUBLISH_REGISTRY_URL", mavenRegistryUrl).
 		WithSecretVariable("PGP_PRIVATE_KEY", pgpPrivateKey).
 		WithSecretVariable("PGP_PASSPHRASE", pgpPassphrase).
-		WithExec(args("gradle publish")).
+		WithExec(args("gradle publishToSonatype closeAndReleaseSonatypeStagingRepository")).
 		Sync(ctx)
 
 	return err
