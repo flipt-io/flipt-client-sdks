@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -37,6 +38,10 @@ const (
 	fEvaluateBatch    = "evaluate_batch"
 	fListFlags        = "list_flags"
 	fDestroyEngine    = "destroy_engine"
+
+	// API paths
+	snapshotPath  = "/internal/v1/evaluation/snapshot/namespace/%s"
+	streamingPath = "/internal/v1/evaluation/snapshots"
 )
 
 // EvaluationClient wraps the functionality of evaluating Flipt feature flags.
@@ -49,7 +54,7 @@ type EvaluationClient struct {
 	namespace string
 	err       error
 
-	url            string
+	baseURL        string
 	authentication any
 	ref            string
 	updateInterval time.Duration
@@ -84,7 +89,7 @@ func WithNamespace(namespace string) ClientOption {
 // WithURL allows for configuring the URL of an upstream Flipt instance to fetch feature data.
 func WithURL(url string) ClientOption {
 	return func(c *EvaluationClient) {
-		c.url = url
+		c.baseURL = url
 	}
 }
 
@@ -194,7 +199,7 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 
 		// default values
 		namespace:      defaultNamespace,
-		url:            "http://localhost:8080",
+		baseURL:        "http://localhost:8080",
 		updateInterval: 2 * time.Minute, // default 120 seconds
 		errorStrategy:  ErrorStrategyFail,
 		fetchMode:      FetchModePolling,
@@ -214,8 +219,8 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		return
 	}
 
-	if c.url == "" {
-		cerr = fmt.Errorf("url cannot be empty")
+	if c.baseURL == "" {
+		cerr = fmt.Errorf("baseURL cannot be empty")
 		return
 	}
 
@@ -229,34 +234,32 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		return
 	}
 
-	transport := &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout:   10 * time.Second, // connection timeout
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-	}
-
 	c.httpClient = &http.Client{
-		Transport: transport,
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout:   10 * time.Second, // connection timeout
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+		},
 	}
 
-	var initialUrl = fmt.Sprintf("%s/internal/v1/evaluation/snapshot/namespace/%s", c.url, c.namespace)
-	if c.ref != "" {
-		initialUrl = fmt.Sprintf("%s?reference=%s", initialUrl, c.ref)
-	}
+	// Store the base URL without trailing slash
+	c.baseURL = strings.TrimRight(c.baseURL, "/")
 
-	c.url = initialUrl
-
-	switch c.fetchMode {
-	case FetchModeStreaming:
-		c.url = fmt.Sprintf("%s/internal/v1/evaluation/snapshots?[]namespaces=%s", c.url, c.namespace)
-	case FetchModePolling:
-		// only set timeout for polling mode
-		// streaming mode will have no timeout set
+	// Set timeout only for polling mode
+	if c.fetchMode == FetchModePolling {
 		c.httpClient.Timeout = c.requestTimeout
+	}
 
-	default:
+	// Validate fetch mode
+	if c.fetchMode != FetchModePolling && c.fetchMode != FetchModeStreaming {
 		return nil, fmt.Errorf("invalid fetch mode: %s", c.fetchMode)
+	}
+
+	// Get initial snapshot URL (always uses polling endpoint)
+	initialURL := fmt.Sprintf(c.baseURL+snapshotPath, c.namespace)
+	if c.ref != "" {
+		initialURL += "?reference=" + c.ref
 	}
 
 	var (
@@ -287,7 +290,7 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 	}
 
 	// fetch initial state
-	snapshot, err := c.fetch(ctx, initialUrl, "")
+	snapshot, err := c.fetch(ctx, initialURL, "")
 	if err != nil {
 		cerr = fmt.Errorf("failed to fetch initial state: %w", err)
 		return
@@ -312,6 +315,11 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 	res, err := initializeEngine.Call(ctx, nsPtr[0], uint64(len(c.namespace)), pmPtr[0], uint64(len(snapshot.payload)))
 	if err != nil {
 		cerr = fmt.Errorf("failed to initialize engine: %w", err)
+		return
+	}
+
+	if len(res) < 1 || res[0] == 0 {
+		cerr = fmt.Errorf("failed to initialize engine: invalid pointer returned")
 		return
 	}
 
@@ -471,10 +479,6 @@ func (c *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*Evalua
 
 // ListFlags lists all flags.
 func (c *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
-	if c.engine == 0 {
-		return nil, errors.New("engine not initialized")
-	}
-
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -635,6 +639,8 @@ func (c *EvaluationClient) startPolling(ctx context.Context) {
 	ticker := time.NewTicker(c.updateInterval)
 	defer ticker.Stop()
 
+	url := c.getSnapshotURL()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -644,7 +650,7 @@ func (c *EvaluationClient) startPolling(ctx context.Context) {
 			etag := c.etag
 			c.mu.RUnlock()
 
-			snapshot, err := c.fetch(ctx, c.url, etag)
+			snapshot, err := c.fetch(ctx, url, etag)
 			if err != nil {
 				c.errChan <- err
 				continue
@@ -706,6 +712,7 @@ func (c *EvaluationClient) newRequest(ctx context.Context, url string) (*http.Re
 	}
 
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "flipt-client-go/"+Version)
 	req.Header.Set("x-flipt-accept-server-version", "1.47.0")
 
 	if c.authentication != nil {
@@ -789,8 +796,9 @@ func (c *EvaluationClient) startStreaming(ctx context.Context) {
 }
 
 func (c *EvaluationClient) initiateStream(ctx context.Context) error {
+	url := c.getSnapshotURL()
 	_, err := doWithRetry(ctx, func() (struct{}, error) {
-		req, err := c.newRequest(ctx, c.url)
+		req, err := c.newRequest(ctx, url)
 		if err != nil {
 			return struct{}{}, err
 		}
@@ -859,10 +867,6 @@ func (c *EvaluationClient) handleStream(ctx context.Context, r io.ReadCloser) er
 
 // evaluateWASM evaluates the given function name with the given request.
 func (c *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, request any) ([]byte, error) {
-	if c.engine == 0 {
-		return nil, errors.New("engine not initialized")
-	}
-
 	c.mu.RLock()
 	if c.err != nil && c.errorStrategy == ErrorStrategyFail {
 		c.mu.RUnlock()
@@ -975,4 +979,27 @@ func isTransientError(err error) bool {
 	}
 
 	return false
+}
+
+// getSnapshotURL returns the URL for fetching snapshots based on the fetch mode
+func (c *EvaluationClient) getSnapshotURL() string {
+	switch c.fetchMode {
+	case FetchModeStreaming:
+		// Streaming uses a different endpoint that accepts multiple namespaces
+		url := c.baseURL + streamingPath + "?[]namespaces=" + c.namespace
+		if c.ref != "" {
+			url += "&reference=" + c.ref
+		}
+		return url
+	case FetchModePolling:
+		// Polling uses the single namespace snapshot endpoint
+		url := fmt.Sprintf(c.baseURL+snapshotPath, c.namespace)
+		if c.ref != "" {
+			url += "?reference=" + c.ref
+		}
+		return url
+	default:
+		// This should never happen as we validate fetch mode during initialization
+		return ""
+	}
 }
