@@ -41,7 +41,7 @@ const (
 
 	// API paths
 	snapshotPath  = "/internal/v1/evaluation/snapshot/namespace/%s"
-	streamingPath = "/internal/v1/evaluation/snapshots"
+	streamingPath = "/internal/v1/evaluation/snapshots?[]namespaces=%s"
 )
 
 // EvaluationClient wraps the functionality of evaluating Flipt feature flags.
@@ -986,11 +986,7 @@ func (c *EvaluationClient) getSnapshotURL() string {
 	switch c.fetchMode {
 	case FetchModeStreaming:
 		// Streaming uses a different endpoint that accepts multiple namespaces
-		url := c.baseURL + streamingPath + "?[]namespaces=" + c.namespace
-		if c.ref != "" {
-			url += "&reference=" + c.ref
-		}
-		return url
+		return fmt.Sprintf(c.baseURL+streamingPath, c.namespace)
 	case FetchModePolling:
 		// Polling uses the single namespace snapshot endpoint
 		url := fmt.Sprintf(c.baseURL+snapshotPath, c.namespace)
