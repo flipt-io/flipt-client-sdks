@@ -2,6 +2,7 @@ package evaluation
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,6 +38,10 @@ const (
 	fEvaluateBatch    = "evaluate_batch"
 	fListFlags        = "list_flags"
 	fDestroyEngine    = "destroy_engine"
+
+	// API paths
+	snapshotPath  = "/internal/v1/evaluation/snapshot/namespace/%s"
+	streamingPath = "/internal/v1/evaluation/snapshots?[]namespaces=%s"
 )
 
 // EvaluationClient wraps the functionality of evaluating Flipt feature flags.
@@ -48,7 +54,7 @@ type EvaluationClient struct {
 	namespace string
 	err       error
 
-	url            string
+	baseURL        string
 	authentication any
 	ref            string
 	updateInterval time.Duration
@@ -83,7 +89,7 @@ func WithNamespace(namespace string) ClientOption {
 // WithURL allows for configuring the URL of an upstream Flipt instance to fetch feature data.
 func WithURL(url string) ClientOption {
 	return func(c *EvaluationClient) {
-		c.url = url
+		c.baseURL = url
 	}
 }
 
@@ -193,7 +199,7 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 
 		// default values
 		namespace:      defaultNamespace,
-		url:            "http://localhost:8080",
+		baseURL:        "http://localhost:8080",
 		updateInterval: 2 * time.Minute, // default 120 seconds
 		errorStrategy:  ErrorStrategyFail,
 		fetchMode:      FetchModePolling,
@@ -213,8 +219,8 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		return
 	}
 
-	if c.url == "" {
-		cerr = fmt.Errorf("url cannot be empty")
+	if c.baseURL == "" {
+		cerr = fmt.Errorf("baseURL cannot be empty")
 		return
 	}
 
@@ -228,33 +234,32 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		return
 	}
 
-	transport := &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout:   10 * time.Second, // connection timeout
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-	}
-
 	c.httpClient = &http.Client{
-		Transport: transport,
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout:   10 * time.Second, // connection timeout
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+		},
 	}
 
-	switch c.fetchMode {
-	case FetchModeStreaming:
-		c.url = fmt.Sprintf("%s/internal/v1/evaluation/snapshots?[]namespaces=%s", c.url, c.namespace)
+	// Store the base URL without trailing slash
+	c.baseURL = strings.TrimRight(c.baseURL, "/")
 
-	case FetchModePolling:
-		c.url = fmt.Sprintf("%s/internal/v1/evaluation/snapshot/namespace/%s", c.url, c.namespace)
-		if c.ref != "" {
-			c.url = fmt.Sprintf("%s?reference=%s", c.url, c.ref)
-		}
-
-		// only set timeout for polling mode
-		// streaming mode will have no timeout set
+	// Set timeout only for polling mode
+	if c.fetchMode == FetchModePolling {
 		c.httpClient.Timeout = c.requestTimeout
+	}
 
-	default:
+	// Validate fetch mode
+	if c.fetchMode != FetchModePolling && c.fetchMode != FetchModeStreaming {
 		return nil, fmt.Errorf("invalid fetch mode: %s", c.fetchMode)
+	}
+
+	// Get initial snapshot URL (always uses polling endpoint)
+	initialURL := fmt.Sprintf(c.baseURL+snapshotPath, c.namespace)
+	if c.ref != "" {
+		initialURL += "?reference=" + c.ref
 	}
 
 	var (
@@ -285,7 +290,7 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 	}
 
 	// fetch initial state
-	snapshot, err := c.fetch(ctx, "")
+	snapshot, err := c.fetch(ctx, initialURL, "")
 	if err != nil {
 		cerr = fmt.Errorf("failed to fetch initial state: %w", err)
 		return
@@ -313,6 +318,11 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		return
 	}
 
+	if len(res) < 1 || res[0] == 0 {
+		cerr = fmt.Errorf("failed to initialize engine: invalid pointer returned")
+		return
+	}
+
 	c.engine = uint32(res[0])
 
 	c.wg.Add(1)
@@ -323,24 +333,11 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 			case <-ctx.Done():
 				return
 			case err := <-c.errChan:
-				if err == nil {
-					continue
+				if err != nil && c.errorStrategy == ErrorStrategyFail {
+					c.mu.Lock()
+					c.err = err
+					c.mu.Unlock()
 				}
-
-				c.mu.Lock()
-				c.err = err
-				c.mu.Unlock()
-
-				var fetchErr fetchError
-				// if we got a fetch error and the error strategy is to fail, we can continue
-				// as the fetch error will be returned from the evaluation methods
-				if errors.As(err, &fetchErr) && c.errorStrategy == ErrorStrategyFail {
-					continue
-				}
-
-				// if we got a sentinel error we need to signal the background goroutines to stop
-				c.cancel()
-				return
 			}
 		}
 	}()
@@ -469,10 +466,6 @@ func (c *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*Evalua
 
 // ListFlags lists all flags.
 func (c *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
-	if c.engine == 0 {
-		return nil, errors.New("engine not initialized")
-	}
-
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -588,6 +581,9 @@ func (c *EvaluationClient) handleUpdates(ctx context.Context) error {
 			c.mu.Unlock()
 
 			if len(s.payload) == 0 {
+				c.mu.Lock()
+				c.err = nil
+				c.mu.Unlock()
 				continue
 			}
 
@@ -619,7 +615,7 @@ func (c *EvaluationClient) handleUpdates(ctx context.Context) error {
 				c.mu.Unlock()
 				return fmt.Errorf("failed to deallocate memory: %w", err)
 			}
-
+			c.err = nil
 			c.mu.Unlock()
 			if err != nil {
 				return fmt.Errorf("failed to update engine: %w", err)
@@ -633,6 +629,8 @@ func (c *EvaluationClient) startPolling(ctx context.Context) {
 	ticker := time.NewTicker(c.updateInterval)
 	defer ticker.Stop()
 
+	url := c.getSnapshotURL()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -642,8 +640,11 @@ func (c *EvaluationClient) startPolling(ctx context.Context) {
 			etag := c.etag
 			c.mu.RUnlock()
 
-			snapshot, err := c.fetch(ctx, etag)
+			snapshot, err := c.fetch(ctx, url, etag)
 			if err != nil {
+				if errors.Is(err, context.Canceled) {
+					return
+				}
 				c.errChan <- err
 				continue
 			}
@@ -697,13 +698,14 @@ func doWithRetry[T any](ctx context.Context, fn func() (T, error)) (T, error) {
 	return zero, fmt.Errorf("failed after %d retries, last error: %w", maxRetries, lastErr)
 }
 
-func (c *EvaluationClient) newRequest(ctx context.Context) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.url, nil)
+func (c *EvaluationClient) newRequest(ctx context.Context, url string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "flipt-client-go/"+Version)
 	req.Header.Set("x-flipt-accept-server-version", "1.47.0")
 
 	if c.authentication != nil {
@@ -718,9 +720,9 @@ func (c *EvaluationClient) newRequest(ctx context.Context) (*http.Request, error
 }
 
 // fetch fetches the snapshot for the given namespace.
-func (c *EvaluationClient) fetch(ctx context.Context, etag string) (snapshot, error) {
+func (c *EvaluationClient) fetch(ctx context.Context, url, etag string) (snapshot, error) {
 	return doWithRetry(ctx, func() (snapshot, error) {
-		req, err := c.newRequest(ctx)
+		req, err := c.newRequest(ctx, url)
 		if err != nil {
 			return snapshot{}, err
 		}
@@ -775,6 +777,9 @@ func (c *EvaluationClient) startStreaming(ctx context.Context) {
 			return
 		default:
 			if err := c.initiateStream(ctx); err != nil {
+				if errors.Is(err, context.Canceled) {
+					return
+				}
 				c.errChan <- err
 			}
 		}
@@ -782,8 +787,9 @@ func (c *EvaluationClient) startStreaming(ctx context.Context) {
 }
 
 func (c *EvaluationClient) initiateStream(ctx context.Context) error {
+	url := c.getSnapshotURL()
 	_, err := doWithRetry(ctx, func() (struct{}, error) {
-		req, err := c.newRequest(ctx)
+		req, err := c.newRequest(ctx, url)
 		if err != nil {
 			return struct{}{}, err
 		}
@@ -793,16 +799,14 @@ func (c *EvaluationClient) initiateStream(ctx context.Context) error {
 			return struct{}{}, err
 		}
 
-		defer func() {
-			_, _ = io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-		}()
+		// Ensure response body is closed when we're done
+		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
 			return struct{}{}, fetchError{resp.StatusCode, fmt.Errorf("unexpected status code: %d", resp.StatusCode)}
 		}
 
-		if err := c.handleStream(ctx, resp.Body); err != nil {
+		if err := c.handleStream(ctx, resp.Body); err != nil && ctx.Err() == nil {
 			return struct{}{}, err
 		}
 
@@ -812,64 +816,41 @@ func (c *EvaluationClient) initiateStream(ctx context.Context) error {
 }
 
 func (c *EvaluationClient) handleStream(ctx context.Context, r io.ReadCloser) error {
-	var (
-		reader   = bufio.NewReader(r)
-		readChan = make(chan struct {
-			line []byte
-			err  error
-		}, 1) // buffered channel to prevent goroutine leak
-	)
-
-	// start a goroutine to perform the blocking read
-	go func() {
-		defer close(readChan)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				line, err := reader.ReadBytes('\n')
-				select {
-				case <-ctx.Done():
-					return
-				case readChan <- struct {
-					line []byte
-					err  error
-				}{line, err}:
-				}
-			}
-		}
-	}()
+	reader := bufio.NewReaderSize(r, 32*1024)
+	var buffer bytes.Buffer
 
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case result, ok := <-readChan:
-			if !ok {
-				return nil
+		default:
+			chunk, err := reader.ReadBytes('\n')
+			if len(chunk) > 0 {
+				buffer.Write(chunk)
+				if json.Valid(buffer.Bytes()) {
+					var chunk streamChunk
+					if err := json.Unmarshal(buffer.Bytes(), &chunk); err != nil {
+						return fmt.Errorf("failed to unmarshal stream chunk: %w", err)
+					}
+
+					for ns, payload := range chunk.Result.Namespaces {
+						if ns == c.namespace {
+							select {
+							case <-ctx.Done():
+								return ctx.Err()
+							case c.snapshotChan <- snapshot{payload: payload}:
+							}
+						}
+					}
+					buffer.Reset()
+				}
 			}
 
-			if result.err != nil {
-				if errors.Is(result.err, io.EOF) {
+			if err != nil {
+				if err == io.EOF {
 					return nil
 				}
-				return fetchError{-1, fmt.Errorf("failed to read stream chunk: %w", result.err)}
-			}
-
-			var chunk streamChunk
-			if err := json.Unmarshal(result.line, &chunk); err != nil {
-				return fmt.Errorf("failed to unmarshal stream chunk: %w", err)
-			}
-
-			for ns, payload := range chunk.Result.Namespaces {
-				if ns == c.namespace {
-					select {
-					case <-ctx.Done():
-						return ctx.Err()
-					case c.snapshotChan <- snapshot{payload: payload}:
-					}
-				}
+				return err
 			}
 		}
 	}
@@ -877,10 +858,6 @@ func (c *EvaluationClient) handleStream(ctx context.Context, r io.ReadCloser) er
 
 // evaluateWASM evaluates the given function name with the given request.
 func (c *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, request any) ([]byte, error) {
-	if c.engine == 0 {
-		return nil, errors.New("engine not initialized")
-	}
-
 	c.mu.RLock()
 	if c.err != nil && c.errorStrategy == ErrorStrategyFail {
 		c.mu.RUnlock()
@@ -993,4 +970,23 @@ func isTransientError(err error) bool {
 	}
 
 	return false
+}
+
+// getSnapshotURL returns the URL for fetching snapshots based on the fetch mode
+func (c *EvaluationClient) getSnapshotURL() string {
+	switch c.fetchMode {
+	case FetchModeStreaming:
+		// Streaming uses a different endpoint that accepts multiple namespaces
+		return fmt.Sprintf(c.baseURL+streamingPath, c.namespace)
+	case FetchModePolling:
+		// Polling uses the single namespace snapshot endpoint
+		url := fmt.Sprintf(c.baseURL+snapshotPath, c.namespace)
+		if c.ref != "" {
+			url += "?reference=" + c.ref
+		}
+		return url
+	default:
+		// This should never happen as we validate fetch mode during initialization
+		return ""
+	}
 }
