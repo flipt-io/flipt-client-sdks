@@ -1,11 +1,17 @@
 {
-  "name": "@flipt-io/flipt-client-browser",
-  "version": "0.5.0",
-  "description": "DEPRECATED: This package has been renamed to @flipt-io/flipt-client-web. Please update your dependencies.",
-  "deprecated": "This package has been renamed to @flipt-io/flipt-client-web. Please update your dependencies.",
+  "name": "@flipt-io/flipt-client-web",
+  "version": "0.1.0",
+  "description": "Flipt client for web environments (browsers, edge functions, web workers)",
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
   "author": "Flipt Devs <dev@flipt.io>",
   "license": "MIT",
   "files": [
