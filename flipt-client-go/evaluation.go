@@ -333,24 +333,11 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 			case <-ctx.Done():
 				return
 			case err := <-c.errChan:
-				if err == nil {
-					continue
+				if err != nil && c.errorStrategy == ErrorStrategyFail {
+					c.mu.Lock()
+					c.err = err
+					c.mu.Unlock()
 				}
-
-				c.mu.Lock()
-				c.err = err
-				c.mu.Unlock()
-
-				var fetchErr fetchError
-				// if we got a fetch error and the error strategy is to fail, we can continue
-				// as the fetch error will be returned from the evaluation methods
-				if errors.As(err, &fetchErr) && c.errorStrategy == ErrorStrategyFail {
-					continue
-				}
-
-				// if we got a sentinel error we need to signal the background goroutines to stop
-				c.cancel()
-				return
 			}
 		}
 	}()
@@ -594,6 +581,9 @@ func (c *EvaluationClient) handleUpdates(ctx context.Context) error {
 			c.mu.Unlock()
 
 			if len(s.payload) == 0 {
+				c.mu.Lock()
+				c.err = nil
+				c.mu.Unlock()
 				continue
 			}
 
@@ -625,7 +615,7 @@ func (c *EvaluationClient) handleUpdates(ctx context.Context) error {
 				c.mu.Unlock()
 				return fmt.Errorf("failed to deallocate memory: %w", err)
 			}
-
+			c.err = nil
 			c.mu.Unlock()
 			if err != nil {
 				return fmt.Errorf("failed to update engine: %w", err)
@@ -652,6 +642,9 @@ func (c *EvaluationClient) startPolling(ctx context.Context) {
 
 			snapshot, err := c.fetch(ctx, url, etag)
 			if err != nil {
+				if errors.Is(err, context.Canceled) {
+					return
+				}
 				c.errChan <- err
 				continue
 			}
@@ -784,12 +777,10 @@ func (c *EvaluationClient) startStreaming(ctx context.Context) {
 			return
 		default:
 			if err := c.initiateStream(ctx); err != nil {
-				select {
-				case <-ctx.Done():
+				if errors.Is(err, context.Canceled) {
 					return
-				default:
-					c.errChan <- err
 				}
+				c.errChan <- err
 			}
 		}
 	}
