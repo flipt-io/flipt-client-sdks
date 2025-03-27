@@ -7,7 +7,7 @@ on:
 
 env:
   GO_VERSION: "1.23"
-  DAGGER_VERSION: "0.14.0"
+  DAGGER_VERSION: "0.17.1"
 
 jobs:
   test:

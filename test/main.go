@@ -386,7 +386,7 @@ func pythonTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-python")).
 		WithDirectory("/src/ext/linux_x86_64", t.engine.Directory(libDir)).
-		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
+		WithServiceBinding("flipt", t.flipt.AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec(args("poetry install --without=dev")).
@@ -403,7 +403,7 @@ func goTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-go")).
 		WithFile("/src/ext/flipt_engine_wasm.wasm", t.engine.File(wasmFile)).
-		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
+		WithServiceBinding("flipt", t.flipt.AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec(args("go mod download")).
@@ -424,7 +424,7 @@ func nodeTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithDirectory("/src/dist", t.engine.Directory(wasmJSDir), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "package.json", "README.md", "LICENSE"},
 		}).
-		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
+		WithServiceBinding("flipt", t.flipt.AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec(args("npm install")).
@@ -442,7 +442,7 @@ func rubyTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-ruby")).
 		WithDirectory("/src/lib/ext/linux_x86_64", t.engine.Directory(libDir)).
-		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
+		WithServiceBinding("flipt", t.flipt.AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec(args("bundle install")).
@@ -461,7 +461,7 @@ func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 			Exclude: []string{"./.idea/", ".gradle/", "build/"},
 		}).
 		WithDirectory("/src/src/main/resources/linux-x86-64", t.engine.Directory(libDir)).
-		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
+		WithServiceBinding("flipt", t.flipt.AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec(args("gradle test")).
@@ -481,7 +481,7 @@ func browserTests(ctx context.Context, root *dagger.Container, t *testCase) erro
 		WithDirectory("/src/dist", t.engine.Directory(wasmJSDir), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "package.json", "README.md", "LICENSE"},
 		}).
-		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
+		WithServiceBinding("flipt", t.flipt.AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec(args("npm install")).
@@ -518,7 +518,7 @@ func dartTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 			Exclude: []string{".gitignore", ".dart_tool/"},
 		}).
 		WithDirectory("/src/lib/src/ffi/linux_x86_64", t.engine.Directory(libDir)).
-		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
+		WithServiceBinding("flipt", t.flipt.AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec(args("dart pub get")).
@@ -537,7 +537,7 @@ func csharpTests(ctx context.Context, root *dagger.Container, t *testCase) error
 			Exclude: []string{".gitignore", "obj/", "bin/"},
 		}).
 		WithDirectory("/src/src/FliptClient/ext/ffi/linux_x86_64", t.engine.Directory(libDir)).
-		WithServiceBinding("flipt", t.flipt.WithExec(nil).AsService()).
+		WithServiceBinding("flipt", t.flipt.AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec(args("dotnet clean")).
