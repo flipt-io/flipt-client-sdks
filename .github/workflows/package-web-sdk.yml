@@ -1,0 +1,17 @@
+name: Package Web SDK
+on:
+  push:
+    tags: ["flipt-client-web-**"]
+
+permissions:
+  contents: write
+
+env:
+  NPM_API_KEY: ${{ secrets.NPM_API_KEY }}
+
+jobs:
+  build:
+    uses: ./.github/workflows/package-wasm-sdks.yml
+    with:
+      sdks: web
+    secrets: inherit

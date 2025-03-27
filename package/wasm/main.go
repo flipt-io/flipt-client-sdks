@@ -20,7 +20,8 @@ var (
 	tag      string
 	sdksToFn = map[string]sdks.SDK{
 		"node":    &sdks.NodeSDK{},
-		"browser": &sdks.BrowserSDK{},
+		"web":     &sdks.WebSDK{},
+		"browser": &sdks.BrowserSDK{}, // deprecated
 		"go":      &sdks.GoSDK{},
 	}
 	sema = make(chan struct{}, 5)

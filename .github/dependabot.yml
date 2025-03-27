@@ -21,7 +21,7 @@ updates:
       - "automerge"
 
   - package-ecosystem: npm
-    directory: "/flipt-client-browser"
+    directory: "/flipt-client-web"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
