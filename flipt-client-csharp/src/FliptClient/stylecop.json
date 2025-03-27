@@ -24,12 +24,7 @@
       "allowCommonHungarianPrefixes": true
     },
     "maintainabilityRules": {
-      "topLevelTypes": [
-        "class",
-        "interface",
-        "struct",
-        "enum"
-      ]
+      "topLevelTypes": ["class", "interface", "struct", "enum"]
     }
   }
-} 
+}

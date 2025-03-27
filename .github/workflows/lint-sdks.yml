@@ -99,7 +99,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: "8.0.x"
 
       - name: Restore dependencies
         working-directory: flipt-client-csharp
@@ -145,7 +145,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: "1.24"
           cache: false
 
       # Touch the wasm file to ensure it is present at lint time
