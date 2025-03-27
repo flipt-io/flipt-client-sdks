@@ -44,7 +44,7 @@
     "rollup": "^4.14.0",
     "tslib": "^2.6.2",
     "typescript": "^5.4.3",
-    "undici": "^7.1.0",
+    "undici": "^7.6.0",
     "prettier": "^3.1.0"
   }
 }
