@@ -9,7 +9,8 @@
   "author": "Flipt Devs <dev@flipt.io>",
   "license": "MIT",
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "repository": {
     "type": "git",

@@ -77,7 +77,7 @@ The client SDKs are responsible for the following:
 - Sending context and the evaluation state to the engine via the WebAssembly interface.
 - Unmarshalling the results of the evaluation from JSON to memory and returning the results to the caller.
 
-## WebAssembly 
+## WebAssembly
 
 [`flipt-engine-wasm`](./flipt-engine-wasm) is a Rust library that compiles to [WebAssembly](https://webassembly.org/) and is designed to be embedded in the client-side SDKs that don't run in the browser and also cannot use the FFI implementation.
 

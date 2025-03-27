@@ -53,6 +53,7 @@ The `FliptEvaluationClient` constructor accepts two optional arguments:
   - `updateInterval`: The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
   - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
   - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
+  - `fetcher`: An implementation of a [fetcher](https://github.com/flipt-io/flipt-client-sdks/blob/bc1c19b553bf265f7f49ed4901d59f4202aff135/flipt-client-node/src/models.ts#L1-L16) interface to use when requesting flag state. If not provided, a default fetcher using Node.js's [`fetch` API](https://nodejs.org/en/learn/getting-started/fetch) will be used.
   - `errorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to fail. See the [Error Strategies](#error- strategies) section for more information.
 
 ### Authentication
@@ -86,7 +87,7 @@ const fliptEvaluationClient = await FliptEvaluationClient.init('default', {
 });
 ```
 
-The fetcher is a function that takes an optional [`IFetcherOpts`](https://github.com/flipt-io/flipt-client-sdks/blob/4821cb227c6c8b10419b96674d44ad1d6668a647/flipt-client-browser/src/models.ts#L1) argument and returns a `Promise` that resolves to a `Response` object.
+The fetcher is a function that takes an optional [`IFetcherOpts`](https://github.com/flipt-io/flipt-client-sdks/blob/bc1c19b553bf265f7f49ed4901d59f4202aff135/flipt-client-node/src/models.ts#L1-L16) argument and returns a `Promise` that resolves to a `Response` object.
 
 ## Timer Management
 
@@ -128,7 +129,7 @@ To disable ETag support, you can implement a [custom fetcher](#custom-fetcher) t
 
 ### WASM
 
-This library uses a WebAssembly (WASM) layer to interact with the Flipt server. It is written in Rust and exposes a JavaScript API using the `wasm-bindgen` and `wasm-pack` tools. We wrap the built WASM layer in a JavaScript API to make it easier to use in a browser environment.
+This library uses a WebAssembly (WASM) layer to interact with the Flipt server. It is written in Rust and exposes a JavaScript API using the `wasm-bindgen` and `wasm-pack` tools. We wrap the built WASM layer in a JavaScript API to make it easier to use in a Node.js environment.
 
 ### Prerequisites
 

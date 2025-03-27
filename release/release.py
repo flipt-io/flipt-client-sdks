@@ -11,7 +11,7 @@ init(autoreset=True)
 
 def get_sdk(name: str) -> SDK:
     sdk_classes = {
-        "flipt-client-browser": JavaScriptSDK,
+        "flipt-client-web": JavaScriptSDK,
         "flipt-client-csharp": CSharpSDK,
         "flipt-client-dart": DartSDK,
         "flipt-client-go": GoSDK,
@@ -68,7 +68,7 @@ def tag_and_push_version(versions, opts: dict):
 def get_sdk_selection() -> str | None:
     sdk_display_names = {
         "flipt-client-kotlin-android": "Android",
-        "flipt-client-browser": "Browser",
+        "flipt-client-web": "Web",
         "flipt-client-csharp": "C#",
         "flipt-client-dart": "Dart",
         "flipt-client-go": "Go",

@@ -49,7 +49,7 @@ The `FliptEvaluationClient` constructor accepts two optional arguments:
   - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
   - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
   - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
-  - `fetcher`: An implementation of a [fetcher](https://github.com/flipt-io/flipt-client-sdks/blob/4821cb227c6c8b10419b96674d44ad1d6668a647/flipt-client-browser/src/models.ts#L5) interface to use when requesting flag state. If not provided, a default fetcher using the browser's [`fetch` API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) will be used.
+  - `fetcher`: An implementation of a [fetcher](https://github.com/flipt-io/flipt-client-sdks/blob/bc1c19b553bf265f7f49ed4901d59f4202aff135/flipt-client-browser/src/models.ts#L1-L16) interface to use when requesting flag state. If not provided, a default fetcher using the browser's [`fetch` API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) will be used.
   - `errorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to fail. See the [Error Strategies](#error-strategies) section for more information.
 
 ### Authentication
@@ -83,7 +83,7 @@ const fliptEvaluationClient = await FliptEvaluationClient.init('default', {
 });
 ```
 
-The fetcher is a function that takes an optional [`IFetcherOpts`](https://github.com/flipt-io/flipt-client-sdks/blob/4821cb227c6c8b10419b96674d44ad1d6668a647/flipt-client-browser/src/models.ts#L1) argument and returns a `Promise` that resolves to a `Response` object.
+The fetcher is a function that takes an optional [`IFetcherOpts`](https://github.com/flipt-io/flipt-client-sdks/blob/bc1c19b553bf265f7f49ed4901d59f4202aff135/flipt-client-browser/src/models.ts#L1-L16) argument and returns a `Promise` that resolves to a `Response` object.
 
 ## State Management
 
