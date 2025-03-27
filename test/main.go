@@ -88,7 +88,7 @@ var (
 		{base: "gradle:8-jdk11-alpine"},
 	}
 
-	browserVersions = []containerConfig{
+	webVersions = []containerConfig{
 		{base: "node:21.2-bookworm"},
 	}
 
@@ -108,22 +108,22 @@ var (
 
 // sdkToConfig defines the test configurations for each SDK
 var sdkToConfig = map[string]testConfig{
-	"python":  {containers: pythonVersions, fn: pythonTests},
-	"go":      {containers: goVersions, fn: goTests},
-	"node":    {containers: nodeVersions, fn: nodeTests},
-	"ruby":    {containers: rubyVersions, fn: rubyTests},
-	"java":    {containers: javaVersions, fn: javaTests},
-	"browser": {containers: browserVersions, fn: browserTests},
-	"dart":    {containers: dartVersions, fn: dartTests},
-	"react":   {containers: reactVersions, fn: reactTests},
-	"csharp":  {containers: csharpVersions, fn: csharpTests},
+	"python": {containers: pythonVersions, fn: pythonTests},
+	"go":     {containers: goVersions, fn: goTests},
+	"node":   {containers: nodeVersions, fn: nodeTests},
+	"ruby":   {containers: rubyVersions, fn: rubyTests},
+	"java":   {containers: javaVersions, fn: javaTests},
+	"web":    {containers: webVersions, fn: webTests},
+	"dart":   {containers: dartVersions, fn: dartTests},
+	"react":  {containers: reactVersions, fn: reactTests},
+	"csharp": {containers: csharpVersions, fn: csharpTests},
 }
 
 // sdkGroups defines which SDKs belong to each group
 var sdkGroups = map[string][]string{
 	"ffi":  {"python", "ruby", "java", "dart", "csharp"},
 	"wasm": {"go"},
-	"js":   {"node", "browser", "react"},
+	"js":   {"node", "web", "react"},
 }
 
 func init() {
@@ -224,7 +224,7 @@ func run() error {
 				switch lang {
 				case "node":
 					testCase.engine = getWasmJSBuildContainer(ctx, client, hostDir, "nodejs")
-				case "browser", "react":
+				case "web", "react":
 					testCase.engine = getWasmJSBuildContainer(ctx, client, hostDir, "web")
 				case "go":
 					testCase.engine = getWasmBuildContainer(ctx, client, hostDir)
@@ -470,12 +470,12 @@ func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	return err
 }
 
-// browserTests runs the browser integration test suite against a container running Flipt.
-func browserTests(ctx context.Context, root *dagger.Container, t *testCase) error {
+// webTests runs the web integration test suite against a container running Flipt.
+func webTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	// previously node:21.2-bookworm
 	_, err := root.
 		WithWorkdir("/src").
-		WithDirectory("/src", t.hostDir.Directory("flipt-client-browser"), dagger.ContainerWithDirectoryOpts{
+		WithDirectory("/src", t.hostDir.Directory("flipt-client-web"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "dist/"},
 		}).
 		WithDirectory("/src/dist", t.engine.Directory(wasmJSDir), dagger.ContainerWithDirectoryOpts{
@@ -493,7 +493,7 @@ func browserTests(ctx context.Context, root *dagger.Container, t *testCase) erro
 }
 
 // reactTests runs the react unit test suite against a mocked Flipt client.
-// this is because the react client simply uses the browser client under the hood
+// this is because the react client simply uses the web client under the hood
 func reactTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	// previously node:21.2-bookworm
 	_, err := root.

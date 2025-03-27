@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        sdk: ["flipt-client-node", "flipt-client-browser", "flipt-client-react"]
+        sdk: ["flipt-client-node", "flipt-client-browser", "flipt-client-react", "flipt-client-web"]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
