@@ -21,7 +21,7 @@ import {
   ListFlagsResult
 } from './internal/models';
 
-export class FliptEvaluationClient {
+export class FliptClient {
   private engine: Engine;
   private fetcher: IFetcher;
   private etag?: string;
@@ -36,7 +36,7 @@ export class FliptEvaluationClient {
    * Initialize the client
    * @param namespace - optional namespace to evaluate flags
    * @param options - optional client options
-   * @returns {Promise<FliptEvaluationClient>}
+   * @returns {Promise<FliptClient>}
    */
   static async init(
     namespace: string = 'default',
@@ -45,7 +45,7 @@ export class FliptEvaluationClient {
       reference: '',
       errorStrategy: ErrorStrategy.Fail
     }
-  ): Promise<FliptEvaluationClient> {
+  ): Promise<FliptClient> {
     await init(await wasm());
 
     let url = options.url ?? 'http://localhost:8080';
@@ -105,7 +105,7 @@ export class FliptEvaluationClient {
     const data = await resp.json();
     const engine = new Engine(namespace);
     engine.snapshot(data);
-    const client = new FliptEvaluationClient(engine, fetcher);
+    const client = new FliptClient(engine, fetcher);
     client.storeEtag(resp);
     client.errorStrategy = options.errorStrategy;
     return client;

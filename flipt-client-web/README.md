@@ -20,9 +20,9 @@ npm install @flipt-io/flipt-client-web
 ### Browser Usage
 
 ```typescript
-import { FliptEvaluationClient } from '@flipt-io/flipt-client-web';
+import { FliptClient } from '@flipt-io/flipt-client-web';
 
-const client = await FliptEvaluationClient.init('default', {
+const client = await FliptClient.init('default', {
   url: 'http://localhost:8080',
   authentication: {
     clientToken: 'secret'
@@ -39,14 +39,14 @@ console.log(variant);
 ### Edge Function Usage (e.g., Vercel Edge)
 
 ```typescript
-import { FliptEvaluationClient } from '@flipt-io/flipt-client-web';
+import { FliptClient } from '@flipt-io/flipt-client-web';
 
 export const config = {
   runtime: 'edge'
 };
 
 export default async function middleware(req) {
-  const client = await FliptEvaluationClient.init('default', {
+  const client = await FliptClient.init('default', {
     url: process.env.FLIPT_URL,
     authentication: {
       clientToken: process.env.FLIPT_AUTH_TOKEN
@@ -67,7 +67,7 @@ export default async function middleware(req) {
 
 ### Initialization Arguments
 
-The `FliptEvaluationClient` constructor accepts two optional arguments:
+The `FliptClient` constructor accepts two optional arguments:
 
 - `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
 - `options`: An instance of the `ClientOptions` type that supports several options for the client. The structure is:
@@ -79,7 +79,7 @@ The `FliptEvaluationClient` constructor accepts two optional arguments:
 
 ### Authentication
 
-The `FliptEvaluationClient` supports the following authentication strategies:
+The `FliptClient` supports the following authentication strategies:
 
 - No Authentication (default)
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
@@ -94,12 +94,12 @@ The client `errorStrategy` option supports the following error strategies:
 
 ### Custom Fetcher
 
-The `FliptEvaluationClient` supports custom fetchers. This allows you to fetch flag state from a custom source or override HTTP headers.
+The `FliptClient` supports custom fetchers. This allows you to fetch flag state from a custom source or override HTTP headers.
 
-The fetcher can be passed in as an argument to the `FliptEvaluationClient` initializer function.
+The fetcher can be passed in as an argument to the `FliptClient` initializer function.
 
 ```typescript
-const fliptEvaluationClient = await FliptEvaluationClient.init('default', {
+const fliptEvaluationClient = await FliptClient.init('default', {
   url: 'http://localhost:8080',
   authentication: {
     clientToken
@@ -112,9 +112,9 @@ The fetcher is a function that takes an optional [`IFetcherOpts`](https://github
 
 ## State Management
 
-The `FliptEvaluationClient` class pulls flag state from the Flipt instance at the `url` provided in the `options` object on instantiation.
+The `FliptClient` class pulls flag state from the Flipt instance at the `url` provided in the `options` object on instantiation.
 
-To update the flag state, you can call the `refresh` method on the `FliptEvaluationClient` class.
+To update the flag state, you can call the `refresh` method on the `FliptClient` class.
 
 > [!NOTE]
 > The `refresh` method returns a boolean indicating whether the flag state changed.
