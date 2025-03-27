@@ -18,8 +18,12 @@ There are three ways to use the Flipt React SDK.
 2. Use the `useFliptVariant` hook for variant evaluation in a functional component that is wrapped in a `FliptProvider`.
 3. Use the `useFliptSelector` hook for custom evaluation in a functional component that is wrapped in a `FliptProvider`.
 
+<!-- prettier-ignore-start -->
+
 > [!TIP]
 > Looking for NextJS support? Check out our [NextJS examples](https://github.com/flipt-io/flipt/tree/main/examples/nextjs) in the main Flipt repo.
+
+<!-- prettier-ignore-end -->
 
 ### FliptProvider
 
@@ -97,7 +101,12 @@ The `useFliptSelector` hook allows direct access to the Flipt client so that it 
 
 This is useful for more complex evaluations or in cases where you wish to call other methods on the Flipt client.
 
-> [!WARNING] > `flipt-client-react` heavily depends on the `useSyncExternalStore` hook which has some [caveats](https://react.dev/reference/react/useSyncExternalStore#caveats)
+<!-- prettier-ignore-start -->
+
+> [!WARNING]
+> `flipt-client-react` heavily depends on the `useSyncExternalStore` hook which has some [caveats](https://react.dev/reference/react/useSyncExternalStore#caveats)
+
+<!-- prettier-ignore-end -->
 
 ```tsx
 import { useFliptSelector } from '@flipt-io/flipt-client-react';
