@@ -19,13 +19,15 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-client-react"
+    "url": "https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-client-web"
   },
   "keywords": [
     "flipt",
     "feature flags",
     "feature toggles",
-    "wasm"
+    "wasm",
+    "edge functions",
+    "web workers"
   ],
   "scripts": {
     "fmt": "prettier --config .prettierrc 'src/**/*.ts' --write",
