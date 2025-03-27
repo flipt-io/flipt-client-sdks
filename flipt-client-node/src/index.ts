@@ -1,5 +1,5 @@
 import { Engine } from '../dist/flipt_engine_wasm_js.js';
-import { serialize, deserialize } from './internal/utils.js';
+import { serialize, deserialize } from './internal/utils';
 
 import {
   AuthenticationStrategy,
