@@ -64,6 +64,7 @@ impl Snapshot {
             let f = flipt::Flag {
                 key: flag.key.clone(),
                 enabled: flag.enabled,
+                description: flag.description,
                 r#type: flag.r#type.unwrap_or(flipt::FlagType::Variant),
                 default_variant: flag.default_variant.map(|v| flipt::Variant {
                     id: v.id,

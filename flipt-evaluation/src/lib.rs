@@ -988,6 +988,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
@@ -1053,6 +1054,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: false,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
@@ -1091,6 +1093,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: false,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: Some(flipt::Variant {
                     id: String::from("1"),
@@ -1137,6 +1140,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
@@ -1212,6 +1216,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: Some(flipt::Variant {
                     id: String::from("1"),
@@ -1296,6 +1301,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
@@ -1408,6 +1414,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
@@ -1504,6 +1511,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
@@ -1610,6 +1618,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
@@ -1722,6 +1731,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
@@ -1833,6 +1843,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
@@ -1931,6 +1942,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
@@ -2006,6 +2018,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: Some(flipt::Variant {
                     id: String::from("1"),
@@ -2090,6 +2103,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
@@ -2200,6 +2214,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
@@ -2295,6 +2310,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
@@ -2392,6 +2408,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
@@ -2503,6 +2520,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
@@ -2613,6 +2631,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
@@ -2733,6 +2752,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
@@ -2816,6 +2836,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: true,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Variant,
                 default_variant: None,
             })
@@ -2923,6 +2944,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: false,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Boolean,
                 default_variant: None,
             })
@@ -2985,6 +3007,7 @@ mod tests {
             Some(flipt::Flag {
                 key: String::from("foo"),
                 enabled: false,
+                description: Some(String::from("foo flag")),
                 r#type: flipt::FlagType::Boolean,
                 default_variant: None,
             })

@@ -147,7 +147,7 @@ pub mod tests {
              {
              "key": "flag1",
              "name": "flag1",
-             "description": "",
+             "description": "foo flag",
              "enabled": false,
              "type": "VARIANT_FLAG_TYPE",
              "createdAt": "2024-09-13T19:37:18.723909Z",
