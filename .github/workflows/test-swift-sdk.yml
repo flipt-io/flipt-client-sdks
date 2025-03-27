@@ -72,7 +72,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
-          name: flipt-engine-ffi-Darwin-aarch64.tar.gz 
+          name: flipt-engine-ffi-Darwin-aarch64.tar.gz
           path: /tmp
           run-id: ${{ github.event.workflow_run.id }}
 

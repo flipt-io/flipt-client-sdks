@@ -30,7 +30,6 @@ jobs:
       - name: Install Rust
         run: rustup update stable && rustup target add ${{ matrix.platform.target }}
 
-
       - uses: actions/cache@v4
         with:
           path: |

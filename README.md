@@ -53,7 +53,7 @@ We are constantly growing our list of supported languages.
 Currently, we support the following languages/platforms:
 
 | Language/Platform                              | Version                                                                                                                                                                                         | Implementation |
-|------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------|
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
 | [Android](./flipt-client-kotlin-android)       | [![flipt-client-android](https://img.shields.io/maven-central/v/io.flipt/flipt-client-android?label=flipt-client-android)](https://central.sonatype.com/artifact/io.flipt/flipt-client-android) | FFI            |
 | [C#](./flipt-client-csharp)                    | [![flipt-client-c#](https://img.shields.io/nuget/v/flipt.client)](https://www.nuget.org/packages/Flipt.Client/)                                                                                 | FFI            |
 | [Flutter/Dart](./flipt-client-dart)            | [![flipt-client-dart](https://img.shields.io/pub/v/flipt_client.svg)](https://pub.dev/packages/flipt_client)                                                                                    | FFI            |
