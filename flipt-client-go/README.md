@@ -75,12 +75,13 @@ import (
 )
 
 func main() {
-  evaluationClient, err := flipt.NewEvaluationClient(context.Background())
+  ctx := context.Background()
+  evaluationClient, err := flipt.NewEvaluationClient(ctx)
   if err != nil {
     log.Fatal(err)
   }
 
-  defer evaluationClient.Close()
+  defer evaluationClient.Close(ctx)
 
   variantResult, err := evaluationClient.EvaluateVariant(context.Background(), "flag1", "someentity", map[string]string{
     "fizz": "buzz",
