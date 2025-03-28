@@ -35,7 +35,7 @@ export abstract class BaseFliptClient {
    * Store etag from response for next requests
    */
   protected storeEtag(resp: Response) {
-    let etag = resp.headers.get('etag');
+    const etag = resp.headers.get('etag');
     if (etag) {
       this.etag = etag;
     }
@@ -50,7 +50,7 @@ export abstract class BaseFliptClient {
       const opts = { etag: this.etag };
       const resp = await this.fetcher(opts);
 
-      let etag = resp.headers.get('etag');
+      const etag = resp.headers.get('etag');
       if (this.etag && this.etag === etag) {
         return false;
       }
@@ -74,7 +74,7 @@ export abstract class BaseFliptClient {
   public evaluateVariant(
     flagKey: string,
     entityId: string,
-    context: {}
+    context: Record<string, unknown>
   ): VariantEvaluationResponse {
     if (!flagKey || flagKey.trim() === '') {
       throw new Error('flagKey cannot be empty');
@@ -116,7 +116,7 @@ export abstract class BaseFliptClient {
   public evaluateBoolean(
     flagKey: string,
     entityId: string,
-    context: {}
+    context: Record<string, unknown>
   ): BooleanEvaluationResponse {
     if (!flagKey || flagKey.trim() === '') {
       throw new Error('flagKey cannot be empty');
