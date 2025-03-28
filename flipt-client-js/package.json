@@ -21,7 +21,7 @@
     "build": "rollup -c",
     "test": "jest",
     "lint": "eslint src --ext .ts",
-    "format": "prettier --write src",
+    "fmt": "prettier --write src",
     "clean": "rimraf dist"
   },
   "dependencies": {

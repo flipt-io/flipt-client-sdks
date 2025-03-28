@@ -20,6 +20,5 @@ export default {
     wasm({
       targetEnv: 'auto-inline'
     })
-  ],
-  external: ['node-fetch']
+  ]
 };
