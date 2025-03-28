@@ -20,7 +20,7 @@ describe('FliptClient', () => {
   });
 
   beforeAll(async () => {
-    client = await FliptClient.init('default', {
+    client = await FliptClient.init({
       url: fliptUrl,
       authentication: {
         clientToken: authToken

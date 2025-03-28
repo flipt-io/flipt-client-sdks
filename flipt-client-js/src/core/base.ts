@@ -71,11 +71,15 @@ export abstract class BaseFliptClient {
   /**
    * Evaluate a variant flag
    */
-  public evaluateVariant(
-    flagKey: string,
-    entityId: string,
-    context: Record<string, unknown>
-  ): VariantEvaluationResponse {
+  public evaluateVariant({
+    flagKey,
+    entityId,
+    context
+  }: {
+    flagKey: string;
+    entityId: string;
+    context: Record<string, unknown>;
+  }): VariantEvaluationResponse {
     if (!flagKey || flagKey.trim() === '') {
       throw new Error('flagKey cannot be empty');
     }
@@ -113,11 +117,15 @@ export abstract class BaseFliptClient {
   /**
    * Evaluate a boolean flag
    */
-  public evaluateBoolean(
-    flagKey: string,
-    entityId: string,
-    context: Record<string, unknown>
-  ): BooleanEvaluationResponse {
+  public evaluateBoolean({
+    flagKey,
+    entityId,
+    context
+  }: {
+    flagKey: string;
+    entityId: string;
+    context: Record<string, unknown>;
+  }): BooleanEvaluationResponse {
     if (!flagKey || flagKey.trim() === '') {
       throw new Error('flagKey cannot be empty');
     }

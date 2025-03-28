@@ -57,6 +57,12 @@ export interface JWTAuthentication extends AuthenticationStrategy {
 
 export interface ClientOptions {
   /**
+   * The namespace to use when evaluating flags.
+   *
+   * @defaultValue `default`
+   */
+  namespace?: string;
+  /**
    * The URL of the upstream Flipt instance.
    *
    * @defaultValue `http://localhost:8080`

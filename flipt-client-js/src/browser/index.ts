@@ -11,13 +11,15 @@ export class FliptClient extends BaseFliptClient {
    * @returns {Promise<FliptClient>}
    */
   static async init(
-    namespace: string = 'default',
     options: ClientOptions = {
+      namespace: 'default',
       url: 'http://localhost:8080',
       reference: '',
       errorStrategy: ErrorStrategy.Fail
     }
   ): Promise<FliptClient> {
+    const namespace = options.namespace ?? 'default';
+
     let url = options.url ?? 'http://localhost:8080';
     url = url.replace(/\/$/, '');
     url = `${url}/internal/v1/evaluation/snapshot/namespace/${namespace}`;
