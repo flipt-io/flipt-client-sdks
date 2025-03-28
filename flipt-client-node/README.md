@@ -1,6 +1,10 @@
 # Flipt Client Node
 
+> [!WARNING]
+> This SDK is deprecated and will not be maintained going forward. Please use the new [Flipt Client JS SDK](https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-client-js) instead.
+
 [![flipt-client-node](https://img.shields.io/npm/v/@flipt-io/flipt-client?label=%40flipt-io%2Fflipt-client)](https://www.npmjs.com/package/@flipt-io/flipt-client)
+![deprecated](https://img.shields.io/badge/status-deprecated-red)
 
 The `flipt-client-node` library contains the JavaScript/TypeScript source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client.
 

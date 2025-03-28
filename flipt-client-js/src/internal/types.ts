@@ -3,7 +3,7 @@ import {
   BooleanEvaluationResponse,
   Flag,
   VariantEvaluationResponse
-} from '../models';
+} from '../core/types';
 
 /**
  * Represents a specialized result object for variant evaluation, extending

@@ -1,120 +1,40 @@
-import init, { Engine } from '../dist/flipt_engine_wasm_js.js';
-import wasm from '../dist/flipt_engine_wasm_js_bg.wasm';
-import { deserialize, serialize } from './utils';
 import {
   BatchEvaluationResponse,
   BooleanEvaluationResponse,
-  ClientOptions,
   ErrorEvaluationResponse,
   EvaluationRequest,
   EvaluationResponse,
   Flag,
   IFetcher,
   VariantEvaluationResponse,
-  ErrorStrategy
-} from './models';
+  ErrorStrategy,
+  Response
+} from './types';
 
 import {
   VariantResult,
   BooleanResult,
   BatchResult,
   ListFlagsResult
-} from './internal/models';
+} from '../internal/types';
 
-export class FliptClient {
-  private engine: Engine;
-  private fetcher: IFetcher;
-  private etag?: string;
-  private errorStrategy?: ErrorStrategy;
+import { deserialize, serialize } from '../internal/utils';
 
-  private constructor(engine: Engine, fetcher: IFetcher) {
+export abstract class BaseFliptClient {
+  protected engine: any; // Type will be provided by platform implementations
+  protected fetcher: IFetcher;
+  protected etag?: string;
+  protected errorStrategy?: ErrorStrategy;
+
+  constructor(engine: any, fetcher: IFetcher) {
     this.engine = engine;
     this.fetcher = fetcher;
   }
 
   /**
-   * Initialize the client
-   * @param namespace - optional namespace to evaluate flags
-   * @param options - optional client options
-   * @returns {Promise<FliptClient>}
-   */
-  static async init(
-    namespace: string = 'default',
-    options: ClientOptions = {
-      url: 'http://localhost:8080',
-      reference: '',
-      errorStrategy: ErrorStrategy.Fail
-    }
-  ): Promise<FliptClient> {
-    await init(await wasm());
-
-    let url = options.url ?? 'http://localhost:8080';
-    // trim trailing slash
-    url = url.replace(/\/$/, '');
-    url = `${url}/internal/v1/evaluation/snapshot/namespace/${namespace}`;
-
-    if (options.reference) {
-      url = `${url}?reference=${options.reference}`;
-    }
-
-    const headers = new Headers();
-    headers.append('Accept', 'application/json');
-    headers.append('x-flipt-accept-server-version', '1.47.0');
-
-    if (options.authentication) {
-      if ('clientToken' in options.authentication) {
-        headers.append(
-          'Authorization',
-          `Bearer ${options.authentication.clientToken}`
-        );
-      } else if ('jwtToken' in options.authentication) {
-        headers.append(
-          'Authorization',
-          `JWT ${options.authentication.jwtToken}`
-        );
-      }
-    }
-
-    let fetcher = options.fetcher;
-
-    if (!fetcher) {
-      fetcher = async (opts?: { etag?: string }) => {
-        if (opts && opts.etag) {
-          headers.append('If-None-Match', opts.etag);
-        }
-
-        const resp = await fetch(url, {
-          method: 'GET',
-          headers
-        });
-
-        if (!resp.ok && resp.status !== 304) {
-          throw new Error(`Failed to fetch data: ${resp.statusText}`);
-        }
-
-        return resp;
-      };
-    }
-
-    // handle case if they pass in a custom fetcher that doesn't throw on non-2xx status codes
-    const resp = await fetcher();
-    if (!resp.ok) {
-      throw new Error(`Failed to fetch data: ${resp.statusText}`);
-    }
-
-    const data = await resp.json();
-    const engine = new Engine(namespace);
-    engine.snapshot(data);
-    const client = new FliptClient(engine, fetcher);
-    client.storeEtag(resp);
-    client.errorStrategy = options.errorStrategy;
-    return client;
-  }
-
-  /**
    * Store etag from response for next requests
    */
-  private storeEtag(resp: Response) {
+  protected storeEtag(resp: Response) {
     let etag = resp.headers.get('etag');
     if (etag) {
       this.etag = etag;
@@ -142,7 +62,7 @@ export class FliptClient {
       return true;
     } catch (error) {
       if (this.errorStrategy === ErrorStrategy.Fail) {
-        throw error; // Re-throw the error
+        throw error;
       }
     }
     return false;
@@ -150,10 +70,6 @@ export class FliptClient {
 
   /**
    * Evaluate a variant flag
-   * @param flagKey - flag key to evaluate
-   * @param entityId - entity id to evaluate
-   * @param context - optional evaluation context
-   * @returns {VariantEvaluationResponse}
    */
   public evaluateVariant(
     flagKey: string,
@@ -196,10 +112,6 @@ export class FliptClient {
 
   /**
    * Evaluate a boolean flag
-   * @param flagKey - flag key to evaluate
-   * @param entityId - entity id to evaluate
-   * @param context - optional evaluation context
-   * @returns {BooleanEvaluationResponse}
    */
   public evaluateBoolean(
     flagKey: string,
@@ -242,8 +154,6 @@ export class FliptClient {
 
   /**
    * Evaluate a batch of flag requests
-   * @param requests evaluation requests
-   * @returns {BatchEvaluationResponse}
    */
   public evaluateBatch(requests: EvaluationRequest[]): BatchEvaluationResponse {
     const serializedRequests = requests.map(serialize);
@@ -266,8 +176,7 @@ export class FliptClient {
       .map((response): EvaluationResponse | undefined => {
         if (response.type === 'BOOLEAN_EVALUATION_RESPONSE_TYPE') {
           const booleanResponse = deserialize<BooleanEvaluationResponse>(
-            // @ts-ignore
-            response.boolean_evaluation_response
+            response.booleanEvaluationResponse
           );
           return {
             booleanEvaluationResponse: booleanResponse,
@@ -276,8 +185,7 @@ export class FliptClient {
         }
         if (response.type === 'VARIANT_EVALUATION_RESPONSE_TYPE') {
           const variantResponse = deserialize<VariantEvaluationResponse>(
-            // @ts-ignore
-            response.variant_evaluation_response
+            response.variantEvaluationResponse
           );
           return {
             variantEvaluationResponse: variantResponse,
@@ -286,8 +194,7 @@ export class FliptClient {
         }
         if (response.type === 'ERROR_EVALUATION_RESPONSE_TYPE') {
           const errorResponse = deserialize<ErrorEvaluationResponse>(
-            // @ts-ignore
-            response.error_evaluation_response
+            response.errorEvaluationResponse
           );
           return {
             errorEvaluationResponse: errorResponse,
@@ -300,11 +207,9 @@ export class FliptClient {
         (response): response is EvaluationResponse => response !== undefined
       );
 
-    const requestDurationMillis = batchResult.result.requestDurationMillis;
-
     return {
       responses,
-      requestDurationMillis
+      requestDurationMillis: batchResult.result.requestDurationMillis
     };
   }
 
@@ -328,5 +233,3 @@ export class FliptClient {
     return flags.result.map(deserialize<Flag>);
   }
 }
-
-export * from './models';

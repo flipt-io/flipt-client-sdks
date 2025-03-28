@@ -70,12 +70,6 @@ var (
 		{base: "golang:1.23-alpine", setup: []string{"apk update", "apk add --no-cache build-base"}},
 	}
 
-	nodeVersions = []containerConfig{
-		{base: "node:21.2-bookworm"},
-		{base: "node:21.2-bullseye"},
-		{base: "node:21.2-alpine"},
-	}
-
 	rubyVersions = []containerConfig{
 		{base: "ruby:3.1-bookworm"},
 		{base: "ruby:3.1-bullseye"},
@@ -88,8 +82,10 @@ var (
 		{base: "gradle:8-jdk11-alpine"},
 	}
 
-	webVersions = []containerConfig{
+	javascriptVersions = []containerConfig{
 		{base: "node:21.2-bookworm"},
+		{base: "node:21.2-bullseye"},
+		{base: "node:21.2-alpine"},
 	}
 
 	dartVersions = []containerConfig{
@@ -110,10 +106,9 @@ var (
 var sdkToConfig = map[string]testConfig{
 	"python": {containers: pythonVersions, fn: pythonTests},
 	"go":     {containers: goVersions, fn: goTests},
-	"node":   {containers: nodeVersions, fn: nodeTests},
+	"js":     {containers: javascriptVersions, fn: javascriptTests},
 	"ruby":   {containers: rubyVersions, fn: rubyTests},
 	"java":   {containers: javaVersions, fn: javaTests},
-	"web":    {containers: webVersions, fn: webTests},
 	"dart":   {containers: dartVersions, fn: dartTests},
 	"react":  {containers: reactVersions, fn: reactTests},
 	"csharp": {containers: csharpVersions, fn: csharpTests},
@@ -413,28 +408,6 @@ func goTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	return err
 }
 
-// nodeTests runs the node integration test suite against a container running Flipt.
-func nodeTests(ctx context.Context, root *dagger.Container, t *testCase) error {
-	// previously node:21.2-bookworm
-	_, err := root.
-		WithWorkdir("/src").
-		WithDirectory("/src", t.hostDir.Directory("flipt-client-node"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{".node_modules/", ".gitignore", "dist/"},
-		}).
-		WithDirectory("/src/dist", t.engine.Directory(wasmJSDir), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{".node_modules/", ".gitignore", "package.json", "README.md", "LICENSE"},
-		}).
-		WithServiceBinding("flipt", t.flipt.AsService()).
-		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
-		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithExec(args("npm install")).
-		WithExec(args("npm run build")).
-		WithExec(args("npm test")).
-		Sync(ctx)
-
-	return err
-}
-
 // rubyTests runs the ruby integration test suite against a container running Flipt.
 func rubyTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	// previously ruby:3.1-bookworm
@@ -470,12 +443,12 @@ func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	return err
 }
 
-// webTests runs the web integration test suite against a container running Flipt.
-func webTests(ctx context.Context, root *dagger.Container, t *testCase) error {
+// javascriptTests runs the javascript integration test suite against a container running Flipt.
+func javascriptTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	// previously node:21.2-bookworm
 	_, err := root.
 		WithWorkdir("/src").
-		WithDirectory("/src", t.hostDir.Directory("flipt-client-web"), dagger.ContainerWithDirectoryOpts{
+		WithDirectory("/src", t.hostDir.Directory("flipt-client-js"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "dist/"},
 		}).
 		WithDirectory("/src/dist", t.engine.Directory(wasmJSDir), dagger.ContainerWithDirectoryOpts{

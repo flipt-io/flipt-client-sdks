@@ -1,4 +1,17 @@
 /**
+ * Minimal interface representing the Response properties we use
+ */
+export interface Response {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  headers: {
+    get(name: string): string | null;
+  };
+  json(): Promise<any>;
+}
+
+/**
  * Represents the options for a fetcher function.
  */
 export interface IFetcherOptions {
@@ -66,6 +79,10 @@ export interface ClientOptions {
    * @see {@link https://docs.flipt.io/guides/user/using-references}
    */
   reference?: string;
+
+  /**
+   * The fetcher to use when fetching flag state. If not provided, the client will default to a fetch function.
+   */
   fetcher?: IFetcher;
 
   /**

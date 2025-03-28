@@ -1,26 +1,24 @@
-# Flipt Client Web
+# Flipt Client JS
 
-[![flipt-client-web](https://img.shields.io/npm/v/@flipt-io/flipt-client-web?label=%40flipt-io%2Fflipt-client-web)](https://www.npmjs.com/package/@flipt-io/flipt-client-web)
+[![flipt-client-js](https://img.shields.io/npm/v/@flipt-io/flipt-client-js?label=%40flipt-io%2Fflipt-client-js)](https://www.npmjs.com/package/@flipt-io/flipt-client-js)
 
-The `flipt-client-web` library contains the JavaScript/TypeScript client for Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) in web environments. It supports:
+The `flipt-client-js` library contains the JavaScript/TypeScript client for Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) in web and Node.js environments. It supports:
 
+- Node.js
 - Browsers
 - Edge Functions (Vercel Edge, Cloudflare Workers, etc.)
 - Web Workers
-- Any environment that supports Web APIs
 
 ## Installation
 
 ```bash
-npm install @flipt-io/flipt-client-web
+npm install @flipt-io/flipt-client-js
 ```
 
 ## Usage
 
-### Browser Usage
-
 ```typescript
-import { FliptClient } from '@flipt-io/flipt-client-web';
+import { FliptClient } from '@flipt-io/flipt-client-js';
 
 const client = await FliptClient.init('default', {
   url: 'http://localhost:8080',
@@ -39,7 +37,7 @@ console.log(variant);
 ### Edge Function Usage (e.g., Vercel Edge)
 
 ```typescript
-import { FliptClient } from '@flipt-io/flipt-client-web';
+import { FliptClient } from '@flipt-io/flipt-client-js';
 
 export const config = {
   runtime: 'edge'
@@ -72,6 +70,7 @@ The `FliptClient` constructor accepts two optional arguments:
 - `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
 - `options`: An instance of the `ClientOptions` type that supports several options for the client. The structure is:
   - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
+  - `updateInterval`: **Node.js Only** The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
   - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
   - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
   - `fetcher`: An implementation of a [fetcher](https://github.com/flipt-io/flipt-client-sdks/blob/4821cb227c6c8b10419b96674d44ad1d6668a647/flipt-client-browser/src/models.ts#L5) interface to use when requesting flag state. If not provided, a default fetcher using the browser's [`fetch` API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) will be used.
@@ -99,7 +98,7 @@ The `FliptClient` supports custom fetchers. This allows you to fetch flag state 
 The fetcher can be passed in as an argument to the `FliptClient` initializer function.
 
 ```typescript
-const fliptEvaluationClient = await FliptClient.init('default', {
+const client = await FliptClient.init('default', {
   url: 'http://localhost:8080',
   authentication: {
     clientToken
@@ -121,11 +120,33 @@ To update the flag state, you can call the `refresh` method on the `FliptClient`
 
 ```typescript
 // Refresh the flag state
-let changed = await fliptEvaluationClient.refresh();
+let changed = await client.refresh();
 
 if (changed) {
   // Do something
 }
+```
+
+### Auto-Refresh (Node.js Only)
+
+The `FliptClient` class supports auto-refreshing flag state.
+
+To enable auto-refreshing, you can pass the `updateInterval` option to the `FliptClient` initializer function. Under the hood this uses a timer to fetch new flag state at a regular interval.
+
+> [!NOTE]
+> The `updateInterval` option is only supported in Node.js environments.
+
+```typescript
+const client = await FliptClient.init('default', {
+  url: 'http://localhost:8080',
+  updateInterval: 30 // refresh every 30 seconds
+});
+```
+
+Make sure to call the `close` method on the `FliptClient` class once you are done using it to stop the timer and clean up resources.
+
+```typescript
+client.close();
 ```
 
 ## ETag Support
