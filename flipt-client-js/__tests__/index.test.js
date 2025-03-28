@@ -1,4 +1,4 @@
-const flipt = require('../dist/index.cjs');
+import { FliptClient } from '../dist/index.mjs';
 
 describe('FliptClient', () => {
   let fliptUrl;
@@ -20,7 +20,7 @@ describe('FliptClient', () => {
   });
 
   beforeAll(async () => {
-    client = await flipt.FliptClient.init('default', {
+    client = await FliptClient.init('default', {
       url: fliptUrl,
       authentication: {
         clientToken: authToken
