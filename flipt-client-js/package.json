@@ -2,6 +2,7 @@
   "name": "@flipt-io/flipt-client-js",
   "version": "0.0.1",
   "description": "Flipt Client Evaluation SDK for Web and Node.js",
+  "type": "module",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
   "types": "./dist/types/index.d.ts",
@@ -19,7 +20,7 @@
   ],
   "scripts": {
     "build": "rollup -c",
-    "test": "jest",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "lint": "eslint src --ext .ts",
     "fmt": "prettier --write src",
     "clean": "rimraf dist"
