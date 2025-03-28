@@ -1,4 +1,50 @@
 /**
+ * Represents a specialized result object for variant evaluation, extending
+ * the generic Result interface with a specific type VariantEvaluationResponse.
+ */
+export interface VariantResult extends Result<VariantEvaluationResponse> {}
+
+/**
+ * Represents a specialized result object for boolean evaluation, extending
+ * the generic Result interface with a specific type BooleanEvaluationResponse.
+ */
+export interface BooleanResult extends Result<BooleanEvaluationResponse> {}
+
+/**
+ * Represents a specialized result object for batch evaluation, extending
+ * the generic Result interface with a specific type BatchEvaluationResponse.
+ */
+export interface BatchResult extends Result<BatchEvaluationResponse> {}
+
+/**
+ * Represents a specialized result object for listing flags, extending
+ * the generic Result interface with a specific type ListFlagsResponse.
+ */
+export interface ListFlagsResult extends Result<Flag[]> {}
+
+export interface Result<T> {
+  /** Status of the result - `success` or `failure`. */
+  status: string;
+  /** Actual result of type T if the operation was successful. */
+  result?: T;
+  /** Error message describing the reason for failure, if applicable.*/
+  errorMessage: string;
+}
+
+/**
+ * Minimal interface representing the Response properties we use
+ */
+export interface Response {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  headers: {
+    get(name: string): string | null;
+  };
+  json(): Promise<any>;
+}
+
+/**
  * Represents the options for a fetcher function.
  */
 export interface IFetcherOptions {
@@ -44,6 +90,12 @@ export interface JWTAuthentication extends AuthenticationStrategy {
 
 export interface ClientOptions {
   /**
+   * The namespace to use when evaluating flags.
+   *
+   * @defaultValue `default`
+   */
+  namespace?: string;
+  /**
    * The URL of the upstream Flipt instance.
    *
    * @defaultValue `http://localhost:8080`
@@ -66,6 +118,10 @@ export interface ClientOptions {
    * @see {@link https://docs.flipt.io/guides/user/using-references}
    */
   reference?: string;
+
+  /**
+   * The fetcher to use when fetching flag state. If not provided, the client will default to a fetch function.
+   */
   fetcher?: IFetcher;
 
   /**

@@ -1,7 +1,7 @@
 # Flipt Client Browser
 
 > [!WARNING]
-> This SDK is deprecated and will not be maintained going forward. Please use the new [Flipt Client Web SDK](https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-client-web) instead.
+> This SDK is deprecated and will not be maintained going forward. Please use the new [Flipt Client JS SDK](https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-client-js) instead.
 
 [![flipt-client-browser](https://img.shields.io/npm/v/@flipt-io/flipt-client-browser?label=%40flipt-io%2Fflipt-client-browser)](https://www.npmjs.com/package/@flipt-io/flipt-client-browser)
 ![deprecated](https://img.shields.io/badge/status-deprecated-red)
