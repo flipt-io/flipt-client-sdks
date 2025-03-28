@@ -64,6 +64,7 @@ export class FliptClient extends BaseFliptClient {
     }
 
     // Initialize WASM engine
+    // @ts-ignore
     await init(await wasm());
 
     if (!fetcher) {

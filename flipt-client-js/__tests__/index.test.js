@@ -1,4 +1,4 @@
-import { FliptClient } from '../dist/index.mjs';
+import { FliptClient } from '../dist/node/index.mjs';
 
 describe('FliptClient', () => {
   let fliptUrl;
