@@ -68,7 +68,7 @@ export class FliptClient extends BaseFliptClient {
     }
 
     // Initialize WASM engine
-    await init(wasm);
+    await init(await wasm());
 
     if (!fetcher) {
       throw new Error('Failed to initialize fetcher');

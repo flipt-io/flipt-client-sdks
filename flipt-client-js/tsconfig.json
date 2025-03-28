@@ -1,33 +1,14 @@
 {
   "compilerOptions": {
-    "target": "es2018",
-    "module": "esnext",
+    "module": "ESNext",
+    "target": "ESNext",
     "lib": [
-      "es2018",
-      "dom"
+      "ESNext",
+      "DOM"
     ],
     "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
-    "moduleResolution": "node",
-    "baseUrl": "./",
-    "esModuleInterop": true,
-    "skipLibCheck": true,
+    "declarationDir": "./dist",
     "forceConsistentCasingInFileNames": true,
-    "typeRoots": [
-      "./node_modules/@types",
-      "./src/types"
-    ]
-  },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "__tests__"
-  ]
+    "strict": true
+  }
 }
