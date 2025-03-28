@@ -29,8 +29,6 @@
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^12.1.0",
-    "@rollup/plugin-node-resolve": "^15.0.0",
-    "@rollup/plugin-commonjs": "^24.0.0",
     "@rollup/plugin-wasm": "^6.2.2",
     "@types/jest": "^29.5.12",
     "@types/node": "^18.11.17",
