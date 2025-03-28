@@ -118,7 +118,7 @@ var sdkToConfig = map[string]testConfig{
 var sdkGroups = map[string][]string{
 	"ffi":  {"python", "ruby", "java", "dart", "csharp"},
 	"wasm": {"go"},
-	"js":   {"node", "web", "react"},
+	"js":   {"js", "react"},
 }
 
 func init() {
@@ -219,7 +219,7 @@ func run() error {
 				switch lang {
 				case "node":
 					testCase.engine = getWasmJSBuildContainer(ctx, client, hostDir, "nodejs")
-				case "web", "react":
+				case "js", "react":
 					testCase.engine = getWasmJSBuildContainer(ctx, client, hostDir, "web")
 				case "go":
 					testCase.engine = getWasmBuildContainer(ctx, client, hostDir)
