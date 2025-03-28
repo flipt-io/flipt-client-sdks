@@ -26,7 +26,9 @@
     }
   },
   "files": [
-    "dist",
+    "dist/browser",
+    "dist/node",
+    "dist/types",
     "README.md"
   ],
   "scripts": {
@@ -42,6 +44,7 @@
   "devDependencies": {
     "@rollup/plugin-typescript": "^12.1.0",
     "@rollup/plugin-wasm": "^6.2.2",
+    "@types/glob": "^8.1.0",
     "@types/jest": "^29.5.12",
     "@types/node": "^18.11.17",
     "@types/node-fetch": "^2.6.11",

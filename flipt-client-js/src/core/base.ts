@@ -8,17 +8,14 @@ import {
   IFetcher,
   VariantEvaluationResponse,
   ErrorStrategy,
-  Response
-} from './types';
-
-import {
+  Response,
   VariantResult,
   BooleanResult,
   BatchResult,
   ListFlagsResult
-} from '../internal/types';
+} from './types';
 
-import { deserialize, serialize } from '../internal/utils';
+import { deserialize, serialize } from './utils';
 
 export abstract class BaseFliptClient {
   protected engine: any; // Type will be provided by platform implementations

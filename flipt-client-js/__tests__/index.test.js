@@ -53,8 +53,12 @@ describe('FliptClient', () => {
   });
 
   test('variant', () => {
-    const variant = client.evaluateVariant('flag1', 'someentity', {
-      fizz: 'buzz'
+    const variant = client.evaluateVariant({
+      flagKey: 'flag1',
+      entityId: 'someentity',
+      context: {
+        fizz: 'buzz'
+      }
     });
 
     expect(variant.flagKey).toEqual('flag1');
@@ -65,8 +69,12 @@ describe('FliptClient', () => {
   });
 
   test('boolean', () => {
-    const boolean = client.evaluateBoolean('flag_boolean', 'someentity', {
-      fizz: 'buzz'
+    const boolean = client.evaluateBoolean({
+      flagKey: 'flag_boolean',
+      entityId: 'someentity',
+      context: {
+        fizz: 'buzz'
+      }
     });
 
     expect(boolean.enabled).toEqual(true);
@@ -75,8 +83,12 @@ describe('FliptClient', () => {
 
   test('variant failure', () => {
     expect(() => {
-      client.evaluateVariant('nonexistent', 'someentity', {
-        fizz: 'buzz'
+      client.evaluateVariant({
+        flagKey: 'nonexistent',
+        entityId: 'someentity',
+        context: {
+          fizz: 'buzz'
+        }
       });
     }).toThrow(
       'invalid request: failed to get flag information default/nonexistent'
