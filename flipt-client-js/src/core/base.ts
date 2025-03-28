@@ -176,7 +176,8 @@ export abstract class BaseFliptClient {
       .map((response): EvaluationResponse | undefined => {
         if (response.type === 'BOOLEAN_EVALUATION_RESPONSE_TYPE') {
           const booleanResponse = deserialize<BooleanEvaluationResponse>(
-            response.booleanEvaluationResponse
+            // @ts-ignore
+            response.boolean_evaluation_response
           );
           return {
             booleanEvaluationResponse: booleanResponse,
@@ -185,7 +186,8 @@ export abstract class BaseFliptClient {
         }
         if (response.type === 'VARIANT_EVALUATION_RESPONSE_TYPE') {
           const variantResponse = deserialize<VariantEvaluationResponse>(
-            response.variantEvaluationResponse
+            // @ts-ignore
+            response.variant_evaluation_response
           );
           return {
             variantEvaluationResponse: variantResponse,
@@ -194,7 +196,8 @@ export abstract class BaseFliptClient {
         }
         if (response.type === 'ERROR_EVALUATION_RESPONSE_TYPE') {
           const errorResponse = deserialize<ErrorEvaluationResponse>(
-            response.errorEvaluationResponse
+            // @ts-ignore
+            response.error_evaluation_response
           );
           return {
             errorEvaluationResponse: errorResponse,
