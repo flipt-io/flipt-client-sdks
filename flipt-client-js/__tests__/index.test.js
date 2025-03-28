@@ -30,25 +30,29 @@ describe('FliptClient', () => {
 
   test('null flag key', () => {
     expect(() => {
-      client.evaluateBoolean(null, 'someentity', {});
+      client.evaluateBoolean({ flagKey: null, entityId: 'someentity' });
     }).toThrow('flagKey cannot be empty');
   });
 
   test('empty flag key', () => {
     expect(() => {
-      client.evaluateBoolean('', 'someentity', {});
+      client.evaluateBoolean({
+        flagKey: '',
+        entityId: 'someentity',
+        context: {}
+      });
     }).toThrow('flagKey cannot be empty');
   });
 
   test('null entity id', () => {
     expect(() => {
-      client.evaluateBoolean('flag1', null, {});
+      client.evaluateBoolean({ flagKey: 'flag1', entityId: null, context: {} });
     }).toThrow('entityId cannot be empty');
   });
 
   test('empty entity id', () => {
     expect(() => {
-      client.evaluateBoolean('flag1', '', {});
+      client.evaluateBoolean({ flagKey: 'flag1', entityId: '', context: {} });
     }).toThrow('entityId cannot be empty');
   });
 
@@ -97,8 +101,12 @@ describe('FliptClient', () => {
 
   test('boolean failure', () => {
     expect(() => {
-      client.evaluateVariant('nonexistent', 'someentity', {
-        fizz: 'buzz'
+      client.evaluateVariant({
+        flagKey: 'nonexistent',
+        entityId: 'someentity',
+        context: {
+          fizz: 'buzz'
+        }
       });
     }).toThrow(
       'invalid request: failed to get flag information default/nonexistent'
@@ -109,8 +117,12 @@ describe('FliptClient', () => {
     const updated = await client.refresh();
     expect(updated).toBeFalsy();
 
-    const variant = client.evaluateVariant('flag1', 'someentity', {
-      fizz: 'buzz'
+    const variant = client.evaluateVariant({
+      flagKey: 'flag1',
+      entityId: 'someentity',
+      context: {
+        fizz: 'buzz'
+      }
     });
 
     expect(variant.flagKey).toEqual('flag1');
