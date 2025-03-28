@@ -48,8 +48,8 @@ export class FliptClient extends BaseFliptClient {
     let fetcher = options.fetcher;
 
     if (!fetcher) {
-      // Use node-fetch in Node.js environment
-      const fetch = (await import('node-fetch')).default;
+      // Dynamically import node-fetch only when needed
+      const { default: fetch } = await import('node-fetch');
 
       fetcher = async (opts?: { etag?: string }) => {
         if (opts && opts.etag) {
