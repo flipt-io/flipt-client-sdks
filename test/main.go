@@ -217,10 +217,8 @@ func run() error {
 				}
 
 				switch lang {
-				case "node":
-					testCase.engine = getWasmJSBuildContainer(ctx, client, hostDir, "nodejs")
 				case "js", "react":
-					testCase.engine = getWasmJSBuildContainer(ctx, client, hostDir, "web")
+					testCase.engine = getWasmJSBuildContainer(ctx, client, hostDir)
 				case "go":
 					testCase.engine = getWasmBuildContainer(ctx, client, hostDir)
 				default:
@@ -353,7 +351,7 @@ func getWasmBuildContainer(_ context.Context, client *dagger.Client, hostDirecto
 
 // getWasmJSBuildContainer builds the wasm module for the Rust core for the client libraries to run
 // their tests against.
-func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory, target string) *dagger.Container {
+func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
 	return client.Container(dagger.ContainerOpts{
 		Platform: dagger.Platform("linux/amd64"),
 	}).From("rust:1.83.0-bullseye").
@@ -370,7 +368,7 @@ func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirec
 		WithExec(args("cargo build -p flipt-engine-wasm-js --release")).
 		WithExec(args("cargo install wasm-opt wasm-pack")).
 		WithWorkdir("/src/flipt-engine-wasm-js").
-		WithExec(args("wasm-pack build --target " + target))
+		WithExec(args("wasm-pack build --target web"))
 }
 
 // pythonTests runs the python integration test suite against a container running Flipt.
