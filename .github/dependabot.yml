@@ -21,7 +21,7 @@ updates:
       - "automerge"
 
   - package-ecosystem: npm
-    directory: "/flipt-client-web"
+    directory: "/flipt-client-js"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
@@ -72,16 +72,6 @@ updates:
 
   - package-ecosystem: gradle
     directory: "/flipt-client-kotlin-android"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      # kodiak `merge.automerge_label`
-      - "automerge"
-
-  - package-ecosystem: npm
-    directory: "/flipt-client-node"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
