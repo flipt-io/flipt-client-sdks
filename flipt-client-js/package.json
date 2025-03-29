@@ -1,6 +1,6 @@
 {
   "name": "@flipt-io/flipt-client-js",
-  "version": "0.0.1-rc.2",
+  "version": "0.0.1-rc.3",
   "description": "Flipt Client Evaluation SDK for Web and Node.js",
   "type": "module",
   "main": "./dist/node/index.cjs",
@@ -39,9 +39,15 @@
   },
   "typesVersions": {
     "*": {
-      "node": ["./dist/types/node/index.d.ts"],
-      "browser": ["./dist/types/browser/index.d.ts"],
-      "types": ["./dist/types/core/types.d.ts"]
+      "node": [
+        "./dist/types/node/index.d.ts"
+      ],
+      "browser": [
+        "./dist/types/browser/index.d.ts"
+      ],
+      "types": [
+        "./dist/types/core/types.d.ts"
+      ]
     }
   },
   "files": [
