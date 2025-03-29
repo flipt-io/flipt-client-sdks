@@ -8,31 +8,28 @@
   "exports": {
     ".": {
       "node": {
-        "types": "./dist/types/node/index.d.ts",
+        "types": "./dist/types/index.d.ts",
         "import": "./dist/node/index.mjs",
         "require": "./dist/node/index.cjs"
       },
       "browser": {
-        "types": "./dist/types/browser/index.d.ts",
+        "types": "./dist/types/index.d.ts",
         "import": "./dist/browser/index.mjs",
         "require": "./dist/browser/index.cjs"
       },
       "default": {
-        "types": "./dist/types/browser/index.d.ts",
+        "types": "./dist/types/index.d.ts",
         "import": "./dist/browser/index.mjs",
         "require": "./dist/browser/index.cjs"
       }
     },
-    "./types": {
-      "types": "./dist/types/core/types.d.ts"
-    },
     "./node": {
-      "types": "./dist/types/node/index.d.ts",
+      "types": "./dist/types/index.d.ts",
       "import": "./dist/node/index.mjs",
       "require": "./dist/node/index.cjs"
     },
     "./browser": {
-      "types": "./dist/types/browser/index.d.ts",
+      "types": "./dist/types/index.d.ts",
       "import": "./dist/browser/index.mjs",
       "require": "./dist/browser/index.cjs"
     }
@@ -40,13 +37,13 @@
   "typesVersions": {
     "*": {
       "node": [
-        "./dist/types/node/index.d.ts"
+        "./dist/types/index.d.ts"
       ],
       "browser": [
-        "./dist/types/browser/index.d.ts"
+        "./dist/types/index.d.ts"
       ],
       "types": [
-        "./dist/types/core/types.d.ts"
+        "./dist/types/index.d.ts"
       ]
     }
   },
