@@ -8,12 +8,12 @@ import {
   useMemo
 } from 'react';
 import type {
-  FliptEvaluationClient,
+  FliptClient,
   ClientOptions
-} from '@flipt-io/flipt-client-browser';
+} from '@flipt-io/flipt-client-js';
 
 export interface FliptClientHook {
-  client: FliptEvaluationClient | null;
+  client: FliptClient | null;
   isLoading: boolean;
   error: Error | null;
 }
@@ -106,10 +106,11 @@ export const useStore = (
 
     const initializeClient = async () => {
       try {
-        const { FliptEvaluationClient } = await import(
-          '@flipt-io/flipt-client-browser'
-        );
-        const client = await FliptEvaluationClient.init(namespace, options);
+        const { FliptClient } = await import('@flipt-io/flipt-client-js');
+        const client = await FliptClient.init({
+          namespace,
+          ...options
+        });
 
         if (isMounted) {
           storeRef.current.client = client;
@@ -156,7 +157,7 @@ export const useFliptContext = (): FliptClientHook => {
 
 export const useFliptSelector = <T>(
   selector: (
-    client: FliptEvaluationClient | null,
+    client: FliptClient | null,
     isLoading: boolean,
     error: Error | null
   ) => T
@@ -186,7 +187,11 @@ export const useFliptBoolean = (
   const result = useFliptSelector((client, isLoading, error) => {
     if (client && !isLoading && !error) {
       try {
-        return client.evaluateBoolean(flagKey, entityId, context).enabled;
+        return client.evaluateBoolean({
+          flagKey,
+          entityId,
+          context
+        }).enabled;
       } catch (e) {
         console.error(`Error evaluating boolean flag ${flagKey}:`, e);
       }
@@ -206,7 +211,11 @@ export const useFliptVariant = (
   const result = useFliptSelector((client, isLoading, error) => {
     if (client && !isLoading && !error) {
       try {
-        return client.evaluateVariant(flagKey, entityId, context).variantKey;
+        return client.evaluateVariant({
+          flagKey,
+          entityId,
+          context
+        }).variantKey;
       } catch (e) {
         console.error(`Error evaluating variant flag ${flagKey}:`, e);
       }
