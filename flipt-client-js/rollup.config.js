@@ -10,12 +10,12 @@ const copyWasmPlugin = (targetDir) => ({
   writeBundle() {
     const wasmFiles = glob.sync('dist/flipt_engine_wasm_js*');
     const targetPath = `dist/${targetDir}`;
-    
+
     // Ensure target directory exists
     mkdirSync(targetPath, { recursive: true });
-    
+
     // Copy all WASM-related files to target directory
-    wasmFiles.forEach(file => {
+    wasmFiles.forEach((file) => {
       const filename = file.split('/').pop();
       copyFileSync(file, `${targetPath}/${filename}`);
     });

@@ -2,7 +2,7 @@
 
 [![flipt-client-js](https://img.shields.io/npm/v/@flipt-io/flipt-client-js?label=%40flipt-io%2Fflipt-client-js)](https://www.npmjs.com/package/@flipt-io/flipt-client-js)
 
-The `flipt-client-js` library contains the JavaScript/TypeScript client for Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) in web and Node.js environments. It supports:
+The `flipt-client-js` library contains the JavaScript/TypeScript client for Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) in Web and Node.js environments. It supports:
 
 - Node.js
 - Browsers
@@ -20,15 +20,20 @@ npm install @flipt-io/flipt-client-js
 ```typescript
 import { FliptClient } from '@flipt-io/flipt-client-js';
 
-const client = await FliptClient.init('default', {
+const client = await FliptClient.init({
+  namespace: 'default',
   url: 'http://localhost:8080',
   authentication: {
     clientToken: 'secret'
   }
 });
 
-const variant = client.evaluateVariant('flag1', 'someentity', {
-  fizz: 'buzz'
+const variant = client.evaluateVariant({
+  flagKey: 'flag1',
+  entityId: 'someentity',
+  context: {
+    fizz: 'buzz'
+  }
 });
 
 console.log(variant);
@@ -44,15 +49,20 @@ export const config = {
 };
 
 export default async function middleware(req) {
-  const client = await FliptClient.init('default', {
+  const client = await FliptClient.init({
+    namespace: 'default',
     url: process.env.FLIPT_URL,
     authentication: {
       clientToken: process.env.FLIPT_AUTH_TOKEN
     }
   });
 
-  const result = client.evaluateBoolean('my-flag', 'user-123', {
-    country: 'US'
+  const result = client.evaluateBoolean({
+    flagKey: 'my-flag',
+    entityId: 'user-123',
+    context: {
+      country: 'US'
+    }
   });
 
   if (result.enabled) {
@@ -65,10 +75,10 @@ export default async function middleware(req) {
 
 ### Initialization Arguments
 
-The `FliptClient` constructor accepts two optional arguments:
+The `FliptClient` constructor accepts the following optional arguments:
 
-- `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
 - `options`: An instance of the `ClientOptions` type that supports several options for the client. The structure is:
+  - `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
   - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
   - `updateInterval`: **Node.js Only** The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
   - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
@@ -98,7 +108,8 @@ The `FliptClient` supports custom fetchers. This allows you to fetch flag state 
 The fetcher can be passed in as an argument to the `FliptClient` initializer function.
 
 ```typescript
-const client = await FliptClient.init('default', {
+const client = await FliptClient.init({
+  namespace: 'default',
   url: 'http://localhost:8080',
   authentication: {
     clientToken
@@ -137,7 +148,8 @@ To enable auto-refreshing, you can pass the `updateInterval` option to the `Flip
 > The `updateInterval` option is only supported in Node.js environments.
 
 ```typescript
-const client = await FliptClient.init('default', {
+const client = await FliptClient.init({
+  namespace: 'default',
   url: 'http://localhost:8080',
   updateInterval: 30 // refresh every 30 seconds
 });
