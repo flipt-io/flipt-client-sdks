@@ -1,7 +1,6 @@
 import typescript from '@rollup/plugin-typescript';
 import { wasm } from '@rollup/plugin-wasm';
 import { copyFileSync, mkdirSync, unlinkSync } from 'fs';
-import { dirname } from 'path';
 import glob from 'glob';
 
 // Custom plugin to copy WASM files to output directories
