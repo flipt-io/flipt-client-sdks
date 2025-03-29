@@ -1,7 +1,7 @@
-name: Package Web SDK
+name: Package JavaScript SDK
 on:
   push:
-    tags: ["flipt-client-web-**"]
+    tags: ["flipt-client-js-**"]
 
 permissions:
   contents: write
@@ -13,5 +13,5 @@ jobs:
   build:
     uses: ./.github/workflows/package-wasm-sdks.yml
     with:
-      sdks: web
+      sdks: js
     secrets: inherit
