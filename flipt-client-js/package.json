@@ -67,7 +67,7 @@
     "@rollup/plugin-wasm": "^6.2.2",
     "@types/glob": "^8.1.0",
     "@types/jest": "^29.5.12",
-    "@types/node": "^18.11.17",
+    "@types/node": "^22.13.14",
     "@types/node-fetch": "^2.6.11",
     "@typescript-eslint/eslint-plugin": "^5.47.0",
     "@typescript-eslint/parser": "^5.47.0",
