@@ -17,6 +17,8 @@ import {
 
 import { deserialize, serialize } from './utils';
 
+export type FliptClient = BaseFliptClient;
+
 export abstract class BaseFliptClient {
   protected engine: any; // Type will be provided by platform implementations
   protected fetcher: IFetcher;
