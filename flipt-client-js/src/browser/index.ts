@@ -3,6 +3,8 @@ import wasm from '../../dist/flipt_engine_wasm_js_bg.wasm';
 import { BaseFliptClient } from '../core/base';
 import { ClientOptions, ErrorStrategy } from '../core/types';
 
+export * from '../core/exports';
+
 export class FliptClient extends BaseFliptClient {
   /**
    * Initialize the client
