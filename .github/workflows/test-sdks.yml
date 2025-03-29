@@ -17,6 +17,7 @@ jobs:
           - ffi
           - wasm
           - js
+      fail-fast: false
 
     name: Integration Tests (${{ matrix.group }})
     runs-on: ubuntu-latest
