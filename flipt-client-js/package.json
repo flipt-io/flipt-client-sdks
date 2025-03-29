@@ -1,28 +1,50 @@
 {
   "name": "@flipt-io/flipt-client-js",
-  "version": "0.0.1-rc.2",
+  "version": "0.0.1-rc.4",
   "description": "Flipt Client Evaluation SDK for Web and Node.js",
   "type": "module",
   "main": "./dist/node/index.cjs",
   "module": "./dist/browser/index.mjs",
-  "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
       "node": {
+        "types": "./dist/types/index.d.ts",
         "import": "./dist/node/index.mjs",
-        "require": "./dist/node/index.cjs",
-        "types": "./dist/types/node/index.d.ts"
+        "require": "./dist/node/index.cjs"
       },
       "browser": {
+        "types": "./dist/types/index.d.ts",
         "import": "./dist/browser/index.mjs",
-        "require": "./dist/browser/index.cjs",
-        "types": "./dist/types/browser/index.d.ts"
+        "require": "./dist/browser/index.cjs"
       },
       "default": {
+        "types": "./dist/types/index.d.ts",
         "import": "./dist/browser/index.mjs",
-        "require": "./dist/browser/index.cjs",
-        "types": "./dist/types/browser/index.d.ts"
+        "require": "./dist/browser/index.cjs"
       }
+    },
+    "./node": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/node/index.mjs",
+      "require": "./dist/node/index.cjs"
+    },
+    "./browser": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/browser/index.mjs",
+      "require": "./dist/browser/index.cjs"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "node": [
+        "./dist/types/index.d.ts"
+      ],
+      "browser": [
+        "./dist/types/index.d.ts"
+      ],
+      "types": [
+        "./dist/types/index.d.ts"
+      ]
     }
   },
   "files": [
