@@ -86,7 +86,7 @@ RSpec.describe Flipt::EvaluationClient do
       resp = @client.list_flags
 
       expect(resp).to_not be_nil
-      expect(resp).to include({ 'enabled' => true, 'key' => 'flag_boolean', 'type' => 'BOOLEAN_FLAG_TYPE' })
+      expect(resp).to include({ 'description' => '', 'enabled' => true, 'key' => 'flag_boolean', 'type' => 'BOOLEAN_FLAG_TYPE' })
     end
   end
 end
