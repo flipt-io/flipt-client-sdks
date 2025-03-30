@@ -118,10 +118,6 @@ export interface Flag {
    * Type of the feature flag. This can be either 'BOOLEAN_FLAG_TYPE' or 'VARIANT_FLAG_TYPE'.
    */
   type: string;
-  /**
-   * Optional description of the feature flag.
-   */
-  description?: string;
 }
 
 /**
