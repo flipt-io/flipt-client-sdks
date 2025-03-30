@@ -1,6 +1,6 @@
 {
   "name": "@flipt-io/flipt-client-react",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Flipt Client Evaluation React SDK",
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
