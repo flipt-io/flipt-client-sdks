@@ -12,11 +12,13 @@ class TestFliptEvaluationClient {
     @Before
     @Throws(Exception::class)
     fun initAll() {
-        val fliptURL = BuildConfig.FLIPT_URL
-        val clientToken = BuildConfig.FLIPT_AUTH_TOKEN
-        assert("http://10.0.2.2:8080" == fliptURL)
-        assert(!fliptURL.isEmpty())
-        assert(!clientToken.isEmpty())
+        val fliptURL = System.getenv("FLIPT_URL") ?: "http://10.0.2.2:8080"
+        val clientToken = System.getenv("FLIPT_AUTH_TOKEN") ?: "secret"
+
+        require(fliptURL.isNotEmpty()) { "FLIPT_URL environment variable is required" }
+        require(clientToken.isNotEmpty()) { "FLIPT_AUTH_TOKEN environment variable is required" }
+        require(fliptURL == "http://10.0.2.2:8080") { "FLIPT_URL must be http://10.0.2.2:8080" }
+
         fliptClient =
             FliptEvaluationClient
                 .builder()
