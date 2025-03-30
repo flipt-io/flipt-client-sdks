@@ -32,7 +32,7 @@ The FFI-based SDKs are currently supported on the following OSes/architectures:
 
 ### WASM
 
-The [WebAssembly (WASM)](https://webassembly.org/) versions of the client SDKs are OS and architecture agnostic.
+The [WebAssembly (WASM)](https://webassembly.org/) versions of the client SDKs are OS and architecture-agnostic.
 
 ## Architecture
 
@@ -60,8 +60,8 @@ Currently, we support the following languages/platforms:
 | [Go](./flipt-client-go)                                       | [![flipt-client-go](https://img.shields.io/github/v/tag/flipt-io/flipt-client-go?filter=v*&label=flipt-client-go)](https://github.com/flipt-io/flipt-client-go)                                 | WASM           |
 | [Java](./flipt-client-java)                                   | [![flipt-client-java](https://img.shields.io/maven-central/v/io.flipt/flipt-client-java?label=flipt-client-java)](https://central.sonatype.com/artifact/io.flipt/flipt-client-java)             | FFI            |
 | [JavaScript](./flipt-client-js)                               | [![flipt-client-js](https://img.shields.io/npm/v/@flipt-io/flipt-client-js?label=%40flipt-io%2Fflipt-client-js)](https://www.npmjs.com/package/@flipt-io/flipt-client-js)                       | WASM           |
-| [JavaScript (Browser) **Deprecated**](./flipt-client-browser) | [![flipt-client-browser](https://img.shields.io/npm/v/@flipt-io/flipt-client-browser?label=%40flipt-io%2Fflipt-client-browser)](https://www.npmjs.com/package/@flipt-io/flipt-client-browser)   | WASM           |
-| [NodeJS **Deprecated**](./flipt-client-node)                  | [![flipt-client-node](https://img.shields.io/npm/v/@flipt-io/flipt-client?label=%40flipt-io%2Fflipt-client)](https://www.npmjs.com/package/@flipt-io/flipt-client)                              | WASM           |
+| [JavaScript (Browser) ⚠️ Deprecated](./flipt-client-browser) | [![flipt-client-browser](https://img.shields.io/npm/v/@flipt-io/flipt-client-browser?label=%40flipt-io%2Fflipt-client-browser)](https://www.npmjs.com/package/@flipt-io/flipt-client-browser)   | WASM           |
+| [NodeJS ⚠️ Deprecated](./flipt-client-node)                  | [![flipt-client-node](https://img.shields.io/npm/v/@flipt-io/flipt-client?label=%40flipt-io%2Fflipt-client)](https://www.npmjs.com/package/@flipt-io/flipt-client)                              | WASM           |
 | [Python](./flipt-client-python)                               | [![flipt-client-python](https://img.shields.io/pypi/v/flipt-client.svg)](https://pypi.org/project/flipt-client)                                                                                 | FFI            |
 | [React (Web)](./flipt-client-react)                           | [![flipt-client-react](https://img.shields.io/npm/v/@flipt-io/flipt-client-react?label=%40flipt-io%2Fflipt-client-react)](https://www.npmjs.com/package/@flipt-io/flipt-client-react)           | WASM           |
 | [Ruby](./flipt-client-ruby)                                   | [![flipt-client-ruby](https://badge.fury.io/rb/flipt_client.svg)](https://badge.fury.io/rb/flipt_client)                                                                                        | FFI            |
@@ -83,7 +83,7 @@ Languages we would like to support but lack expertise in:
 
 Want to see a client in a language we don't support? [Open an issue](https://github.com/flipt-io/flipt-client-sdks/issues/new?assignees=&labels=new-language&projects=&template=new_language.yml) and let us know!
 
-Alternatively, if you have experience in any of the above languages/platforms we welcome all contributions!! ❤️
+Alternatively, if you have experience in any of the above languages/platforms, we welcome all contributions!! ❤️
 
 ## Installation
 
@@ -96,7 +96,7 @@ Why you may prefer to use a client-side SDK over our server-side SDKs:
 1. You want extremely low-latency evaluation and high throughput.
 1. You are ok with eventual consistency and can tolerate stale data for a short time.
 1. You want to reduce the load in your network by not having each client make a request to the Flipt server for each evaluation.
-1. You need evaluation to occur in-process for some reason (e.g. you are evaluating a flag in a web worker).
+1. You need evaluation to occur in-process for some reason (e.g., you are evaluating a flag in a web worker).
 
 ## Performance
 
@@ -114,7 +114,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ### Help Wanted
 
-We are not Rust experts and are constantly learning. If you see something that can be improved, especially in the [flipt-engine-ffi](./flipt-engine-ffi/) and [flipt-evaluation](./flipt-evaluation/) directories, please open an issue or a PR, we would love to learn from you. :heart:
+We are not Rust experts and are constantly learning. If you see something that can be improved, especially in the [flipt-engine-ffi](./flipt-engine-ffi/) and [flipt-evaluation](./flipt-evaluation/) directories, please open an issue or a PR we would love to learn from you. :heart:
 
 ## License
 
