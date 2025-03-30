@@ -7,10 +7,7 @@ import {
   useRef,
   useMemo
 } from 'react';
-import type {
-  FliptClient,
-  ClientOptions
-} from '@flipt-io/flipt-client-js';
+import type { FliptClient, ClientOptions } from '@flipt-io/flipt-client-js';
 
 export interface FliptClientHook {
   client: FliptClient | null;
@@ -60,7 +57,9 @@ export const useStore = (
 
   const setupPolling = useCallback(() => {
     // Default to 120 seconds if updateInterval is not set
-    const interval = (options.updateInterval !== undefined ? options.updateInterval : 120) * 1000;
+    const interval =
+      (options.updateInterval !== undefined ? options.updateInterval : 120) *
+      1000;
     if (
       interval > 0 &&
       mountedRef.current &&
