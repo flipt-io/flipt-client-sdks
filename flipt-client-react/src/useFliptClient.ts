@@ -59,7 +59,8 @@ export const useStore = (
   const mountedRef = useRef<boolean>(false);
 
   const setupPolling = useCallback(() => {
-    const interval = options.updateInterval || 120000;
+    // Default to 120 seconds if updateInterval is not set
+    const interval = (options.updateInterval !== undefined ? options.updateInterval : 120) * 1000;
     if (
       interval > 0 &&
       mountedRef.current &&
