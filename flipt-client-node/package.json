@@ -1,8 +1,8 @@
 {
   "name": "@flipt-io/flipt-client",
   "version": "0.13.0",
-  "description": "DEPRECATED: This package has been renamed to @flipt-io/flipt-client-js. Please update your dependencies.",
-  "deprecated": "This package has been renamed to @flipt-io/flipt-client-js. Please update your dependencies.",
+  "description": "DEPRECATED: This package has been superseded by @flipt-io/flipt-client-js. Please update your dependencies.",
+  "deprecated": "This package has been superseded by @flipt-io/flipt-client-js. Please update your dependencies.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "author": "Flipt Devs <dev@flipt.io>",
