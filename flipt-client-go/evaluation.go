@@ -20,6 +20,7 @@ import (
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
+	"golang.org/x/net/http2"
 )
 
 //go:embed ext/flipt_engine_wasm.wasm
@@ -237,9 +238,23 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 	c.httpClient = &http.Client{
 		Transport: &http.Transport{
 			DialContext: (&net.Dialer{
-				Timeout:   10 * time.Second, // connection timeout
-				KeepAlive: 30 * time.Second,
+				Timeout:   10 * time.Second,
+				KeepAlive: 5 * time.Second, // More aggressive TCP keepalive
 			}).DialContext,
+			IdleConnTimeout:       60 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ResponseHeaderTimeout: 10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			MaxIdleConnsPerHost:   10,
+			// Enable HTTP/2 ping frames and other settings
+			Proxy:           http.ProxyFromEnvironment,
+			ReadBufferSize:  32 * 1024,
+			WriteBufferSize: 32 * 1024,
+			// HTTP/2 specific settings
+			MaxResponseHeaderBytes: 4 * 1024, // 4KB
+			DisableCompression:     false,    // Enable compression
 		},
 	}
 
@@ -662,13 +677,16 @@ const (
 
 // doWithRetry executes the given function with exponential backoff and jitter.
 // It will retry up to maxRetries times if the function returns a transient error.
-func doWithRetry[T any](ctx context.Context, fn func() (T, error)) (T, error) {
+// The function can modify the attempt counter through the pointer, useful for long-lived
+// connections that want to reset the counter on success.
+func doWithRetry[T any](ctx context.Context, fn func(attempt *int) (T, error)) (T, error) {
 	var (
 		lastErr error
 		zero    T
+		attempt int
 	)
 
-	for attempt := range maxRetries {
+	for {
 		if attempt > 0 {
 			// calculate exponential backoff with jitter
 			delay := min(baseDelay*time.Duration(1<<uint(attempt)), maxDelay)
@@ -683,7 +701,7 @@ func doWithRetry[T any](ctx context.Context, fn func() (T, error)) (T, error) {
 			}
 		}
 
-		result, err := fn()
+		result, err := fn(&attempt)
 		if err == nil {
 			return result, nil
 		}
@@ -692,10 +710,12 @@ func doWithRetry[T any](ctx context.Context, fn func() (T, error)) (T, error) {
 		if !isTransientError(err) {
 			return zero, err
 		}
-	}
 
-	// if we get here, we've exhausted our retries
-	return zero, fmt.Errorf("failed after %d retries, last error: %w", maxRetries, lastErr)
+		attempt++
+		if attempt >= maxRetries {
+			return zero, fmt.Errorf("failed after %d retries, last error: %w", maxRetries, lastErr)
+		}
+	}
 }
 
 func (c *EvaluationClient) newRequest(ctx context.Context, url string) (*http.Request, error) {
@@ -721,7 +741,7 @@ func (c *EvaluationClient) newRequest(ctx context.Context, url string) (*http.Re
 
 // fetch fetches the snapshot for the given namespace.
 func (c *EvaluationClient) fetch(ctx context.Context, url, etag string) (snapshot, error) {
-	return doWithRetry(ctx, func() (snapshot, error) {
+	return doWithRetry(ctx, func(_ *int) (snapshot, error) {
 		req, err := c.newRequest(ctx, url)
 		if err != nil {
 			return snapshot{}, err
@@ -788,7 +808,7 @@ func (c *EvaluationClient) startStreaming(ctx context.Context) {
 
 func (c *EvaluationClient) initiateStream(ctx context.Context) error {
 	url := c.getSnapshotURL()
-	_, err := doWithRetry(ctx, func() (struct{}, error) {
+	_, err := doWithRetry(ctx, func(attempt *int) (struct{}, error) {
 		req, err := c.newRequest(ctx, url)
 		if err != nil {
 			return struct{}{}, err
@@ -806,6 +826,9 @@ func (c *EvaluationClient) initiateStream(ctx context.Context) error {
 			return struct{}{}, fetchError{resp.StatusCode, fmt.Errorf("unexpected status code: %d", resp.StatusCode)}
 		}
 
+		// Reset attempt counter on successful connection
+		*attempt = 0
+
 		if err := c.handleStream(ctx, resp.Body); err != nil && ctx.Err() == nil {
 			return struct{}{}, err
 		}
@@ -819,12 +842,31 @@ func (c *EvaluationClient) handleStream(ctx context.Context, r io.ReadCloser) er
 	reader := bufio.NewReaderSize(r, 32*1024)
 	var buffer bytes.Buffer
 
+	readErrCh := make(chan error, 1)
+	readCh := make(chan []byte, 1)
+
+	// Start a goroutine to handle reading
+	go func() {
+		for {
+			chunk, err := reader.ReadBytes('\n')
+			if err != nil {
+				readErrCh <- err
+				return
+			}
+			readCh <- chunk
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		default:
-			chunk, err := reader.ReadBytes('\n')
+		case err := <-readErrCh:
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		case chunk := <-readCh:
 			if len(chunk) > 0 {
 				buffer.Write(chunk)
 				if json.Valid(buffer.Bytes()) {
@@ -844,13 +886,6 @@ func (c *EvaluationClient) handleStream(ctx context.Context, r io.ReadCloser) er
 					}
 					buffer.Reset()
 				}
-			}
-
-			if err != nil {
-				if err == io.EOF {
-					return nil
-				}
-				return err
 			}
 		}
 	}
@@ -967,6 +1002,30 @@ func isTransientError(err error) bool {
 	// some errors are always considered temporary
 	if errors.Is(err, io.ErrUnexpectedEOF) {
 		return true
+	}
+
+	// Check for HTTP/2 stream errors
+	var streamErr *http2.StreamError
+	if errors.As(err, &streamErr) {
+		switch streamErr.Code {
+		case http2.ErrCodeInternal, // INTERNAL_ERROR
+			http2.ErrCodeProtocol,        // PROTOCOL_ERROR
+			http2.ErrCodeEnhanceYourCalm: // ENHANCE_YOUR_CALM
+			return true
+		}
+	}
+
+	// Check for HTTP/2 GoAway errors
+	var goAwayErr *http2.GoAwayError
+	if errors.As(err, &goAwayErr) {
+		// Consider connection-level issues as transient
+		switch goAwayErr.ErrCode {
+		case http2.ErrCodeNo,
+			http2.ErrCodeInternal,
+			http2.ErrCodeFlowControl,
+			http2.ErrCodeEnhanceYourCalm:
+			return true
+		}
 	}
 
 	return false
