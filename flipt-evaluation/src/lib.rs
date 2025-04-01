@@ -3069,7 +3069,7 @@ mod tests {
     fn test_evaluator_matches_contraints_with_mixed_types() {
         let eval_context: HashMap<String, String> =
             HashMap::from([("fruit".into(), "apple".into())]);
-        let constrains = vec![
+        let constraints = vec![
             flipt::EvaluationConstraint {
                 r#type: flipt::ConstraintComparisonType::Boolean,
                 property: String::from("fruit"),
@@ -3085,7 +3085,7 @@ mod tests {
         ];
         let result = matches_constraints(
             &eval_context,
-            &constrains,
+            &constraints,
             &flipt::SegmentMatchType::Any,
             "",
         );
@@ -3097,7 +3097,7 @@ mod tests {
     fn test_evaluator_matches_constraint_with_unknown_operator() {
         let eval_context: HashMap<String, String> =
             HashMap::from([("fruit".into(), "appleseed".into())]);
-        let constrains = vec![flipt::EvaluationConstraint {
+        let constraints = vec![flipt::EvaluationConstraint {
             r#type: flipt::ConstraintComparisonType::String,
             property: String::from("fruit"),
             operator: String::from("xunknownx"),
@@ -3105,7 +3105,7 @@ mod tests {
         }];
         let result = matches_constraints(
             &eval_context,
-            &constrains,
+            &constraints,
             &flipt::SegmentMatchType::Any,
             "",
         );
