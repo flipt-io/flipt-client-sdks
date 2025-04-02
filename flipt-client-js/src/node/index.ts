@@ -97,7 +97,7 @@ export class FliptClient extends BaseFliptClient {
 
     // Setup auto-refresh if interval is provided
     if (options.updateInterval && options.updateInterval > 0) {
-      client.setupAutoRefresh(options.updateInterval * 1000);
+      client.setupAutoRefresh(options.updateInterval * 1_000);
     }
 
     return client;
