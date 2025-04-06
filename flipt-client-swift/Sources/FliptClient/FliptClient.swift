@@ -285,6 +285,7 @@ public enum ErrorStrategy: String, Codable {
 public struct ClientOptions<T: Encodable>: Encodable {
     public let url: String
     public let authentication: T?
+    public let requestTimeout: Int
     public let updateInterval: Int
     public let reference: String
     public let fetchMode: FetchMode

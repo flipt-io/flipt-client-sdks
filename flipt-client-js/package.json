@@ -1,0 +1,105 @@
+{
+  "name": "@flipt-io/flipt-client-js",
+  "version": "0.0.2",
+  "description": "Flipt Client Evaluation SDK for Web and Node.js",
+  "type": "module",
+  "main": "./dist/node/index.cjs",
+  "module": "./dist/browser/index.mjs",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "node": {
+        "import": "./dist/node/index.mjs",
+        "require": "./dist/node/index.cjs"
+      },
+      "browser": {
+        "import": "./dist/browser/index.mjs",
+        "require": "./dist/browser/index.cjs"
+      },
+      "default": {
+        "import": "./dist/browser/index.mjs",
+        "require": "./dist/browser/index.cjs"
+      }
+    },
+    "./node": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/node/index.mjs",
+      "require": "./dist/node/index.cjs"
+    },
+    "./browser": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/browser/index.mjs",
+      "require": "./dist/browser/index.cjs"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "*": [
+        "./dist/types/index.d.ts"
+      ],
+      "node": [
+        "./dist/types/index.d.ts"
+      ],
+      "browser": [
+        "./dist/types/index.d.ts"
+      ]
+    }
+  },
+  "files": [
+    "dist/browser",
+    "dist/node",
+    "dist/types",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc --emitDeclarationOnly && rollup -c",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "lint": "eslint src --ext .ts",
+    "fmt": "prettier --write src",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^12.1.0",
+    "@rollup/plugin-wasm": "^6.2.2",
+    "@types/glob": "^8.1.0",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^22.13.14",
+    "@types/node-fetch": "^2.6.11",
+    "@typescript-eslint/eslint-plugin": "^5.47.0",
+    "@typescript-eslint/parser": "^5.47.0",
+    "eslint": "^8.30.0",
+    "glob": "^8.1.0",
+    "jest": "^29.7.0",
+    "node-fetch": "^3.3.0",
+    "prettier": "^3.1.0",
+    "rimraf": "^6.0.1",
+    "rollup": "^4.14.0",
+    "ts-jest": "^29.0.3",
+    "tslib": "^2.6.2",
+    "typescript": "^5.4.3",
+    "undici": "^7.1.0"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "flipt",
+    "feature flags",
+    "feature toggles",
+    "isomorphic",
+    "wasm"
+  ],
+  "author": "Flipt Devs <dev@flipt.io>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-client-js"
+  }
+}

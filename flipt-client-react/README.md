@@ -10,6 +10,10 @@ The Flipt React SDK provides a convenient way to integrate [Flipt](https://flipt
 npm install @flipt-io/flipt-client-react
 ```
 
+## Prerequisites
+
+- React 18.0 or higher
+
 ## Usage
 
 There are three ways to use the Flipt React SDK.
@@ -18,8 +22,12 @@ There are three ways to use the Flipt React SDK.
 2. Use the `useFliptVariant` hook for variant evaluation in a functional component that is wrapped in a `FliptProvider`.
 3. Use the `useFliptSelector` hook for custom evaluation in a functional component that is wrapped in a `FliptProvider`.
 
+<!-- prettier-ignore-start -->
+
 > [!TIP]
 > Looking for NextJS support? Check out our [NextJS examples](https://github.com/flipt-io/flipt/tree/main/examples/nextjs) in the main Flipt repo.
+
+<!-- prettier-ignore-end -->
 
 ### FliptProvider
 
@@ -97,8 +105,12 @@ The `useFliptSelector` hook allows direct access to the Flipt client so that it 
 
 This is useful for more complex evaluations or in cases where you wish to call other methods on the Flipt client.
 
+<!-- prettier-ignore-start -->
+
 > [!WARNING]
 > `flipt-client-react` heavily depends on the `useSyncExternalStore` hook which has some [caveats](https://react.dev/reference/react/useSyncExternalStore#caveats)
+
+<!-- prettier-ignore-end -->
 
 ```tsx
 import { useFliptSelector } from '@flipt-io/flipt-client-react';
@@ -133,7 +145,7 @@ The `FliptProvider` component accepts two optional arguments:
 - `options`: An instance of the `ClientOptions` type that supports several options for the client. The structure is:
   - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
   - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
-  - `updateInterval`: The polling interval for fetching new state from Flipt. Set to `120` seconds by default. A `0` value disables polling completely after the initial fetch.
+  - `updateInterval`: The polling interval (in seconds) for fetching new state from Flipt. Set to `120` seconds by default. A `0` value disables polling completely after the initial fetch.
   - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
   - `fetcher`: An implementation of a [fetcher](https://github.com/flipt-io/flipt-client-sdks/blob/4821cb227c6c8b10419b96674d44ad1d6668a647/flipt-client-browser/src/models.ts#L5) interface to use when requesting flag state. If not provided, a default fetcher using the browser's [`fetch` API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) will be used.
 

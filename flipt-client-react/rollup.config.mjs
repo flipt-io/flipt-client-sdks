@@ -9,12 +9,14 @@ export default [
     input: 'src/index.ts',
     output: [
       {
-        file: 'dist/index.mjs',
+        dir: 'dist',
+        entryFileNames: '[name].mjs',
         format: 'esm',
         sourcemap: true
       },
       {
-        file: 'dist/index.cjs',
+        dir: 'dist',
+        entryFileNames: '[name].cjs',
         format: 'cjs',
         sourcemap: true
       }
@@ -23,14 +25,17 @@ export default [
       peerDepsExternal(),
       resolve(),
       commonjs(),
-      typescript({ tsconfig: './tsconfig.json' })
+      typescript({
+        tsconfig: './tsconfig.json',
+        exclude: ['**/*.test.ts', '**/*.test.tsx']
+      })
     ],
-    external: ['react', 'react-dom', '@flipt-io/flipt-client-browser']
+    external: ['react', 'react-dom', '@flipt-io/flipt-client-js']
   },
   {
     input: 'dist/types/index.d.ts',
-    output: [{ file: 'dist/index.d.ts', format: 'esm' }],
+    output: [{ dir: 'dist/types', format: 'esm' }],
     plugins: [dts()],
-    external: ['react', 'react-dom', '@flipt-io/flipt-client-browser']
+    external: ['react', 'react-dom', '@flipt-io/flipt-client-js']
   }
 ];

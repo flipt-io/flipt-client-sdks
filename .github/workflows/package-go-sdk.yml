@@ -12,6 +12,6 @@ jobs:
   build:
     uses: ./.github/workflows/package-wasm-sdks.yml
     with:
-      sdks: 'go'
+      sdks: "go"
       tag: ${{ github.ref }}
     secrets: inherit

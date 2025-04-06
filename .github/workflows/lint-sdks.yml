@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        sdk: ["flipt-client-node", "flipt-client-browser", "flipt-client-react"]
+        sdk: ["flipt-client-react", "flipt-client-js"]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
@@ -99,7 +99,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: "8.0.x"
 
       - name: Restore dependencies
         working-directory: flipt-client-csharp
@@ -145,7 +145,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: "1.24"
           cache: false
 
       # Touch the wasm file to ensure it is present at lint time
@@ -154,7 +154,7 @@ jobs:
         run: touch ext/flipt_engine_wasm.wasm
 
       - name: Lint Go code
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v6
         with:
           working-directory: flipt-client-go
           args: --timeout=5m

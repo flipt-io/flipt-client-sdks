@@ -11,13 +11,12 @@ init(autoreset=True)
 
 def get_sdk(name: str) -> SDK:
     sdk_classes = {
-        "flipt-client-browser": JavaScriptSDK,
+        "flipt-client-js": JavaScriptSDK,
         "flipt-client-csharp": CSharpSDK,
         "flipt-client-dart": DartSDK,
         "flipt-client-go": GoSDK,
         "flipt-client-java": JavaSDK,
         "flipt-client-kotlin-android": AndroidSDK,
-        "flipt-client-node": JavaScriptSDK,
         "flipt-client-python": PythonSDK,
         "flipt-client-react": JavaScriptSDK,
         "flipt-client-ruby": RubySDK,
@@ -68,12 +67,11 @@ def tag_and_push_version(versions, opts: dict):
 def get_sdk_selection() -> str | None:
     sdk_display_names = {
         "flipt-client-kotlin-android": "Android",
-        "flipt-client-browser": "Browser",
+        "flipt-client-js": "JavaScript",
         "flipt-client-csharp": "C#",
         "flipt-client-dart": "Dart",
         "flipt-client-go": "Go",
         "flipt-client-java": "Java",
-        "flipt-client-node": "Node.js",
         "flipt-client-python": "Python",
         "flipt-client-react": "React",
         "flipt-client-ruby": "Ruby",

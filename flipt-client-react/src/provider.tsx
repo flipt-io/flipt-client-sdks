@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FliptContext, useStore } from './useFliptClient';
-import type { ClientOptions } from '@flipt-io/flipt-client-browser';
+import type { ClientOptions } from '@flipt-io/flipt-client-js';
 
 export const FliptProvider: React.FC<{
   children: React.ReactNode;

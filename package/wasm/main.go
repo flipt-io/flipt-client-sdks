@@ -19,8 +19,9 @@ var (
 	push     bool
 	tag      string
 	sdksToFn = map[string]sdks.SDK{
-		"node":    &sdks.NodeSDK{},
-		"browser": &sdks.BrowserSDK{},
+		"js":      &sdks.JsSDK{},
+		"node":    &sdks.NodeSDK{},    // deprecated
+		"browser": &sdks.BrowserSDK{}, // deprecated
 		"go":      &sdks.GoSDK{},
 	}
 	sema = make(chan struct{}, 5)
