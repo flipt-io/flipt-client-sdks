@@ -478,7 +478,7 @@ fn matches_constraints(
     Ok(is_match)
 }
 
-fn contains_string(v: &str, values: &str) -> bool {
+fn oneof_string(v: &str, values: &str) -> bool {
     match serde_json::from_str::<Vec<&str>>(values) {
         Ok(values) => values.contains(&v),
         Err(_) => false,
@@ -508,13 +508,15 @@ fn matches_string(evaluation_constraint: &flipt::EvaluationConstraint, v: &str) 
         "neq" => v != value,
         "prefix" => v.starts_with(value),
         "suffix" => v.ends_with(value),
-        "isoneof" => contains_string(v, value),
-        "isnotoneof" => !contains_string(v, value),
+        "isoneof" => oneof_string(v, value),
+        "isnotoneof" => !oneof_string(v, value),
+        "contains" => v.contains(value),
+        "notcontains" => !v.contains(value),
         _ => false,
     }
 }
 
-fn contains_number(v: i32, values: &str) -> Result<bool, Error> {
+fn oneof_number(v: i32, values: &str) -> Result<bool, Error> {
     match serde_json::from_str::<Vec<i32>>(values) {
         Ok(values) => Ok(values.contains(&v)),
         Err(err) => Err(Error::InvalidRequest(format!(
@@ -554,10 +556,10 @@ fn matches_number(
 
     match operator {
         "isoneof" => {
-            return contains_number(v_number, &evaluation_constraint.value);
+            return oneof_number(v_number, &evaluation_constraint.value);
         }
         "isnotoneof" => {
-            return match contains_number(v_number, &evaluation_constraint.value) {
+            return match oneof_number(v_number, &evaluation_constraint.value) {
                 Ok(v) => Ok(!v),
                 Err(err) => Err(err),
             }
@@ -757,6 +759,31 @@ mod tests {
             operator: String::from("isnotoneof"),
             value: String::from(r#"["1", "2"]"#),
         }, "3", true),
+        string_contains: (&flipt::EvaluationConstraint{
+            r#type: flipt::ConstraintComparisonType::String,
+            property: String::from("number"),
+            operator: String::from("contains"),
+            value: String::from("num"),
+        }, "number", true),
+        string_contains_false: (&flipt::EvaluationConstraint{
+            r#type: flipt::ConstraintComparisonType::String,
+            property: String::from("number"),
+            operator: String::from("contains"),
+            value: String::from("num"),
+        }, "x", false),
+        string_notcontains: (&flipt::EvaluationConstraint{
+            r#type: flipt::ConstraintComparisonType::String,
+            property: String::from("number"),
+            operator: String::from("notcontains"),
+            value: String::from("num"),
+        }, "x", true),
+        string_notcontains_false: (&flipt::EvaluationConstraint{
+            r#type: flipt::ConstraintComparisonType::String,
+            property: String::from("number"),
+            operator: String::from("notcontains"),
+            value: String::from("num"),
+        }, "number", false),
+
     }
 
     matches_datetime_tests! {
