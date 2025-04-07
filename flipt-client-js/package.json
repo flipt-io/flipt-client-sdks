@@ -69,7 +69,7 @@
     "@types/jest": "^29.5.12",
     "@types/node": "^22.13.14",
     "@types/node-fetch": "^2.6.11",
-    "@typescript-eslint/eslint-plugin": "^5.47.0",
+    "@typescript-eslint/eslint-plugin": "^8.29.1",
     "@typescript-eslint/parser": "^5.47.0",
     "eslint": "^8.30.0",
     "glob": "^8.1.0",
