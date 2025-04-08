@@ -167,12 +167,28 @@ impl HTTPFetcherBuilder {
             .jitter(Jitter::Full)
             .build_with_max_retries(3);
 
-        let mut client_builder = reqwest::Client::builder().user_agent(USER_AGENT);
+        let mut client_builder = reqwest::Client::builder()
+            .user_agent(USER_AGENT)
+            .tcp_keepalive(Duration::from_secs(5))
+            .pool_max_idle_per_host(10)
+            .pool_idle_timeout(Duration::from_secs(60))
+            .connect_timeout(Duration::from_secs(10));
 
-        if let Some(request_timeout) = self.request_timeout {
-            // only set timeout for polling mode
-            if request_timeout.as_nanos() > 0 && matches!(self.mode, FetchMode::Polling) {
-                client_builder = client_builder.timeout(request_timeout);
+        match self.mode {
+            FetchMode::Polling => {
+                if let Some(request_timeout) = self.request_timeout {
+                    if request_timeout.as_nanos() > 0 {
+                        client_builder = client_builder.timeout(request_timeout);
+                    }
+                }
+            }
+            FetchMode::Streaming => {
+                client_builder = client_builder
+                    .http2_prior_knowledge()
+                    .http2_keep_alive_interval(Duration::from_secs(5))
+                    .http2_initial_stream_window_size(32 * 1024)
+                    .http2_initial_connection_window_size(32 * 1024)
+                    .http2_keep_alive_while_idle(true);
             }
         }
 
