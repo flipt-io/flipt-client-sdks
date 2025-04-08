@@ -1,3 +1,3 @@
 package evaluation
 
-const Version = "0.16.1"
+const Version = "0.16.2"
