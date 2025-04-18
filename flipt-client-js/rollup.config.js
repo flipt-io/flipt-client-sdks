@@ -135,4 +135,8 @@ const slimConfig = {
   external: ['node-fetch']
 };
 
-export default [browserConfig, nodeConfig, slimConfig];
+export default [
+  browserConfig, 
+  nodeConfig, 
+  slimConfig
+];

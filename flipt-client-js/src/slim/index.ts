@@ -13,11 +13,11 @@ export interface WasmOptions {
    * - A filesystem path to the WASM file (in Node.js environments)
    * - An ArrayBuffer or Uint8Array containing the WASM binary
    * - A WebAssembly.Module object
-   *
+   * 
    * The simplest way to provide the WASM module is to import it directly from the package:
    * ```
    * import wasm from '@flipt-io/flipt-client-js/flipt.wasm';
-   *
+   * 
    * const client = await FliptClient.init({ ... }, { wasm });
    * ```
    */
@@ -44,9 +44,7 @@ export class FliptClient extends BaseFliptClient {
     wasmOptions?: WasmOptions
   ): Promise<FliptClient> {
     if (!wasmOptions || !wasmOptions.wasm) {
-      throw new Error(
-        'WASM module must be provided in slim mode. Use the standard client or provide a wasm module.'
-      );
+      throw new Error('WASM module must be provided in slim mode. Use the standard client or provide a wasm module.');
     }
 
     const namespace = options.namespace ?? 'default';
@@ -78,11 +76,11 @@ export class FliptClient extends BaseFliptClient {
     if (!fetcher) {
       // Check if we're in a Node.js environment
       const isNode = typeof window === 'undefined';
-
+      
       if (isNode) {
         // In Node.js, dynamically import node-fetch
         const { default: fetch } = await import('node-fetch');
-
+        
         fetcher = async (opts?: { etag?: string }) => {
           if (opts && opts.etag) {
             headers['If-None-Match'] = opts.etag;
@@ -171,4 +169,4 @@ export class FliptClient extends BaseFliptClient {
       this.cleanupAutoRefresh?.();
     }
   }
-}
+} 

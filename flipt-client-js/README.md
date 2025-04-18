@@ -228,7 +228,7 @@ export default async function middleware(req) {
   const result = client.evaluateBoolean({
     flagKey: 'my-edge-feature',
     entityId: 'user-123',
-    context: {
+    context: { 
       path: req.nextUrl.pathname,
       country: req.geo?.country || 'unknown'
     }
