@@ -30,7 +30,7 @@ const cleanupWasmPlugin = () => ({
     if (existsSync(rootWasmFile)) {
       rmSync(rootWasmFile);
     }
-    
+
     // Remove any duplicated WASM files in the node directory
     const nodeWasmFile = 'dist/node/flipt_engine_wasm_js_bg.wasm';
     if (existsSync(nodeWasmFile)) {
@@ -61,7 +61,7 @@ const browserConfig = {
     }),
     wasm({
       targetEnv: 'auto-inline'
-    }),
+    })
   ]
 };
 
@@ -87,9 +87,9 @@ const nodeConfig = {
     }),
     wasm({
       maxFileSize: 0,
-      publicPath: "../common/",
-      targetEnv: "node",
-      fileName: "[name][extname]",
+      publicPath: '../common/',
+      targetEnv: 'node',
+      fileName: '[name][extname]'
     }),
     copyWasmPlugin('common'),
     cleanupWasmPlugin()
@@ -122,8 +122,4 @@ const slimConfig = {
   external: ['node-fetch']
 };
 
-export default [
-  browserConfig, 
-  nodeConfig, 
-  slimConfig
-];
+export default [browserConfig, nodeConfig, slimConfig];
