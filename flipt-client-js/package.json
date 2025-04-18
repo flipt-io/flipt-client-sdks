@@ -22,7 +22,7 @@
         "require": "./dist/browser/index.cjs"
       }
     },
-    "./flipt.wasm": "./dist/common/flipt_engine_wasm_js_bg.wasm",
+    "./flipt.wasm": "./dist/flipt_engine_wasm_js_bg.wasm",
     "./node": {
       "types": "./dist/types/index.d.ts",
       "import": "./dist/node/index.mjs",
@@ -53,11 +53,7 @@
     }
   },
   "files": [
-    "dist/browser",
-    "dist/node",
-    "dist/common",
-    "dist/slim",
-    "dist/types",
+    "dist/",
     "README.md"
   ],
   "scripts": {
