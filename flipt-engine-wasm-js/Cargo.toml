@@ -19,6 +19,9 @@ serde-wasm-bindgen = "0.6.5"
 console_error_panic_hook = "0.1.7"
 chrono = { version = "0.4.31", features = ["wasmbind"] }
 
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
 [dependencies.flipt-evaluation]
 path = "../flipt-evaluation"
 
