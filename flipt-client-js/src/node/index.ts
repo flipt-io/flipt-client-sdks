@@ -1,29 +1,10 @@
 import init, { Engine } from '../../dist/flipt_engine_wasm_js.js';
-// Instead of using a direct import which causes Rollup to generate code with require(),
-// we'll manually handle the WASM loading for Node.js
+import wasm from '../../dist/flipt_engine_wasm_js_bg.wasm';
 import { BaseFliptClient } from '../core/base';
 import { ClientOptions, ErrorStrategy } from '../core/types';
 
 export * from '../core/types';
 export * from '../core/base';
-
-// Helper function to load WASM in a way that works in both ESM and CommonJS
-async function loadWasm() {
-  // Use dynamic import for fs and path to be ESM compatible
-  const fs = await import('fs').then((m) => m.default || m);
-  const path = await import('path').then((m) => m.default || m);
-
-  // Resolve the path to the WASM file relative to the current module
-  const wasmPath = path.resolve(
-    __dirname,
-    '../common/flipt_engine_wasm_js_bg.wasm'
-  );
-
-  // Read the WASM file
-  const wasmBuffer = fs.readFileSync(wasmPath);
-
-  return wasmBuffer;
-}
 
 export class FliptClient extends BaseFliptClient {
   private updateInterval?: NodeJS.Timeout;
@@ -92,9 +73,8 @@ export class FliptClient extends BaseFliptClient {
     }
 
     // Initialize WASM engine
-    // Load the WASM file using our ESM-compatible helper
-    const wasmBuffer = await loadWasm();
-    await init(wasmBuffer);
+    // @ts-ignore
+    await init(await wasm());
 
     if (!fetcher) {
       throw new Error('Failed to initialize fetcher');
