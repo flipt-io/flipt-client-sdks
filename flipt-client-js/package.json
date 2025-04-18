@@ -32,7 +32,12 @@
       "import": "./dist/browser/index.mjs",
       "require": "./dist/browser/index.cjs"
     },
-    "./engine.wasm": "./dist/flipt_engine_wasm_js_bg.wasm"
+    "./engine.wasm": "./dist/flipt_engine_wasm_js_bg.wasm",
+    "./slim": {
+      "types": "./dist/types/slim/index.d.ts",
+      "import": "./dist/slim/index.mjs",
+      "require": "./dist/slim/index.cjs"
+    }
   },
   "typesVersions": {
     "*": {

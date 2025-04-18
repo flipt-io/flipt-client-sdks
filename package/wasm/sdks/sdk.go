@@ -36,7 +36,7 @@ func buildWasmJS(ctx context.Context, client *dagger.Client, container *dagger.C
 	var err error
 
 	rust, err = rust.
-		WithExec(args("cargo install wasm-pack wasm-opt")). // Install wasm-pack
+		WithExec(args("cargo install wasm-pack")). // Install wasm-pack
 		WithWorkdir("/src/flipt-engine-wasm-js").
 		WithExec(args("wasm-pack build --target %s", target)). // Build the wasm package
 		Sync(ctx)

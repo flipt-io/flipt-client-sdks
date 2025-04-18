@@ -59,6 +59,24 @@ const copyWasmFiles = () => {
   };
 };
 
+// Plugin to clean up duplicate WASM files
+const cleanupWasmPlugin = () => ({
+  name: 'cleanup-wasm',
+  writeBundle() {
+    // Remove the WASM file from the root dist folder since it's already copied to common
+    const rootWasmFile = 'dist/flipt_engine_wasm_js_bg.wasm';
+    if (existsSync(rootWasmFile)) {
+      rmSync(rootWasmFile);
+    }
+    
+    // Remove any duplicated WASM files in the node directory
+    const nodeWasmFile = 'dist/node/flipt_engine_wasm_js_bg.wasm';
+    if (existsSync(nodeWasmFile)) {
+      rmSync(nodeWasmFile);
+    }
+  }
+});
+
 const browserConfig = {
   input: 'src/browser/index.ts',
   output: [
@@ -110,4 +128,33 @@ const nodeConfig = {
   external: ['node-fetch']
 };
 
-export default [browserConfig, nodeConfig];
+// Slim configuration that doesn't bundle the WASM file
+const slimConfig = {
+  input: 'src/slim/index.ts',
+  output: [
+    {
+      file: 'dist/slim/index.mjs',
+      format: 'esm',
+      sourcemap: true
+    },
+    {
+      file: 'dist/slim/index.cjs',
+      format: 'cjs',
+      sourcemap: true
+    }
+  ],
+  plugins: [
+    typescript({
+      noEmit: true,
+      declaration: false,
+      declarationDir: null
+    })
+  ],
+  external: ['node-fetch']
+};
+
+export default [
+  browserConfig, 
+  nodeConfig, 
+  slimConfig
+];
