@@ -153,11 +153,7 @@ const slimConfig = {
     }
   ],
   plugins: [
-    typescript({
-      noEmit: true,
-      declaration: false,
-      declarationDir: null
-    }),
+    typescript(tsConfig),
     // Add the final cleanup as the last plugin in the last config
     finalCleanupPlugin
   ],
