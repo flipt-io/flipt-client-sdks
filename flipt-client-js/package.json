@@ -22,7 +22,7 @@
         "require": "./dist/browser/index.cjs"
       }
     },
-    "./flipt.wasm": "./dist/flipt_engine_wasm_js_bg.wasm",
+    "./engine.wasm": "./dist/flipt_engine_wasm_js_bg.wasm",
     "./node": {
       "types": "./dist/types/index.d.ts",
       "import": "./dist/node/index.mjs",

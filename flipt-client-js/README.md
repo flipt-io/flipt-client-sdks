@@ -133,7 +133,7 @@ The default fetcher uses [ETag HTTP headers](https://developer.mozilla.org/en-US
 
 To disable ETag support, you can implement a [custom fetcher](#custom-fetcher) that does not use ETags.
 
-## Slim Mode for Edge Environments
+## Slim Module
 
 For environments like Cloudflare Workers where WebAssembly.compile is not supported, we provide a "slim" version of the client that allows you to explicitly provide the WASM module.
 
@@ -148,7 +148,7 @@ The simplest approach is to directly import the WASM file using the package expo
 ```js
 // Works in all environments (Node.js, browsers, edge functions)
 import { FliptClient } from '@flipt-io/flipt-client-js/slim';
-import wasm from '@flipt-io/flipt-client-js/flipt.wasm';
+import wasm from '@flipt-io/flipt-client-js/engine.wasm';
 
 const client = await FliptClient.init(
   {
@@ -172,7 +172,7 @@ When using Cloudflare Workers with Webpack or a similar bundler:
 
 ```js
 import { FliptClient } from '@flipt-io/flipt-client-js/slim';
-import wasm from '@flipt-io/flipt-client-js/flipt.wasm';
+import wasm from '@flipt-io/flipt-client-js/engine.wasm';
 
 export default {
   async fetch(request, env, ctx) {
@@ -204,7 +204,7 @@ Using the slim client with Next.js Edge Runtime (middleware or edge API routes):
 ```js
 // middleware.js or an Edge API Route
 import { FliptClient } from '@flipt-io/flipt-client-js/slim';
-import wasm from '@flipt-io/flipt-client-js/flipt.wasm';
+import wasm from '@flipt-io/flipt-client-js/engine.wasm';
 import { NextResponse } from 'next/server';
 
 export const config = {
