@@ -1,4 +1,4 @@
-import { Engine } from '../wasm/flipt_engine_wasm_js';
+import { Engine } from '../wasm/flipt_engine_wasm_js.js';
 import { BaseFliptClient } from '~/core/base';
 import { ClientOptions, ErrorStrategy } from '~/core/types';
 
