@@ -368,7 +368,7 @@ func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirec
 		WithExec(args("cargo build -p flipt-engine-wasm-js --release")).
 		WithExec(args("cargo install wasm-opt wasm-pack")).
 		WithWorkdir("/src/flipt-engine-wasm-js").
-		WithExec(args("wasm-pack build --target web"))
+		WithExec(args("wasm-pack build"))
 }
 
 // pythonTests runs the python integration test suite against a container running Flipt.
@@ -449,7 +449,7 @@ func javascriptTests(ctx context.Context, root *dagger.Container, t *testCase) e
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-js"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "dist/"},
 		}).
-		WithDirectory("/src/dist", t.engine.Directory(wasmJSDir), dagger.ContainerWithDirectoryOpts{
+		WithDirectory("/src/wasm", t.engine.Directory(wasmJSDir), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "package.json", "README.md", "LICENSE"},
 		}).
 		WithServiceBinding("flipt", t.flipt.AsService()).
