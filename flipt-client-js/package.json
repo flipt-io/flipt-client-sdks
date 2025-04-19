@@ -22,6 +22,7 @@
         "require": "./dist/browser/index.cjs"
       }
     },
+    "./engine.wasm": "./dist/flipt_engine_wasm_js_bg.wasm",
     "./node": {
       "types": "./dist/types/index.d.ts",
       "import": "./dist/node/index.mjs",
@@ -31,6 +32,11 @@
       "types": "./dist/types/index.d.ts",
       "import": "./dist/browser/index.mjs",
       "require": "./dist/browser/index.cjs"
+    },
+    "./slim": {
+      "types": "./dist/types/slim/index.d.ts",
+      "import": "./dist/slim/index.mjs",
+      "require": "./dist/slim/index.cjs"
     }
   },
   "typesVersions": {
@@ -47,9 +53,7 @@
     }
   },
   "files": [
-    "dist/browser",
-    "dist/node",
-    "dist/types",
+    "dist/",
     "README.md"
   ],
   "scripts": {
