@@ -23,10 +23,6 @@ const browserConfig = {
     }),
     wasm({
       targetEnv: 'auto-inline',
-      maxFileSize: 0,
-      publicPath: '',
-      fileName: '[name][extname]',
-      sync: ['./src/wasm/flipt_engine_wasm_js_bg.wasm']
     }),
   ]
 };
