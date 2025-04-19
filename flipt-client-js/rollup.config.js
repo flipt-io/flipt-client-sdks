@@ -137,31 +137,4 @@ const nodeConfig = {
   external: ['node-fetch']
 };
 
-// Slim configuration that doesn't bundle the WASM file
-const slimConfig = {
-  input: 'src/slim/index.ts',
-  output: [
-    {
-      file: 'dist/slim/index.mjs',
-      format: 'esm',
-      sourcemap: true
-    },
-    {
-      file: 'dist/slim/index.cjs',
-      format: 'cjs',
-      sourcemap: true
-    }
-  ],
-  plugins: [
-    typescript(tsConfig),
-    // Add the final cleanup as the last plugin in the last config
-    finalCleanupPlugin
-  ],
-  external: ['node-fetch']
-};
-
-export default [
-  browserConfig, 
-  nodeConfig, 
-  slimConfig
-];
+export default [browserConfig, nodeConfig];
