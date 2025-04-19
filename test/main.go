@@ -447,7 +447,7 @@ func javascriptTests(ctx context.Context, root *dagger.Container, t *testCase) e
 	_, err := root.
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-js"), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{".node_modules/", ".gitignore", "dist/", "wasm/"},
+			Exclude: []string{".node_modules/", ".gitignore", "dist/"},
 		}).
 		WithDirectory("/src/src/wasm", t.engine.Directory(wasmJSDir), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "package.json", "README.md", "LICENSE"},
