@@ -4,6 +4,13 @@ import { copyFileSync, mkdirSync, existsSync, rmSync, readdirSync, statSync } fr
 import glob from 'glob';
 import path from 'path';
 
+// Common TypeScript configuration
+const tsConfig = {
+  noEmit: true,
+  declaration: false,
+  declarationDir: null
+};
+
 // Custom plugin to copy WASM files to output directories
 const copyWasmPlugin = (targetDir) => ({
   name: 'copy-wasm',
@@ -79,11 +86,7 @@ const browserConfig = {
     }
   ],
   plugins: [
-    typescript({
-      noEmit: true,
-      declaration: false,
-      declarationDir: null
-    }),
+    typescript(tsConfig),
     copyWasmPlugin('browser'),
     wasm({
       targetEnv: 'auto-inline'
@@ -107,17 +110,10 @@ const nodeConfig = {
     }
   ],
   plugins: [
-    typescript({
-      noEmit: true,
-      declaration: false,
-      declarationDir: null
-    }),
+    typescript(tsConfig),
     copyWasmPlugin('node'),
     wasm({
-      maxFileSize: 0,
-      publicPath: "../",
-      targetEnv: "node",
-      fileName: "[name][extname]",
+      targetEnv: 'auto-inline'
     }),
     cleanupWasmPlugin('node')
   ],
@@ -140,11 +136,7 @@ const slimConfig = {
     }
   ],
   plugins: [
-    typescript({
-      noEmit: true,
-      declaration: false,
-      declarationDir: null
-    }),
+    typescript(tsConfig),
     // Add the final cleanup as the last plugin in the last config
     finalCleanupPlugin
   ],
