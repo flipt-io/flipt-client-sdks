@@ -1,4 +1,5 @@
-import { Engine } from '../wasm/flipt_engine_wasm_js.js';
+import init, { Engine } from '../wasm/flipt_engine_wasm_js.js';
+import wasm from '../wasm/flipt_engine_wasm_js_bg.wasm';
 import { BaseFliptClient } from '~/core/base';
 import { ClientOptions, ErrorStrategy } from '~/core/types';
 
@@ -64,6 +65,10 @@ export class FliptClient extends BaseFliptClient {
         return resp;
       };
     }
+
+    // Initialize WASM engine
+    // @ts-ignore
+    await init(await wasm());
 
     if (!fetcher) {
       throw new Error('Failed to initialize fetcher');
