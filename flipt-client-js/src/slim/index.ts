@@ -25,8 +25,6 @@ export interface WasmOptions {
 }
 
 export class FliptClient extends BaseFliptClient {
-  private updateInterval?: NodeJS.Timeout;
-
   /**
    * Initialize the client
    * @param options - optional client options
@@ -116,33 +114,6 @@ export class FliptClient extends BaseFliptClient {
     client.storeEtag(resp);
     client.errorStrategy = options.errorStrategy;
 
-    // Setup auto-refresh if interval is provided (Node.js only)
-    const isNode = typeof window === 'undefined';
-    if (isNode && options.updateInterval && options.updateInterval > 0) {
-      client.setupAutoRefresh(options.updateInterval * 1_000);
-    }
-
     return client;
-  }
-
-  private setupAutoRefresh(interval: number = 120_000): void {
-    this.cleanupAutoRefresh();
-    this.updateInterval = setInterval(async () => {
-      await this.refresh();
-    }, interval);
-  }
-
-  private cleanupAutoRefresh(): void {
-    if (this.updateInterval) {
-      clearInterval(this.updateInterval);
-      this.updateInterval = undefined;
-    }
-  }
-
-  public close() {
-    // Only call cleanupAutoRefresh if it's defined and we're in Node.js
-    if (typeof window === 'undefined') {
-      this.cleanupAutoRefresh?.();
-    }
   }
 }
