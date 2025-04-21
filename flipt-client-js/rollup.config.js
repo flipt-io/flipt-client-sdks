@@ -59,31 +59,10 @@ const copyWasmFiles = () => {
   };
 };
 
-// Final cleanup plugin to remove everything from root dist except WASM files and folders
-const finalCleanupPlugin = {
-  name: 'final-cleanup',
-  writeBundle() {
-    const distDir = 'dist';
-    const entries = readdirSync(distDir);
-    
-    entries.forEach(entry => {
-      const entryPath = path.join(distDir, entry);
-      const isDirectory = statSync(entryPath).isDirectory();
-      
-      // Keep directories
-      if (isDirectory) {
-        return;
-      }
-      
-      // Keep .wasm files 
-      if (entry.endsWith('.wasm')) {
-        return;
-      }
-      
-      // Remove everything else
-      rmSync(entryPath);
-    });
-  }
+const tsConfig = {
+  noEmit: true,
+  declaration: false,
+  declarationDir: null
 };
 
 const browserConfig = {
@@ -102,11 +81,7 @@ const browserConfig = {
     wasm({
       targetEnv: 'auto-inline'
     }),
-    typescript({
-      noEmit: true,
-      declaration: false,
-      declarationDir: null
-    }),
+    typescript(tsConfig),
     copyWasmFiles() // Add our dummy WASM creator
   ]
 };
@@ -127,14 +102,27 @@ const nodeConfig = {
     wasm({
       targetEnv: 'auto-inline'
     }),
-    typescript({
-      noEmit: true,
-      declaration: false,
-      declarationDir: null
-    }),
+    typescript(tsConfig),
     copyWasmFiles() // Add our dummy WASM creator
   ],
   external: ['node-fetch']
 };
 
-export default [browserConfig, nodeConfig];
+// Slim configuration that doesn't bundle the WASM file
+const slimConfig = {
+  input: 'src/slim/index.ts',
+  output: [
+    {
+      file: 'dist/slim/index.mjs',
+      format: 'esm'
+    },
+    {
+      file: 'dist/slim/index.cjs',
+      format: 'cjs'
+    }
+  ],
+  plugins: [typescript(tsConfig)],
+  external: ['node-fetch']
+};
+
+export default [browserConfig, nodeConfig, slimConfig];
