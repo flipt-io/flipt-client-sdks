@@ -1,10 +1,10 @@
-import init, { Engine } from '../../dist/flipt_engine_wasm_js.js';
-import wasm from '../../dist/flipt_engine_wasm_js_bg.wasm';
-import { BaseFliptClient } from '../core/base';
-import { ClientOptions, ErrorStrategy } from '../core/types';
+import init, { Engine } from '../wasm/flipt_engine_wasm_js.js';
+import wasm from '../wasm/flipt_engine_wasm_js_bg.wasm';
+import { BaseFliptClient } from '~/core/base';
+import { ClientOptions, ErrorStrategy } from '~/core/types';
 
-export * from '../core/types';
-export * from '../core/base';
+export * from '~/core/types';
+export * from '~/core/base';
 
 export class FliptClient extends BaseFliptClient {
   private updateInterval?: NodeJS.Timeout;
@@ -75,7 +75,6 @@ export class FliptClient extends BaseFliptClient {
     // Initialize WASM engine
     // @ts-ignore
     await init(await wasm());
-
     if (!fetcher) {
       throw new Error('Failed to initialize fetcher');
     }

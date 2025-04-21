@@ -130,3 +130,6 @@ dist
 .pnp.*
 
 .tool-versions
+
+dist/
+wasm/

@@ -47,9 +47,9 @@ func buildWasmJS(ctx context.Context, client *dagger.Client, container *dagger.C
 
 	container = container.From("node:21.2-bookworm").
 		WithDirectory("/src", hostDirectory.Directory(clientDir), dagger.ContainerWithDirectoryOpts{
-			Exclude: []string{".node_modules/", ".gitignore", "pkg/", "dist/"},
+			Exclude: []string{".node_modules/", ".gitignore", "pkg/", "dist/", "wasm/"},
 		}).
-		WithDirectory("/src/dist", rust.Directory("/src/flipt-engine-wasm-js/pkg"), dagger.ContainerWithDirectoryOpts{
+		WithDirectory("/src/src/wasm", rust.Directory("/src/flipt-engine-wasm-js/pkg"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".node_modules/", ".gitignore", "package.json", "README.md", "LICENSE"},
 		}).
 		WithWorkdir("/src").

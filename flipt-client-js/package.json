@@ -31,7 +31,8 @@
       "types": "./dist/types/index.d.ts",
       "import": "./dist/browser/index.mjs",
       "require": "./dist/browser/index.cjs"
-    }
+    },
+    "./engine.wasm": "./dist/flipt_engine_wasm_js_bg.wasm"
   },
   "typesVersions": {
     "*": {
@@ -47,9 +48,7 @@
     }
   },
   "files": [
-    "dist/browser",
-    "dist/node",
-    "dist/types",
+    "dist",
     "README.md"
   ],
   "scripts": {
@@ -65,14 +64,12 @@
   "devDependencies": {
     "@rollup/plugin-typescript": "^12.1.0",
     "@rollup/plugin-wasm": "^6.2.2",
-    "@types/glob": "^8.1.0",
     "@types/jest": "^29.5.12",
     "@types/node": "^22.13.14",
     "@types/node-fetch": "^2.6.11",
     "@typescript-eslint/eslint-plugin": "^5.47.0",
     "@typescript-eslint/parser": "^5.47.0",
     "eslint": "^8.30.0",
-    "glob": "^8.1.0",
     "jest": "^29.7.0",
     "node-fetch": "^3.3.0",
     "prettier": "^3.1.0",
