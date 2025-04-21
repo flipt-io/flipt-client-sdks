@@ -1,5 +1,5 @@
 import init from '../wasm/flipt_engine_wasm_js.js';
-import { BaseFliptClient } from '~/core/base';
+import { BaseClient } from '~/core/base';
 import { ClientOptions, ErrorStrategy, IFetcher } from '~/core/types';
 import { Engine } from '../wasm/flipt_engine_wasm_js.js';
 
@@ -8,24 +8,24 @@ export * from '~/core/base';
 
 export interface WasmOptions {
   /**
-   * URL to the WASM module
+   * The WASM module to use for evaluation.
+   * Can be provided as:
+   * - A URL string pointing to the WASM file
+   * - A filesystem path to the WASM file (in Node.js environments)
+   * - An ArrayBuffer or Uint8Array containing the WASM binary
+   * - A WebAssembly.Module object
+   *
+   * The simplest way to provide the WASM module is to import it directly from the package:
+   * ```
+   * import wasm from '@flipt-io/flipt-client-js/flipt.wasm';
+   *
+   * const client = await FliptClient.init({ ... }, { wasm });
+   * ```
    */
-  url?: string;
-  /**
-   * Path to the WASM module on the filesystem
-   */
-  path?: string;
-  /**
-   * ArrayBuffer containing the WASM module
-   */
-  buffer?: ArrayBuffer;
-  /**
-   * WebAssembly.Module instance
-   */
-  module?: WebAssembly.Module;
+  wasm: ArrayBuffer | Uint8Array | WebAssembly.Module | string;
 }
 
-export class FliptClient extends BaseFliptClient {
+export class FliptClient extends BaseClient {
   /**
    * Initialize the client
    * @param options - optional client options
@@ -54,7 +54,8 @@ export class FliptClient extends BaseFliptClient {
 
         if (options.authentication) {
           if ('clientToken' in options.authentication) {
-            headers['Authorization'] = `Bearer ${options.authentication.clientToken}`;
+            headers['Authorization'] =
+              `Bearer ${options.authentication.clientToken}`;
           } else if ('jwtToken' in options.authentication) {
             headers['Authorization'] = `JWT ${options.authentication.jwtToken}`;
           }
@@ -81,32 +82,16 @@ export class FliptClient extends BaseFliptClient {
       };
     }
 
-    let wasmModule: WebAssembly.Module | undefined;
-
-    if (wasmOptions?.module) {
-      wasmModule = wasmOptions.module;
-    } else if (wasmOptions?.buffer) {
-      wasmModule = await WebAssembly.compile(wasmOptions.buffer);
-    } else if (wasmOptions?.url) {
-      const response = await fetch(wasmOptions.url);
-      const buffer = await response.arrayBuffer();
-      wasmModule = await WebAssembly.compile(buffer);
-    } else if (wasmOptions?.path) {
-      // Node.js environment
-      const fs = await import('fs/promises');
-      const buffer = await fs.readFile(wasmOptions.path);
-      wasmModule = await WebAssembly.compile(buffer);
-    }
-
-    const client = await BaseFliptClient.initialize({
+    const client = await BaseClient.initialize({
       options,
       initWasm: async () => {
-        if (wasmModule) {
-          return await init(wasmModule);
+        if (wasmOptions?.wasm) {
+          return await init(wasmOptions.wasm);
         }
         throw new Error('No WASM module provided');
       },
-      createClient: (engine: Engine, fetcher: IFetcher) => new FliptClient(engine, fetcher)
+      createClient: (engine: Engine, fetcher: IFetcher) =>
+        new FliptClient(engine, fetcher)
     });
 
     return client as FliptClient;

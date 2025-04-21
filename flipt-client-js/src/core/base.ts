@@ -21,10 +21,10 @@ import { deserialize, serialize } from './utils';
 export interface InitOptions {
   options: ClientOptions;
   initWasm: () => Promise<any>;
-  createClient: (engine: Engine, fetcher: IFetcher) => BaseFliptClient;
+  createClient: (engine: Engine, fetcher: IFetcher) => BaseClient;
 }
 
-export abstract class BaseFliptClient {
+export abstract class BaseClient {
   protected engine: Engine;
   protected fetcher: IFetcher;
   protected etag?: string;
@@ -40,7 +40,7 @@ export abstract class BaseFliptClient {
     options,
     initWasm,
     createClient
-  }: InitOptions): Promise<BaseFliptClient> {
+  }: InitOptions): Promise<BaseClient> {
     const namespace = options.namespace ?? 'default';
 
     let url = options.url ?? 'http://localhost:8080';
@@ -58,7 +58,8 @@ export abstract class BaseFliptClient {
 
     if (options.authentication) {
       if ('clientToken' in options.authentication) {
-        headers['Authorization'] = `Bearer ${options.authentication.clientToken}`;
+        headers['Authorization'] =
+          `Bearer ${options.authentication.clientToken}`;
       } else if ('jwtToken' in options.authentication) {
         headers['Authorization'] = `JWT ${options.authentication.jwtToken}`;
       }
@@ -84,8 +85,7 @@ export abstract class BaseFliptClient {
     engine.snapshot(data);
 
     const client = createClient(engine, fetcher);
-    
-    // Since we're in the base class, we can access protected members
+
     client.storeEtag(resp);
     client.errorStrategy = options.errorStrategy ?? ErrorStrategy.Fail;
 
@@ -293,12 +293,9 @@ export abstract class BaseFliptClient {
 
       const data = await resp.json();
       this.engine.snapshot(data);
-      this.lastGoodState = data;
       return true;
     } catch (error) {
-      if (this.errorStrategy === ErrorStrategy.Fallback && this.lastGoodState) {
-        this.engine.snapshot(this.lastGoodState);
-      } else {
+      if (this.errorStrategy === ErrorStrategy.Fail) {
         throw error;
       }
       return false;

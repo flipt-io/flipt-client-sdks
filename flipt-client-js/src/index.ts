@@ -1,7 +1,7 @@
 export * from './core/types';
 
 // Re-export the base class
-export { BaseFliptClient } from './core/base';
+export { BaseClient } from './core/base';
 
 // Import implementations
 import { FliptClient as NodeImpl } from './node';

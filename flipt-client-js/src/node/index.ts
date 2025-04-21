@@ -1,13 +1,13 @@
 import init from '../wasm/flipt_engine_wasm_js.js';
 import wasm from '../wasm/flipt_engine_wasm_js_bg.wasm';
-import { BaseFliptClient } from '~/core/base';
+import { BaseClient } from '~/core/base';
 import { ClientOptions, ErrorStrategy, IFetcher } from '~/core/types';
 import { Engine } from '../wasm/flipt_engine_wasm_js.js';
 
 export * from '~/core/types';
 export * from '~/core/base';
 
-export class FliptClient extends BaseFliptClient {
+export class FliptClient extends BaseClient {
   private updateInterval?: NodeJS.Timeout;
 
   /**
@@ -40,7 +40,8 @@ export class FliptClient extends BaseFliptClient {
 
         if (options.authentication) {
           if ('clientToken' in options.authentication) {
-            headers['Authorization'] = `Bearer ${options.authentication.clientToken}`;
+            headers['Authorization'] =
+              `Bearer ${options.authentication.clientToken}`;
           } else if ('jwtToken' in options.authentication) {
             headers['Authorization'] = `JWT ${options.authentication.jwtToken}`;
           }
@@ -67,7 +68,7 @@ export class FliptClient extends BaseFliptClient {
       };
     }
 
-    const client = await BaseFliptClient.initialize({
+    const client = await BaseClient.initialize({
       options,
       // @ts-ignore
       initWasm: async () => await init(await wasm()),
