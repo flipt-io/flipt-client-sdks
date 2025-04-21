@@ -1,70 +1,102 @@
 import {
   BatchEvaluationResponse,
+  BatchResult,
   BooleanEvaluationResponse,
-  ErrorEvaluationResponse,
+  BooleanResult,
+  ClientOptions,
   EvaluationRequest,
-  EvaluationResponse,
+  ErrorStrategy,
   Flag,
   IFetcher,
-  VariantEvaluationResponse,
-  ErrorStrategy,
+  ListFlagsResult,
   Response,
   VariantResult,
-  BooleanResult,
-  BatchResult,
-  ListFlagsResult
+  ErrorEvaluationResponse,
+  EvaluationResponse,
+  VariantEvaluationResponse
 } from './types';
-
+import { Engine } from '../wasm/flipt_engine_wasm_js.js';
 import { deserialize, serialize } from './utils';
 
-export type FliptClient = BaseFliptClient;
+export interface InitOptions {
+  options: ClientOptions;
+  initWasm: () => Promise<any>;
+  createClient: (engine: Engine, fetcher: IFetcher) => BaseFliptClient;
+}
 
 export abstract class BaseFliptClient {
-  protected engine: any; // Type will be provided by platform implementations
+  protected engine: Engine;
   protected fetcher: IFetcher;
   protected etag?: string;
-  protected errorStrategy?: ErrorStrategy;
+  protected errorStrategy: ErrorStrategy = ErrorStrategy.Fail;
+  protected lastGoodState?: any;
 
-  constructor(engine: any, fetcher: IFetcher) {
+  constructor(engine: Engine, fetcher: IFetcher) {
     this.engine = engine;
     this.fetcher = fetcher;
   }
 
-  /**
-   * Store etag from response for next requests
-   */
-  protected storeEtag(resp: Response) {
-    const etag = resp.headers.get('etag');
+  protected static async initialize({
+    options,
+    initWasm,
+    createClient
+  }: InitOptions): Promise<BaseFliptClient> {
+    const namespace = options.namespace ?? 'default';
+
+    let url = options.url ?? 'http://localhost:8080';
+    url = url.replace(/\/$/, '');
+    url = `${url}/internal/v1/evaluation/snapshot/namespace/${namespace}`;
+
+    if (options.reference) {
+      url = `${url}?reference=${options.reference}`;
+    }
+
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+      'x-flipt-accept-server-version': '1.47.0'
+    };
+
+    if (options.authentication) {
+      if ('clientToken' in options.authentication) {
+        headers['Authorization'] = `Bearer ${options.authentication.clientToken}`;
+      } else if ('jwtToken' in options.authentication) {
+        headers['Authorization'] = `JWT ${options.authentication.jwtToken}`;
+      }
+    }
+
+    let fetcher = options.fetcher;
+
+    if (!fetcher) {
+      throw new Error('No fetcher provided and no default fetcher available');
+    }
+
+    // Initialize WASM engine
+    await initWasm();
+
+    // handle case if they pass in a custom fetcher that doesn't throw on non-2xx status codes
+    const resp = await fetcher();
+    if (!resp.ok) {
+      throw new Error(`Failed to fetch data: ${resp.statusText}`);
+    }
+
+    const data = await resp.json();
+    const engine = new Engine(namespace);
+    engine.snapshot(data);
+
+    const client = createClient(engine, fetcher);
+    
+    // Since we're in the base class, we can access protected members
+    client.storeEtag(resp);
+    client.errorStrategy = options.errorStrategy ?? ErrorStrategy.Fail;
+
+    return client;
+  }
+
+  protected storeEtag(resp: Response): void {
+    const etag = resp.headers.get('ETag');
     if (etag) {
       this.etag = etag;
     }
-  }
-
-  /**
-   * Refresh the flags snapshot
-   * @returns true if snapshot changed
-   */
-  public async refresh(): Promise<boolean> {
-    try {
-      const opts = { etag: this.etag };
-      const resp = await this.fetcher(opts);
-
-      const etag = resp.headers.get('etag');
-      if (this.etag && this.etag === etag) {
-        return false;
-      }
-
-      this.storeEtag(resp);
-
-      const data = await resp.json();
-      this.engine.snapshot(data);
-      return true;
-    } catch (error) {
-      if (this.errorStrategy === ErrorStrategy.Fail) {
-        throw error;
-      }
-    }
-    return false;
   }
 
   /**
@@ -241,5 +273,35 @@ export abstract class BaseFliptClient {
     }
 
     return flags.result.map(deserialize<Flag>);
+  }
+
+  /**
+   * Refresh the flags snapshot
+   * @returns true if snapshot changed
+   */
+  public async refresh(): Promise<boolean> {
+    try {
+      const opts = { etag: this.etag };
+      const resp = await this.fetcher(opts);
+
+      const etag = resp.headers.get('etag');
+      if (this.etag && this.etag === etag) {
+        return false;
+      }
+
+      this.storeEtag(resp);
+
+      const data = await resp.json();
+      this.engine.snapshot(data);
+      this.lastGoodState = data;
+      return true;
+    } catch (error) {
+      if (this.errorStrategy === ErrorStrategy.Fallback && this.lastGoodState) {
+        this.engine.snapshot(this.lastGoodState);
+      } else {
+        throw error;
+      }
+      return false;
+    }
   }
 }
