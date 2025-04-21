@@ -3,10 +3,10 @@ import { wasm } from '@rollup/plugin-wasm';
 import fs from 'fs';
 import path from 'path';
 
-// Create a plugin specifically for moving the WASM file
-const moveWasmFile = () => {
+// Create a plugin specifically for copying the WASM file
+const copyWasmFile = () => {
   return {
-    name: 'move-wasm-file',
+    name: 'copy-wasm-file',
 
     writeBundle: {
       sequential: true, // Make sure this runs after all files are written
@@ -19,9 +19,9 @@ const moveWasmFile = () => {
           'dist/flipt_engine_wasm_js_bg.wasm'
         );
 
-        if (fs.existsSync(sourceWasmPath)) {
+        if (fs.existsSync(sourceWasmPath) && !fs.existsSync(targetWasmPath)) {
           console.log(
-            `Moving WASM file from ${sourceWasmPath} to ${targetWasmPath}`
+            `Copying WASM file from ${sourceWasmPath} to ${targetWasmPath}`
           );
 
           // Ensure dist directory exists
@@ -31,9 +31,6 @@ const moveWasmFile = () => {
 
           // Copy the file
           fs.copyFileSync(sourceWasmPath, targetWasmPath);
-
-          // Remove the original to truly move it
-          fs.unlinkSync(sourceWasmPath);
         }
       }
     }
@@ -85,7 +82,7 @@ const nodeConfig = {
       declaration: false,
       declarationDir: null
     }),
-    moveWasmFile() // Add our custom plugin at the end
+    copyWasmFile() // Add our custom plugin at the end
   ],
   external: ['node-fetch']
 };
