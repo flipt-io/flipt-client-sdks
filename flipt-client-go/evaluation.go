@@ -225,14 +225,16 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		return
 	}
 
-	if c.updateInterval <= 0 && c.fetchMode == FetchModePolling {
-		cerr = fmt.Errorf("update interval must be greater than 0")
-		return
-	}
+	if c.fetchMode == FetchModePolling {
+		if c.updateInterval < 1*time.Second {
+			cerr = fmt.Errorf("update interval must be greater than 1 second")
+			return
+		}
 
-	if c.requestTimeout <= 0 && c.fetchMode == FetchModePolling {
-		cerr = fmt.Errorf("request timeout must be greater than 0")
-		return
+		if c.requestTimeout < 1*time.Second {
+			cerr = fmt.Errorf("request timeout must be greater than 1 second")
+			return
+		}
 	}
 
 	c.httpClient = &http.Client{
@@ -348,7 +350,7 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 			case <-ctx.Done():
 				return
 			case err := <-c.errChan:
-				if err != nil && c.errorStrategy == ErrorStrategyFail {
+				if err != nil {
 					c.mu.Lock()
 					c.err = err
 					c.mu.Unlock()
