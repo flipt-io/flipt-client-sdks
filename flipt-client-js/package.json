@@ -20,6 +20,10 @@
       "default": {
         "import": "./dist/browser/index.mjs",
         "require": "./dist/browser/index.cjs"
+      },
+      "slim": {
+        "import": "./dist/slim/index.mjs",
+        "require": "./dist/slim/index.cjs"
       }
     },
     "./node": {
@@ -31,6 +35,11 @@
       "types": "./dist/types/index.d.ts",
       "import": "./dist/browser/index.mjs",
       "require": "./dist/browser/index.cjs"
+    },
+    "./slim": {
+      "types": "./dist/types/slim/index.d.ts",
+      "import": "./dist/slim/index.mjs",
+      "require": "./dist/slim/index.cjs"
     },
     "./engine.wasm": "./dist/flipt_engine_wasm_js_bg.wasm"
   },
@@ -44,6 +53,9 @@
       ],
       "browser": [
         "./dist/types/index.d.ts"
+      ],
+      "slim": [
+        "./dist/types/slim/index.d.ts"
       ]
     }
   },

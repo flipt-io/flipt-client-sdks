@@ -59,6 +59,12 @@ const copyWasmFiles = () => {
   };
 };
 
+const tsConfig = {
+  noEmit: true,
+  declaration: false,
+  declarationDir: null
+};
+
 const browserConfig = {
   input: 'src/browser/index.ts',
   output: [
@@ -75,11 +81,7 @@ const browserConfig = {
     wasm({
       targetEnv: 'auto-inline'
     }),
-    typescript({
-      noEmit: true,
-      declaration: false,
-      declarationDir: null
-    }),
+    typescript(tsConfig),
     copyWasmFiles() // Add our dummy WASM creator
   ]
 };
@@ -100,14 +102,27 @@ const nodeConfig = {
     wasm({
       targetEnv: 'auto-inline'
     }),
-    typescript({
-      noEmit: true,
-      declaration: false,
-      declarationDir: null
-    }),
+    typescript(tsConfig),
     copyWasmFiles() // Add our dummy WASM creator
   ],
   external: ['node-fetch']
 };
 
-export default [browserConfig, nodeConfig];
+// Slim configuration that doesn't bundle the WASM file
+const slimConfig = {
+  input: 'src/slim/index.ts',
+  output: [
+    {
+      file: 'dist/slim/index.mjs',
+      format: 'esm'
+    },
+    {
+      file: 'dist/slim/index.cjs',
+      format: 'cjs'
+    }
+  ],
+  plugins: [typescript(tsConfig)],
+  external: ['node-fetch']
+};
+
+export default [browserConfig, nodeConfig, slimConfig];

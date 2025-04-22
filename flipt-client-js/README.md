@@ -39,40 +39,6 @@ const variant = client.evaluateVariant({
 console.log(variant);
 ```
 
-### Edge Function Usage (e.g., Vercel Edge)
-
-```typescript
-import { FliptClient } from '@flipt-io/flipt-client-js';
-
-export const config = {
-  runtime: 'edge'
-};
-
-export default async function middleware(req) {
-  const client = await FliptClient.init({
-    namespace: 'default',
-    url: process.env.FLIPT_URL,
-    authentication: {
-      clientToken: process.env.FLIPT_AUTH_TOKEN
-    }
-  });
-
-  const result = client.evaluateBoolean({
-    flagKey: 'my-flag',
-    entityId: 'user-123',
-    context: {
-      country: 'US'
-    }
-  });
-
-  if (result.enabled) {
-    return new Response('Feature enabled!');
-  }
-
-  return new Response('Feature disabled');
-}
-```
-
 ### Initialization Arguments
 
 The `FliptClient` constructor accepts the following optional arguments:
@@ -166,6 +132,128 @@ client.close();
 The default fetcher uses [ETag HTTP headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag) to reduce the number of requests to the Flipt instance. This is useful in scenarios where the flag state is not frequently updated and you want to reduce the load on the server.
 
 To disable ETag support, you can implement a [custom fetcher](#custom-fetcher) that does not use ETags.
+
+## Slim Module
+
+For environments like Cloudflare Workers where WebAssembly.compile is not supported, we provide a "slim" version of the client that allows you to explicitly provide the WASM module.
+
+### Using the Slim Client
+
+The slim client requires you to explicitly provide the WASM module when initializing the client. This gives you more control over how the WASM is loaded, which is essential for edge environments with specific limitations.
+
+#### Direct Import (Recommended)
+
+The simplest approach is to directly import the WASM file using the package export path:
+
+```js
+// Works in all environments (Node.js, browsers, edge functions)
+import { FliptClient } from '@flipt-io/flipt-client-js/slim';
+import wasm from '@flipt-io/flipt-client-js/engine.wasm';
+
+const client = await FliptClient.init(
+  {
+    namespace: 'default',
+    url: 'https://flipt.example.com'
+  },
+  { wasm }
+);
+
+// Use the client as normal
+const result = client.evaluateBoolean({
+  flagKey: 'my-flag',
+  entityId: 'user-123',
+  context: { country: 'US' }
+});
+```
+
+#### Cloudflare Workers Example
+
+When using Cloudflare Workers with Webpack or a similar bundler:
+
+```js
+import { FliptClient } from '@flipt-io/flipt-client-js/slim';
+import wasm from '@flipt-io/flipt-client-js/engine.wasm';
+
+export default {
+  async fetch(request, env, ctx) {
+    // Initialize the client with the WASM module
+    const client = await FliptClient.init(
+      {
+        namespace: 'default',
+        url: 'https://flipt.example.com'
+      },
+      { wasm }
+    );
+
+    // Use the client as normal
+    const result = client.evaluateBoolean({
+      flagKey: 'my-flag',
+      entityId: 'user-123',
+      context: { country: 'US' }
+    });
+
+    return new Response(result.enabled ? 'Flag enabled' : 'Flag disabled');
+  }
+};
+```
+
+#### Next.js Edge Runtime Example
+
+Using the slim client with Next.js Edge Runtime (middleware or edge API routes):
+
+```js
+// middleware.js or an Edge API Route
+import { FliptClient } from '@flipt-io/flipt-client-js/slim';
+import wasm from '@flipt-io/flipt-client-js/engine.wasm';
+import { NextResponse } from 'next/server';
+
+export const config = {
+  runtime: 'edge'
+};
+
+export default async function middleware(req) {
+  // Initialize the client with the WASM module
+  const client = await FliptClient.init(
+    {
+      namespace: 'default',
+      url: process.env.FLIPT_URL || 'https://flipt.example.com',
+      authentication: {
+        clientToken: process.env.FLIPT_TOKEN
+      }
+    },
+    { wasm }
+  );
+
+  // Use the client to evaluate a flag
+  const result = client.evaluateBoolean({
+    flagKey: 'my-edge-feature',
+    entityId: 'user-123',
+    context: {
+      path: req.nextUrl.pathname,
+      country: req.geo?.country || 'unknown'
+    }
+  });
+
+  // Use the flag result to make decisions
+  if (result.enabled) {
+    if (req.nextUrl.pathname.startsWith('/api/')) {
+      // For API routes, modify the response
+      return new Response(JSON.stringify({ featureEnabled: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } else {
+      // For page routes, redirect or rewrite
+      const url = req.nextUrl.clone();
+      url.pathname = '/new-experience';
+      return NextResponse.rewrite(url);
+    }
+  }
+
+  // Continue normal request handling
+  return NextResponse.next();
+}
+```
 
 ## Development
 
