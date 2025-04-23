@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:ffi/ffi.dart';
 import 'package:flipt_client/src/models.dart';
 import 'package:path/path.dart' as path;
-import 'package:device_info_plus/device_info_plus.dart';
 
 typedef InitializeEngineNative = Pointer<Void> Function(
     Pointer<Utf8> namespace, Pointer<Utf8> opts);
@@ -69,11 +68,8 @@ class FliptEvaluationClient {
         platformDir = 'android_aarch64';
         break;
       case 'ios':
-        final deviceInfo = DeviceInfoPlugin();
-        final deviceInfoData = await deviceInfo.deviceInfo;
-        final isSimulator = deviceInfoData.isSimulator;
         libraryName = 'libfliptengine.dylib';
-        platformDir = isSimulator ? 'ios_aarch64_sim' : 'ios_aarch64';
+        platformDir = 'ios_aarch64';
         break;
       default:
         throw UnsupportedError(
