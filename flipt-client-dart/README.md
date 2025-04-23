@@ -60,10 +60,9 @@ This SDK currently supports the following OSes/architectures:
 - MacOS x86_64
 - MacOS arm64
 - Windows x86_64
-
-> [!IMPORTANT]
-> This SDK currently only supports desktop platforms (MacOS, Linux, Windows).
-> We are working on adding support for mobile platforms such as iOS and Android.
+- Android arm64
+- iOS arm64
+- iOS arm64 simulator
 
 ## Usage
 
