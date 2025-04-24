@@ -4,6 +4,7 @@ flags:
     name: flag1
     type: VARIANT_FLAG_TYPE
     enabled: true
+    description: flag description
     variants:
       - key: variant1
         name: variant1
@@ -17,6 +18,7 @@ flags:
     name: flag_boolean
     type: BOOLEAN_FLAG_TYPE
     enabled: true
+    description: flag description
     rollouts:
       - segment:
           key: segment1

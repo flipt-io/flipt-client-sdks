@@ -1,10 +1,12 @@
 import os
 import unittest
+
 from flipt_client import FliptEvaluationClient
 from flipt_client.models import (
-    ClientTokenAuthentication,
     ClientOptions,
+    ClientTokenAuthentication,
     EvaluationRequest,
+    FlagType,
 )
 
 
@@ -66,6 +68,12 @@ class TestFliptEvaluationClient(unittest.TestCase):
     def test_list_flags(self):
         flags = self.flipt_client.list_flags()
         self.assertEqual(2, len(flags))
+        for flag in flags:
+            self.assertEqual(flag.description, "flag description")
+            if flag.key == "flag1":
+                self.assertEqual(flag.type, FlagType.VARIANT)
+            elif flag.key == "flag_boolean":
+                self.assertEqual(flag.type, FlagType.BOOLEAN)
 
     def test_batch(self):
         batch = self.flipt_client.evaluate_batch(
