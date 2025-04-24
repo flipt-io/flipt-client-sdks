@@ -18,7 +18,6 @@ flutter:
     - lib/src/ffi/darwin_aarch64/libfliptengine.dylib
     - lib/src/ffi/windows_x86_64/fliptengine.dll
     - lib/src/ffi/android_aarch64/libfliptengine.so
-    - lib/src/ffi/ios_aarch64_sim/libfliptengine.dylib
     - lib/src/ffi/ios_aarch64/libfliptengine.dylib
 homepage: https://flipt.io
 name: flipt_client
