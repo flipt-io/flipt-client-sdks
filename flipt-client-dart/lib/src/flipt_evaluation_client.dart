@@ -63,6 +63,14 @@ class FliptEvaluationClient {
         libraryName = 'fliptengine.dll';
         platformDir = 'windows_x86_64';
         break;
+      case 'android':
+        libraryName = 'libfliptengine.so';
+        platformDir = 'android_aarch64';
+        break;
+      case 'ios':
+        libraryName = 'libfliptengine.dylib';
+        platformDir = 'ios_aarch64';
+        break;
       default:
         throw UnsupportedError(
             'Unsupported platform: ${Platform.operatingSystem}');

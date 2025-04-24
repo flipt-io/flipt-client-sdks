@@ -1,6 +1,7 @@
 from enum import Enum
-from pydantic import BaseModel, RootModel
 from typing import List, Optional
+
+from pydantic import BaseModel, RootModel
 
 
 class EvaluationRequest(BaseModel):
@@ -30,6 +31,11 @@ class FetchMode(Enum):
 class ErrorStrategy(Enum):
     FAIL = "fail"
     FALLBACK = "fallback"
+
+
+class FlagType(str, Enum):
+    BOOLEAN = "BOOLEAN_FLAG_TYPE"
+    VARIANT = "VARIANT_FLAG_TYPE"
 
 
 class ClientOptions(BaseModel):
@@ -100,7 +106,8 @@ class BatchResult(BaseModel):
 class Flag(BaseModel):
     key: str
     enabled: bool
-    type: str
+    type: FlagType
+    description: Optional[str] = None
 
 
 class FlagList(RootModel):
