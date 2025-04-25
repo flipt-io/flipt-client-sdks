@@ -487,7 +487,7 @@ func dartTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-dart"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", ".dart_tool/"},
 		}).
-		WithDirectory("/src/lib/src/ffi/linux_x86_64", t.engine.Directory(libDir)).
+		WithDirectory("/src/native/linux_x86_64", t.engine.Directory(libDir)).
 		WithServiceBinding("flipt", t.flipt.AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").

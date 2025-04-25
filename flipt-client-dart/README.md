@@ -61,7 +61,6 @@ This SDK currently supports the following OSes/architectures:
 - MacOS arm64
 - Windows x86_64
 - Android arm64
-- iOS arm64
 
 ## Usage
 
@@ -131,10 +130,28 @@ The client supports the following error strategies:
 
 ## Development
 
-To generate the JSON serialization code, run:
+### Install Dependencies
+
+To install the dependencies, run:
+
+```bash
+dart pub get
+```
+
+### Generate JSON Serialization Code
+
+To generate the JSON serialization code (found in `lib/src/models.g.dart`), run:
 
 ```bash
 dart run build_runner build --delete-conflicting-outputs
+```
+
+### Generate FFI Bindings
+
+To generate the FFI bindings (found in `lib/ffi/bindings.dart`), run:
+
+```bash
+dart run ffigen --config ffigen.yaml
 ```
 
 ## Contributing

@@ -4,113 +4,43 @@ import 'dart:convert';
 import 'package:ffi/ffi.dart';
 import 'package:flipt_client/src/models.dart';
 import 'package:path/path.dart' as path;
-
-typedef InitializeEngineNative = Pointer<Void> Function(
-    Pointer<Utf8> namespace, Pointer<Utf8> opts);
-typedef InitializeEngineDart = Pointer<Void> Function(
-    Pointer<Utf8> namespace, Pointer<Utf8> opts);
-
-typedef EvaluateVariantNative = Pointer<Utf8> Function(
-    Pointer<Void> engine, Pointer<Utf8> evaluationRequest);
-typedef EvaluateVariantDart = Pointer<Utf8> Function(
-    Pointer<Void> engine, Pointer<Utf8> evaluationRequest);
-
-typedef EvaluateBooleanNative = Pointer<Utf8> Function(
-    Pointer<Void> engine, Pointer<Utf8> evaluationRequest);
-typedef EvaluateBooleanDart = Pointer<Utf8> Function(
-    Pointer<Void> engine, Pointer<Utf8> evaluationRequest);
-
-typedef EvaluateBatchNative = Pointer<Utf8> Function(
-    Pointer<Void> engine, Pointer<Utf8> evaluationRequests);
-typedef EvaluateBatchDart = Pointer<Utf8> Function(
-    Pointer<Void> engine, Pointer<Utf8> evaluationRequests);
-
-typedef ListFlagsNative = Pointer<Utf8> Function(Pointer<Void> engine);
-typedef ListFlagsDart = Pointer<Utf8> Function(Pointer<Void> engine);
-
-typedef DestroyEngineNative = Void Function(Pointer<Void> engine);
-typedef DestroyEngineDart = void Function(Pointer<Void> engine);
-
-typedef DestroyStringNative = Void Function(Pointer<Utf8> str);
-typedef DestroyStringDart = void Function(Pointer<Utf8> str);
+import 'ffi/loader.dart';
+import 'ffi/bindings.dart';
 
 class FliptEvaluationClient {
   late Pointer<Void> _engine;
-  late DynamicLibrary _lib;
+  late FliptEngine _bindings;
 
   FliptEvaluationClient({String namespace = "default", Options? options}) {
-    _lib = DynamicLibrary.open(_getLibraryPath());
+    final lib = loadFliptEngine();
+    _bindings = FliptEngine(lib);
     _initializeEngine(namespace, options);
   }
 
-  String _getLibraryPath() {
-    final String libraryName;
-    final String platformDir;
-
-    switch (Platform.operatingSystem) {
-      case 'linux':
-        libraryName = 'libfliptengine.so';
-        platformDir =
-            Platform.version.contains('arm64') ? 'linux_aarch64' : 'linux_x86_64';
-        break;
-      case 'macos':
-        libraryName = 'libfliptengine.dylib';
-        platformDir = Platform.version.contains('arm64')
-            ? 'darwin_aarch64'
-            : 'darwin_x86_64';
-        break;
-      case 'windows':
-        libraryName = 'fliptengine.dll';
-        platformDir = 'windows_x86_64';
-        break;
-      case 'android':
-        libraryName = 'libfliptengine.so';
-        platformDir = 'android_aarch64';
-        break;
-      case 'ios':
-        libraryName = 'libfliptengine.dylib';
-        platformDir = 'ios_aarch64';
-        break;
-      default:
-        throw UnsupportedError(
-            'Unsupported platform: ${Platform.operatingSystem}');
-    }
-
-    return path.join(
-      Directory.current.path,
-      'lib',
-      'src',
-      'ffi',
-      platformDir,
-      libraryName,
-    );
-  }
-
   void _initializeEngine(String namespace, Options? options) {
-    final initializeEngine =
-        _lib.lookupFunction<InitializeEngineNative, InitializeEngineDart>(
-            'initialize_engine');
-
     final namespaceUtf8 = namespace.toNativeUtf8();
     final optsJson = jsonEncode(options?.toJson() ?? {});
     final optsUtf8 = optsJson.toNativeUtf8();
 
     try {
-      _engine = initializeEngine(namespaceUtf8, optsUtf8);
+      _engine = _bindings.initialize_engine(
+        namespaceUtf8.cast<Char>(),
+        optsUtf8.cast<Char>(),
+      );
     } finally {
       calloc.free(namespaceUtf8);
       calloc.free(optsUtf8);
     }
   }
 
+  String _pointerToString(Pointer<Char> ptr) {
+    return ptr.cast<Utf8>().toDartString();
+  }
+
   VariantEvaluationResponse evaluateVariant(
       {required String flagKey,
       required String entityId,
       required Map<String, dynamic> context}) {
-    final evaluateVariant =
-        _lib.lookupFunction<EvaluateVariantNative, EvaluateVariantDart>(
-            'evaluate_variant');
-
     final request = EvaluationRequest(
       flagKey: flagKey,
       entityId: entityId,
@@ -120,9 +50,10 @@ class FliptEvaluationClient {
     final requestJson = jsonEncode(request.toJson());
     final requestUtf8 = requestJson.toNativeUtf8();
 
-    final resultPtr = evaluateVariant(_engine, requestUtf8);
-    final result = resultPtr.toDartString();
-    _destroyString(resultPtr);
+    final resultPtr =
+        _bindings.evaluate_variant(_engine, requestUtf8.cast<Char>());
+    final result = _pointerToString(resultPtr);
+    _bindings.destroy_string(resultPtr);
     calloc.free(requestUtf8);
 
     final response = Result<VariantEvaluationResponse>.fromJson(
@@ -142,10 +73,6 @@ class FliptEvaluationClient {
       {required String flagKey,
       required String entityId,
       required Map<String, dynamic> context}) {
-    final evaluateBoolean =
-        _lib.lookupFunction<EvaluateBooleanNative, EvaluateBooleanDart>(
-            'evaluate_boolean');
-
     final request = EvaluationRequest(
       flagKey: flagKey,
       entityId: entityId,
@@ -155,9 +82,10 @@ class FliptEvaluationClient {
     final requestJson = jsonEncode(request.toJson());
     final requestUtf8 = requestJson.toNativeUtf8();
 
-    final resultPtr = evaluateBoolean(_engine, requestUtf8);
-    final result = resultPtr.toDartString();
-    _destroyString(resultPtr);
+    final resultPtr =
+        _bindings.evaluate_boolean(_engine, requestUtf8.cast<Char>());
+    final result = _pointerToString(resultPtr);
+    _bindings.destroy_string(resultPtr);
     calloc.free(requestUtf8);
 
     final response = Result<BooleanEvaluationResponse>.fromJson(
@@ -174,16 +102,13 @@ class FliptEvaluationClient {
   }
 
   BatchEvaluationResponse evaluateBatch(List<EvaluationRequest> requests) {
-    final evaluateBatch =
-        _lib.lookupFunction<EvaluateBatchNative, EvaluateBatchDart>(
-            'evaluate_batch');
-
     final requestsJson = jsonEncode(requests.map((r) => r.toJson()).toList());
     final requestsUtf8 = requestsJson.toNativeUtf8();
 
-    final resultPtr = evaluateBatch(_engine, requestsUtf8);
-    final result = resultPtr.toDartString();
-    _destroyString(resultPtr);
+    final resultPtr =
+        _bindings.evaluate_batch(_engine, requestsUtf8.cast<Char>());
+    final result = _pointerToString(resultPtr);
+    _bindings.destroy_string(resultPtr);
     calloc.free(requestsUtf8);
 
     final response = Result<BatchEvaluationResponse>.fromJson(
@@ -199,12 +124,9 @@ class FliptEvaluationClient {
   }
 
   List<Flag> listFlags() {
-    final listFlags =
-        _lib.lookupFunction<ListFlagsNative, ListFlagsDart>('list_flags');
-
-    final resultPtr = listFlags(_engine);
-    final result = resultPtr.toDartString();
-    _destroyString(resultPtr);
+    final resultPtr = _bindings.list_flags(_engine);
+    final result = _pointerToString(resultPtr);
+    _bindings.destroy_string(resultPtr);
 
     final response =
         FlagListResponse.fromJson(jsonDecode(result) as Map<String, dynamic>);
@@ -216,17 +138,7 @@ class FliptEvaluationClient {
     return response.toResult().result!;
   }
 
-  void _destroyString(Pointer<Utf8> str) {
-    final destroyString =
-        _lib.lookupFunction<DestroyStringNative, DestroyStringDart>(
-            'destroy_string');
-    destroyString(str);
-  }
-
   void close() {
-    final destroyEngine =
-        _lib.lookupFunction<DestroyEngineNative, DestroyEngineDart>(
-            'destroy_engine');
-    destroyEngine(_engine);
+    _bindings.destroy_engine(_engine);
   }
 }

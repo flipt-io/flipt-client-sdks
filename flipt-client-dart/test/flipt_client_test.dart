@@ -30,7 +30,7 @@ void main() {
 
       expect(result, isA<VariantEvaluationResponse>());
 
-      final variantResult = result as VariantEvaluationResponse;
+      final variantResult = result;
       expect(variantResult.flagKey, equals('flag1'));
       expect(variantResult.reason, equals('MATCH_EVALUATION_REASON'));
       expect(variantResult.segmentKeys, equals(['segment1']));
@@ -45,7 +45,7 @@ void main() {
 
       expect(result, isA<BooleanEvaluationResponse>());
 
-      final booleanResult = result as BooleanEvaluationResponse;
+      final booleanResult = result;
       expect(booleanResult.enabled, isA<bool>());
       expect(booleanResult.flagKey, equals('flag_boolean'));
       expect(booleanResult.reason, equals('MATCH_EVALUATION_REASON'));
@@ -72,7 +72,7 @@ void main() {
 
       expect(result, isA<BatchEvaluationResponse>());
 
-      final batch = result as BatchEvaluationResponse;
+      final batch = result;
 
       expect(batch.responses, hasLength(3));
 

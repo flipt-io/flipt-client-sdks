@@ -9,7 +9,7 @@ enum FetchMode {
   streaming,
 }
 
-enum ErrorStrategy{
+enum ErrorStrategy {
   @JsonValue('fail')
   fail,
   @JsonValue('fallback')

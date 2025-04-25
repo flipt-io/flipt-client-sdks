@@ -135,6 +135,28 @@ jobs:
           chmod +x ./gradlew
           ./gradlew ktlintCheck
 
+  lint-dart:
+    name: Lint Dart
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Install Dart
+        uses: dart-lang/setup-dart@v1
+
+      - name: Get Dart dependencies
+        working-directory: flipt-client-dart
+        run: dart pub get
+
+      - name: Format Dart code
+        working-directory: flipt-client-dart
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze Dart code
+        working-directory: flipt-client-dart
+        run: dart analyze --no-fatal-warnings
+
   lint-go:
     name: Lint Go
     runs-on: ubuntu-latest
