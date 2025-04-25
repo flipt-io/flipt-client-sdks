@@ -5,7 +5,7 @@ import 'package:path/path.dart' as path;
 import 'loader.dart';
 
 // Conditionally import Flutter services
-import 'package:flutter/services.dart' show rootBundle deferred as flutter;
+import 'package:flutter/services.dart' deferred as flutter show rootBundle;
 
 /// Loads the Flipt engine dynamic library for Flutter platforms.
 /// This implementation handles loading for all Flutter platforms:
@@ -32,24 +32,24 @@ DynamicLibrary loadPlatformDependentFliptEngine() {
 Future<DynamicLibrary> _loadFromAssets(LibraryConfig config) async {
   // Load Flutter services if needed
   await flutter.loadLibrary();
-  
+
   final assetKey = config.assetPath;
-  
+
   // Create a temporary directory to extract the library
   final tempDir = Directory.systemTemp.createTempSync('flipt_client');
   final tempPath = path.join(tempDir.path, config.fileName);
-  
+
   try {
     // Copy the library from assets to temp directory
     final data = await flutter.rootBundle.load(assetKey);
     final bytes = data.buffer.asUint8List();
     await File(tempPath).writeAsBytes(bytes);
-    
+
     // Make the library executable
     if (!Platform.isWindows) {
       await Process.run('chmod', ['+x', tempPath]);
     }
-    
+
     return DynamicLibrary.open(tempPath);
   } catch (e) {
     throw UnsupportedError(

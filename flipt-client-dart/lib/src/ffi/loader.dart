@@ -38,12 +38,12 @@ LibraryConfig getPlatformConfig(Architecture arch) {
     final dir = arch == Architecture.arm64 ? 'darwin_aarch64' : 'darwin_x86_64';
     return LibraryConfig(dir, 'libfliptengine.dylib');
   }
-  
+
   if (Platform.isLinux) {
     final dir = arch == Architecture.arm64 ? 'linux_aarch64' : 'linux_x86_64';
     return LibraryConfig(dir, 'libfliptengine.so');
   }
-  
+
   if (Platform.isWindows) {
     return const LibraryConfig('windows_x86_64', 'fliptengine.dll');
   }
