@@ -61,7 +61,6 @@ This SDK currently supports the following OSes/architectures:
 - MacOS arm64
 - Windows x86_64
 - Android arm64
-- iOS arm64
 
 ## Usage
 
