@@ -1,45 +1,60 @@
+// ignore_for_file: depend_on_referenced_packages
 import 'dart:ffi';
 import 'dart:io';
 import 'package:path/path.dart' as path;
-import 'package:flutter/services.dart' show rootBundle;
-import 'loader.dart' as common;
-import 'loader_io.dart' as io;
+import 'loader.dart';
 
-/// Platform-specific implementation for Flutter platforms
+// Conditionally import Flutter services
+import 'package:flutter/services.dart' show rootBundle deferred as flutter;
+
+/// Loads the Flipt engine dynamic library for Flutter platforms.
+/// This implementation handles loading for all Flutter platforms:
+/// - Android: Loads from app-specific library directory
+/// - iOS: Uses statically linked library
+/// - Desktop: Loads from assets or standard paths
 DynamicLibrary loadPlatformDependentFliptEngine() {
-  // Handle mobile platforms the same way
-  if (Platform.isAndroid || Platform.isIOS) {
-    return io.loadPlatformDependentFliptEngine();
+  // Try mobile platforms first
+  final mobileLib = loadMobilePlatform();
+  if (mobileLib != null) {
+    return mobileLib;
   }
 
-  // For desktop platforms, try loading from assets first
-  final arch = common.getCurrentArchitecture();
-  final config = common.getPlatformConfig(arch);
-
+  // For desktop platforms, try standard path first, then assets
+  final config = getPlatformConfig(getCurrentArchitecture());
   try {
-    // Create a temporary directory to extract the library
-    final tempDir = Directory.systemTemp.createTempSync('flipt_client');
-    final tempFile = File(path.join(tempDir.path, config.fileName));
+    return DynamicLibrary.open(getPackagePath(config));
+  } catch (e) {
+    return _loadFromAssets(config);
+  }
+}
 
-    // Try to load from Flutter assets synchronously
-    final data = rootBundle.load(config.assetPath).then((byteData) {
-      return tempFile
-          .writeAsBytes(
-            byteData.buffer
-                .asUint8List(byteData.offsetInBytes, byteData.lengthInBytes),
-            flush: true,
-          )
-          .then((_) => tempFile);
-    });
-
-    // If we can't load from assets, fall back to package loading
-    return data
-        .then((file) => DynamicLibrary.open(file.path))
-        .catchError((_) => io.loadPlatformDependentFliptEngine())
-        // Force synchronous completion
-        .sync;
-  } catch (_) {
-    // If anything goes wrong, fall back to package loading
-    return io.loadPlatformDependentFliptEngine();
+/// Loads the library from Flutter assets for desktop platforms
+Future<DynamicLibrary> _loadFromAssets(LibraryConfig config) async {
+  // Load Flutter services if needed
+  await flutter.loadLibrary();
+  
+  final assetKey = config.assetPath;
+  
+  // Create a temporary directory to extract the library
+  final tempDir = Directory.systemTemp.createTempSync('flipt_client');
+  final tempPath = path.join(tempDir.path, config.fileName);
+  
+  try {
+    // Copy the library from assets to temp directory
+    final data = await flutter.rootBundle.load(assetKey);
+    final bytes = data.buffer.asUint8List();
+    await File(tempPath).writeAsBytes(bytes);
+    
+    // Make the library executable
+    if (!Platform.isWindows) {
+      await Process.run('chmod', ['+x', tempPath]);
+    }
+    
+    return DynamicLibrary.open(tempPath);
+  } catch (e) {
+    throw UnsupportedError(
+      'Failed to load native library from Flutter assets: $e\n'
+      'Make sure the native binaries are included in your Flutter assets.',
+    );
   }
 }

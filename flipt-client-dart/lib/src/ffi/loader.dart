@@ -32,16 +32,18 @@ Architecture getCurrentArchitecture() {
 
 /// Gets the platform-specific library configuration
 LibraryConfig getPlatformConfig(Architecture arch) {
+  // We only need platform configs for desktop platforms
+  // Android and iOS are handled directly in their respective loaders
   if (Platform.isMacOS) {
     final dir = arch == Architecture.arm64 ? 'darwin_aarch64' : 'darwin_x86_64';
     return LibraryConfig(dir, 'libfliptengine.dylib');
   }
-
+  
   if (Platform.isLinux) {
     final dir = arch == Architecture.arm64 ? 'linux_aarch64' : 'linux_x86_64';
     return LibraryConfig(dir, 'libfliptengine.so');
   }
-
+  
   if (Platform.isWindows) {
     return const LibraryConfig('windows_x86_64', 'fliptengine.dll');
   }
@@ -66,6 +68,21 @@ String getPackagePath(LibraryConfig config) {
   }
 
   return libraryPath;
+}
+
+/// Handles loading for mobile platforms (Android and iOS)
+DynamicLibrary? loadMobilePlatform() {
+  if (Platform.isAndroid) {
+    // Android libraries are loaded from the app's library directory
+    return DynamicLibrary.open('libfliptengine.so');
+  }
+
+  if (Platform.isIOS) {
+    // iOS libraries are statically linked into the binary
+    return DynamicLibrary.executable();
+  }
+
+  return null;
 }
 
 /// Loads the Flipt engine dynamic library for the current platform.

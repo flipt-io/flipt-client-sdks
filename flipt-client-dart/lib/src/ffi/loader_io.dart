@@ -5,15 +5,10 @@ import 'loader.dart' as common;
 
 /// Platform-specific implementation for pure Dart IO platforms
 DynamicLibrary loadPlatformDependentFliptEngine() {
-  // Handle special cases first
-  if (Platform.isAndroid) {
-    // Android libraries are handled via jniLibs
-    return DynamicLibrary.open('libfliptengine.so');
-  }
-
-  if (Platform.isIOS) {
-    // iOS libraries are statically linked
-    return DynamicLibrary.process();
+  // Try mobile platforms first
+  final mobileLib = common.loadMobilePlatform();
+  if (mobileLib != null) {
+    return mobileLib;
   }
 
   // Handle desktop platforms
