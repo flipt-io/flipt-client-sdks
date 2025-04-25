@@ -7,3 +7,5 @@
 pubspec.lock
 
 # Shared libraries
+binaries/
+android/
