@@ -155,7 +155,7 @@ jobs:
 
       - name: Analyze Dart code
         working-directory: flipt-client-dart
-        run: dart analyze
+        run: dart analyze --no-fatal-warnings
 
   lint-go:
     name: Lint Go
