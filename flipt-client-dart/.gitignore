@@ -7,7 +7,7 @@
 pubspec.lock
 
 # Shared libraries
-binaries/
+native/
 android/
 ios/
 ffi/

@@ -34,24 +34,24 @@ func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, container *d
 	// tmp/android_aarch64/
 
 	// we need to convert it to the following structure:
-	// staging/android/x86_64/
-	// staging/android/arm64-v8a/
+	// staging/android/src/main/jniLibs/x86_64/
+	// staging/android/src/main/jniLibs/arm64-v8a/
 
 	// this is because the Android SDK and iOS SDKs expects the library to be in a specific directory structure based on host OS and architecture
-	// the other platforms just pass through to the binaries directory
+	// the other platforms just pass through to the native directory
 	type rename struct {
 		old string
 		new string
 	}
 
 	renames := []rename{
-		{old: "android_x86_64", new: "android/x86_64"},
-		{old: "android_aarch64", new: "android/arm64-v8a"},
-		{old: "linux_x86_64", new: "binaries/linux_x86_64"},
-		{old: "linux_aarch64", new: "binaries/linux_aarch64"},
-		{old: "darwin_x86_64", new: "binaries/darwin_x86_64"},
-		{old: "darwin_aarch64", new: "binaries/darwin_aarch64"},
-		{old: "windows_x86_64", new: "binaries/windows_x86_64"},
+		{old: "android_x86_64", new: "android/src/main/jniLibs/x86_64"},
+		{old: "android_aarch64", new: "android/src/main/jniLibs/arm64-v8a"},
+		{old: "linux_x86_64", new: "native/linux_x86_64"},
+		{old: "linux_aarch64", new: "native/linux_aarch64"},
+		{old: "darwin_x86_64", new: "native/darwin_x86_64"},
+		{old: "darwin_aarch64", new: "native/darwin_aarch64"},
+		{old: "windows_x86_64", new: "native/windows_x86_64"},
 	}
 
 	if err := os.RemoveAll("staging"); err != nil {

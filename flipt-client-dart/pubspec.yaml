@@ -4,12 +4,12 @@ version: 0.8.0
 homepage: https://flipt.io
 
 environment:
-  sdk: '>=2.12.0 <4.0.0'
+  sdk: '>=2.17.0 <4.0.0'
 
 platforms:
-  - android
-  - linux
-  - macos
+  android:
+  linux:
+  macos:
 
 dependencies:
   ffi: ^2.0.1
@@ -25,15 +25,15 @@ dev_dependencies:
 
 flutter:
   assets:
-    - binaries/darwin_aarch64/libfliptengine.dylib
-    - binaries/darwin_x86_64/libfliptengine.dylib
-    - binaries/linux_aarch64/libfliptengine.so
-    - binaries/linux_x86_64/libfliptengine.so
-    - binaries/windows_x86_64/fliptengine.dll
+    - native/darwin_aarch64/libfliptengine.dylib
+    - native/darwin_x86_64/libfliptengine.dylib
+    - native/linux_aarch64/libfliptengine.so
+    - native/linux_x86_64/libfliptengine.so
+    - native/windows_x86_64/fliptengine.dll
 
 files:
-  - binaries/darwin_aarch64/libfliptengine.dylib
-  - binaries/darwin_x86_64/libfliptengine.dylib
-  - binaries/linux_aarch64/libfliptengine.so
-  - binaries/linux_x86_64/libfliptengine.so
-  - binaries/windows_x86_64/fliptengine.dll
+  - native/darwin_aarch64/libfliptengine.dylib
+  - native/darwin_x86_64/libfliptengine.dylib
+  - native/linux_aarch64/libfliptengine.so
+  - native/linux_x86_64/libfliptengine.so
+  - native/windows_x86_64/fliptengine.dll

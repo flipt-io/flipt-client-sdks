@@ -20,7 +20,7 @@ class LibraryConfig {
 
   const LibraryConfig(this.directory, this.fileName);
 
-  String get assetPath => 'binaries/$directory/$fileName';
+  String get assetPath => 'native/$directory/$fileName';
 }
 
 /// Gets the current CPU architecture
@@ -55,7 +55,7 @@ LibraryConfig getPlatformConfig(Architecture arch) {
 String getPackagePath(LibraryConfig config) {
   final libraryPath = path.join(
     Directory.current.path,
-    'binaries',
+    'native',
     config.directory,
     config.fileName,
   );
