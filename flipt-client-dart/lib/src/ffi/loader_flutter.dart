@@ -4,9 +4,6 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'loader.dart';
 
-// Conditionally import Flutter services
-import 'package:flutter/services.dart' deferred as flutter show rootBundle;
-
 /// Loads the Flipt engine dynamic library for Flutter platforms.
 /// This implementation handles loading for all Flutter platforms:
 /// - Android: Loads from app-specific library directory
@@ -19,42 +16,34 @@ DynamicLibrary loadPlatformDependentFliptEngine() {
     return mobileLib;
   }
 
-  // For desktop platforms, try standard path first, then assets
+  // For desktop platforms, try standard path first
   final config = getPlatformConfig(getCurrentArchitecture());
   try {
     return DynamicLibrary.open(getPackagePath(config));
   } catch (e) {
-    return _loadFromAssets(config);
+    // If standard path fails, fall back to synchronous asset loading
+    return _loadFromAssetsSync(config);
   }
 }
 
 /// Loads the library from Flutter assets for desktop platforms
-Future<DynamicLibrary> _loadFromAssets(LibraryConfig config) async {
-  // Load Flutter services if needed
-  await flutter.loadLibrary();
-
-  final assetKey = config.assetPath;
-
+/// This is a synchronous version that loads from a pre-extracted location
+DynamicLibrary _loadFromAssetsSync(LibraryConfig config) {
   // Create a temporary directory to extract the library
   final tempDir = Directory.systemTemp.createTempSync('flipt_client');
   final tempPath = path.join(tempDir.path, config.fileName);
 
-  try {
-    // Copy the library from assets to temp directory
-    final data = await flutter.rootBundle.load(assetKey);
-    final bytes = data.buffer.asUint8List();
-    await File(tempPath).writeAsBytes(bytes);
-
-    // Make the library executable
-    if (!Platform.isWindows) {
-      await Process.run('chmod', ['+x', tempPath]);
-    }
-
-    return DynamicLibrary.open(tempPath);
-  } catch (e) {
+  if (!File(tempPath).existsSync()) {
     throw UnsupportedError(
-      'Failed to load native library from Flutter assets: $e\n'
+      'Could not find native library in assets.\n'
       'Make sure the native binaries are included in your Flutter assets.',
     );
   }
+
+  // Make the library executable if needed
+  if (!Platform.isWindows) {
+    Process.runSync('chmod', ['+x', tempPath]);
+  }
+
+  return DynamicLibrary.open(tempPath);
 }
