@@ -98,33 +98,33 @@ jobs:
 
       - name: Move Artifacts
         run: |
-          mkdir -p build/xcframework/ios-arm64/Headers
-          mkdir -p build/xcframework/ios-arm64-simulator/Headers
+          mkdir -p /tmp/build/xcframework/ios-arm64/Headers
+          mkdir -p /tmp/build/xcframework/ios-arm64-simulator/Headers
 
           mv /tmp/flipt-engine-ffi-iOS-aarch64/target/aarch64-apple-ios/release/libfliptengine.a \
-             build/xcframework/ios-arm64/
+             /tmp/build/xcframework/ios-arm64/
           mv /tmp/flipt-engine-ffi-iOS-aarch64-sim/target/aarch64-apple-ios-sim/release/libfliptengine.a \
-             build/xcframework/ios-arm64-simulator/
+             /tmp/build/xcframework/ios-arm64-simulator/
 
           for platform in ios-arm64 ios-arm64-simulator; do
-            cp flipt-engine-ffi/include/flipt_engine.h build/xcframework/${platform}/Headers/
-            cp flipt-engine-ffi/include/module.modulemap build/xcframework/${platform}/Headers/
+            cp flipt-engine-ffi/include/flipt_engine.h /tmp/build/xcframework/${platform}/Headers/
+            cp flipt-engine-ffi/include/module.modulemap /tmp/build/xcframework/${platform}/Headers/
           done
 
       - name: Xcode Build
         run: |
-          mkdir -p tmp/Sources
+          mkdir -p /tmp/Sources
 
           xcodebuild -create-xcframework \
-            -library "build/xcframework/ios-arm64/libfliptengine.a" \
-            -headers "build/xcframework/ios-arm64/Headers" \
-            -library "build/xcframework/ios-arm64-simulator/libfliptengine.a" \
-            -headers "build/xcframework/ios-arm64-simulator/Headers" \
-            -output "tmp/Sources/FliptEngineFFI.xcframework"
+            -library "/tmp/build/xcframework/ios-arm64/libfliptengine.a" \
+            -headers "/tmp/build/xcframework/ios-arm64/Headers" \
+            -library "/tmp/build/xcframework/ios-arm64-simulator/libfliptengine.a" \
+            -headers "/tmp/build/xcframework/ios-arm64-simulator/Headers" \
+            -output "/tmp/Sources/FliptEngineFFI.xcframework"
 
       - name: Upload Release Assets (Tag)
         uses: softprops/action-gh-release@v2
         if: startsWith(inputs.tag, 'flipt-engine-ffi-v')
         with:
           tag_name: ${{ inputs.tag }}
-          files: tmp/Sources/FliptEngineFFI.xcframework
+          files: /tmp/Sources/FliptEngineFFI.xcframework
