@@ -1,0 +1,80 @@
+name: Package FFI Engine (iOS)
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate token
+        id: generate_token
+        uses: tibdex/github-app-token@v2
+        with:
+          app_id: ${{ secrets.FLIPT_RELEASE_BOT_APP_ID }}
+          private_key: ${{ secrets.FLIPT_RELEASE_BOT_APP_PEM }}
+          installation_id: ${{ secrets.FLIPT_RELEASE_BOT_INSTALLATION_ID }}
+
+      - name: Download Artifact (iOS arm64)
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ steps.generate_token.outputs.token }}
+          name: flipt-engine-ffi-iOS-aarch64.tar.gz
+          path: /tmp
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Download Artifact (iOS arm64 sim)
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ steps.generate_token.outputs.token }}
+          name: flipt-engine-ffi-iOS-aarch64-sim.tar.gz
+          path: /tmp
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Extract Artifacts
+        run: |
+          mkdir -p /tmp/flipt-engine-ffi-iOS-aarch64
+          mkdir -p /tmp/flipt-engine-ffi-iOS-aarch64-sim
+
+          tar -xzvf /tmp/flipt-engine-ffi-iOS-aarch64.tar.gz -C /tmp/flipt-engine-ffi-iOS-aarch64
+          tar -xzvf /tmp/flipt-engine-ffi-iOS-aarch64-sim.tar.gz -C /tmp/flipt-engine-ffi-iOS-aarch64-sim
+
+      - name: Move Artifacts
+        run: |
+          mkdir -p build/xcframework/ios-arm64/Headers
+          mkdir -p build/xcframework/ios-arm64-simulator/Headers
+
+          mv /tmp/flipt-engine-ffi-iOS-aarch64/target/aarch64-apple-ios/release/libfliptengine.a \
+             build/xcframework/ios-arm64/
+          mv /tmp/flipt-engine-ffi-iOS-aarch64-sim/target/aarch64-apple-ios-sim/release/libfliptengine.a \
+             build/xcframework/ios-arm64-simulator/
+
+          for platform in ios-arm64 ios-arm64-simulator; do
+            cp flipt-engine-ffi/include/flipt_engine.h build/xcframework/${platform}/Headers/
+            cp flipt-engine-ffi/include/module.modulemap build/xcframework/${platform}/Headers/
+          done
+
+      - name: Xcode Build
+        run: |
+          mkdir -p tmp/Sources
+
+          xcodebuild -create-xcframework \
+            -library "build/xcframework/ios-arm64/libfliptengine.a" \
+            -headers "build/xcframework/ios-arm64/Headers" \
+            -library "build/xcframework/ios-arm64-simulator/libfliptengine.a" \
+            -headers "build/xcframework/ios-arm64-simulator/Headers" \
+            -output "tmp/Sources/FliptEngineFFI.xcframework"
+
+      - name: Upload Release Assets (Tag)
+        uses: softprops/action-gh-release@v2
+        if: startsWith(inputs.tag, 'flipt-engine-ffi-v')
+        with:
+          tag_name: ${{ inputs.tag }}
+          files: tmp/Sources/FliptEngineFFI.xcframework
