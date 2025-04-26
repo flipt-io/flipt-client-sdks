@@ -22,21 +22,55 @@ jobs:
           private_key: ${{ secrets.FLIPT_RELEASE_BOT_APP_PEM }}
           installation_id: ${{ secrets.FLIPT_RELEASE_BOT_INSTALLATION_ID }}
 
-      - name: Download Artifact (iOS arm64)
-        uses: actions/download-artifact@v4
+      - name: Get Release Asset URL (iOS arm64)
+        id: get_asset_url_arm64
+        uses: actions/github-script@v7
         with:
-          github-token: ${{ steps.generate_token.outputs.token }}
-          name: flipt-engine-ffi-iOS-aarch64.tar.gz
-          path: /tmp
-          run-id: ${{ github.event.workflow_run.id }}
+          script: |
+            const { owner, repo } = context.repo;
+            const { data } = await github.rest.repos.listReleaseAssets({
+              owner,
+              repo,
+              release_id: '${{ inputs.tag }}'
+            });
+            const asset = data.find(asset => asset.name === 'flipt-engine-ffi-iOS-aarch64.tar.gz');
+            if (!asset) {
+              throw new Error('Asset not found');
+            }
+            core.setOutput('url', asset.url);
 
-      - name: Download Artifact (iOS arm64 sim)
-        uses: actions/download-artifact@v4
+      - name: Get Release Asset URL (iOS arm64 sim)
+        id: get_asset_url_arm64_sim
+        uses: actions/github-script@v7
         with:
-          github-token: ${{ steps.generate_token.outputs.token }}
-          name: flipt-engine-ffi-iOS-aarch64-sim.tar.gz
-          path: /tmp
-          run-id: ${{ github.event.workflow_run.id }}
+          script: |
+            const { owner, repo } = context.repo;
+            const { data } = await github.rest.repos.listReleaseAssets({
+              owner,
+              repo,
+              release_id: '${{ inputs.tag }}'
+            });
+            const asset = data.find(asset => asset.name === 'flipt-engine-ffi-iOS-aarch64-sim.tar.gz');
+            if (!asset) {
+              throw new Error('Asset not found');
+            }
+            core.setOutput('url', asset.url);
+
+      - name: Download Asset (iOS arm64)
+        run: |
+          curl -L \
+            -H "Authorization: Bearer ${{ steps.generate_token.outputs.token }}" \
+            -H "Accept: application/octet-stream" \
+            "${{ steps.get_asset_url_arm64.outputs.url }}" \
+            -o /tmp/flipt-engine-ffi-iOS-aarch64.tar.gz
+
+      - name: Download Asset (iOS arm64 sim)
+        run: |
+          curl -L \
+            -H "Authorization: Bearer ${{ steps.generate_token.outputs.token }}" \
+            -H "Accept: application/octet-stream" \
+            "${{ steps.get_asset_url_arm64_sim.outputs.url }}" \
+            -o /tmp/flipt-engine-ffi-iOS-aarch64-sim.tar.gz
 
       - name: Extract Artifacts
         run: |
