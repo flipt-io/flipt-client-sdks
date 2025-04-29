@@ -75,3 +75,35 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: flipt-engine-ffi-${{ matrix.platform.name }}.tar.gz
+
+  trigger-ios-packaging:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/flipt-engine-ffi-v')
+    steps:
+      - name: Generate token
+        id: generate_token
+        uses: tibdex/github-app-token@v2
+        with:
+          app_id: ${{ secrets.FLIPT_RELEASE_BOT_APP_ID }}
+          private_key: ${{ secrets.FLIPT_RELEASE_BOT_APP_PEM }}
+          repositories: ${{ github.repository }}
+
+      - name: Trigger iOS Packaging workflow
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.generate_token.outputs.token }}
+          script: |
+            const tag = context.ref.replace('refs/tags/', '');
+            
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'package-ffi-engine-ios.yml',
+              ref: 'main',
+              inputs: {
+                tag: tag
+              }
+            });
+            
+            console.log(`Successfully triggered iOS packaging workflow for tag: ${tag}`);
