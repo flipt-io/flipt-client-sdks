@@ -1,0 +1,22 @@
+apply plugin: 'com.android.library'
+
+android {
+    namespace 'io.flipt.client'
+    compileSdkVersion 33
+
+    defaultConfig {
+        minSdkVersion 21
+        targetSdkVersion 33
+    }
+
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['src/main/jniLibs']
+        }
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+} 
