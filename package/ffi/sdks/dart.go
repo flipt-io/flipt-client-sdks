@@ -23,11 +23,28 @@ func (s *DartSDK) SupportedPlatforms() []platform.Platform {
 		platform.WindowsX86_64,
 		platform.AndroidArm64,
 		platform.AndroidX86_64,
-		//platform.IOSArm64,
 	}
 }
 
 func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts) error {
+	// we need to download the FliptEngineFFI.xcframework.tar.gz file from the release and extract it into the tmp directory to support the iOS SDK
+	var (
+		url = fmt.Sprintf("https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-%s/%s.%s", opts.EngineTag, "FliptEngineFFI.xcframework", "tar.gz")
+	)
+
+	_, err := client.Container().From("debian:bookworm-slim").
+		WithExec(args("apt-get update")).
+		WithExec(args("apt-get install -y wget p7zip-full")).
+		WithExec(args("mkdir -p /tmp/dl")).
+		WithExec(args("wget --spider %s", url)).
+		WithExec(args("wget %s -O /tmp/dl/%s.%s", url, "FliptEngineFFI.xcframework", "tar.gz")).
+		WithExec(args("mkdir -p /out/ios")).
+		WithExec(args("tar xzf /tmp/dl/%s.%s -C /out/ios", "FliptEngineFFI.xcframework", "tar.gz")).
+		Directory("/out").
+		Export(ctx, "tmp")
+	if err != nil {
+		return err
+	}
 
 	// the directory structure of the tmp directory is as follows:
 	// tmp/android_x86_64/
@@ -52,6 +69,7 @@ func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, container *d
 		{old: "darwin_x86_64", new: "native/darwin_x86_64"},
 		{old: "darwin_aarch64", new: "native/darwin_aarch64"},
 		{old: "windows_x86_64", new: "native/windows_x86_64"},
+		{old: "ios", new: "ios"},
 	}
 
 	if err := os.RemoveAll("staging"); err != nil {
@@ -91,18 +109,19 @@ func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, container *d
 		}
 	}
 
+	include := []string{"**/FliptEngineFFI.xcframework/**"}
+	include = append(include, dynamicInclude...)
+
 	container = container.From("ghcr.io/cirruslabs/flutter:stable").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-dart"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", ".dart_tool/"},
 		}).
 		WithDirectory("/src", hostDirectory.Directory("staging"), dagger.ContainerWithDirectoryOpts{
-			Include: dynamicInclude,
+			Include: include,
 		}).
 		WithFile("/src/ffi/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithWorkdir("/src").
 		WithExec(args("flutter pub get"))
-
-	var err error
 
 	if !opts.Push {
 		out, err := container.WithExec(args("dart pub publish --dry-run")).

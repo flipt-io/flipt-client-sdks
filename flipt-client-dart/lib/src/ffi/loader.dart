@@ -77,10 +77,10 @@ DynamicLibrary? loadMobilePlatform() {
     return DynamicLibrary.open('libfliptengine.so');
   }
 
-  // if (Platform.isIOS) {
-  //   // iOS libraries are statically linked into the binary
-  //   return DynamicLibrary.executable();
-  // }
+  if (Platform.isIOS) {
+    // iOS libraries are statically linked into the binary
+    return DynamicLibrary.executable();
+  }
 
   return null;
 }
