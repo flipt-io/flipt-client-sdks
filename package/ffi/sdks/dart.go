@@ -100,7 +100,7 @@ func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, container *d
 		}).
 		WithFile("/src/ffi/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h")).
 		WithWorkdir("/src").
-		WithExec(args("dart pub get"))
+		WithExec(args("flutter pub get"))
 
 	var err error
 
