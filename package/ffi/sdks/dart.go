@@ -91,7 +91,7 @@ func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, container *d
 		}
 	}
 
-	container = container.From("dart:stable").
+	container = container.From("ghcr.io/cirruslabs/flutter:stable").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-dart"), dagger.ContainerWithDirectoryOpts{
 			Exclude: []string{".gitignore", ".dart_tool/"},
 		}).
