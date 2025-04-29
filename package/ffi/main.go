@@ -94,8 +94,9 @@ func run() error {
 			})
 
 			return s.Build(ctx, client, container, dir, sdks.BuildOpts{
-				Tag:  tag,
-				Push: push,
+				Tag:       tag,
+				EngineTag: engineTag,
+				Push:      push,
 			})
 		}))
 	}

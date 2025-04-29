@@ -17,8 +17,9 @@ var (
 )
 
 type BuildOpts struct {
-	Push bool
-	Tag  string
+	Push      bool
+	Tag       string
+	EngineTag string
 }
 
 type SDK interface {

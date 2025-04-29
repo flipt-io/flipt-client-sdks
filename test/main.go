@@ -89,7 +89,7 @@ var (
 	}
 
 	dartVersions = []containerConfig{
-		{base: "dart:stable"},
+		{base: "ghcr.io/cirruslabs/flutter:stable"},
 	}
 
 	reactVersions = []containerConfig{
@@ -372,7 +372,6 @@ func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirec
 
 // pythonTests runs the python integration test suite against a container running Flipt.
 func pythonTests(ctx context.Context, root *dagger.Container, t *testCase) error {
-	// previously python:3.9-bookworm
 	_, err := root.
 		WithExec(args("pip install poetry==1.7.0")).
 		WithWorkdir("/src").
@@ -390,7 +389,6 @@ func pythonTests(ctx context.Context, root *dagger.Container, t *testCase) error
 
 // goTests runs the golang integration test suite against a container running Flipt.
 func goTests(ctx context.Context, root *dagger.Container, t *testCase) error {
-	// previously golang:1.21.3-bookworm
 	_, err := root.
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-go")).
@@ -407,7 +405,6 @@ func goTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 
 // rubyTests runs the ruby integration test suite against a container running Flipt.
 func rubyTests(ctx context.Context, root *dagger.Container, t *testCase) error {
-	// previously ruby:3.1-bookworm
 	_, err := root.
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-ruby")).
@@ -424,7 +421,6 @@ func rubyTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 
 // javaTests run the java integration tests suite against a container running Flipt.
 func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
-	// previously gradle:8.5.0-jdk11
 	_, err := root.
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-java"), dagger.ContainerWithDirectoryOpts{
@@ -442,7 +438,6 @@ func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 
 // javascriptTests runs the javascript integration test suite against a container running Flipt.
 func javascriptTests(ctx context.Context, root *dagger.Container, t *testCase) error {
-	// previously node:21.2-bookworm
 	_, err := root.
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-js"), dagger.ContainerWithDirectoryOpts{
@@ -465,7 +460,6 @@ func javascriptTests(ctx context.Context, root *dagger.Container, t *testCase) e
 // reactTests runs the react unit test suite against a mocked Flipt client.
 // this is because the react client simply uses the web client under the hood
 func reactTests(ctx context.Context, root *dagger.Container, t *testCase) error {
-	// previously node:21.2-bookworm
 	_, err := root.
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-react"), dagger.ContainerWithDirectoryOpts{
@@ -481,7 +475,6 @@ func reactTests(ctx context.Context, root *dagger.Container, t *testCase) error 
 
 // dartTests runs the dart integration test suite against a container running Flipt.
 func dartTests(ctx context.Context, root *dagger.Container, t *testCase) error {
-	// previously dart:stable
 	_, err := root.
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-dart"), dagger.ContainerWithDirectoryOpts{
@@ -491,7 +484,7 @@ func dartTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithServiceBinding("flipt", t.flipt.AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithExec(args("dart pub get")).
+		WithExec(args("flutter pub get")).
 		WithExec(args("dart test")).
 		Sync(ctx)
 
@@ -500,7 +493,6 @@ func dartTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 
 // csharpTests runs the csharp integration test suite against a container running Flipt.
 func csharpTests(ctx context.Context, root *dagger.Container, t *testCase) error {
-	// previously mcr.microsoft.com/dotnet/sdk:8.0
 	_, err := root.
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-csharp"), dagger.ContainerWithDirectoryOpts{
