@@ -52,8 +52,13 @@ jobs:
       - name: Build
         run: cargo build --release --target ${{ matrix.platform.target }} --package flipt-engine-ffi
 
-      - name: Strip
+      - name: Strip dylib
+        if: contains(matrix.platform.target, 'darwin')
         run: strip -x target/${{ matrix.platform.target }}/release/libfliptengine.dylib
+
+      - name: Strip static library
+        if: contains(matrix.platform.target, 'ios')
+        run: strip -x target/${{ matrix.platform.target }}/release/libfliptengine.a
 
       - name: Package
         run: |

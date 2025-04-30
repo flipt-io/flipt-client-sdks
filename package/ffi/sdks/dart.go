@@ -109,6 +109,19 @@ func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, container *d
 		}
 	}
 
+	// run strip_xcframework.sh
+	// this is because the XCFramework is not stripped and is too large to upload to pub.dev
+	// TODO: we should do this when we build the XCFramework in Actions but for now this is a quick fix
+	// TODO: also we should see if we can optimize the size of the .a files when building the Rust FFI libraries for iOS
+	cmd := exec.Command("/bin/bash", "strip_xcframework.sh")
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("error running strip_xcframework.sh: %w", err)
+	}
+
 	include := []string{"**/FliptEngineFFI.xcframework/**"}
 	include = append(include, dynamicInclude...)
 
