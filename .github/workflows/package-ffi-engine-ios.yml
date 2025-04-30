@@ -90,16 +90,16 @@ jobs:
 
       - name: Extract Artifacts
         run: |
-          mkdir -p /tmp/flipt-engine-ffi-iOS-aarch64
-          mkdir -p /tmp/flipt-engine-ffi-iOS-aarch64-sim
-
-          tar -xzvf /tmp/flipt-engine-ffi-iOS-aarch64.tar.gz -C /tmp/flipt-engine-ffi-iOS-aarch64
-          tar -xzvf /tmp/flipt-engine-ffi-iOS-aarch64-sim.tar.gz -C /tmp/flipt-engine-ffi-iOS-aarch64-sim
+          for platform in iOS-aarch64 iOS-aarch64-simulator; do
+            mkdir -p /tmp/flipt-engine-ffi-${platform}
+            tar -xzvf /tmp/flipt-engine-ffi-${platform}.tar.gz -C /tmp/${platform}
+          done
 
       - name: Move Artifacts
         run: |
-          mkdir -p /tmp/build/xcframework/ios-arm64/Headers
-          mkdir -p /tmp/build/xcframework/ios-arm64-simulator/Headers
+          for platform in ios-arm64 ios-arm64-simulator; do
+            mkdir -p /tmp/build/xcframework/${platform}/Headers
+          done
 
           mv /tmp/flipt-engine-ffi-iOS-aarch64/target/aarch64-apple-ios/release/libfliptengine.a \
              /tmp/build/xcframework/ios-arm64/
@@ -109,6 +109,12 @@ jobs:
           for platform in ios-arm64 ios-arm64-simulator; do
             cp flipt-engine-ffi/include/flipt_engine.h /tmp/build/xcframework/${platform}/Headers/
             cp flipt-engine-ffi/include/module.modulemap /tmp/build/xcframework/${platform}/Headers/
+          done
+
+      - name: Strip Libraries
+        run: |
+          for platform in ios-arm64 ios-arm64-simulator; do
+            strip -x /tmp/build/xcframework/${platform}/libfliptengine.a
           done
 
       - name: Xcode Build
