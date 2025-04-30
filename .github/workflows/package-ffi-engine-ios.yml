@@ -92,7 +92,7 @@ jobs:
         run: |
           for platform in iOS-aarch64 iOS-aarch64-simulator; do
             mkdir -p /tmp/flipt-engine-ffi-${platform}
-            tar -xzvf /tmp/flipt-engine-ffi-${platform}.tar.gz -C /tmp/${platform}
+            tar -xzvf /tmp/flipt-engine-ffi-${platform}.tar.gz -C /tmp/flipt-engine-ffi-${platform}
           done
 
       - name: Move Artifacts
