@@ -34,6 +34,8 @@ ls -lh "$XCFRAMEWORK_PATH/ios-arm64/libfliptengine.a" "$XCFRAMEWORK_PATH/ios-arm
 echo "Stripped sizes:"
 ls -lh "$STRIPPED_PATH/ios-arm64/libfliptengine.a" "$STRIPPED_PATH/ios-arm64-simulator/libfliptengine.a"
 
-mv $STRIPPED_PATH $XCFRAMEWORK_PATH
+# Remove the original xcframework directory and rename stripped to take its place
+rm -rf "$XCFRAMEWORK_PATH"
+mv "$STRIPPED_PATH" "$XCFRAMEWORK_PATH"
 
 echo "Done! Stripped XCFramework is at $XCFRAMEWORK_PATH"
