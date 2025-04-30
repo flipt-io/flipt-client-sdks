@@ -90,7 +90,7 @@ jobs:
 
       - name: Extract Artifacts
         run: |
-          for platform in iOS-aarch64 iOS-aarch64-simulator; do
+          for platform in iOS-aarch64 iOS-aarch64-sim; do
             mkdir -p /tmp/flipt-engine-ffi-${platform}
             tar -xzvf /tmp/flipt-engine-ffi-${platform}.tar.gz -C /tmp/flipt-engine-ffi-${platform}
           done
