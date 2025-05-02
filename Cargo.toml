@@ -5,6 +5,7 @@ members = ["./flipt-engine-ffi", "./flipt-engine-wasm", "./flipt-engine-wasm-js"
 [profile.release]
 strip = true
 rpath = true
+codegen-units = 1
 
 [profile.release.package.flipt-engine-wasm]
 opt-level = "s"
@@ -13,4 +14,4 @@ opt-level = "s"
 opt-level = "s"
 
 [profile.release.package.flipt-engine-ffi]
-opt-level = "z"
+opt-level = "s"
