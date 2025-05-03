@@ -12,7 +12,7 @@ fi
 TARGET=$(echo "$1" | tr '[:upper:]' '[:lower:]')
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$SCRIPT_DIR/.."
-RUST_FLAGS="RUSTFLAGS=-Zlocation-detail=none -Zfmt-debug=none"
+RUST_FLAGS="-Zlocation-detail=none -Zfmt-debug=none"
 
 case $TARGET in
 "linux-x86_64")
@@ -24,7 +24,7 @@ case $TARGET in
   rustup target add x86_64-unknown-linux-musl
 
   # https://github.com/johnthagen/min-sized-rust
-  $RUST_FLAGS cargo +nightly build -p flipt-engine-ffi --release --target=x86_64-unknown-linux-musl
+  RUSTFLAGS="$RUST_FLAGS" cargo +nightly build -p flipt-engine-ffi --release --target=x86_64-unknown-linux-musl
 
   mkdir -p "/tmp/ffi"
 
@@ -47,7 +47,7 @@ case $TARGET in
   rustup target add aarch64-unknown-linux-musl
 
   # https://github.com/johnthagen/min-sized-rust
-  $RUST_FLAGS cargo +nightly build -p flipt-engine-ffi --release --target=aarch64-unknown-linux-musl
+  RUSTFLAGS="$RUST_FLAGS" cargo +nightly build -p flipt-engine-ffi --release --target=aarch64-unknown-linux-musl
 
   mkdir -p "/tmp/ffi"
 
