@@ -28,10 +28,11 @@ flutter:
   plugin:
     platforms:
       android:
-        package: io.flipt.client
         pluginClass: none
+        package: io.flipt.client
       ios:
         pluginClass: none
+        package: flipt_client
 homepage: https://flipt.io
 name: flipt_client
 platforms:
