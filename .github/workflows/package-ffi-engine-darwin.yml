@@ -104,7 +104,7 @@ jobs:
           github-token: ${{ steps.generate_token.outputs.token }}
           script: |
             const tag = context.ref.replace('refs/tags/', '');
-            
+
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -114,5 +114,5 @@ jobs:
                 tag: tag
               }
             });
-            
+
             console.log(`Successfully triggered iOS packaging workflow for tag: ${tag}`);
