@@ -28,4 +28,4 @@ flutter:
   - native/windows_x86_64/fliptengine.dll
 homepage: https://flipt.io
 name: flipt_client
-version: 0.9.0-rc.18
+version: 0.9.0-rc.19
