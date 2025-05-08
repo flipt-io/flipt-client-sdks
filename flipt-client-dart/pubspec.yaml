@@ -28,11 +28,11 @@ flutter:
   plugin:
     platforms:
       android:
-        pluginClass: none
         package: io.flipt.client
-      ios:
         pluginClass: none
+      ios:
         package: flipt_client
+        pluginClass: none
 homepage: https://flipt.io
 name: flipt_client
 platforms:
@@ -40,4 +40,4 @@ platforms:
   ios: null
   linux: null
   macos: null
-version: 0.9.0-rc.7
+version: 0.9.0-rc.8
