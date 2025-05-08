@@ -1,7 +1,5 @@
 dependencies:
   ffi: ^2.0.1
-  flutter:
-    sdk: flutter
   json_annotation: ^4.9.0
   path: ^1.9.0
 description: Flipt Client Evaluation SDK for Dart
@@ -14,6 +12,13 @@ dev_dependencies:
 environment:
   flutter: '>=1.20.0'
   sdk: '>=2.17.0 <4.0.0'
+files:
+- native/darwin_aarch64/libfliptengine.dylib
+- native/darwin_x86_64/libfliptengine.dylib
+- native/linux_aarch64/libfliptengine.so
+- native/linux_x86_64/libfliptengine.so
+- native/windows_x86_64/fliptengine.dll
+- ios/FliptEngineFFI.xcframework
 flutter:
   assets:
   - native/darwin_aarch64/libfliptengine.dylib
@@ -30,4 +35,4 @@ flutter:
         dartPluginClass: FliptClient
 homepage: https://flipt.io
 name: flipt_client
-version: 0.9.0-rc.13
+version: 0.9.0-rc.14
