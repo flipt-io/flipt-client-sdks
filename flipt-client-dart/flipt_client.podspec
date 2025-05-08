@@ -10,4 +10,5 @@ Pod::Spec.new do |s|
 
   s.platform         = :ios, '11.0'
   s.vendored_frameworks = 'ios/FliptEngineFFI.xcframework'
+  s.source_files = 'ios/Classes/**/*'
 end
