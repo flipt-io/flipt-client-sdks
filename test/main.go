@@ -77,9 +77,9 @@ var (
 	}
 
 	javaVersions = []containerConfig{
-		{base: "gradle:8-jdk11"},
-		{base: "gradle:8-jdk11-focal"},
-		{base: "gradle:8-jdk11-alpine"},
+		{base: "gradle:8-jdk17"},
+		{base: "gradle:8-jdk17-focal"},
+		{base: "gradle:8-jdk17-alpine"},
 	}
 
 	javascriptVersions = []containerConfig{
