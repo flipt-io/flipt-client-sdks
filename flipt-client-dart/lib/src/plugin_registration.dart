@@ -1,5 +1,5 @@
 class FliptClient {
-  static void registerWith(Object? _) {
+  static void registerWith() {
     // no-op for FFI
   }
 }
