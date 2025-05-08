@@ -11,7 +11,7 @@ class DartSDK(SDK):
         return data["version"]
 
     def update_version(self, new_version: str):
-        pubspec_yaml = os.path.join(self.path, "pubspec.yaml")
+        pubspec_yaml = os.path.join(self.path, "ios/flipt_client.podspec")
         with open(pubspec_yaml, "r") as f:
             data = yaml.safe_load(f)
         data["version"] = new_version
@@ -19,7 +19,7 @@ class DartSDK(SDK):
             yaml.dump(data, f)
         print(f"Updated {self.name} version to {new_version} in pubspec.yaml")
 
-        podspec_path = os.path.join(self.path, "flipt_client.podspec")
+        podspec_path = os.path.join(self.path, "ios/flipt_client.podspec")
         with open(podspec_path, "r") as f:
             lines = f.readlines()
         with open(podspec_path, "w") as f:

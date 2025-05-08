@@ -9,6 +9,6 @@ Pod::Spec.new do |s|
   s.source           = { :path => '.' }
 
   s.platform         = :ios, '11.0'
-  s.vendored_frameworks = 'ios/FliptEngineFFI.xcframework'
-  s.source_files = 'ios/Classes/**/*'
+  s.vendored_frameworks = 'FliptEngineFFI.xcframework'
+  s.source_files = 'Classes/**/*'
 end
