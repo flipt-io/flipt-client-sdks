@@ -1,7 +1,7 @@
 dependencies:
+  ffi: ^2.0.1
   flutter:
     sdk: flutter
-  ffi: ^2.0.1
   json_annotation: ^4.9.0
   path: ^1.9.0
 description: Flipt Client Evaluation SDK for Dart
@@ -30,4 +30,4 @@ flutter:
         dartPluginClass: FliptClient
 homepage: https://flipt.io
 name: flipt_client
-version: 0.9.0-rc.11
+version: 0.9.0-rc.12
