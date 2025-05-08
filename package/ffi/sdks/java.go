@@ -86,6 +86,8 @@ func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, container *d
 			Include: dynamicInclude,
 		}).
 		WithWorkdir("/src").
+		WithExec(args("chown -R gradle:gradle /src")).
+		WithExec(args("gradle clean")).
 		WithExec(args("gradle -x test build"))
 
 	var err error
