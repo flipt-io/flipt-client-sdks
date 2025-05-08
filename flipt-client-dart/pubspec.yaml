@@ -35,4 +35,4 @@ flutter:
         pluginClass: FliptClient
 homepage: https://flipt.io
 name: flipt_client
-version: 0.9.0-rc.16
+version: 0.9.0-rc.17
