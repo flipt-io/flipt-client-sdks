@@ -12,12 +12,6 @@ dev_dependencies:
 environment:
   flutter: '>=1.20.0'
   sdk: '>=2.17.0 <4.0.0'
-files:
-- native/darwin_aarch64/libfliptengine.dylib
-- native/darwin_x86_64/libfliptengine.dylib
-- native/linux_aarch64/libfliptengine.so
-- native/linux_x86_64/libfliptengine.so
-- native/windows_x86_64/fliptengine.dll
 flutter:
   assets:
   - native/darwin_aarch64/libfliptengine.dylib
@@ -31,8 +25,7 @@ flutter:
         package: io.flipt.client
         pluginClass: none
       ios:
-        package: flipt_client
-        pluginClass: none
+        dartPluginClass: FliptClient # this disables the native plugin registration
 homepage: https://flipt.io
 name: flipt_client
-version: 0.9.0-rc.9
+version: 0.9.0-rc.10
