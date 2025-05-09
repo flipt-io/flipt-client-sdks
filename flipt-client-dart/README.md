@@ -61,6 +61,8 @@ This SDK currently supports the following OSes/architectures:
 - MacOS arm64
 - Windows x86_64
 - Android arm64
+- iOS arm64 ⚠️ See [iOS Integration](#ios-integration)
+- iOS arm64 (simulator) ⚠️ See [iOS Integration](#ios-integration)
 
 ## Usage
 
@@ -127,6 +129,47 @@ The client supports the following error strategies:
 
 - `fail`: The client will throw an error if the flag state cannot be fetched. This is the default behavior.
 - `fallback`: The client will maintain the last known good state and use that state for evaluation in case of an error.
+
+## iOS Integration 📱
+
+The `flipt-client-dart` library can be used in a Flutter iOS app but requires a few additional steps to integrate.
+
+We're working on making this easier in the future.
+
+### Podfile
+
+Open your app's `ios/Podfile` and comment out the following lines in the `target 'Runner' do` block:
+
+```ruby
+# use_frameworks!
+# use_modular_headers!
+```
+
+### Troubleshooting
+
+#### Missing x86_64
+
+If you see errors about missing x86_64, add the following to the `post_install` block of your `Podfile`:
+
+```ruby
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+    # Exclude x86_64 for simulator builds (Apple Silicon only)
+    target.build_configurations.each do |config|
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'x86_64'
+    end
+  end
+end
+```
+
+You may also need to add the following `User Defined Setting` to your Xcode project. Do this in the `Build Settings` tab for your project, not the target!
+
+```
+VALID_ARCHS = arm64
+```
+
+![User Defined Settings](/.github/images/flutter-ios-user-defined-settings.png)
 
 ## Development
 
