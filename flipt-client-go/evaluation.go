@@ -169,7 +169,7 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 	defer func() {
 		if cerr != nil {
 			// closing the runtime will release any allocated memory
-			runtime.Close(ctx)
+			_ = runtime.Close(ctx)
 		}
 	}()
 
@@ -756,7 +756,7 @@ func (c *EvaluationClient) fetch(ctx context.Context, url, etag string) (snapsho
 		if resp != nil {
 			defer func() {
 				_, _ = io.Copy(io.Discard, resp.Body)
-				resp.Body.Close()
+				_ = resp.Body.Close()
 			}()
 		}
 
@@ -822,7 +822,9 @@ func (c *EvaluationClient) initiateStream(ctx context.Context) error {
 		}
 
 		// Ensure response body is closed when we're done
-		defer resp.Body.Close()
+		defer func() {
+			_ = resp.Body.Close()
+		}()
 
 		if resp.StatusCode != http.StatusOK {
 			return struct{}{}, fetchError{resp.StatusCode, fmt.Errorf("unexpected status code: %d", resp.StatusCode)}
