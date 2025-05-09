@@ -41,7 +41,9 @@ func TestMain(m *testing.M) {
 		if err != nil {
 			panic(err)
 		}
-		defer f.Close()
+		defer func() {
+			_ = f.Close()
+		}()
 		if err := pprof.WriteHeapProfile(f); err != nil {
 			panic(err)
 		}

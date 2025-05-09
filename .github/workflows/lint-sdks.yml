@@ -183,7 +183,7 @@ jobs:
         with:
           working-directory: flipt-client-go
           args: --timeout=5m
-          version: v1.64
+          version: v2.1.6
 
   lint-swift:
     name: Lint Swift
