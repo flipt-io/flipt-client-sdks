@@ -26,6 +26,13 @@ flutter:
   - native/linux_aarch64/libfliptengine.so
   - native/linux_x86_64/libfliptengine.so
   - native/windows_x86_64/fliptengine.dll
+  plugin:
+    platforms:
+      android:
+        package: io.flipt.client
+        pluginClass: none
+      ios:
+        pluginClass: FliptClient
 homepage: https://flipt.io
 name: flipt_client
 version: 0.9.0-rc.19
