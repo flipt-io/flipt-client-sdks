@@ -7,8 +7,10 @@ Pod::Spec.new do |s|
   s.license          = { :file => 'LICENSE' }
   s.author           = { 'Flipt Devs' => 'devs@flipt.io' }
   s.source           = { :path => '.' }
+  s.dependency 'Flutter'
 
   s.platform         = :ios, '11.0'
   s.vendored_frameworks = 'FliptEngineFFI.xcframework'
-  s.source_files = 'Classes/**/*'
+  s.source_files = 'Classes/**/*.{h,m}'
+  s.pod_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'x86_64' }
 end

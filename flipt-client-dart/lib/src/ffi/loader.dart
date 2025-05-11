@@ -79,7 +79,7 @@ DynamicLibrary? loadMobilePlatform() {
 
   if (Platform.isIOS) {
     // iOS libraries are statically linked into the binary
-    return DynamicLibrary.executable();
+    return DynamicLibrary.process();
   }
 
   return null;
