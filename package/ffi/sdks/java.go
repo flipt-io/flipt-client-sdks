@@ -80,12 +80,14 @@ func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, container *d
 		}
 	}
 
-	container = container.From("gradle:8.11-jdk11").
+	container = container.From("gradle:8-jdk17").
 		WithDirectory("/src", hostDirectory.Directory("flipt-client-java")).
 		WithDirectory("/src/src/main/resources", hostDirectory.Directory("staging"), dagger.ContainerWithDirectoryOpts{
 			Include: dynamicInclude,
 		}).
 		WithWorkdir("/src").
+		WithExec(args("chown -R gradle:gradle /src")).
+		WithExec(args("gradle clean")).
 		WithExec(args("gradle -x test build"))
 
 	var err error

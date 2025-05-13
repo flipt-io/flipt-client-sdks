@@ -40,7 +40,7 @@ func (s *EvaluationTestSuite) SetupSuite() {
 }
 
 func (s *EvaluationTestSuite) TearDownSuite() {
-	s.client.Close(context.TODO())
+	require.NoError(s.T(), s.client.Close(context.TODO()))
 }
 
 func (s *EvaluationTestSuite) TestInvalidAuthentication() {

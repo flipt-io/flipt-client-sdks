@@ -18,6 +18,7 @@ files:
 - native/linux_aarch64/libfliptengine.so
 - native/linux_x86_64/libfliptengine.so
 - native/windows_x86_64/fliptengine.dll
+- ios/FliptEngineFFI.xcframework
 flutter:
   assets:
   - native/darwin_aarch64/libfliptengine.dylib
@@ -28,15 +29,12 @@ flutter:
   plugin:
     platforms:
       android:
+        ffiPlugin: true
         package: io.flipt.client
         pluginClass: none
       ios:
-        pluginClass: none
+        ffiPlugin: true
+        pluginClass: FliptClient
 homepage: https://flipt.io
 name: flipt_client
-platforms:
-  android: null
-  ios: null
-  linux: null
-  macos: null
-version: 0.9.0-rc.7
+version: 0.9.0

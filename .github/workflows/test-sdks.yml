@@ -15,7 +15,6 @@ jobs:
       fail-fast: false
       matrix:
         group:
-          - ffi
           - wasm
           - js
 
@@ -40,3 +39,36 @@ jobs:
       - name: Run Integration Tests (${{ matrix.group }})
         run: |
           dagger run go run ./test --groups ${{ matrix.group }}
+
+  test-ffi:
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk:
+          - python
+          - ruby
+          - java
+          - dart
+          - csharp
+
+    name: Integration Tests FFI - (${{ matrix.sdk }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache: true
+
+      - name: Install Dagger
+        run: |
+          cd /usr/local
+          curl -L https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=${{ env.DAGGER_VERSION }} sh
+
+      - name: Run Integration Tests (${{ matrix.sdk }})
+        run: |
+          dagger run go run ./test --sdks ${{ matrix.sdk }}

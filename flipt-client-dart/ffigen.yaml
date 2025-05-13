@@ -1,11 +1,11 @@
-output: 'lib/ffi/bindings.dart'
+output: "lib/ffi/bindings.dart"
 headers:
   entry-points:
-    - 'ffi/flipt_engine.h'
+    - "ffi/flipt_engine.h"
   include-directives:
-    - 'ffi/flipt_engine.h'
+    - "ffi/flipt_engine.h"
 
 name: FliptEngine
 description: Auto-generated FFI bindings for flipt_engine
 compiler-opts:
-  - '-Iffi'
+  - "-Iffi"
