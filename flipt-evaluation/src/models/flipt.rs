@@ -28,7 +28,7 @@ pub struct Constraint {
     pub value: String,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct EvaluationRule {
     pub id: String,
     pub flag_key: String,
@@ -37,7 +37,7 @@ pub struct EvaluationRule {
     pub segment_operator: SegmentOperator,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct EvaluationDistribution {
     pub rule_id: String,
     pub rollout: f32,
@@ -45,7 +45,7 @@ pub struct EvaluationDistribution {
     pub variant_attachment: String,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct EvaluationRollout {
     pub rollout_type: RolloutType,
     pub rank: usize,
@@ -53,27 +53,27 @@ pub struct EvaluationRollout {
     pub threshold: Option<RolloutThreshold>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct RolloutThreshold {
     pub percentage: f32,
     pub value: bool,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct RolloutSegment {
     pub value: bool,
     pub segment_operator: SegmentOperator,
     pub segments: HashMap<String, EvaluationSegment>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct EvaluationSegment {
     pub segment_key: String,
     pub match_type: SegmentMatchType,
     pub constraints: Vec<EvaluationConstraint>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct EvaluationConstraint {
     pub r#type: ConstraintComparisonType,
     pub property: String,

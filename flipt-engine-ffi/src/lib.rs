@@ -16,6 +16,7 @@ use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
+use std::str::Utf8Error;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
@@ -42,6 +43,7 @@ where
 }
 
 #[derive(Serialize)]
+#[non_exhaustive]
 enum Status {
     #[serde(rename = "success")]
     Success,
@@ -50,6 +52,7 @@ enum Status {
 }
 
 #[derive(Error, Debug, Clone)]
+#[non_exhaustive]
 enum FFIError {
     #[error("error engine null pointer")]
     NullPointer,
@@ -108,6 +111,7 @@ impl Default for EngineOpts {
 }
 
 pub struct Engine {
+    namespace: String,
     evaluator: Arc<Mutex<Evaluator<Snapshot>>>,
     stop_signal: Arc<AtomicBool>,
 }
@@ -156,7 +160,9 @@ impl Engine {
                     evaluator_clone.lock().unwrap().replace_snapshot(snap);
                 }
                 Err(err) => {
-                    evaluator_clone.lock().unwrap().replace_snapshot(Err(err));
+                    if error_strategy == ErrorStrategy::Fail {
+                        evaluator_clone.lock().unwrap().replace_snapshot(Err(err));
+                    }
                 }
             }
         });
@@ -180,6 +186,7 @@ impl Engine {
         });
 
         Self {
+            namespace: namespace.to_string(),
             evaluator,
             stop_signal,
         }
@@ -221,6 +228,17 @@ impl Engine {
 
         lock.list_flags()
     }
+
+    pub fn set_snapshot(&self, snapshot: Snapshot) {
+        self.evaluator
+            .lock()
+            .unwrap()
+            .replace_snapshot(Ok(snapshot));
+    }
+
+    pub fn get_snapshot(&self) -> Result<Snapshot, Error> {
+        self.evaluator.lock().unwrap().get_snapshot()
+    }
 }
 
 // Public FFI functions
@@ -247,6 +265,48 @@ pub unsafe extern "C" fn initialize_engine(
     opts: *const c_char,
 ) -> *mut c_void {
     _initialize_engine(namespace, opts)
+}
+
+/// # Safety
+///
+/// This function will take in a pointer to the engine and a snapshot string, and replace the in-memory snapshot.
+#[no_mangle]
+#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
+pub unsafe extern "C" fn set_snapshot_ffi(
+    engine_ptr: *mut c_void,
+    snapshot: *const c_char,
+) -> *const c_char {
+    _set_snapshot(engine_ptr, snapshot)
+}
+
+/// # Safety
+///
+/// This function will take in a pointer to the engine and a snapshot string, and replace the in-memory snapshot.
+#[no_mangle]
+#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
+pub unsafe extern "C" fn set_snapshot(
+    engine_ptr: *mut c_void,
+    snapshot: *const c_char,
+) -> *const c_char {
+    _set_snapshot(engine_ptr, snapshot)
+}
+
+/// # Safety
+///
+/// This function will take in a pointer to the engine and return the current snapshot as a JSON string.
+#[no_mangle]
+#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
+pub unsafe extern "C" fn get_snapshot_ffi(engine_ptr: *mut c_void) -> *const c_char {
+    _get_snapshot(engine_ptr)
+}
+
+/// # Safety
+///
+/// This function will take in a pointer to the engine and return the current snapshot as a JSON string.
+#[no_mangle]
+#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
+pub unsafe extern "C" fn get_snapshot(engine_ptr: *mut c_void) -> *const c_char {
+    _get_snapshot(engine_ptr)
 }
 
 /// # Safety
@@ -445,6 +505,56 @@ unsafe extern "C" fn _initialize_engine(
     });
 
     result.unwrap_or(std::ptr::null_mut())
+}
+
+unsafe extern "C" fn _set_snapshot(
+    engine_ptr: *mut c_void,
+    snapshot: *const c_char,
+) -> *const c_char {
+    let e = match get_engine(engine_ptr) {
+        Ok(e) => e,
+        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
+    };
+
+    let snapshot_bytes = CStr::from_ptr(snapshot).to_bytes();
+    let snapshot_str = match std::str::from_utf8(snapshot_bytes) {
+        Ok(s) => s,
+        Err(e) => return result_to_json_ptr::<(), Utf8Error>(Err(e)),
+    };
+
+    let doc: fliptevaluation::models::source::Document = match serde_json::from_str(snapshot_str) {
+        Ok(doc) => doc,
+        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
+    };
+
+    let snap = match fliptevaluation::store::Snapshot::build(&e.namespace, doc) {
+        Ok(snap) => snap,
+        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
+    };
+
+    e.set_snapshot(snap);
+
+    result_to_json_ptr::<(), std::convert::Infallible>(Ok(()))
+}
+
+unsafe extern "C" fn _get_snapshot(engine_ptr: *mut c_void) -> *const c_char {
+    let e = match get_engine(engine_ptr) {
+        Ok(e) => e,
+        Err(e) => return result_to_json_ptr::<(), FFIError>(Err(e)),
+    };
+
+    let snapshot_result = e.get_snapshot();
+
+    let json = match &snapshot_result {
+        Ok(snapshot) => match serde_json::to_string(snapshot) {
+            Ok(s) => s,
+            Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
+        },
+        Err(e) => return result_to_json_ptr::<(), _>(Err(e.clone())),
+    };
+
+    // Return as a C string
+    CString::new(json).unwrap().into_raw()
 }
 
 unsafe extern "C" fn _evaluate_variant(
