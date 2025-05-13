@@ -200,60 +200,52 @@ impl Engine {
         }
     }
 
+    /// Helper to lock the evaluator and run a closure, mapping lock errors to Error::Internal
+    fn with_evaluator_lock<F, R>(&self, f: F) -> Result<R, Error>
+    where
+        F: FnOnce(&mut Evaluator<Snapshot>) -> Result<R, Error>,
+    {
+        let mut lock = self
+            .evaluator
+            .lock()
+            .map_err(|_| Error::Internal("failed to acquire lock".to_string()))?;
+        f(&mut lock)
+    }
+
     pub fn variant(
         &self,
         evaluation_request: &EvaluationRequest,
     ) -> Result<VariantEvaluationResponse, Error> {
-        let binding = self.evaluator.clone();
-        let lock = binding
-            .lock()
-            .map_err(|_| Error::Internal("lock poisoned".to_string()))?;
-        lock.variant(evaluation_request)
+        self.with_evaluator_lock(|lock| lock.variant(evaluation_request))
     }
 
     pub fn boolean(
         &self,
         evaluation_request: &EvaluationRequest,
     ) -> Result<BooleanEvaluationResponse, Error> {
-        let binding = self.evaluator.clone();
-        let lock = binding
-            .lock()
-            .map_err(|_| Error::Internal("lock poisoned".to_string()))?;
-        lock.boolean(evaluation_request)
+        self.with_evaluator_lock(|lock| lock.boolean(evaluation_request))
     }
 
     pub fn batch(
         &self,
         batch_evaluation_request: Vec<EvaluationRequest>,
     ) -> Result<BatchEvaluationResponse, Error> {
-        let binding = self.evaluator.clone();
-        let lock = binding
-            .lock()
-            .map_err(|_| Error::Internal("lock poisoned".to_string()))?;
-        lock.batch(batch_evaluation_request)
+        self.with_evaluator_lock(|lock| lock.batch(batch_evaluation_request))
     }
 
     pub fn list_flags(&self) -> Result<Vec<flipt::Flag>, Error> {
-        let binding = self.evaluator.clone();
-        let lock = binding
-            .lock()
-            .map_err(|_| Error::Internal("lock poisoned".to_string()))?;
-        lock.list_flags()
+        self.with_evaluator_lock(|lock| lock.list_flags())
     }
 
     pub fn set_snapshot(&self, snapshot: Snapshot) -> Result<(), Error> {
-        self.evaluator
-            .lock()
-            .map_err(|_| Error::Internal("failed to acquire lock".to_string()))?
-            .replace_snapshot(Ok(snapshot));
-        Ok(())
+        self.with_evaluator_lock(|lock| {
+            lock.replace_snapshot(Ok(snapshot));
+            Ok(())
+        })
     }
 
     pub fn get_snapshot(&self) -> Result<Snapshot, Error> {
-        self.evaluator
-            .lock()
-            .map_err(|_| Error::Internal("failed to acquire lock".to_string()))?
-            .get_snapshot()
+        self.with_evaluator_lock(|lock| lock.get_snapshot())
     }
 }
 
