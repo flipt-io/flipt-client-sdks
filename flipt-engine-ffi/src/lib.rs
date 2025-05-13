@@ -573,7 +573,7 @@ unsafe extern "C" fn _get_snapshot(engine_ptr: *mut c_void) -> *const c_char {
     match CString::new(json) {
         Ok(cstr) => cstr.into_raw(),
         Err(e) => {
-            let err = format!("CString conversion failed: {}", e);
+            let err = format!("CString conversion failed: {e}");
             let err_json = serde_json::to_string(&FFIResponse::<()> {
                 status: Status::Failure,
                 result: None,

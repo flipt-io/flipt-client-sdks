@@ -39,11 +39,11 @@ impl Authentication {
     pub fn authenticate(&self) -> Option<String> {
         match self {
             Authentication::ClientToken(token) => {
-                let header_format: String = format!("Bearer {}", token).parse().unwrap();
+                let header_format: String = format!("Bearer {token}").parse().unwrap();
                 Some(header_format)
             }
             Authentication::JwtToken(token) => {
-                let header_format: String = format!("JWT {}", token).parse().unwrap();
+                let header_format: String = format!("JWT {token}").parse().unwrap();
                 Some(header_format)
             }
             Authentication::None => None,
@@ -194,7 +194,7 @@ impl HTTPFetcherBuilder {
 
         let client = client_builder
             .build()
-            .map_err(|e| Error::Internal(format!("failed to create client: {}", e)))?;
+            .map_err(|e| Error::Internal(format!("failed to create client: {e}")))?;
 
         Ok(HTTPFetcher {
             base_url: self.base_url,
@@ -250,7 +250,7 @@ impl HTTPFetcher {
         match response {
             Some(resp) => {
                 let document = resp.json::<source::Document>().await.map_err(|e| {
-                    Error::InvalidJSON(format!("failed to parse response body: {}", e))
+                    Error::InvalidJSON(format!("failed to parse response body: {e}"))
                 })?;
                 Ok(document)
             }
@@ -327,12 +327,12 @@ impl HTTPFetcher {
                 },
                 Err(e) => {
                     self.etag = None;
-                    Err(Error::Server(format!("response: {}", e)))
+                    Err(Error::Server(format!("response: {e}")))
                 }
             },
             Err(e) => {
                 self.etag = None;
-                Err(Error::Server(format!("failed to make request: {}", e)))
+                Err(Error::Server(format!("failed to make request: {e}")))
             }
         }
     }
@@ -348,9 +348,9 @@ impl HTTPFetcher {
             .headers(self.build_headers())
             .send()
             .await
-            .map_err(|e| Error::Server(format!("failed to make request: {}", e)))?
+            .map_err(|e| Error::Server(format!("failed to make request: {e}")))?
             .error_for_status()
-            .map_err(|e| Error::Server(format!("response: {}", e)))
+            .map_err(|e| Error::Server(format!("response: {e}")))
             .map(Some)
     }
 
@@ -362,8 +362,7 @@ impl HTTPFetcher {
             Ok(Some(resp)) => match resp.json::<source::Document>().await {
                 Ok(doc) => Ok(doc),
                 Err(e) => Err(Error::InvalidJSON(format!(
-                    "failed to parse response body: {}",
-                    e
+                    "failed to parse response body: {e}"
                 ))),
             },
             Ok(None) => return Ok(()),
@@ -386,7 +385,7 @@ impl HTTPFetcher {
             Ok(Some(resp)) => {
                 let reader = StreamReader::new(
                     resp.bytes_stream()
-                        .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err)),
+                        .map_err(|err| std::io::Error::other(err)),
                 );
                 let codec = tokio_util::codec::LinesCodec::new();
                 let frame_reader = tokio_util::codec::FramedRead::new(reader, codec);
@@ -397,11 +396,10 @@ impl HTTPFetcher {
                         Ok(frame) => match serde_json::from_str::<StreamChunk>(&frame) {
                             Ok(result) => Ok(result),
                             Err(e) => Err(Error::InvalidJSON(format!(
-                                "failed to parse response body: {}",
-                                e
+                                "failed to parse response body: {e}"
                             ))),
                         },
-                        Err(e) => Err(Error::Server(format!("failed to read stream chunk: {}", e))),
+                        Err(e) => Err(Error::Server(format!("failed to read stream chunk: {e}"))),
                     })
                     .map(|result| match result {
                         Ok(result) => match result.result.namespaces.into_iter().next() {
@@ -419,8 +417,7 @@ impl HTTPFetcher {
                         Ok(_) => continue,
                         Err(e) => {
                             return Err(Error::Internal(format!(
-                                "failed to send result to engine {}",
-                                e
+                                "failed to send result to engine {e}"
                             )))
                         }
                     }
