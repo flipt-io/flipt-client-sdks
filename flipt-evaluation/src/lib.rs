@@ -520,8 +520,7 @@ fn oneof_number(v: i32, values: &str) -> Result<bool, Error> {
     match serde_json::from_str::<Vec<i32>>(values) {
         Ok(values) => Ok(values.contains(&v)),
         Err(err) => Err(Error::InvalidRequest(format!(
-            "error parsing numbers {}: {}",
-            values, err
+            "error parsing numbers {values}: {err}"
         )))?,
     }
 }
@@ -549,8 +548,7 @@ fn matches_number(
     let v_number = match v.parse::<i32>() {
         Ok(v) => v,
         Err(err) => Err(Error::InvalidRequest(format!(
-            "error parsing number {}: {}",
-            v, err
+            "error parsing number {v}: {err}"
         )))?,
     };
 
@@ -609,8 +607,7 @@ fn matches_boolean(
     let v_bool = match v.parse::<bool>() {
         Ok(v) => v,
         Err(err) => Err(Error::InvalidRequest(format!(
-            "error parsing boolean {}: {}",
-            v, err
+            "error parsing boolean {v}: {err}"
         )))?,
     };
 
@@ -644,8 +641,7 @@ fn matches_datetime(
     let d = match DateTime::parse_from_rfc3339(v) {
         Ok(t) => t.timestamp(),
         Err(e) => Err(Error::InvalidRequest(format!(
-            "error parsing time {}: {}",
-            v, e
+            "error parsing time {v}: {e}"
         )))?,
     };
 
