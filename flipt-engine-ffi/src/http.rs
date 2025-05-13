@@ -383,10 +383,7 @@ impl HTTPFetcher {
 
         match stream_result {
             Ok(Some(resp)) => {
-                let reader = StreamReader::new(
-                    resp.bytes_stream()
-                        .map_err(std::io::Error::other),
-                );
+                let reader = StreamReader::new(resp.bytes_stream().map_err(std::io::Error::other));
                 let codec = tokio_util::codec::LinesCodec::new();
                 let frame_reader = tokio_util::codec::FramedRead::new(reader, codec);
 
