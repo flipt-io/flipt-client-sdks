@@ -157,11 +157,15 @@ impl Engine {
             match fetcher.initial_fetch().await {
                 Ok(doc) => {
                     let snap = Snapshot::build(&namespace_clone, doc);
-                    evaluator_clone.lock().unwrap().replace_snapshot(snap);
+                    if let Ok(mut lock) = evaluator_clone.lock() {
+                        lock.replace_snapshot(snap);
+                    }
                 }
                 Err(err) => {
                     if error_strategy == ErrorStrategy::Fail {
-                        evaluator_clone.lock().unwrap().replace_snapshot(Err(err));
+                        if let Ok(mut lock) = evaluator_clone.lock() {
+                            lock.replace_snapshot(Err(err));
+                        }
                     }
                 }
             }
@@ -174,11 +178,15 @@ impl Engine {
                 match res {
                     Ok(doc) => {
                         let snap = Snapshot::build(&namespace_clone, doc);
-                        evaluator_clone.lock().unwrap().replace_snapshot(snap);
+                        if let Ok(mut lock) = evaluator_clone.lock() {
+                            lock.replace_snapshot(snap);
+                        }
                     }
                     Err(err) => {
                         if error_strategy == ErrorStrategy::Fail {
-                            evaluator_clone.lock().unwrap().replace_snapshot(Err(err));
+                            if let Ok(mut lock) = evaluator_clone.lock() {
+                                lock.replace_snapshot(Err(err));
+                            }
                         }
                     }
                 }
@@ -197,8 +205,9 @@ impl Engine {
         evaluation_request: &EvaluationRequest,
     ) -> Result<VariantEvaluationResponse, Error> {
         let binding = self.evaluator.clone();
-        let lock = binding.lock().unwrap();
-
+        let lock = binding
+            .lock()
+            .map_err(|_| Error::Internal("lock poisoned".to_string()))?;
         lock.variant(evaluation_request)
     }
 
@@ -207,8 +216,9 @@ impl Engine {
         evaluation_request: &EvaluationRequest,
     ) -> Result<BooleanEvaluationResponse, Error> {
         let binding = self.evaluator.clone();
-        let lock = binding.lock().unwrap();
-
+        let lock = binding
+            .lock()
+            .map_err(|_| Error::Internal("lock poisoned".to_string()))?;
         lock.boolean(evaluation_request)
     }
 
@@ -217,27 +227,33 @@ impl Engine {
         batch_evaluation_request: Vec<EvaluationRequest>,
     ) -> Result<BatchEvaluationResponse, Error> {
         let binding = self.evaluator.clone();
-        let lock = binding.lock().unwrap();
-
+        let lock = binding
+            .lock()
+            .map_err(|_| Error::Internal("lock poisoned".to_string()))?;
         lock.batch(batch_evaluation_request)
     }
 
     pub fn list_flags(&self) -> Result<Vec<flipt::Flag>, Error> {
         let binding = self.evaluator.clone();
-        let lock = binding.lock().unwrap();
-
+        let lock = binding
+            .lock()
+            .map_err(|_| Error::Internal("lock poisoned".to_string()))?;
         lock.list_flags()
     }
 
-    pub fn set_snapshot(&self, snapshot: Snapshot) {
+    pub fn set_snapshot(&self, snapshot: Snapshot) -> Result<(), Error> {
         self.evaluator
             .lock()
-            .unwrap()
+            .map_err(|_| Error::Internal("failed to acquire lock".to_string()))?
             .replace_snapshot(Ok(snapshot));
+        Ok(())
     }
 
     pub fn get_snapshot(&self) -> Result<Snapshot, Error> {
-        self.evaluator.lock().unwrap().get_snapshot()
+        self.evaluator
+            .lock()
+            .map_err(|_| Error::Internal("failed to acquire lock".to_string()))?
+            .get_snapshot()
     }
 }
 
@@ -532,15 +548,16 @@ unsafe extern "C" fn _set_snapshot(
         Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
     };
 
-    e.set_snapshot(snap);
-
-    result_to_json_ptr::<(), std::convert::Infallible>(Ok(()))
+    match e.set_snapshot(snap) {
+        Ok(()) => result_to_json_ptr::<(), std::convert::Infallible>(Ok(())),
+        Err(err) => result_to_json_ptr::<(), _>(Err(err)),
+    }
 }
 
 unsafe extern "C" fn _get_snapshot(engine_ptr: *mut c_void) -> *const c_char {
     let e = match get_engine(engine_ptr) {
         Ok(e) => e,
-        Err(e) => return result_to_json_ptr::<(), FFIError>(Err(e)),
+        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
     };
 
     let snapshot_result = e.get_snapshot();
@@ -550,11 +567,24 @@ unsafe extern "C" fn _get_snapshot(engine_ptr: *mut c_void) -> *const c_char {
             Ok(s) => s,
             Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
         },
-        Err(e) => return result_to_json_ptr::<(), _>(Err(e.clone())),
+        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
     };
 
-    // Return as a C string
-    CString::new(json).unwrap().into_raw()
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(e) => {
+            let err = format!("CString conversion failed: {}", e);
+            let err_json = serde_json::to_string(&FFIResponse::<()> {
+                status: Status::Failure,
+                result: None,
+                error_message: Some(err),
+            })
+            .unwrap_or_else(|_| {
+                "{\"status\":\"failure\",\"error_message\":\"Unknown error\"}".to_string()
+            });
+            CString::new(err_json).unwrap().into_raw()
+        }
+    }
 }
 
 unsafe extern "C" fn _evaluate_variant(
