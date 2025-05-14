@@ -43,6 +43,14 @@ impl Evaluator<Snapshot> {
         }
     }
 
+    pub fn get_snapshot(&self) -> Result<Snapshot, Error> {
+        let _r_lock = self.mtx.read().unwrap();
+        if let Some(error) = &self.error {
+            return Err(error.clone());
+        }
+        Ok(self.store.clone())
+    }
+
     pub fn list_flags(&self) -> Result<Vec<flipt::Flag>, Error> {
         let _r_lock = self.mtx.read().unwrap();
         if let Some(error) = &self.error {
@@ -179,5 +187,15 @@ mod tests {
         }];
         let response = evaluator.batch(requests);
         assert_error_response(response, "unknown error: error");
+    }
+
+    #[test]
+    fn test_get_snapshot() {
+        let mut evaluator = Evaluator::new("namespace");
+        let snapshot = Snapshot::empty("namespace");
+        evaluator.replace_snapshot(Ok(snapshot.clone()));
+        let result = evaluator.get_snapshot();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), snapshot);
     }
 }
