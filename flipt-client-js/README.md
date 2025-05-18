@@ -135,7 +135,16 @@ To disable ETag support, you can implement a [custom fetcher](#custom-fetcher) t
 
 ## Slim Module
 
-For environments like Cloudflare Workers, Node.js, or anywhere you want to provide your own WASM binary, we provide a "slim" version of the client that allows you to explicitly provide the WASM module.
+The `slim` module is designed for advanced or non-standard environments where you need full control over how the WASM binary is loaded. Unlike the default client, which tries to load the WASM file automatically, the slim client requires you to explicitly provide the WASM file (as a URL, buffer, etc.).
+
+**Why use the slim module?**
+
+- **Edge/Serverless/Custom Environments:** Some platforms (like Cloudflare Workers, Vercel Edge, or certain Node.js setups) restrict how files are loaded or bundled. The slim client lets you load the WASM file in a way that works for your environment.
+- **Full Control:** You decide how and when the WASM file is loaded—fetch from a CDN, load from disk, or use a custom loader.
+- **Compatibility:** The slim client removes all assumptions about WASM loading, making it compatible with any environment where you can provide the WASM binary.
+- **Bundle Size:** The slim build may exclude some code related to WASM loading, making it lighter and more tree-shakable for certain use cases.
+
+If you are using a standard browser app with a bundler, the default client is usually easier. For edge, serverless, or custom setups, the slim client is the right tool.
 
 ### Using the `@flipt-io/flipt-client-js/slim` Module
 
