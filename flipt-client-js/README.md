@@ -135,125 +135,113 @@ To disable ETag support, you can implement a [custom fetcher](#custom-fetcher) t
 
 ## Slim Module
 
-For environments like Cloudflare Workers where WebAssembly.compile is not supported, we provide a "slim" version of the client that allows you to explicitly provide the WASM module.
+For environments like Cloudflare Workers, Node.js, or anywhere you want to provide your own WASM binary, we provide a "slim" version of the client that allows you to explicitly provide the WASM module.
 
-### Using the Slim Client
+### Using the `@flipt-io/flipt-client-js/slim` Module
 
-The slim client requires you to explicitly provide the WASM module when initializing the client. This gives you more control over how the WASM is loaded, which is essential for edge environments with specific limitations.
+The `slim` build of the FliptClient is designed for environments where you want to provide your own WASM binary, such as modern browsers (with a bundler) or Node.js.
 
-#### Direct Import (Recommended)
+#### Browser Usage (with a Bundler like Vite, Webpack, etc.)
 
-The simplest approach is to directly import the WASM file using the package export path:
+1. **Import and initialize the client:**
 
-```js
-// Works in all environments (Node.js, browsers, edge functions)
-import { FliptClient } from '@flipt-io/flipt-client-js/slim';
-import wasm from '@flipt-io/flipt-client-js/engine.wasm';
+   ```ts
+   import { FliptClient } from '@flipt-io/flipt-client-js/slim';
+   import wasmUrl from '@flipt-io/flipt-client-js/engine.wasm?url';
 
-const client = await FliptClient.init(
-  {
-    namespace: 'default',
-    url: 'https://flipt.example.com'
-  },
-  { wasm }
-);
+   async function main() {
+     const client = await FliptClient.init(
+       {
+         namespace: 'default',
+         url: 'http://localhost:8080'
+       },
+       { wasm: wasmUrl }
+     );
 
-// Use the client as normal
-const result = client.evaluateBoolean({
-  flagKey: 'my-flag',
-  entityId: 'user-123',
-  context: { country: 'US' }
-});
-```
+     // Use the client as normal
+     const result = client.evaluateBoolean({
+       flagKey: 'my-flag',
+       entityId: 'user-123',
+       context: { country: 'US' }
+     });
 
-#### Cloudflare Workers Example
+     console.log(result);
+   }
 
-When using Cloudflare Workers with Webpack or a similar bundler:
+   main();
+   ```
 
-```js
-import { FliptClient } from '@flipt-io/flipt-client-js/slim';
-import wasm from '@flipt-io/flipt-client-js/engine.wasm';
+   - **Note:** If your bundler supports importing JS proxies for assets, you can also use:
 
-export default {
-  async fetch(request, env, ctx) {
-    // Initialize the client with the WASM module
-    const client = await FliptClient.init(
-      {
-        namespace: 'default',
-        url: 'https://flipt.example.com'
-      },
-      { wasm }
-    );
+     ```js
+     import wasmUrl from '@flipt-io/flipt-client-js/engine.wasm';
+     ```
 
-    // Use the client as normal
-    const result = client.evaluateBoolean({
-      flagKey: 'my-flag',
-      entityId: 'user-123',
-      context: { country: 'US' }
-    });
+     Otherwise, use the `?url` syntax for maximum compatibility.
 
-    return new Response(result.enabled ? 'Flag enabled' : 'Flag disabled');
-  }
-};
-```
+2. **Ensure your bundler is configured to handle `.wasm` files.**
+   - For Vite, this works out of the box.
+   - For Webpack, you may need to add a rule for `.wasm` files.
 
-#### Next.js Edge Runtime Example
+---
 
-Using the slim client with Next.js Edge Runtime (middleware or edge API routes):
+#### Node.js Usage
 
-```js
-// middleware.js or an Edge API Route
-import { FliptClient } from '@flipt-io/flipt-client-js/slim';
-import wasm from '@flipt-io/flipt-client-js/engine.wasm';
-import { NextResponse } from 'next/server';
+1. **Import and initialize the client:**
 
-export const config = {
-  runtime: 'edge'
-};
+   ```ts
+   import { FliptClient } from '@flipt-io/flipt-client-js/slim';
+   import { readFileSync } from 'fs';
+   import path from 'path';
+   import { fileURLToPath } from 'url';
 
-export default async function middleware(req) {
-  // Initialize the client with the WASM module
-  const client = await FliptClient.init(
-    {
-      namespace: 'default',
-      url: process.env.FLIPT_URL || 'https://flipt.example.com',
-      authentication: {
-        clientToken: process.env.FLIPT_TOKEN
-      }
-    },
-    { wasm }
-  );
+   // Resolve the path to the WASM file
+   const __filename = fileURLToPath(import.meta.url);
+   const __dirname = path.dirname(__filename);
+   const wasmPath = path.join(
+     __dirname,
+     '../node_modules/@flipt-io/flipt-client-js/engine.wasm'
+   );
+   const wasmBuffer = readFileSync(wasmPath);
 
-  // Use the client to evaluate a flag
-  const result = client.evaluateBoolean({
-    flagKey: 'my-edge-feature',
-    entityId: 'user-123',
-    context: {
-      path: req.nextUrl.pathname,
-      country: req.geo?.country || 'unknown'
-    }
-  });
+   async function main() {
+     const client = await FliptClient.init(
+       {
+         namespace: 'default',
+         url: 'http://localhost:8080'
+       },
+       { wasm: wasmBuffer }
+     );
 
-  // Use the flag result to make decisions
-  if (result.enabled) {
-    if (req.nextUrl.pathname.startsWith('/api/')) {
-      // For API routes, modify the response
-      return new Response(JSON.stringify({ featureEnabled: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } else {
-      // For page routes, redirect or rewrite
-      const url = req.nextUrl.clone();
-      url.pathname = '/new-experience';
-      return NextResponse.rewrite(url);
-    }
-  }
+     // Use the client as normal
+     const result = client.evaluateBoolean({
+       flagKey: 'my-flag',
+       entityId: 'user-123',
+       context: { country: 'US' }
+     });
 
-  // Continue normal request handling
-  return NextResponse.next();
-}
-```
+     console.log(result);
+   }
+
+   main();
+   ```
+
+   - **Note:** In Node.js, you must load the WASM file as a buffer using `fs.readFileSync`.
+
+2. **Run your script with a loader that supports ESM and top-level await, such as `ts-node` or `tsx`:**
+
+   ```sh
+   npx tsx src/index.ts
+   ```
+
+---
+
+### Additional Notes
+
+- The `slim` build requires you to provide the WASM binary via the `wasm` option.
+- For browser usage, pass the URL to the WASM file (using your bundler's asset handling).
+- For Node.js, pass the WASM file as a buffer.
+- Make sure your environment supports top-level `await` or wrap your code in an async function.
 
 ## Development
 
