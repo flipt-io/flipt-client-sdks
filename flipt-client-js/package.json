@@ -41,7 +41,10 @@
       "import": "./dist/slim/index.mjs",
       "require": "./dist/slim/index.cjs"
     },
-    "./engine.wasm": "./dist/flipt_engine_wasm_js_bg.wasm"
+    "./engine.wasm": {
+      "import": "./engine.wasm.js",
+      "default": "./dist/flipt_engine_wasm_js_bg.wasm"
+    }
   },
   "typesVersions": {
     "*": {
@@ -61,6 +64,7 @@
   },
   "files": [
     "dist",
+    "engine.wasm.js",
     "README.md"
   ],
   "scripts": {
