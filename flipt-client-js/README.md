@@ -156,7 +156,7 @@ The `slim` build of the FliptClient is designed for environments where you want 
 
    ```ts
    import { FliptClient } from '@flipt-io/flipt-client-js/slim';
-   import wasmUrl from '@flipt-io/flipt-client-js/engine.wasm?url';
+   import wasmUrl from '@flipt-io/flipt-client-js/engine.wasm';
 
    async function main() {
      const client = await FliptClient.init(
@@ -179,14 +179,6 @@ The `slim` build of the FliptClient is designed for environments where you want 
 
    main();
    ```
-
-   - **Note:** If your bundler supports importing JS proxies for assets, you can also use:
-
-     ```js
-     import wasmUrl from '@flipt-io/flipt-client-js/engine.wasm';
-     ```
-
-     Otherwise, use the `?url` syntax for maximum compatibility.
 
 2. **Ensure your bundler is configured to handle `.wasm` files.**
    - For Vite, this works out of the box.
