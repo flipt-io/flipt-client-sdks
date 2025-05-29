@@ -16,7 +16,8 @@ pub struct Flag {
 pub struct Variant {
     pub id: String,
     pub key: String,
-    pub attachment: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attachment: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -42,14 +43,17 @@ pub struct EvaluationDistribution {
     pub rule_id: String,
     pub rollout: f32,
     pub variant_key: String,
-    pub variant_attachment: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub variant_attachment: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct EvaluationRollout {
     pub rollout_type: RolloutType,
     pub rank: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub segment: Option<RolloutSegment>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub threshold: Option<RolloutThreshold>,
 }
 

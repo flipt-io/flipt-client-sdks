@@ -1,0 +1,9 @@
+{
+    "namespace": {
+        "key": "default",
+        "flags": {},
+        "eval_rules": {},
+        "eval_rollouts": {},
+        "eval_distributions": {}
+    }
+}

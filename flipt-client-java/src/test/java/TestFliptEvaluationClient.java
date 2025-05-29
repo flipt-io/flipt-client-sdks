@@ -3,12 +3,30 @@ import io.flipt.client.models.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.io.IOException;
+import java.time.Duration;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.skyscreamer.jsonassert.JSONAssert;
+import org.skyscreamer.jsonassert.JSONCompareMode;
 
 public class TestFliptEvaluationClient {
+  private static final String SNAPSHOT = readResourceFile("snapshot.json");
+  private static final String EMPTY_SNAPSHOT = readResourceFile("empty_snapshot.json");
+
+  private static String readResourceFile(String filename) {
+      try {
+          return new String(Files.readAllBytes(Paths.get("src/test/resources/" + filename)));
+      } catch (IOException e) {
+          throw new RuntimeException("Failed to read resource file: " + filename, e);
+      }
+  }
+
   private static FliptEvaluationClient fliptClient;
 
   @BeforeAll
@@ -22,6 +40,7 @@ public class TestFliptEvaluationClient {
         FliptEvaluationClient.builder()
             .url(fliptURL)
             .authentication(new ClientTokenAuthentication(clientToken))
+            .updateInterval(Duration.ofMinutes(5))
             .build();
   }
 
@@ -129,6 +148,21 @@ public class TestFliptEvaluationClient {
   void testListFlags() throws Exception {
     ArrayList<Flag> flags = fliptClient.listFlags();
     Assertions.assertEquals(2, flags.size());
+  }
+
+  @Test
+  void testGetSnapshot() throws Exception {
+    String snapshot = fliptClient.getSnapshot();
+    Assertions.assertNotNull(snapshot);
+    JSONAssert.assertEquals(SNAPSHOT, snapshot, JSONCompareMode.LENIENT);
+  }
+
+  @Test
+  void testSetGetSnapshot() throws Exception {
+    Result<String> result = fliptClient.setSnapshot(EMPTY_SNAPSHOT);
+    Assertions.assertEquals("success", result.getStatus());
+    Thread.sleep(100);
+    JSONAssert.assertEquals(EMPTY_SNAPSHOT, fliptClient.getSnapshot(), JSONCompareMode.LENIENT);
   }
 
   @AfterAll

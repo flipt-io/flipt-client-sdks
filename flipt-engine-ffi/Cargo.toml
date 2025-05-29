@@ -31,3 +31,6 @@ path = "../flipt-evaluation"
 [dev-dependencies]
 mockall = "0.13.0"
 mockito = "1.4.0"
+
+[build-dependencies]
+cbindgen = "0.24.0"

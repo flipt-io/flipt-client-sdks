@@ -35,7 +35,7 @@ pub struct Snapshot {
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 struct Namespace {
-    _key: String,
+    key: String,
     flags: HashMap<String, flipt::Flag>,
     eval_rules: HashMap<String, Vec<flipt::EvaluationRule>>,
     eval_rollouts: HashMap<String, Vec<flipt::EvaluationRollout>>,
@@ -46,7 +46,7 @@ impl Snapshot {
     pub fn empty(namespace: &str) -> Snapshot {
         Self {
             namespace: Namespace {
-                _key: namespace.to_string(),
+                key: namespace.to_string(),
                 flags: HashMap::new(),
                 eval_rules: HashMap::new(),
                 eval_rollouts: HashMap::new(),
@@ -206,7 +206,7 @@ impl Snapshot {
 
         Ok(Self {
             namespace: Namespace {
-                _key: namespace.to_string(),
+                key: namespace.to_string(),
                 flags,
                 eval_rules,
                 eval_rollouts,
@@ -218,7 +218,7 @@ impl Snapshot {
 
 impl Store for Snapshot {
     fn list_flags(&self, namespace_key: &str) -> Option<Vec<flipt::Flag>> {
-        if self.namespace._key != namespace_key {
+        if self.namespace.key != namespace_key {
             return None;
         }
 
@@ -228,7 +228,7 @@ impl Store for Snapshot {
     }
 
     fn get_flag(&self, namespace_key: &str, flag_key: &str) -> Option<flipt::Flag> {
-        if self.namespace._key != namespace_key {
+        if self.namespace.key != namespace_key {
             return None;
         }
 
@@ -242,7 +242,7 @@ impl Store for Snapshot {
         namespace_key: &str,
         flag_key: &str,
     ) -> Option<Vec<flipt::EvaluationRule>> {
-        if self.namespace._key != namespace_key {
+        if self.namespace.key != namespace_key {
             return None;
         }
 
@@ -256,7 +256,7 @@ impl Store for Snapshot {
         namespace_key: &str,
         rule_id: &str,
     ) -> Option<Vec<flipt::EvaluationDistribution>> {
-        if self.namespace._key != namespace_key {
+        if self.namespace.key != namespace_key {
             return None;
         }
 
@@ -270,7 +270,7 @@ impl Store for Snapshot {
         namespace_key: &str,
         flag_key: &str,
     ) -> Option<Vec<flipt::EvaluationRollout>> {
-        if self.namespace._key != namespace_key {
+        if self.namespace.key != namespace_key {
             return None;
         }
 
@@ -436,7 +436,7 @@ mod tests {
     fn test_empty_snapshot() {
         let snapshot = Snapshot::empty("staging");
         let namespace = snapshot.namespace;
-        assert_eq!("staging", namespace._key);
+        assert_eq!("staging", namespace.key);
         assert_eq!(0, namespace.flags.len());
         assert_eq!(0, namespace.eval_rules.len());
         assert_eq!(0, namespace.eval_distributions.len());
