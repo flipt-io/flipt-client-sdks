@@ -54,7 +54,7 @@ class VariantEvaluationResponse(BaseModel):
     reason: str
     flag_key: str
     variant_key: str
-    variant_attachment: str
+    variant_attachment: Optional[str] = None
     request_duration_millis: float
     timestamp: str
 
