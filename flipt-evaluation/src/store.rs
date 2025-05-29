@@ -4,6 +4,7 @@ use crate::models::source;
 
 #[cfg(test)]
 use mockall::automock;
+use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -28,13 +29,13 @@ pub trait Store {
     ) -> Option<Vec<flipt::EvaluationRollout>>;
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Snapshot {
     version: u32,
     namespace: Namespace,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 struct Namespace {
     key: String,
     flags: HashMap<String, flipt::Flag>,

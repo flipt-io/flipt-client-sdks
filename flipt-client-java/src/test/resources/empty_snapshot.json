@@ -2,6 +2,9 @@
     "version": 1,
     "namespace": {
         "key": "default",
-        "flags": {}
+        "flags": {},
+        "eval_rules": {},
+        "eval_rollouts": {},
+        "eval_distributions": {}
     }
 }

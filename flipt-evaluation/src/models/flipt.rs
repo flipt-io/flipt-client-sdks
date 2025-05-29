@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Clone, Debug, Serialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Flag {
     pub key: String,
     pub enabled: bool,
@@ -12,7 +12,7 @@ pub struct Flag {
     pub default_variant: Option<Variant>,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Variant {
     pub id: String,
     pub key: String,
@@ -29,7 +29,7 @@ pub struct Constraint {
     pub value: String,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct EvaluationRule {
     pub id: String,
     pub flag_key: String,
@@ -38,7 +38,7 @@ pub struct EvaluationRule {
     pub segment_operator: SegmentOperator,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct EvaluationDistribution {
     pub rule_id: String,
     pub rollout: f32,
@@ -47,7 +47,7 @@ pub struct EvaluationDistribution {
     pub variant_attachment: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct EvaluationRollout {
     pub rollout_type: RolloutType,
     pub rank: usize,
@@ -57,27 +57,27 @@ pub struct EvaluationRollout {
     pub threshold: Option<RolloutThreshold>,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct RolloutThreshold {
     pub percentage: f32,
     pub value: bool,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct RolloutSegment {
     pub value: bool,
     pub segment_operator: SegmentOperator,
     pub segments: HashMap<String, EvaluationSegment>,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct EvaluationSegment {
     pub segment_key: String,
     pub match_type: SegmentMatchType,
     pub constraints: Vec<EvaluationConstraint>,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct EvaluationConstraint {
     pub r#type: ConstraintComparisonType,
     pub property: String,
@@ -85,7 +85,7 @@ pub struct EvaluationConstraint {
     pub value: String,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub enum FlagType {
     #[serde(rename = "BOOLEAN_FLAG_TYPE")]
     Boolean,
@@ -95,7 +95,7 @@ pub enum FlagType {
     Variant,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub enum SegmentOperator {
     #[serde(rename = "AND_SEGMENT_OPERATOR")]
     And,
@@ -105,7 +105,7 @@ pub enum SegmentOperator {
     Or,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub enum SegmentMatchType {
     #[serde(rename = "ALL_SEGMENT_MATCH_TYPE")]
     All,
@@ -115,7 +115,7 @@ pub enum SegmentMatchType {
     Any,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub enum ConstraintComparisonType {
     #[serde(rename = "STRING_CONSTRAINT_COMPARISON_TYPE")]
     String,
@@ -133,7 +133,7 @@ pub enum ConstraintComparisonType {
     Unknown,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub enum RolloutType {
     #[serde(rename = "SEGMENT_ROLLOUT_TYPE")]
     Segment,
@@ -145,7 +145,7 @@ pub enum RolloutType {
     Unknown,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub enum EvaluationReason {
     #[serde(rename = "FLAG_DISABLED_EVALUATION_REASON")]
     FlagDisabled,
@@ -159,7 +159,7 @@ pub enum EvaluationReason {
     Unknown,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum ErrorEvaluationReason {
     #[serde(rename = "UNKNOWN_ERROR_EVALUATION_REASON")]
     Unknown,
@@ -167,7 +167,7 @@ pub enum ErrorEvaluationReason {
     NotFound,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum ResponseType {
     #[serde(rename = "VARIANT_EVALUATION_RESPONSE_TYPE")]
     Variant,
