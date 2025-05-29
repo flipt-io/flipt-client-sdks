@@ -111,7 +111,6 @@ impl Default for EngineOpts {
 }
 
 pub struct Engine {
-    namespace: String,
     evaluator: Arc<Mutex<Evaluator<Snapshot>>>,
     stop_signal: Arc<AtomicBool>,
 }
@@ -194,7 +193,6 @@ impl Engine {
         });
 
         Self {
-            namespace: namespace.to_string(),
             evaluator,
             stop_signal,
         }
