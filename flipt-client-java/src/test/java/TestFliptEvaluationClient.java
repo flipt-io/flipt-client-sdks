@@ -7,9 +7,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.skyscreamer.jsonassert.JSONAssert;
 import org.skyscreamer.jsonassert.JSONCompareMode;
@@ -28,8 +28,8 @@ public class TestFliptEvaluationClient {
 
   private static FliptEvaluationClient fliptClient;
 
-  @BeforeAll
-  static void initAll() throws Exception {
+  @BeforeEach
+  void init() throws Exception {
     String fliptURL = System.getenv().get("FLIPT_URL");
     String clientToken = System.getenv().get("FLIPT_AUTH_TOKEN");
 
@@ -162,8 +162,8 @@ public class TestFliptEvaluationClient {
     JSONAssert.assertEquals(EMPTY_SNAPSHOT, fliptClient.getSnapshot(), JSONCompareMode.LENIENT);
   }
 
-  @AfterAll
-  static void tearDownAll() throws Exception {
+  @AfterEach
+  void tearDown() throws Exception {
     if (fliptClient != null) fliptClient.close();
   }
 }
