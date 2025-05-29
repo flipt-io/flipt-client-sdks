@@ -39,7 +39,6 @@ public class TestFliptEvaluationClient {
         FliptEvaluationClient.builder()
             .url(fliptURL)
             .authentication(new ClientTokenAuthentication(clientToken))
-            .updateInterval(Duration.ofMinutes(5))
             .build();
   }
 
