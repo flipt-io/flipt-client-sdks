@@ -1,13 +1,12 @@
 import io.flipt.client.FliptEvaluationClient;
 import io.flipt.client.models.*;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.io.IOException;
-import java.time.Duration;
-
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -20,11 +19,11 @@ public class TestFliptEvaluationClient {
   private static final String EMPTY_SNAPSHOT = readResourceFile("empty_snapshot.json");
 
   private static String readResourceFile(String filename) {
-      try {
-          return new String(Files.readAllBytes(Paths.get("src/test/resources/" + filename)));
-      } catch (IOException e) {
-          throw new RuntimeException("Failed to read resource file: " + filename, e);
-      }
+    try {
+      return new String(Files.readAllBytes(Paths.get("src/test/resources/" + filename)));
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to read resource file: " + filename, e);
+    }
   }
 
   private static FliptEvaluationClient fliptClient;
