@@ -356,11 +356,15 @@ public class FliptEvaluationClient {
    * setSnapshot sets the snapshot for the Flipt client.
    *
    * @param snapshot the snapshot to set
+   * @throws EvaluationException if the snapshot could not be set
    */
-  public Result<String> setSnapshot(String snapshot) throws EvaluationException {
+  public void setSnapshot(String snapshot) throws EvaluationException {
     Pointer value = CLibrary.INSTANCE.set_snapshot(this.engine, snapshot);
     TypeReference<Result<String>> typeRef = new TypeReference<Result<String>>() {};
-    return readValue(value, typeRef);
+    Result<String> resp = this.readValue(value, typeRef);
+    if (!FliptEvaluationClient.STATUS_SUCCESS.equals(resp.getStatus())) {
+      throw new EvaluationException(resp.getErrorMessage().get());
+    }
   }
 
   /**

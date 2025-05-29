@@ -158,8 +158,7 @@ public class TestFliptEvaluationClient {
 
   @Test
   void testSetGetSnapshot() throws Exception {
-    Result<String> result = fliptClient.setSnapshot(EMPTY_SNAPSHOT);
-    Assertions.assertEquals("success", result.getStatus());
+    fliptClient.setSnapshot(EMPTY_SNAPSHOT);
     Thread.sleep(100);
     JSONAssert.assertEquals(EMPTY_SNAPSHOT, fliptClient.getSnapshot(), JSONCompareMode.LENIENT);
   }

@@ -30,6 +30,7 @@ pub trait Store {
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct Snapshot {
+    version: u32,
     namespace: Namespace,
 }
 
@@ -45,6 +46,7 @@ struct Namespace {
 impl Snapshot {
     pub fn empty(namespace: &str) -> Snapshot {
         Self {
+            version: 1,
             namespace: Namespace {
                 key: namespace.to_string(),
                 flags: HashMap::new(),
@@ -205,6 +207,7 @@ impl Snapshot {
         }
 
         Ok(Self {
+            version: 1,
             namespace: Namespace {
                 key: namespace.to_string(),
                 flags,
@@ -329,6 +332,8 @@ mod tests {
 
         let snapshot = Snapshot::build("default", doc.unwrap()).unwrap();
 
+        assert_eq!(1, snapshot.version);
+
         let flag_variant = snapshot
             .get_flag("default", "flag1")
             .expect("flag1 should exist");
@@ -435,6 +440,7 @@ mod tests {
     #[test]
     fn test_empty_snapshot() {
         let snapshot = Snapshot::empty("staging");
+        assert_eq!(1, snapshot.version);
         let namespace = snapshot.namespace;
         assert_eq!("staging", namespace.key);
         assert_eq!(0, namespace.flags.len());
