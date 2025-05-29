@@ -530,12 +530,8 @@ unsafe extern "C" fn _set_snapshot(
         Err(e) => return result_to_json_ptr::<(), Utf8Error>(Err(e)),
     };
 
-    let doc: fliptevaluation::models::source::Document = match serde_json::from_str(snapshot_str) {
-        Ok(doc) => doc,
-        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
-    };
-
-    let snap = match fliptevaluation::store::Snapshot::build(&e.namespace, doc) {
+    // TODO: We should probably move this snapshot to models
+    let snap: fliptevaluation::store::Snapshot = match serde_json::from_str(snapshot_str) {
         Ok(snap) => snap,
         Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
     };
