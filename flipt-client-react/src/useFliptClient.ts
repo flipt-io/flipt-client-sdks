@@ -1,12 +1,12 @@
 import {
   useContext,
-  useSyncExternalStore,
   useCallback,
   createContext,
   useEffect,
   useRef,
   useMemo
 } from 'react';
+import { useSyncExternalStore } from 'use-sync-external-store/shim';
 import type { FliptClient, ClientOptions } from '@flipt-io/flipt-client-js';
 
 export interface FliptClientHook {
