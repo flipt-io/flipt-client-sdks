@@ -12,7 +12,7 @@ npm install @flipt-io/flipt-client-react
 
 ## Prerequisites
 
-- React 18.0 or higher
+- React 16.8.0 or higher
 
 ## Usage
 
