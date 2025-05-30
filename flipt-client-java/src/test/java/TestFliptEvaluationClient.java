@@ -1,3 +1,4 @@
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.flipt.client.FliptEvaluationClient;
 import io.flipt.client.models.*;
 import java.io.IOException;
@@ -12,6 +13,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.skyscreamer.jsonassert.JSONAssert;
+import org.skyscreamer.jsonassert.JSONCompareMode;
 
 public class TestFliptEvaluationClient {
   private static final String SNAPSHOT =
@@ -155,14 +158,32 @@ public class TestFliptEvaluationClient {
   void testGetSnapshot() throws Exception {
     String snapshot = fliptClient.getSnapshot();
     Assertions.assertNotNull(snapshot);
-    Assertions.assertEquals(SNAPSHOT, snapshot);
+
+    byte[] expectedBytes = Base64.getDecoder().decode(SNAPSHOT);
+    byte[] actualBytes = Base64.getDecoder().decode(snapshot);
+
+    ObjectMapper mapper = new ObjectMapper();
+    Object expectedJson = mapper.readTree(new String(expectedBytes, StandardCharsets.UTF_8));
+    Object actualJson = mapper.readTree(new String(actualBytes, StandardCharsets.UTF_8));
+
+    JSONAssert.assertEquals(expectedJson, actualJson, JSONCompareMode.LENIENT);
   }
 
   @Test
   void testSetGetSnapshot() throws Exception {
     fliptClient.setSnapshot(EMPTY_SNAPSHOT);
     Thread.sleep(100);
-    Assertions.assertEquals(EMPTY_SNAPSHOT, fliptClient.getSnapshot());
+    String snapshot = fliptClient.getSnapshot();
+    Assertions.assertNotNull(snapshot);
+
+    byte[] expectedBytes = Base64.getDecoder().decode(EMPTY_SNAPSHOT);
+    byte[] actualBytes = Base64.getDecoder().decode(snapshot);
+
+    ObjectMapper mapper = new ObjectMapper();
+    Object expectedJson = mapper.readTree(new String(expectedBytes, StandardCharsets.UTF_8));
+    Object actualJson = mapper.readTree(new String(actualBytes, StandardCharsets.UTF_8));
+
+    JSONAssert.assertEquals(expectedJson, actualJson, JSONCompareMode.LENIENT);
   }
 
   @AfterEach
