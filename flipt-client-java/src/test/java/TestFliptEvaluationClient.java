@@ -1,21 +1,25 @@
 import io.flipt.client.FliptEvaluationClient;
 import io.flipt.client.models.*;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.skyscreamer.jsonassert.JSONAssert;
-import org.skyscreamer.jsonassert.JSONCompareMode;
 
 public class TestFliptEvaluationClient {
-  private static final String SNAPSHOT = readResourceFile("snapshot.json");
-  private static final String EMPTY_SNAPSHOT = readResourceFile("empty_snapshot.json");
+  private static final String SNAPSHOT =
+      Base64.getEncoder()
+          .encodeToString(readResourceFile("snapshot.json").getBytes(StandardCharsets.UTF_8));
+  private static final String EMPTY_SNAPSHOT =
+      Base64.getEncoder()
+          .encodeToString(readResourceFile("empty_snapshot.json").getBytes(StandardCharsets.UTF_8));
 
   private static String readResourceFile(String filename) {
     try {
@@ -151,14 +155,14 @@ public class TestFliptEvaluationClient {
   void testGetSnapshot() throws Exception {
     String snapshot = fliptClient.getSnapshot();
     Assertions.assertNotNull(snapshot);
-    JSONAssert.assertEquals(SNAPSHOT, snapshot, JSONCompareMode.LENIENT);
+    Assertions.assertEquals(SNAPSHOT, snapshot);
   }
 
   @Test
   void testSetGetSnapshot() throws Exception {
     fliptClient.setSnapshot(EMPTY_SNAPSHOT);
     Thread.sleep(100);
-    JSONAssert.assertEquals(EMPTY_SNAPSHOT, fliptClient.getSnapshot(), JSONCompareMode.LENIENT);
+    Assertions.assertEquals(EMPTY_SNAPSHOT, fliptClient.getSnapshot());
   }
 
   @AfterEach
