@@ -3,8 +3,7 @@ pub mod http;
 
 use evaluator::Evaluator;
 use fliptevaluation::error::Error;
-use fliptevaluation::models::flipt;
-use fliptevaluation::store::Snapshot;
+use fliptevaluation::models::{flipt, snapshot};
 use fliptevaluation::{
     BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
     VariantEvaluationResponse,
@@ -111,7 +110,7 @@ impl Default for EngineOpts {
 }
 
 pub struct Engine {
-    evaluator: Arc<Mutex<Evaluator<Snapshot>>>,
+    evaluator: Arc<Mutex<Evaluator<snapshot::Snapshot>>>,
     stop_signal: Arc<AtomicBool>,
 }
 
@@ -138,7 +137,7 @@ impl Engine {
     pub fn new(
         namespace: &str,
         mut fetcher: HTTPFetcher,
-        evaluator: Evaluator<Snapshot>,
+        evaluator: Evaluator<snapshot::Snapshot>,
         error_strategy: ErrorStrategy,
     ) -> Self {
         let stop_signal = Arc::new(AtomicBool::new(false));
@@ -155,9 +154,9 @@ impl Engine {
         handle.block_on(async {
             match fetcher.initial_fetch().await {
                 Ok(doc) => {
-                    let snap = Snapshot::build(&namespace_clone, doc);
+                    let snap = snapshot::Snapshot::build(&namespace_clone, doc);
                     if let Ok(mut lock) = evaluator_clone.lock() {
-                        lock.replace_snapshot(snap);
+                        lock.replace_snapshot(Ok(snap));
                     }
                 }
                 Err(err) => {
@@ -176,9 +175,9 @@ impl Engine {
             while let Some(res) = rx.recv().await {
                 match res {
                     Ok(doc) => {
-                        let snap = Snapshot::build(&namespace_clone, doc);
+                        let snap = snapshot::Snapshot::build(&namespace_clone, doc);
                         if let Ok(mut lock) = evaluator_clone.lock() {
-                            lock.replace_snapshot(snap);
+                            lock.replace_snapshot(Ok(snap));
                         }
                     }
                     Err(err) => {
@@ -201,7 +200,7 @@ impl Engine {
     /// Helper to lock the evaluator and run a closure, mapping lock errors to Error::Internal
     fn with_evaluator_lock<F, R>(&self, f: F) -> Result<R, Error>
     where
-        F: FnOnce(&mut Evaluator<Snapshot>) -> Result<R, Error>,
+        F: FnOnce(&mut Evaluator<snapshot::Snapshot>) -> Result<R, Error>,
     {
         let mut lock = self
             .evaluator
@@ -235,14 +234,14 @@ impl Engine {
         self.with_evaluator_lock(|lock| lock.list_flags())
     }
 
-    pub fn set_snapshot(&self, snapshot: Snapshot) -> Result<(), Error> {
+    pub fn set_snapshot(&self, snapshot: snapshot::Snapshot) -> Result<(), Error> {
         self.with_evaluator_lock(|lock| {
             lock.replace_snapshot(Ok(snapshot));
             Ok(())
         })
     }
 
-    pub fn get_snapshot(&self) -> Result<Snapshot, Error> {
+    pub fn get_snapshot(&self) -> Result<snapshot::Snapshot, Error> {
         self.with_evaluator_lock(|lock| lock.get_snapshot())
     }
 }
@@ -528,8 +527,7 @@ unsafe extern "C" fn _set_snapshot(
         Err(e) => return result_to_json_ptr::<(), Utf8Error>(Err(e)),
     };
 
-    // TODO: We should probably move this snapshot to models
-    let snap: fliptevaluation::store::Snapshot = match serde_json::from_str(snapshot_str) {
+    let snap: snapshot::Snapshot = match serde_json::from_str(snapshot_str) {
         Ok(snap) => snap,
         Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
     };

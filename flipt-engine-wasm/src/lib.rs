@@ -1,7 +1,7 @@
 use fliptevaluation::error::Error;
 use fliptevaluation::models::flipt::Flag;
-use fliptevaluation::models::source;
-use fliptevaluation::store::{Snapshot, Store};
+use fliptevaluation::models::{snapshot, source};
+use fliptevaluation::store::Store;
 use fliptevaluation::{
     batch_evaluation, boolean_evaluation, variant_evaluation, BatchEvaluationResponse,
     BooleanEvaluationResponse, EvaluationRequest, VariantEvaluationResponse,
@@ -75,14 +75,14 @@ fn result_to_string<T: Serialize, E: std::error::Error>(result: Result<T, E>) ->
 
 pub struct Engine {
     namespace: String,
-    store: Snapshot,
+    store: snapshot::Snapshot,
 }
 
 impl Engine {
     pub fn new(namespace: &str, snapshot: &str) -> Result<Self, WASMError> {
         let doc: source::Document =
             serde_json::from_str(snapshot).map_err(WASMError::InvalidJson)?;
-        let store = Snapshot::build(namespace, doc).map_err(WASMError::SnapshotBuildError)?;
+        let store = snapshot::Snapshot::build(namespace, doc);
 
         Ok(Self {
             namespace: namespace.to_string(),
@@ -92,8 +92,7 @@ impl Engine {
 
     pub fn snapshot(&mut self, data: &str) -> Result<(), WASMError> {
         let doc: source::Document = serde_json::from_str(data).map_err(WASMError::InvalidJson)?;
-        self.store =
-            Snapshot::build(&self.namespace, doc).map_err(WASMError::SnapshotBuildError)?;
+        self.store = snapshot::Snapshot::build(&self.namespace, doc);
         Ok(())
     }
 
