@@ -24,6 +24,7 @@ futures = { version = "0.3", default-features = false }
 thiserror = "2.0.3"
 reqwest-retry = "0.7.0"
 reqwest-middleware = "0.4.0"
+base64 = "0.21"
 
 [dependencies.flipt-evaluation]
 path = "../flipt-evaluation"

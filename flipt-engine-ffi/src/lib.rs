@@ -1,6 +1,8 @@
 pub mod evaluator;
 pub mod http;
 
+use base64::prelude::BASE64_STANDARD;
+use base64::Engine as Base64Engine;
 use evaluator::Evaluator;
 use fliptevaluation::error::Error;
 use fliptevaluation::models::{flipt, snapshot};
@@ -527,7 +529,13 @@ unsafe extern "C" fn _set_snapshot(
         Err(e) => return result_to_json_ptr::<(), Utf8Error>(Err(e)),
     };
 
-    let snap: snapshot::Snapshot = match serde_json::from_str(snapshot_str) {
+    // Base64 decode the string
+    let decoded = match BASE64_STANDARD.decode(snapshot_str) {
+        Ok(decoded) => decoded,
+        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
+    };
+
+    let snap: snapshot::Snapshot = match serde_json::from_slice(&decoded) {
         Ok(snap) => snap,
         Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
     };
@@ -554,7 +562,10 @@ unsafe extern "C" fn _get_snapshot(engine_ptr: *mut c_void) -> *const c_char {
         Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
     };
 
-    match CString::new(json) {
+    // Base64 encode the JSON string
+    let encoded = BASE64_STANDARD.encode(json);
+
+    match CString::new(encoded) {
         Ok(cstr) => cstr.into_raw(),
         Err(e) => {
             let err = format!("CString conversion failed: {e}");
