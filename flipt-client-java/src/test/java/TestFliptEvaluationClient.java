@@ -1,4 +1,3 @@
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.flipt.client.FliptEvaluationClient;
 import io.flipt.client.models.*;
 import java.io.IOException;
@@ -162,9 +161,8 @@ public class TestFliptEvaluationClient {
     byte[] expectedBytes = Base64.getDecoder().decode(SNAPSHOT);
     byte[] actualBytes = Base64.getDecoder().decode(snapshot);
 
-    ObjectMapper mapper = new ObjectMapper();
-    Object expectedJson = mapper.readTree(new String(expectedBytes, StandardCharsets.UTF_8));
-    Object actualJson = mapper.readTree(new String(actualBytes, StandardCharsets.UTF_8));
+    String expectedJson = new String(expectedBytes, StandardCharsets.UTF_8);
+    String actualJson = new String(actualBytes, StandardCharsets.UTF_8);
 
     JSONAssert.assertEquals(expectedJson, actualJson, JSONCompareMode.LENIENT);
   }
@@ -179,9 +177,8 @@ public class TestFliptEvaluationClient {
     byte[] expectedBytes = Base64.getDecoder().decode(EMPTY_SNAPSHOT);
     byte[] actualBytes = Base64.getDecoder().decode(snapshot);
 
-    ObjectMapper mapper = new ObjectMapper();
-    Object expectedJson = mapper.readTree(new String(expectedBytes, StandardCharsets.UTF_8));
-    Object actualJson = mapper.readTree(new String(actualBytes, StandardCharsets.UTF_8));
+    String expectedJson = new String(expectedBytes, StandardCharsets.UTF_8);
+    String actualJson = new String(actualBytes, StandardCharsets.UTF_8);
 
     JSONAssert.assertEquals(expectedJson, actualJson, JSONCompareMode.LENIENT);
   }
