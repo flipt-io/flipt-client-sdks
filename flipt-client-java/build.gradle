@@ -29,6 +29,7 @@ dependencies {
     implementation libs.jna.platform
     testImplementation platform(libs.junit.bom)
     testImplementation libs.junit.jupiter
+    testImplementation 'org.skyscreamer:jsonassert:1.5.0'
 }
 
 spotless {

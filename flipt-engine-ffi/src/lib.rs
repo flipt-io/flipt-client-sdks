@@ -1,10 +1,11 @@
 pub mod evaluator;
 pub mod http;
 
+use base64::prelude::BASE64_STANDARD;
+use base64::Engine as Base64Engine;
 use evaluator::Evaluator;
 use fliptevaluation::error::Error;
-use fliptevaluation::models::flipt;
-use fliptevaluation::store::Snapshot;
+use fliptevaluation::models::{flipt, snapshot};
 use fliptevaluation::{
     BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
     VariantEvaluationResponse,
@@ -111,8 +112,7 @@ impl Default for EngineOpts {
 }
 
 pub struct Engine {
-    namespace: String,
-    evaluator: Arc<Mutex<Evaluator<Snapshot>>>,
+    evaluator: Arc<Mutex<Evaluator<snapshot::Snapshot>>>,
     stop_signal: Arc<AtomicBool>,
 }
 
@@ -139,7 +139,7 @@ impl Engine {
     pub fn new(
         namespace: &str,
         mut fetcher: HTTPFetcher,
-        evaluator: Evaluator<Snapshot>,
+        evaluator: Evaluator<snapshot::Snapshot>,
         error_strategy: ErrorStrategy,
     ) -> Self {
         let stop_signal = Arc::new(AtomicBool::new(false));
@@ -156,9 +156,9 @@ impl Engine {
         handle.block_on(async {
             match fetcher.initial_fetch().await {
                 Ok(doc) => {
-                    let snap = Snapshot::build(&namespace_clone, doc);
+                    let snap = snapshot::Snapshot::build(&namespace_clone, doc);
                     if let Ok(mut lock) = evaluator_clone.lock() {
-                        lock.replace_snapshot(snap);
+                        lock.replace_snapshot(Ok(snap));
                     }
                 }
                 Err(err) => {
@@ -177,9 +177,9 @@ impl Engine {
             while let Some(res) = rx.recv().await {
                 match res {
                     Ok(doc) => {
-                        let snap = Snapshot::build(&namespace_clone, doc);
+                        let snap = snapshot::Snapshot::build(&namespace_clone, doc);
                         if let Ok(mut lock) = evaluator_clone.lock() {
-                            lock.replace_snapshot(snap);
+                            lock.replace_snapshot(Ok(snap));
                         }
                     }
                     Err(err) => {
@@ -194,7 +194,6 @@ impl Engine {
         });
 
         Self {
-            namespace: namespace.to_string(),
             evaluator,
             stop_signal,
         }
@@ -203,7 +202,7 @@ impl Engine {
     /// Helper to lock the evaluator and run a closure, mapping lock errors to Error::Internal
     fn with_evaluator_lock<F, R>(&self, f: F) -> Result<R, Error>
     where
-        F: FnOnce(&mut Evaluator<Snapshot>) -> Result<R, Error>,
+        F: FnOnce(&mut Evaluator<snapshot::Snapshot>) -> Result<R, Error>,
     {
         let mut lock = self
             .evaluator
@@ -237,14 +236,14 @@ impl Engine {
         self.with_evaluator_lock(|lock| lock.list_flags())
     }
 
-    pub fn set_snapshot(&self, snapshot: Snapshot) -> Result<(), Error> {
+    pub fn set_snapshot(&self, snapshot: snapshot::Snapshot) -> Result<(), Error> {
         self.with_evaluator_lock(|lock| {
             lock.replace_snapshot(Ok(snapshot));
             Ok(())
         })
     }
 
-    pub fn get_snapshot(&self) -> Result<Snapshot, Error> {
+    pub fn get_snapshot(&self) -> Result<snapshot::Snapshot, Error> {
         self.with_evaluator_lock(|lock| lock.get_snapshot())
     }
 }
@@ -530,12 +529,13 @@ unsafe extern "C" fn _set_snapshot(
         Err(e) => return result_to_json_ptr::<(), Utf8Error>(Err(e)),
     };
 
-    let doc: fliptevaluation::models::source::Document = match serde_json::from_str(snapshot_str) {
-        Ok(doc) => doc,
+    // Base64 decode the string
+    let decoded = match BASE64_STANDARD.decode(snapshot_str) {
+        Ok(decoded) => decoded,
         Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
     };
 
-    let snap = match fliptevaluation::store::Snapshot::build(&e.namespace, doc) {
+    let snap: snapshot::Snapshot = match serde_json::from_slice(&decoded) {
         Ok(snap) => snap,
         Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
     };
@@ -562,7 +562,10 @@ unsafe extern "C" fn _get_snapshot(engine_ptr: *mut c_void) -> *const c_char {
         Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
     };
 
-    match CString::new(json) {
+    // Base64 encode the JSON string
+    let encoded = BASE64_STANDARD.encode(json);
+
+    match CString::new(encoded) {
         Ok(cstr) => cstr.into_raw(),
         Err(e) => {
             let err = format!("CString conversion failed: {e}");

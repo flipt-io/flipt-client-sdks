@@ -30,7 +30,8 @@ pub struct VariantEvaluationResponse {
     pub reason: flipt::EvaluationReason,
     pub flag_key: String,
     pub variant_key: String,
-    pub variant_attachment: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub variant_attachment: Option<String>,
     pub request_duration_millis: f64,
     pub timestamp: DateTime<Utc>,
 }
@@ -73,7 +74,7 @@ impl Default for VariantEvaluationResponse {
             reason: flipt::EvaluationReason::Unknown,
             flag_key: String::from(""),
             variant_key: String::from(""),
-            variant_attachment: String::from(""),
+            variant_attachment: None,
             request_duration_millis: 0.0,
             timestamp: chrono::offset::Utc::now(),
         }
@@ -1105,7 +1106,7 @@ mod tests {
         assert!(!v.r#match);
         assert_eq!(v.reason, flipt::EvaluationReason::FlagDisabled);
         assert_eq!(v.variant_key, String::from(""));
-        assert_eq!(v.variant_attachment, String::from(""));
+        assert_eq!(v.variant_attachment, None);
     }
 
     #[test]
@@ -1121,7 +1122,7 @@ mod tests {
                 default_variant: Some(flipt::Variant {
                     id: String::from("1"),
                     key: String::from("default"),
-                    attachment: serde_json::json!({"key": "value"}).to_string(),
+                    attachment: Some(serde_json::json!({"key": "value"}).to_string()),
                 }),
             })
         });
@@ -1150,7 +1151,7 @@ mod tests {
         assert_eq!(v.variant_key, String::from("default"));
         assert_eq!(
             v.variant_attachment,
-            serde_json::json!({"key": "value"}).to_string()
+            Some(serde_json::json!({"key": "value"}).to_string())
         );
     }
 
@@ -1244,7 +1245,7 @@ mod tests {
                 default_variant: Some(flipt::Variant {
                     id: String::from("1"),
                     key: String::from("default"),
-                    attachment: serde_json::json!({"key": "value"}).to_string(),
+                    attachment: Some(serde_json::json!({"key": "value"}).to_string()),
                 }),
             })
         });
@@ -1312,7 +1313,7 @@ mod tests {
         assert_eq!(v.variant_key, String::from("default"));
         assert_eq!(
             v.variant_attachment,
-            serde_json::json!({"key": "value"}).to_string()
+            Some(serde_json::json!({"key": "value"}).to_string())
         );
     }
 
@@ -1497,7 +1498,7 @@ mod tests {
                 Some(vec![flipt::EvaluationDistribution {
                     rule_id: String::from("1"),
                     variant_key: String::from("variant1"),
-                    variant_attachment: String::from(""),
+                    variant_attachment: None,
                     rollout: 10.0,
                 }])
             });
@@ -1594,7 +1595,7 @@ mod tests {
                 Some(vec![flipt::EvaluationDistribution {
                     rule_id: String::from("1"),
                     variant_key: String::from("variant1"),
-                    variant_attachment: String::from(r#"{"foo": "bar"}"#),
+                    variant_attachment: Some(String::from(r#"{"foo": "bar"}"#)),
                     rollout: 100.0,
                 }])
             });
@@ -1622,7 +1623,10 @@ mod tests {
         assert!(v.r#match);
         assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.variant_key, String::from("variant1"));
-        assert_eq!(v.variant_attachment, String::from(r#"{"foo": "bar"}"#));
+        assert_eq!(
+            v.variant_attachment,
+            Some(String::from(r#"{"foo": "bar"}"#))
+        );
         assert!(v
             .segment_keys
             .iter()
@@ -1689,14 +1693,14 @@ mod tests {
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant1"),
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                         rollout: 50.0,
                     },
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant2"),
                         rollout: 50.0,
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                     },
                 ])
             });
@@ -1821,14 +1825,14 @@ mod tests {
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant1"),
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                         rollout: 50.0,
                     },
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant2"),
                         rollout: 50.0,
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                     },
                 ])
             });
@@ -1901,14 +1905,14 @@ mod tests {
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant1"),
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                         rollout: 50.0,
                     },
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant2"),
                         rollout: 50.0,
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                     },
                 ])
             });
@@ -2046,7 +2050,7 @@ mod tests {
                 default_variant: Some(flipt::Variant {
                     id: String::from("1"),
                     key: String::from("default"),
-                    attachment: serde_json::json!({"key": "value"}).to_string(),
+                    attachment: Some(serde_json::json!({"key": "value"}).to_string()),
                 }),
             })
         });
@@ -2114,7 +2118,7 @@ mod tests {
         assert_eq!(v.variant_key, String::from("default"));
         assert_eq!(
             v.variant_attachment,
-            serde_json::json!({"key": "value"}).to_string()
+            Some(serde_json::json!({"key": "value"}).to_string())
         );
     }
 
@@ -2297,7 +2301,7 @@ mod tests {
                 Some(vec![flipt::EvaluationDistribution {
                     rule_id: String::from("1"),
                     variant_key: String::from("variant1"),
-                    variant_attachment: String::from(""),
+                    variant_attachment: None,
                     rollout: 10.0,
                 }])
             });
@@ -2393,7 +2397,7 @@ mod tests {
                 Some(vec![flipt::EvaluationDistribution {
                     rule_id: String::from("1"),
                     variant_key: String::from("variant1"),
-                    variant_attachment: String::from(r#"{"foo": "bar"}"#),
+                    variant_attachment: Some(String::from(r#"{"foo": "bar"}"#)),
                     rollout: 100.0,
                 }])
             });
@@ -2420,7 +2424,10 @@ mod tests {
         assert!(v.r#match);
         assert_eq!(v.reason, flipt::EvaluationReason::Match);
         assert_eq!(v.variant_key, String::from("variant1"));
-        assert_eq!(v.variant_attachment, String::from(r#"{"foo": "bar"}"#));
+        assert_eq!(
+            v.variant_attachment,
+            Some(String::from(r#"{"foo": "bar"}"#))
+        );
     }
 
     #[test]
@@ -2479,14 +2486,14 @@ mod tests {
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant1"),
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                         rollout: 50.0,
                     },
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant2"),
                         rollout: 50.0,
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                     },
                 ])
             });
@@ -2610,14 +2617,14 @@ mod tests {
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant1"),
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                         rollout: 50.0,
                     },
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant2"),
                         rollout: 50.0,
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                     },
                 ])
             });
@@ -2689,14 +2696,14 @@ mod tests {
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant1"),
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                         rollout: 50.0,
                     },
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant2"),
                         rollout: 50.0,
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                     },
                 ])
             });
@@ -2815,14 +2822,14 @@ mod tests {
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant1"),
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                         rollout: 0.0,
                     },
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant2"),
                         rollout: 100.0,
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                     },
                 ])
             });
@@ -2899,38 +2906,38 @@ mod tests {
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant1"),
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                         rollout: 0.0,
                     },
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant2"),
                         rollout: 0.0,
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                     },
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant3"),
                         rollout: 50.0,
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                     },
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant4"),
                         rollout: 0.0,
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                     },
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant5"),
                         rollout: 0.0,
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                     },
                     flipt::EvaluationDistribution {
                         rule_id: String::from("1"),
                         variant_key: String::from("variant6"),
                         rollout: 50.0,
-                        variant_attachment: String::from(""),
+                        variant_attachment: None,
                     },
                 ])
             });

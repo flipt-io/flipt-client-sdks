@@ -25,6 +25,7 @@ impl Default for Document {
 #[serde(rename_all = "camelCase")]
 pub struct Namespace {
     pub key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
 }
 
@@ -34,10 +35,12 @@ pub struct Flag {
     pub key: String,
     pub name: String,
     pub r#type: Option<flipt::FlagType>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub enabled: bool,
     pub rules: Option<Vec<Rule>>,
     pub rollouts: Option<Vec<Rollout>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default_variant: Option<Variant>,
 }
 
@@ -46,7 +49,8 @@ pub struct Flag {
 pub struct Variant {
     pub id: String,
     pub key: String,
-    pub attachment: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attachment: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -62,12 +66,14 @@ pub struct Rule {
 pub struct Distribution {
     pub variant_key: String,
     pub rollout: f32,
-    pub variant_attachment: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub variant_attachment: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Rollout {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub segment: Option<SegmentRule>,
     pub threshold: Option<Threshold>,

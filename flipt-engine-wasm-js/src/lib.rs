@@ -2,7 +2,7 @@ extern crate console_error_panic_hook;
 use wasm_bindgen::prelude::*;
 
 use fliptevaluation::{
-    batch_evaluation, boolean_evaluation, error::Error, models::source, store::Snapshot,
+    batch_evaluation, boolean_evaluation, error::Error, models::snapshot, models::source,
     store::Store, variant_evaluation,
 };
 use serde::{Deserialize, Serialize};
@@ -28,7 +28,7 @@ enum Status {
 #[wasm_bindgen]
 pub struct Engine {
     namespace: String,
-    store: Snapshot,
+    store: snapshot::Snapshot,
 }
 
 impl<T, E> From<Result<T, E>> for JsResponse<T>
@@ -57,7 +57,7 @@ impl Engine {
     #[wasm_bindgen(constructor)]
     pub fn new(namespace: &str) -> Self {
         console_error_panic_hook::set_once();
-        let store = Snapshot::empty(namespace);
+        let store = snapshot::Snapshot::empty(namespace);
 
         Self {
             namespace: namespace.to_string(),
@@ -73,14 +73,7 @@ impl Engine {
             }
         };
 
-        let store = match Snapshot::build(&self.namespace, doc) {
-            Ok(s) => s,
-            Err(e) => {
-                return Err(JsValue::from(e.to_string()));
-            }
-        };
-
-        self.store = store;
+        self.store = snapshot::Snapshot::build(&self.namespace, doc);
         Ok(())
     }
 

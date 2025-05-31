@@ -1,18 +1,40 @@
 import io.flipt.client.FliptEvaluationClient;
 import io.flipt.client.models.*;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.skyscreamer.jsonassert.JSONAssert;
+import org.skyscreamer.jsonassert.JSONCompareMode;
 
 public class TestFliptEvaluationClient {
+  private static final String SNAPSHOT =
+      Base64.getEncoder()
+          .encodeToString(readResourceFile("snapshot.json").getBytes(StandardCharsets.UTF_8));
+  private static final String EMPTY_SNAPSHOT =
+      Base64.getEncoder()
+          .encodeToString(readResourceFile("empty_snapshot.json").getBytes(StandardCharsets.UTF_8));
+
+  private static String readResourceFile(String filename) {
+    try {
+      return new String(Files.readAllBytes(Paths.get("src/test/resources/" + filename)));
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to read resource file: " + filename, e);
+    }
+  }
+
   private static FliptEvaluationClient fliptClient;
 
-  @BeforeAll
-  static void initAll() throws Exception {
+  @BeforeEach
+  void init() throws Exception {
     String fliptURL = System.getenv().get("FLIPT_URL");
     String clientToken = System.getenv().get("FLIPT_AUTH_TOKEN");
 
@@ -131,8 +153,38 @@ public class TestFliptEvaluationClient {
     Assertions.assertEquals(2, flags.size());
   }
 
-  @AfterAll
-  static void tearDownAll() throws Exception {
+  @Test
+  void testGetSnapshot() throws Exception {
+    String snapshot = fliptClient.getSnapshot();
+    Assertions.assertNotNull(snapshot);
+
+    byte[] expectedBytes = Base64.getDecoder().decode(SNAPSHOT);
+    byte[] actualBytes = Base64.getDecoder().decode(snapshot);
+
+    String expectedJson = new String(expectedBytes, StandardCharsets.UTF_8);
+    String actualJson = new String(actualBytes, StandardCharsets.UTF_8);
+
+    JSONAssert.assertEquals(expectedJson, actualJson, JSONCompareMode.LENIENT);
+  }
+
+  @Test
+  void testSetGetSnapshot() throws Exception {
+    fliptClient.setSnapshot(EMPTY_SNAPSHOT);
+    Thread.sleep(100);
+    String snapshot = fliptClient.getSnapshot();
+    Assertions.assertNotNull(snapshot);
+
+    byte[] expectedBytes = Base64.getDecoder().decode(EMPTY_SNAPSHOT);
+    byte[] actualBytes = Base64.getDecoder().decode(snapshot);
+
+    String expectedJson = new String(expectedBytes, StandardCharsets.UTF_8);
+    String actualJson = new String(actualBytes, StandardCharsets.UTF_8);
+
+    JSONAssert.assertEquals(expectedJson, actualJson, JSONCompareMode.LENIENT);
+  }
+
+  @AfterEach
+  void tearDown() throws Exception {
     if (fliptClient != null) fliptClient.close();
   }
 }

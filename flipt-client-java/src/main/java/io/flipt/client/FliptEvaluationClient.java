@@ -34,6 +34,10 @@ public class FliptEvaluationClient {
 
     Pointer list_flags(Pointer engine);
 
+    Pointer set_snapshot(Pointer engine, String snapshot);
+
+    Pointer get_snapshot(Pointer engine);
+
     void destroy_engine(Pointer engine);
 
     void destroy_string(Pointer str);
@@ -346,6 +350,35 @@ public class FliptEvaluationClient {
       throw new EvaluationException(resp.getErrorMessage().get());
     }
     return resp.getResult().get();
+  }
+
+  /**
+   * setSnapshot sets the snapshot for the Flipt client.
+   *
+   * @param snapshot the snapshot to set
+   * @throws EvaluationException if the snapshot could not be set
+   */
+  public void setSnapshot(String snapshot) throws EvaluationException {
+    Pointer value = CLibrary.INSTANCE.set_snapshot(this.engine, snapshot);
+    TypeReference<Result<String>> typeRef = new TypeReference<Result<String>>() {};
+    Result<String> resp = this.readValue(value, typeRef);
+    if (!FliptEvaluationClient.STATUS_SUCCESS.equals(resp.getStatus())) {
+      throw new EvaluationException(resp.getErrorMessage().get());
+    }
+  }
+
+  /**
+   * getSnapshot gets the snapshot from the Flipt client.
+   *
+   * @return the snapshot
+   */
+  public String getSnapshot() {
+    Pointer value = CLibrary.INSTANCE.get_snapshot(this.engine);
+    try {
+      return value.getString(0, "UTF-8");
+    } finally {
+      CLibrary.INSTANCE.destroy_string(value);
+    }
   }
 
   /** close closes the FliptEvaluationClient. */

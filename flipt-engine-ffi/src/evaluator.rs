@@ -3,8 +3,8 @@ use std::sync::{Arc, RwLock};
 use fliptevaluation::{
     batch_evaluation, boolean_evaluation,
     error::Error,
-    models::flipt,
-    store::{Snapshot, Store},
+    models::{flipt, snapshot},
+    store::Store,
     variant_evaluation, BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
     VariantEvaluationResponse,
 };
@@ -19,9 +19,9 @@ where
     error: Option<Error>,
 }
 
-impl Evaluator<Snapshot> {
+impl Evaluator<snapshot::Snapshot> {
     pub fn new(namespace: &str) -> Self {
-        let snap = Snapshot::empty(namespace);
+        let snap = snapshot::Snapshot::empty(namespace);
         Self {
             namespace: namespace.to_string(),
             store: snap,
@@ -30,7 +30,7 @@ impl Evaluator<Snapshot> {
         }
     }
 
-    pub fn replace_snapshot(&mut self, res: Result<Snapshot, Error>) {
+    pub fn replace_snapshot(&mut self, res: Result<snapshot::Snapshot, Error>) {
         let _w_lock = self.mtx.write().unwrap();
         match res {
             Ok(snap) => {
@@ -43,7 +43,7 @@ impl Evaluator<Snapshot> {
         }
     }
 
-    pub fn get_snapshot(&self) -> Result<Snapshot, Error> {
+    pub fn get_snapshot(&self) -> Result<snapshot::Snapshot, Error> {
         let _r_lock = self.mtx.read().unwrap();
         if let Some(error) = &self.error {
             return Err(error.clone());
@@ -156,7 +156,7 @@ mod tests {
     #[test]
     fn test_replace_snapshot() {
         let mut evaluator = Evaluator::new("namespace");
-        let snapshot = Snapshot::empty("namespace");
+        let snapshot = snapshot::Snapshot::empty("namespace");
         evaluator.replace_snapshot(Ok(snapshot.clone()));
         assert_eq!(evaluator.store, snapshot);
     }
@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn test_get_snapshot() {
         let mut evaluator = Evaluator::new("namespace");
-        let snapshot = Snapshot::empty("namespace");
+        let snapshot = snapshot::Snapshot::empty("namespace");
         evaluator.replace_snapshot(Ok(snapshot.clone()));
         let result = evaluator.get_snapshot();
         assert!(result.is_ok());
