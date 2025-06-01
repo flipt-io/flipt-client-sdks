@@ -23,6 +23,27 @@ class FliptEngine {
   /// # Safety
   ///
   /// This function will initialize an Engine and return a pointer back to the caller.
+  ffi.Pointer<ffi.Void> initialize_engine_ffi(
+    ffi.Pointer<ffi.Char> namespace_,
+    ffi.Pointer<ffi.Char> opts,
+  ) {
+    return _initialize_engine_ffi(
+      namespace_,
+      opts,
+    );
+  }
+
+  late final _initialize_engine_ffiPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Char>,
+              ffi.Pointer<ffi.Char>)>>('initialize_engine_ffi');
+  late final _initialize_engine_ffi = _initialize_engine_ffiPtr.asFunction<
+      ffi.Pointer<ffi.Void> Function(
+          ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>)>();
+
+  /// # Safety
+  ///
+  /// This function will initialize an Engine and return a pointer back to the caller.
   ffi.Pointer<ffi.Void> initialize_engine(
     ffi.Pointer<ffi.Char> namespace_,
     ffi.Pointer<ffi.Char> opts,
@@ -43,6 +64,105 @@ class FliptEngine {
 
   /// # Safety
   ///
+  /// This function will take in a pointer to the engine and a snapshot string, and replace the in-memory snapshot.
+  ffi.Pointer<ffi.Char> set_snapshot_ffi(
+    ffi.Pointer<ffi.Void> engine_ptr,
+    ffi.Pointer<ffi.Char> snapshot,
+  ) {
+    return _set_snapshot_ffi(
+      engine_ptr,
+      snapshot,
+    );
+  }
+
+  late final _set_snapshot_ffiPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Char>)>>('set_snapshot_ffi');
+  late final _set_snapshot_ffi = _set_snapshot_ffiPtr.asFunction<
+      ffi.Pointer<ffi.Char> Function(
+          ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>)>();
+
+  /// # Safety
+  ///
+  /// This function will take in a pointer to the engine and a snapshot string, and replace the in-memory snapshot.
+  ffi.Pointer<ffi.Char> set_snapshot(
+    ffi.Pointer<ffi.Void> engine_ptr,
+    ffi.Pointer<ffi.Char> snapshot,
+  ) {
+    return _set_snapshot(
+      engine_ptr,
+      snapshot,
+    );
+  }
+
+  late final _set_snapshotPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(
+              ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>)>>('set_snapshot');
+  late final _set_snapshot = _set_snapshotPtr.asFunction<
+      ffi.Pointer<ffi.Char> Function(
+          ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>)>();
+
+  /// # Safety
+  ///
+  /// This function will take in a pointer to the engine and return the current snapshot as a JSON string.
+  ffi.Pointer<ffi.Char> get_snapshot_ffi(
+    ffi.Pointer<ffi.Void> engine_ptr,
+  ) {
+    return _get_snapshot_ffi(
+      engine_ptr,
+    );
+  }
+
+  late final _get_snapshot_ffiPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(
+              ffi.Pointer<ffi.Void>)>>('get_snapshot_ffi');
+  late final _get_snapshot_ffi = _get_snapshot_ffiPtr
+      .asFunction<ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>)>();
+
+  /// # Safety
+  ///
+  /// This function will take in a pointer to the engine and return the current snapshot as a JSON string.
+  ffi.Pointer<ffi.Char> get_snapshot(
+    ffi.Pointer<ffi.Void> engine_ptr,
+  ) {
+    return _get_snapshot(
+      engine_ptr,
+    );
+  }
+
+  late final _get_snapshotPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(
+              ffi.Pointer<ffi.Void>)>>('get_snapshot');
+  late final _get_snapshot = _get_snapshotPtr
+      .asFunction<ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>)>();
+
+  /// # Safety
+  ///
+  /// This function will take in a pointer to the engine and return a variant evaluation response.
+  ffi.Pointer<ffi.Char> evaluate_variant_ffi(
+    ffi.Pointer<ffi.Void> engine_ptr,
+    ffi.Pointer<ffi.Char> evaluation_request,
+  ) {
+    return _evaluate_variant_ffi(
+      engine_ptr,
+      evaluation_request,
+    );
+  }
+
+  late final _evaluate_variant_ffiPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Char>)>>('evaluate_variant_ffi');
+  late final _evaluate_variant_ffi = _evaluate_variant_ffiPtr.asFunction<
+      ffi.Pointer<ffi.Char> Function(
+          ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>)>();
+
+  /// # Safety
+  ///
   /// This function will take in a pointer to the engine and return a variant evaluation response.
   ffi.Pointer<ffi.Char> evaluate_variant(
     ffi.Pointer<ffi.Void> engine_ptr,
@@ -59,6 +179,27 @@ class FliptEngine {
           ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Char>)>>('evaluate_variant');
   late final _evaluate_variant = _evaluate_variantPtr.asFunction<
+      ffi.Pointer<ffi.Char> Function(
+          ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>)>();
+
+  /// # Safety
+  ///
+  /// This function will take in a pointer to the engine and return a boolean evaluation response.
+  ffi.Pointer<ffi.Char> evaluate_boolean_ffi(
+    ffi.Pointer<ffi.Void> engine_ptr,
+    ffi.Pointer<ffi.Char> evaluation_request,
+  ) {
+    return _evaluate_boolean_ffi(
+      engine_ptr,
+      evaluation_request,
+    );
+  }
+
+  late final _evaluate_boolean_ffiPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Char>)>>('evaluate_boolean_ffi');
+  late final _evaluate_boolean_ffi = _evaluate_boolean_ffiPtr.asFunction<
       ffi.Pointer<ffi.Char> Function(
           ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>)>();
 
@@ -86,6 +227,27 @@ class FliptEngine {
   /// # Safety
   ///
   /// This function will take in a pointer to the engine and return a batch evaluation response.
+  ffi.Pointer<ffi.Char> evaluate_batch_ffi(
+    ffi.Pointer<ffi.Void> engine_ptr,
+    ffi.Pointer<ffi.Char> batch_evaluation_request,
+  ) {
+    return _evaluate_batch_ffi(
+      engine_ptr,
+      batch_evaluation_request,
+    );
+  }
+
+  late final _evaluate_batch_ffiPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Char>)>>('evaluate_batch_ffi');
+  late final _evaluate_batch_ffi = _evaluate_batch_ffiPtr.asFunction<
+      ffi.Pointer<ffi.Char> Function(
+          ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>)>();
+
+  /// # Safety
+  ///
+  /// This function will take in a pointer to the engine and return a batch evaluation response.
   ffi.Pointer<ffi.Char> evaluate_batch(
     ffi.Pointer<ffi.Void> engine_ptr,
     ffi.Pointer<ffi.Char> batch_evaluation_request,
@@ -106,7 +268,25 @@ class FliptEngine {
 
   /// # Safety
   ///
-  /// This function will take in a pointer to the engine and return a list of flags for the given namespace.
+  /// This function will take in a pointer to the engine and return a list of flags.
+  ffi.Pointer<ffi.Char> list_flags_ffi(
+    ffi.Pointer<ffi.Void> engine_ptr,
+  ) {
+    return _list_flags_ffi(
+      engine_ptr,
+    );
+  }
+
+  late final _list_flags_ffiPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(
+              ffi.Pointer<ffi.Void>)>>('list_flags_ffi');
+  late final _list_flags_ffi = _list_flags_ffiPtr
+      .asFunction<ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>)>();
+
+  /// # Safety
+  ///
+  /// This function will take in a pointer to the engine and return a list of flags.
   ffi.Pointer<ffi.Char> list_flags(
     ffi.Pointer<ffi.Void> engine_ptr,
   ) {
@@ -123,7 +303,24 @@ class FliptEngine {
 
   /// # Safety
   ///
-  /// This function will free the memory occupied by the engine.
+  /// This function will take in a pointer to the engine and destroy it.
+  void destroy_engine_ffi(
+    ffi.Pointer<ffi.Void> engine_ptr,
+  ) {
+    return _destroy_engine_ffi(
+      engine_ptr,
+    );
+  }
+
+  late final _destroy_engine_ffiPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+          'destroy_engine_ffi');
+  late final _destroy_engine_ffi =
+      _destroy_engine_ffiPtr.asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  /// # Safety
+  ///
+  /// This function will take in a pointer to the engine and destroy it.
   void destroy_engine(
     ffi.Pointer<ffi.Void> engine_ptr,
   ) {
@@ -140,8 +337,24 @@ class FliptEngine {
 
   /// # Safety
   ///
-  /// This function will take in a pointer to the string and free the memory.
-  /// See Rust the safety section in CString::from_raw.
+  /// This function will take in a pointer to a string and destroy it.
+  void destroy_string_ffi(
+    ffi.Pointer<ffi.Char> ptr,
+  ) {
+    return _destroy_string_ffi(
+      ptr,
+    );
+  }
+
+  late final _destroy_string_ffiPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Char>)>>(
+          'destroy_string_ffi');
+  late final _destroy_string_ffi =
+      _destroy_string_ffiPtr.asFunction<void Function(ffi.Pointer<ffi.Char>)>();
+
+  /// # Safety
+  ///
+  /// This function will take in a pointer to a string and destroy it.
   void destroy_string(
     ffi.Pointer<ffi.Char> ptr,
   ) {
@@ -155,119 +368,4 @@ class FliptEngine {
           'destroy_string');
   late final _destroy_string =
       _destroy_stringPtr.asFunction<void Function(ffi.Pointer<ffi.Char>)>();
-
-  ffi.Pointer<ffi.Void> initialize_engine_ffi(
-    ffi.Pointer<ffi.Char> namespace,
-    ffi.Pointer<ffi.Char> options,
-  ) {
-    return _initialize_engine_ffi(
-      namespace,
-      options,
-    );
-  }
-
-  late final _initialize_engine_ffiPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Char>)>>('initialize_engine_ffi');
-  late final _initialize_engine_ffi = _initialize_engine_ffiPtr.asFunction<
-      ffi.Pointer<ffi.Void> Function(
-          ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>)>();
-
-  ffi.Pointer<ffi.Char> evaluate_boolean_ffi(
-    ffi.Pointer<ffi.Void> engine,
-    ffi.Pointer<ffi.Char> request,
-  ) {
-    return _evaluate_boolean_ffi(
-      engine,
-      request,
-    );
-  }
-
-  late final _evaluate_boolean_ffiPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>,
-              ffi.Pointer<ffi.Char>)>>('evaluate_boolean_ffi');
-  late final _evaluate_boolean_ffi = _evaluate_boolean_ffiPtr.asFunction<
-      ffi.Pointer<ffi.Char> Function(
-          ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>)>();
-
-  ffi.Pointer<ffi.Char> evaluate_variant_ffi(
-    ffi.Pointer<ffi.Void> engine,
-    ffi.Pointer<ffi.Char> request,
-  ) {
-    return _evaluate_variant_ffi(
-      engine,
-      request,
-    );
-  }
-
-  late final _evaluate_variant_ffiPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>,
-              ffi.Pointer<ffi.Char>)>>('evaluate_variant_ffi');
-  late final _evaluate_variant_ffi = _evaluate_variant_ffiPtr.asFunction<
-      ffi.Pointer<ffi.Char> Function(
-          ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>)>();
-
-  ffi.Pointer<ffi.Char> evaluate_batch_ffi(
-    ffi.Pointer<ffi.Void> engine,
-    ffi.Pointer<ffi.Char> request,
-  ) {
-    return _evaluate_batch_ffi(
-      engine,
-      request,
-    );
-  }
-
-  late final _evaluate_batch_ffiPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>,
-              ffi.Pointer<ffi.Char>)>>('evaluate_batch_ffi');
-  late final _evaluate_batch_ffi = _evaluate_batch_ffiPtr.asFunction<
-      ffi.Pointer<ffi.Char> Function(
-          ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>)>();
-
-  ffi.Pointer<ffi.Char> list_flags_ffi(
-    ffi.Pointer<ffi.Void> engine,
-  ) {
-    return _list_flags_ffi(
-      engine,
-    );
-  }
-
-  late final _list_flags_ffiPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Pointer<ffi.Char> Function(
-              ffi.Pointer<ffi.Void>)>>('list_flags_ffi');
-  late final _list_flags_ffi = _list_flags_ffiPtr
-      .asFunction<ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>)>();
-
-  void destroy_engine_ffi(
-    ffi.Pointer<ffi.Void> engine,
-  ) {
-    return _destroy_engine_ffi(
-      engine,
-    );
-  }
-
-  late final _destroy_engine_ffiPtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
-          'destroy_engine_ffi');
-  late final _destroy_engine_ffi =
-      _destroy_engine_ffiPtr.asFunction<void Function(ffi.Pointer<ffi.Void>)>();
-
-  void destroy_string_ffi(
-    ffi.Pointer<ffi.Char> str,
-  ) {
-    return _destroy_string_ffi(
-      str,
-    );
-  }
-
-  late final _destroy_string_ffiPtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Char>)>>(
-          'destroy_string_ffi');
-  late final _destroy_string_ffi =
-      _destroy_string_ffiPtr.asFunction<void Function(ffi.Pointer<ffi.Char>)>();
 }

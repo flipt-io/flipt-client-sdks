@@ -1,4 +1,4 @@
-output: "lib/ffi/bindings.dart"
+output: "lib/src/ffi/bindings.dart"
 headers:
   entry-points:
     - "ffi/flipt_engine.h"

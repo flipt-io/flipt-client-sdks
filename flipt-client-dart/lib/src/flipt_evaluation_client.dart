@@ -138,6 +138,31 @@ class FliptEvaluationClient {
     return response.toResult().result!;
   }
 
+  void setSnapshot(String snapshot) {
+    final snapshotUtf8 = snapshot.toNativeUtf8();
+    final resultPtr =
+        _bindings.set_snapshot(_engine, snapshotUtf8.cast<Char>());
+    final result = _pointerToString(resultPtr);
+    _bindings.destroy_string(resultPtr);
+    calloc.free(snapshotUtf8);
+
+    final response = Result<String>.fromJson(
+      jsonDecode(result) as Map<String, dynamic>,
+      (json) => json as String,
+    );
+
+    if (response.status != Status.success) {
+      throw Exception('Failed to set snapshot: ${response.errorMessage}');
+    }
+  }
+
+  String getSnapshot() {
+    final resultPtr = _bindings.get_snapshot(_engine);
+    final result = _pointerToString(resultPtr);
+    _bindings.destroy_string(resultPtr);
+    return result;
+  }
+
   void close() {
     _bindings.destroy_engine(_engine);
   }

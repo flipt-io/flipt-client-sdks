@@ -194,6 +194,7 @@ dart run build_runner build --delete-conflicting-outputs
 To generate the FFI bindings (found in `lib/ffi/bindings.dart`), run:
 
 ```bash
+cp ../flipt-engine-ffi/include/flipt_engine.h ffi/flipt_engine.h
 dart run ffigen --config ffigen.yaml
 ```
 

@@ -66,7 +66,10 @@ public class FliptEvaluationClient {
     return new FliptEvaluationClientBuilder();
   }
 
-  /** FliptEvaluationClientBuilder is a builder for creating a FliptEvaluationClient. */
+  /**
+   * FliptEvaluationClientBuilder is a builder for creating a FliptEvaluationClient.
+   *
+   */
   public static final class FliptEvaluationClientBuilder {
     private String namespace = "default";
     private String url = "http://localhost:8080";
