@@ -81,7 +81,8 @@
                 {
                     "rule_id": "flag1-1",
                     "rollout": 100.0,
-                    "variant_key": "variant1"
+                    "variant_key": "variant1",
+                    "variant_attachment": "null"
                 }
             ]
         }
