@@ -234,6 +234,18 @@ class FliptEvaluationClient(
         return resp.result ?: throw EvaluationException(resp.errorMessage ?: "Unknown Error")
     }
 
+    fun setSnapshot(snapshot: String) {
+        val value = CLibrary.INSTANCE.setSnapshot(engine, snapshot)
+        val resp = json.decodeFromString<Result<String>>(value)
+        if (resp.errorMessage != null) {
+            throw EvaluationException(resp.errorMessage)
+        }
+    }
+
+    fun getSnapshot(): String {
+        return CLibrary.INSTANCE.getSnapshot(engine)
+    }
+
     fun close() {
         CLibrary.INSTANCE.destroyEngine(engine)
     }

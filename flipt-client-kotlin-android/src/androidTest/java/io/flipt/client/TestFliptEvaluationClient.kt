@@ -1,17 +1,34 @@
 package io.flipt.client
 
-import io.flipt.client.models.ClientTokenAuthentication
-import io.flipt.client.models.EvaluationRequest
+import io.flipt.client.models.*
 import org.junit.After
+import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import java.io.File
+import java.nio.charset.StandardCharsets
+import java.util.Base64
 
 class TestFliptEvaluationClient {
+    companion object {
+        private val SNAPSHOT: String by lazy {
+            Base64.getEncoder().encodeToString(readResourceFile("snapshot.json").toByteArray(StandardCharsets.UTF_8))
+        }
+        private val EMPTY_SNAPSHOT: String by lazy {
+            Base64.getEncoder().encodeToString(readResourceFile("empty_snapshot.json").toByteArray(StandardCharsets.UTF_8))
+        }
+
+        private fun readResourceFile(filename: String): String {
+            val resourcePath = "src/test/resources/$filename"
+            return File(resourcePath).readText(Charsets.UTF_8)
+        }
+    }
+
     private var fliptClient: FliptEvaluationClient? = null
 
     @Before
     @Throws(Exception::class)
-    fun initAll() {
+    fun setUp() {
         val fliptURL = System.getenv("FLIPT_URL") ?: "http://10.0.2.2:8080"
         val clientToken = System.getenv("FLIPT_AUTH_TOKEN") ?: "secret"
 
@@ -26,6 +43,12 @@ class TestFliptEvaluationClient {
                 .namespace("default")
                 .authentication(ClientTokenAuthentication(clientToken))
                 .build()
+    }
+
+    @After
+    @Throws(Exception::class)
+    fun tearDown() {
+        fliptClient?.close()
     }
 
     @Test
@@ -102,9 +125,35 @@ class TestFliptEvaluationClient {
         assert(2 == flags?.size)
     }
 
-    @After
-    @Throws(Exception::class)
-    fun tearDownAll() {
-        fliptClient?.close()
+    @Test
+    fun testGetSnapshot() {
+        val snapshot = fliptClient!!.getSnapshot()
+        assertNotNull(snapshot)
+        val expectedBytes = Base64.getDecoder().decode(SNAPSHOT)
+        val actualBytes = Base64.getDecoder().decode(snapshot)
+        val expectedJson = String(expectedBytes, StandardCharsets.UTF_8)
+        val actualJson = String(actualBytes, StandardCharsets.UTF_8)
+        // Use JSON comparison for leniency
+        assertTrue(jsonEquals(expectedJson, actualJson))
+    }
+
+    @Test
+    fun testSetGetSnapshot() {
+        fliptClient!!.setSnapshot(EMPTY_SNAPSHOT)
+        Thread.sleep(100)
+        val snapshot = fliptClient!!.getSnapshot()
+        assertNotNull(snapshot)
+        val expectedBytes = Base64.getDecoder().decode(EMPTY_SNAPSHOT)
+        val actualBytes = Base64.getDecoder().decode(snapshot)
+        val expectedJson = String(expectedBytes, StandardCharsets.UTF_8)
+        val actualJson = String(actualBytes, StandardCharsets.UTF_8)
+        assertTrue(jsonEquals(expectedJson, actualJson))
+    }
+
+    // Simple JSON comparison ignoring order and whitespace
+    private fun jsonEquals(expected: String, actual: String): Boolean {
+        val expectedObj = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper().readTree(expected)
+        val actualObj = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper().readTree(actual)
+        return expectedObj == actualObj
     }
 }
