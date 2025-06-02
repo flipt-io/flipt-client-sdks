@@ -130,6 +130,21 @@ The client supports the following error strategies:
 - `fail`: The client will throw an error if the flag state cannot be fetched. This is the default behavior.
 - `fallback`: The client will maintain the last known good state and use that state for evaluation in case of an error.
 
+### Snapshotting
+
+The client supports snapshotting of flag state as well as seeding the client with a snapshot for evaluation. This is helpful if you want to use the client in an environment where the Flipt server is not guaranteed to be available or reachable on startup.
+
+To get the snapshot for the client, you can use the `getSnapshot` method. This returns a base64 encoded JSON string that represents the flag state for the client.
+
+You can then set the snapshot for the client using the `setSnapshot` method. This will replace the current snapshot for the client with the new snapshot.
+
+**Note:** You most likely will want to also set the `errorStrategy` to `fallback` when using snapshots. This will ensure that you wont get an error if the Flipt server is not available or reachable even on the initial fetch.
+
+You also may want to store the snapshot in a local file so that you can use it to seed the client on startup.
+
+> [!IMPORTANT]
+> If the Flipt server becomes reachable after the setting the snapshot, the client will replace the snapshot with the new flag state from the Flipt server.
+
 ## iOS Integration 📱
 
 The `flipt-client-dart` library can be used in a Flutter iOS app but requires a few additional steps to integrate.
@@ -165,7 +180,7 @@ end
 
 You may also need to add the following `User Defined Setting` to your Xcode project. Do this in the `Build Settings` tab for your project, not the target!
 
-```
+```console
 VALID_ARCHS = arm64
 ```
 
@@ -194,6 +209,7 @@ dart run build_runner build --delete-conflicting-outputs
 To generate the FFI bindings (found in `lib/ffi/bindings.dart`), run:
 
 ```bash
+cp ../flipt-engine-ffi/include/flipt_engine.h ffi/flipt_engine.h
 dart run ffigen --config ffigen.yaml
 ```
 

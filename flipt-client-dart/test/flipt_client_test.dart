@@ -1,10 +1,26 @@
 import 'package:flipt_client/flipt_client.dart';
 import 'package:test/test.dart';
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, File;
+import 'dart:convert';
+
+String readResourceFile(String filename) {
+  final file = File('test/resources/$filename');
+  return file.readAsStringSync();
+}
 
 void main() {
   group('FliptEvaluationClient Tests', () {
     late FliptEvaluationClient client;
+
+    late String snapshotBase64;
+    late String emptySnapshotBase64;
+
+    setUpAll(() {
+      snapshotBase64 =
+          base64.encode(utf8.encode(readResourceFile('snapshot.json')));
+      emptySnapshotBase64 =
+          base64.encode(utf8.encode(readResourceFile('empty_snapshot.json')));
+    });
 
     setUp(() {
       Map<String, String> envVars = Platform.environment;
@@ -107,6 +123,29 @@ void main() {
       final result = client.listFlags();
       expect(result, isA<List<Flag>>());
       expect(result, hasLength(2));
+    });
+
+    test('Get Snapshot', () {
+      final snapshot = client.getSnapshot();
+      expect(snapshot, isNotNull);
+
+      final expectedJson =
+          jsonDecode(utf8.decode(base64.decode(snapshotBase64)));
+      final actualJson = jsonDecode(utf8.decode(base64.decode(snapshot)));
+
+      expect(actualJson, equals(expectedJson));
+    });
+
+    test('Set and Get Snapshot', () {
+      client.setSnapshot(emptySnapshotBase64);
+      final snapshot = client.getSnapshot();
+      expect(snapshot, isNotNull);
+
+      final expectedJson =
+          jsonDecode(utf8.decode(base64.decode(emptySnapshotBase64)));
+      final actualJson = jsonDecode(utf8.decode(base64.decode(snapshot)));
+
+      expect(actualJson, equals(expectedJson));
     });
   });
 }
