@@ -27,7 +27,10 @@ class CLibrary {
 
     external fun listFlags(enginePtr: Long): String
 
-    external fun setSnapshot(enginePtr: Long, snapshot: String)
+    external fun setSnapshot(
+        enginePtr: Long,
+        snapshot: String,
+    )
 
     external fun getSnapshot(enginePtr: Long): String
 

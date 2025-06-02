@@ -151,7 +151,10 @@ class TestFliptEvaluationClient {
     }
 
     // Simple JSON comparison ignoring order and whitespace
-    private fun jsonEquals(expected: String, actual: String): Boolean {
+    private fun jsonEquals(
+        expected: String,
+        actual: String,
+    ): Boolean {
         val expectedObj = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper().readTree(expected)
         val actualObj = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper().readTree(actual)
         return expectedObj == actualObj
