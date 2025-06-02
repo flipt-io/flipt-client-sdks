@@ -1,6 +1,6 @@
 import 'package:flipt_client/flipt_client.dart';
 import 'package:test/test.dart';
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, File;
 import 'dart:convert';
 
 String readResourceFile(String filename) {
