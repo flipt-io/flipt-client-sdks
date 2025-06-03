@@ -27,6 +27,7 @@ use tokio::runtime::Builder;
 use tokio::runtime::Handle;
 use tokio::runtime::Runtime;
 use tokio::sync::Mutex as TokioMutex;
+use tokio::sync::RwLock;
 
 #[derive(Deserialize)]
 struct FFIEvaluationRequest {
@@ -114,7 +115,7 @@ impl Default for EngineOpts {
 }
 
 pub struct Engine {
-    evaluator: Arc<TokioMutex<Evaluator<snapshot::Snapshot>>>,
+    evaluator: Arc<RwLock<Evaluator<snapshot::Snapshot>>>,
     fetcher_handle: Arc<TokioMutex<FetcherHandle>>,
 }
 
@@ -144,7 +145,7 @@ impl Engine {
         evaluator: Evaluator<snapshot::Snapshot>,
         error_strategy: ErrorStrategy,
     ) -> Self {
-        let evaluator = Arc::new(TokioMutex::new(evaluator));
+        let evaluator = Arc::new(RwLock::new(evaluator));
         let evaluator_clone = evaluator.clone();
         let namespace_clone = namespace.to_string();
         let fetcher_handle = Arc::new(TokioMutex::new(FetcherHandle::new(fetcher)));
@@ -157,12 +158,12 @@ impl Engine {
             match fh.fetcher_mut().initial_fetch().await {
                 Ok(doc) => {
                     let snap = snapshot::Snapshot::build(&namespace_clone, doc);
-                    let mut lock = evaluator_clone.lock().await;
+                    let mut lock = evaluator_clone.write().await;
                     lock.replace_snapshot(Ok(snap));
                 }
                 Err(err) => {
                     if error_strategy == ErrorStrategy::Fail {
-                        let mut lock = evaluator_clone.lock().await;
+                        let mut lock = evaluator_clone.write().await;
                         lock.replace_snapshot(Err(err));
                     }
                 }
@@ -170,32 +171,26 @@ impl Engine {
         });
 
         // Start the fetcher and spawn the background task
-        {
-            let fetcher_handle = fetcher_handle.clone();
-            handle.block_on(async {
-                let mut fh = fetcher_handle.lock().await;
-                fh.start();
-            });
-        }
         let fetcher_handle_bg = fetcher_handle.clone();
+        let mut rx = handle.block_on(async {
+            let mut fh = fetcher_handle_bg.lock().await;
+            fh.start()
+        });
+
         let evaluator_clone_bg = evaluator.clone();
         let namespace_clone_bg = namespace_clone.clone();
         handle.spawn(async move {
-            let mut rx = {
-                let mut fh = fetcher_handle_bg.lock().await;
-                fh.start()
-            };
             loop {
                 let res = rx.recv().await;
                 match res {
                     Some(Ok(doc)) => {
                         let snap = snapshot::Snapshot::build(&namespace_clone_bg, doc);
-                        let mut lock = evaluator_clone_bg.lock().await;
+                        let mut lock = evaluator_clone_bg.write().await;
                         lock.replace_snapshot(Ok(snap));
                     }
                     Some(Err(err)) => {
                         if error_strategy == ErrorStrategy::Fail {
-                            let mut lock = evaluator_clone_bg.lock().await;
+                            let mut lock = evaluator_clone_bg.write().await;
                             lock.replace_snapshot(Err(err));
                         }
                     }
@@ -211,11 +206,19 @@ impl Engine {
     }
 
     /// Helper to lock the evaluator and run a closure, mapping lock errors to Error::Internal
-    async fn with_evaluator_lock_async<F, R>(&self, f: F) -> Result<R, Error>
+    async fn with_evaluator_read_lock_async<F, R>(&self, f: F) -> Result<R, Error>
+    where
+        F: FnOnce(&Evaluator<snapshot::Snapshot>) -> Result<R, Error>,
+    {
+        let lock = self.evaluator.read().await;
+        f(&lock)
+    }
+
+    async fn with_evaluator_write_lock_async<F, R>(&self, f: F) -> Result<R, Error>
     where
         F: FnOnce(&mut Evaluator<snapshot::Snapshot>) -> Result<R, Error>,
     {
-        let mut lock = self.evaluator.lock().await;
+        let mut lock = self.evaluator.write().await;
         f(&mut lock)
     }
 
@@ -223,7 +226,7 @@ impl Engine {
         &self,
         evaluation_request: &EvaluationRequest,
     ) -> Result<VariantEvaluationResponse, Error> {
-        self.with_evaluator_lock_async(|lock| lock.variant(evaluation_request))
+        self.with_evaluator_read_lock_async(|lock| lock.variant(evaluation_request))
             .await
     }
 
@@ -231,7 +234,7 @@ impl Engine {
         &self,
         evaluation_request: &EvaluationRequest,
     ) -> Result<BooleanEvaluationResponse, Error> {
-        self.with_evaluator_lock_async(|lock| lock.boolean(evaluation_request))
+        self.with_evaluator_read_lock_async(|lock| lock.boolean(evaluation_request))
             .await
     }
 
@@ -239,12 +242,12 @@ impl Engine {
         &self,
         batch_evaluation_request: Vec<EvaluationRequest>,
     ) -> Result<BatchEvaluationResponse, Error> {
-        self.with_evaluator_lock_async(|lock| lock.batch(batch_evaluation_request))
+        self.with_evaluator_read_lock_async(|lock| lock.batch(batch_evaluation_request))
             .await
     }
 
     pub async fn list_flags_async(&self) -> Result<Vec<flipt::Flag>, Error> {
-        self.with_evaluator_lock_async(|lock| lock.list_flags())
+        self.with_evaluator_read_lock_async(|lock| lock.list_flags())
             .await
     }
 
@@ -256,7 +259,7 @@ impl Engine {
         }
 
         // Replace the snapshot
-        self.with_evaluator_lock_async(|lock| {
+        self.with_evaluator_write_lock_async(|lock| {
             lock.replace_snapshot(Ok(snapshot));
             Ok(())
         })
@@ -272,7 +275,7 @@ impl Engine {
     }
 
     pub async fn get_snapshot_async(&self) -> Result<snapshot::Snapshot, Error> {
-        self.with_evaluator_lock_async(|lock| lock.get_snapshot())
+        self.with_evaluator_read_lock_async(|lock| lock.get_snapshot())
             .await
     }
 }
