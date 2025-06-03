@@ -43,6 +43,24 @@ class Options {
       _$OptionsFromJson(json);
   Map<String, dynamic> toJson() => _$OptionsToJson(this);
 
+  static Options withUrl(
+    String url, {
+    String? reference,
+    int? requestTimeout,
+    int? updateInterval,
+    FetchMode? fetchMode,
+    ErrorStrategy? errorStrategy,
+  }) {
+    return Options(
+      url: url,
+      reference: reference,
+      requestTimeout: requestTimeout,
+      updateInterval: updateInterval,
+      fetchMode: fetchMode,
+      errorStrategy: errorStrategy,
+    );
+  }
+
   static Options withClientToken(
     String token, {
     String? url,

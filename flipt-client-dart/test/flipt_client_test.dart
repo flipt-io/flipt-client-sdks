@@ -147,5 +147,57 @@ void main() {
 
       expect(actualJson, equals(expectedJson));
     });
+
+    test('Set/Get Snapshot and Evaluate with Invalid Flipt URL (Fallback)',
+        () async {
+      // Create a client with an invalid URL and fallback error strategy
+      final invalidClient = FliptEvaluationClient(
+        options: Options.withUrl(
+          'http://invalid.flipt.com',
+          errorStrategy: ErrorStrategy.fallback,
+        ),
+      );
+
+      // Set the snapshot
+      invalidClient.setSnapshot(snapshotBase64);
+
+      await Future.delayed(Duration(milliseconds: 100));
+
+      final context = {'fizz': 'buzz'};
+
+      for (var i = 0; i < 5; i++) {
+        // Variant evaluation
+        final variantResponse = invalidClient.evaluateVariant(
+          flagKey: 'flag1',
+          entityId: 'entity',
+          context: context,
+        );
+        expect(variantResponse.flagKey, equals('flag1'));
+        expect(variantResponse.match, isTrue);
+        expect(variantResponse.reason, equals('MATCH_EVALUATION_REASON'));
+        expect(variantResponse.variantKey, equals('variant1'));
+        expect(variantResponse.segmentKeys, contains('segment1'));
+
+        // Boolean evaluation
+        final booleanResponse = invalidClient.evaluateBoolean(
+          flagKey: 'flag_boolean',
+          entityId: 'entity',
+          context: context,
+        );
+        expect(booleanResponse.flagKey, equals('flag_boolean'));
+        expect(booleanResponse.enabled, isTrue);
+        expect(booleanResponse.reason, equals('MATCH_EVALUATION_REASON'));
+
+        // List flags
+        final flags = invalidClient.listFlags();
+        expect(flags, hasLength(2));
+
+        // Get snapshot
+        final snapshot = invalidClient.getSnapshot();
+        expect(snapshot, isNotNull);
+
+        invalidClient.close();
+      }
+    });
   });
 }
