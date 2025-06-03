@@ -19,3 +19,4 @@ tmp
 .vscode
 staging
 test/flutter
+.tool-versions
