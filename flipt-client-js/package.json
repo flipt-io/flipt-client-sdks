@@ -83,9 +83,9 @@
     "@types/jest": "^29.5.12",
     "@types/node": "^22.13.14",
     "@types/node-fetch": "^2.6.11",
-    "@typescript-eslint/eslint-plugin": "^5.47.0",
-    "@typescript-eslint/parser": "^5.47.0",
-    "eslint": "^8.30.0",
+    "@typescript-eslint/eslint-plugin": "^8.33.1",
+    "@typescript-eslint/parser": "^8.33.1",
+    "eslint": "^9.28.0",
     "jest": "^29.7.0",
     "node-fetch": "^3.3.0",
     "prettier": "^3.1.0",
@@ -116,3 +116,4 @@
     "url": "https://github.com/flipt-io/flipt-client-sdks/tree/main/flipt-client-js"
   }
 }
+
