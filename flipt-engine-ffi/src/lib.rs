@@ -10,7 +10,9 @@ use fliptevaluation::{
     BatchEvaluationResponse, BooleanEvaluationResponse, EvaluationRequest,
     VariantEvaluationResponse,
 };
-use http::{Authentication, ErrorStrategy, FetchMode, HTTPFetcher, HTTPFetcherBuilder};
+use http::{
+    Authentication, ErrorStrategy, FetchMode, FetcherHandle, HTTPFetcher, HTTPFetcherBuilder,
+};
 use libc::c_void;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -18,13 +20,13 @@ use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::str::Utf8Error;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::runtime::Builder;
 use tokio::runtime::Handle;
 use tokio::runtime::Runtime;
+use tokio::sync::Mutex as TokioMutex;
 
 #[derive(Deserialize)]
 struct FFIEvaluationRequest {
@@ -112,8 +114,8 @@ impl Default for EngineOpts {
 }
 
 pub struct Engine {
-    evaluator: Arc<Mutex<Evaluator<snapshot::Snapshot>>>,
-    stop_signal: Arc<AtomicBool>,
+    evaluator: Arc<TokioMutex<Evaluator<snapshot::Snapshot>>>,
+    fetcher_handle: Arc<TokioMutex<FetcherHandle>>,
 }
 
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
@@ -138,113 +140,140 @@ fn get_or_create_runtime() -> &'static Handle {
 impl Engine {
     pub fn new(
         namespace: &str,
-        mut fetcher: HTTPFetcher,
+        fetcher: HTTPFetcher,
         evaluator: Evaluator<snapshot::Snapshot>,
         error_strategy: ErrorStrategy,
     ) -> Self {
-        let stop_signal = Arc::new(AtomicBool::new(false));
-        let stop_signal_clone = stop_signal.clone();
-
-        let evaluator = Arc::new(Mutex::new(evaluator));
+        let evaluator = Arc::new(TokioMutex::new(evaluator));
         let evaluator_clone = evaluator.clone();
-
         let namespace_clone = namespace.to_string();
+        let fetcher_handle = Arc::new(TokioMutex::new(FetcherHandle::new(fetcher)));
 
         let handle = get_or_create_runtime();
 
         // Block on initial fetch
         handle.block_on(async {
-            match fetcher.initial_fetch().await {
+            let mut fh = fetcher_handle.lock().await;
+            match fh.fetcher_mut().initial_fetch().await {
                 Ok(doc) => {
                     let snap = snapshot::Snapshot::build(&namespace_clone, doc);
-                    if let Ok(mut lock) = evaluator_clone.lock() {
-                        lock.replace_snapshot(Ok(snap));
-                    }
+                    let mut lock = evaluator_clone.lock().await;
+                    lock.replace_snapshot(Ok(snap));
                 }
                 Err(err) => {
                     if error_strategy == ErrorStrategy::Fail {
-                        if let Ok(mut lock) = evaluator_clone.lock() {
-                            lock.replace_snapshot(Err(err));
-                        }
+                        let mut lock = evaluator_clone.lock().await;
+                        lock.replace_snapshot(Err(err));
                     }
                 }
             }
         });
 
-        // Spawn the continuous polling task
+        // Start the fetcher and spawn the background task
+        {
+            let fetcher_handle = fetcher_handle.clone();
+            handle.block_on(async {
+                let mut fh = fetcher_handle.lock().await;
+                fh.start();
+            });
+        }
+        let fetcher_handle_bg = fetcher_handle.clone();
+        let evaluator_clone_bg = evaluator.clone();
+        let namespace_clone_bg = namespace_clone.clone();
         handle.spawn(async move {
-            let mut rx = fetcher.start(stop_signal_clone);
-            while let Some(res) = rx.recv().await {
+            let mut rx = {
+                let mut fh = fetcher_handle_bg.lock().await;
+                fh.start()
+            };
+            loop {
+                let res = rx.recv().await;
                 match res {
-                    Ok(doc) => {
-                        let snap = snapshot::Snapshot::build(&namespace_clone, doc);
-                        if let Ok(mut lock) = evaluator_clone.lock() {
-                            lock.replace_snapshot(Ok(snap));
-                        }
+                    Some(Ok(doc)) => {
+                        let snap = snapshot::Snapshot::build(&namespace_clone_bg, doc);
+                        let mut lock = evaluator_clone_bg.lock().await;
+                        lock.replace_snapshot(Ok(snap));
                     }
-                    Err(err) => {
+                    Some(Err(err)) => {
                         if error_strategy == ErrorStrategy::Fail {
-                            if let Ok(mut lock) = evaluator_clone.lock() {
-                                lock.replace_snapshot(Err(err));
-                            }
+                            let mut lock = evaluator_clone_bg.lock().await;
+                            lock.replace_snapshot(Err(err));
                         }
                     }
+                    None => break, // Channel closed, exit loop
                 }
             }
         });
 
         Self {
             evaluator,
-            stop_signal,
+            fetcher_handle,
         }
     }
 
     /// Helper to lock the evaluator and run a closure, mapping lock errors to Error::Internal
-    fn with_evaluator_lock<F, R>(&self, f: F) -> Result<R, Error>
+    async fn with_evaluator_lock_async<F, R>(&self, f: F) -> Result<R, Error>
     where
         F: FnOnce(&mut Evaluator<snapshot::Snapshot>) -> Result<R, Error>,
     {
-        let mut lock = self
-            .evaluator
-            .lock()
-            .map_err(|_| Error::Internal("failed to acquire lock".to_string()))?;
+        let mut lock = self.evaluator.lock().await;
         f(&mut lock)
     }
 
-    pub fn variant(
+    pub async fn variant_async(
         &self,
         evaluation_request: &EvaluationRequest,
     ) -> Result<VariantEvaluationResponse, Error> {
-        self.with_evaluator_lock(|lock| lock.variant(evaluation_request))
+        self.with_evaluator_lock_async(|lock| lock.variant(evaluation_request))
+            .await
     }
 
-    pub fn boolean(
+    pub async fn boolean_async(
         &self,
         evaluation_request: &EvaluationRequest,
     ) -> Result<BooleanEvaluationResponse, Error> {
-        self.with_evaluator_lock(|lock| lock.boolean(evaluation_request))
+        self.with_evaluator_lock_async(|lock| lock.boolean(evaluation_request))
+            .await
     }
 
-    pub fn batch(
+    pub async fn batch_async(
         &self,
         batch_evaluation_request: Vec<EvaluationRequest>,
     ) -> Result<BatchEvaluationResponse, Error> {
-        self.with_evaluator_lock(|lock| lock.batch(batch_evaluation_request))
+        self.with_evaluator_lock_async(|lock| lock.batch(batch_evaluation_request))
+            .await
     }
 
-    pub fn list_flags(&self) -> Result<Vec<flipt::Flag>, Error> {
-        self.with_evaluator_lock(|lock| lock.list_flags())
+    pub async fn list_flags_async(&self) -> Result<Vec<flipt::Flag>, Error> {
+        self.with_evaluator_lock_async(|lock| lock.list_flags())
+            .await
     }
 
-    pub fn set_snapshot(&self, snapshot: snapshot::Snapshot) -> Result<(), Error> {
-        self.with_evaluator_lock(|lock| {
+    pub async fn set_snapshot_async(&self, snapshot: snapshot::Snapshot) -> Result<(), Error> {
+        // Stop the fetcher
+        {
+            let mut fh = self.fetcher_handle.lock().await;
+            fh.stop().await;
+        }
+
+        // Replace the snapshot
+        self.with_evaluator_lock_async(|lock| {
             lock.replace_snapshot(Ok(snapshot));
             Ok(())
         })
+        .await?;
+
+        // Restart the fetcher
+        {
+            let mut fh = self.fetcher_handle.lock().await;
+            fh.start();
+        }
+
+        Ok(())
     }
 
-    pub fn get_snapshot(&self) -> Result<snapshot::Snapshot, Error> {
-        self.with_evaluator_lock(|lock| lock.get_snapshot())
+    pub async fn get_snapshot_async(&self) -> Result<snapshot::Snapshot, Error> {
+        self.with_evaluator_lock_async(|lock| lock.get_snapshot())
+            .await
     }
 }
 
@@ -540,10 +569,13 @@ unsafe extern "C" fn _set_snapshot(
         Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
     };
 
-    match e.set_snapshot(snap) {
-        Ok(()) => result_to_json_ptr::<(), std::convert::Infallible>(Ok(())),
-        Err(err) => result_to_json_ptr::<(), _>(Err(err)),
-    }
+    let rt = get_or_create_runtime();
+    rt.block_on(async {
+        match e.set_snapshot_async(snap).await {
+            Ok(()) => result_to_json_ptr::<(), std::convert::Infallible>(Ok(())),
+            Err(err) => result_to_json_ptr::<(), _>(Err(err)),
+        }
+    })
 }
 
 unsafe extern "C" fn _get_snapshot(engine_ptr: *mut c_void) -> *const c_char {
@@ -552,7 +584,8 @@ unsafe extern "C" fn _get_snapshot(engine_ptr: *mut c_void) -> *const c_char {
         Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
     };
 
-    let snapshot_result = e.get_snapshot();
+    let rt = get_or_create_runtime();
+    let snapshot_result = rt.block_on(async { e.get_snapshot_async().await });
 
     let json = match &snapshot_result {
         Ok(snapshot) => match serde_json::to_string(snapshot) {
@@ -591,8 +624,8 @@ unsafe extern "C" fn _evaluate_variant(
         Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
     };
     let e_req = get_evaluation_request(evaluation_request);
-
-    result_to_json_ptr(e.variant(&e_req))
+    let rt = get_or_create_runtime();
+    rt.block_on(async { result_to_json_ptr(e.variant_async(&e_req).await) })
 }
 
 unsafe extern "C" fn _evaluate_boolean(
@@ -604,8 +637,8 @@ unsafe extern "C" fn _evaluate_boolean(
         Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
     };
     let e_req = get_evaluation_request(evaluation_request);
-
-    result_to_json_ptr(e.boolean(&e_req))
+    let rt = get_or_create_runtime();
+    rt.block_on(async { result_to_json_ptr(e.boolean_async(&e_req).await) })
 }
 
 unsafe extern "C" fn _evaluate_batch(
@@ -617,13 +650,16 @@ unsafe extern "C" fn _evaluate_batch(
         Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
     };
     let req = get_batch_evaluation_request(batch_evaluation_request);
-
-    result_to_json_ptr(e.batch(req))
+    let rt = get_or_create_runtime();
+    rt.block_on(async { result_to_json_ptr(e.batch_async(req).await) })
 }
 
 unsafe extern "C" fn _list_flags(engine_ptr: *mut c_void) -> *const c_char {
     let res = match get_engine(engine_ptr) {
-        Ok(e) => e.list_flags(),
+        Ok(e) => {
+            let rt = get_or_create_runtime();
+            rt.block_on(async { e.list_flags_async().await })
+        }
         Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
     };
 
@@ -636,8 +672,13 @@ unsafe extern "C" fn _destroy_engine(engine_ptr: *mut c_void) {
     }
 
     let engine = Box::from_raw(engine_ptr as *mut Engine);
-    engine.stop_signal.store(true, Ordering::Relaxed);
-
+    // Stop the fetcher handle if running
+    let fetcher_handle = engine.fetcher_handle.clone();
+    let rt = get_or_create_runtime();
+    rt.block_on(async {
+        let mut fh = fetcher_handle.lock().await;
+        fh.stop().await;
+    });
     // The engine will be dropped here, cleaning up all resources
 }
 
@@ -712,6 +753,7 @@ unsafe fn get_batch_evaluation_request(
 #[cfg(test)]
 mod tests {
     use crate::{http::ErrorStrategy, EngineOpts};
+
     #[test]
     fn test_engine_ops_with_error_strategy() {
         let input = r#"{"url":"http://localhost:8080","update_interval":120,"authentication":null,"error_strategy":"fallback"}"#;
