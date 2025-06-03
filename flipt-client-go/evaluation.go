@@ -94,6 +94,13 @@ func WithURL(url string) ClientOption {
 	}
 }
 
+// WithHTTPClient allows for configuring the HTTP client that the library will use.
+func WithHTTPClient(httpClient *http.Client) ClientOption {
+	return func(c *EvaluationClient) {
+		c.httpClient = httpClient
+	}
+}
+
 // WithRef allows for specifying a reference to fetch feature data from.
 func WithRef(ref string) ClientOption {
 	return func(c *EvaluationClient) {
@@ -211,6 +218,29 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 		snapshotChan: make(chan snapshot, 1),
 	}
 
+	c.httpClient = &http.Client{
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout:   10 * time.Second,
+				KeepAlive: 5 * time.Second, // More aggressive TCP keepalive
+			}).DialContext,
+			IdleConnTimeout:       60 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ResponseHeaderTimeout: 10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			MaxIdleConnsPerHost:   10,
+			// Enable HTTP/2 ping frames and other settings
+			Proxy:           http.ProxyFromEnvironment,
+			ReadBufferSize:  32 * 1024,
+			WriteBufferSize: 32 * 1024,
+			// HTTP/2 specific settings
+			MaxResponseHeaderBytes: 4 * 1024, // 4KB
+			DisableCompression:     false,    // Enable compression
+		},
+	}
+
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -235,29 +265,6 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 			cerr = fmt.Errorf("request timeout must be greater than 1 second")
 			return
 		}
-	}
-
-	c.httpClient = &http.Client{
-		Transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout:   10 * time.Second,
-				KeepAlive: 5 * time.Second, // More aggressive TCP keepalive
-			}).DialContext,
-			IdleConnTimeout:       60 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ResponseHeaderTimeout: 10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-			ForceAttemptHTTP2:     true,
-			MaxIdleConns:          100,
-			MaxIdleConnsPerHost:   10,
-			// Enable HTTP/2 ping frames and other settings
-			Proxy:           http.ProxyFromEnvironment,
-			ReadBufferSize:  32 * 1024,
-			WriteBufferSize: 32 * 1024,
-			// HTTP/2 specific settings
-			MaxResponseHeaderBytes: 4 * 1024, // 4KB
-			DisableCompression:     false,    // Enable compression
-		},
 	}
 
 	// Store the base URL without trailing slash

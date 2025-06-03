@@ -11,6 +11,7 @@ use reqwest_retry::policies::ExponentialBackoff;
 use reqwest_retry::{Jitter, RetryTransientMiddleware};
 use serde::Deserialize;
 use tokio::sync::mpsc;
+use tokio::sync::Notify;
 use tokio_util::io::StreamReader;
 
 use fliptevaluation::error::Error;
@@ -213,14 +214,40 @@ impl HTTPFetcherBuilder {
 
 type FetchResult = Result<source::Document, Error>;
 
-impl HTTPFetcher {
-    /// Start the fetcher and return a channel to receive updates on the snapshot changes
-    pub fn start(&mut self, stop_signal: Arc<AtomicBool>) -> mpsc::Receiver<FetchResult> {
+/// Handle for managing the lifecycle of a background fetcher task (polling or streaming).
+/// Allows starting, stopping, and restarting the fetch loop.
+pub struct FetcherHandle {
+    stop_signal: Arc<AtomicBool>,
+    notify: Arc<Notify>,
+    join_handle: Option<tokio::task::JoinHandle<()>>,
+    fetcher: HTTPFetcher,
+}
+
+impl FetcherHandle {
+    /// Create a new FetcherHandle from an HTTPFetcher.
+    pub fn new(fetcher: HTTPFetcher) -> Self {
+        Self {
+            stop_signal: Arc::new(AtomicBool::new(false)),
+            notify: Arc::new(Notify::new()),
+            join_handle: None,
+            fetcher,
+        }
+    }
+
+    /// Start the background fetch loop. If already running, does nothing.
+    /// Returns a receiver for updates.
+    pub fn start(&mut self) -> mpsc::Receiver<FetchResult> {
+        if self.is_running() {
+            // Already running, return a dummy receiver that will never receive anything
+            let (_tx, rx) = mpsc::channel(1);
+            return rx;
+        }
+        self.stop_signal.store(false, Ordering::Relaxed);
+        let stop_signal = self.stop_signal.clone();
+        let notify = self.notify.clone();
+        let mut fetcher = self.fetcher.clone();
         let (tx, rx) = mpsc::channel(100);
-
-        let mut fetcher = self.clone();
-
-        tokio::spawn(async move {
+        self.join_handle = Some(tokio::spawn(async move {
             while !stop_signal.load(Ordering::Relaxed) {
                 match fetcher.mode {
                     FetchMode::Polling => {
@@ -228,7 +255,14 @@ impl HTTPFetcher {
                             // TODO: log error
                             break;
                         }
-                        tokio::time::sleep(fetcher.update_interval).await;
+                        let sleep = tokio::time::sleep(fetcher.update_interval);
+                        tokio::pin!(sleep);
+                        tokio::select! {
+                            _ = &mut sleep => {},
+                            _ = notify.notified() => {
+                                break;
+                            }
+                        }
                     }
                     FetchMode::Streaming => {
                         if fetcher.handle_streaming(&tx).await.is_err() {
@@ -239,11 +273,36 @@ impl HTTPFetcher {
                 }
             }
             // The channel will be closed when tx is dropped at the end of this function
-        });
-
+        }));
         rx
     }
 
+    /// Stop the background fetch loop. Waits for the task to finish.
+    pub async fn stop(&mut self) {
+        self.stop_signal.store(true, Ordering::Relaxed);
+        self.notify.notify_waiters(); // Wake up the sleep if needed
+        if let Some(handle) = self.join_handle.take() {
+            let _ = handle.await;
+        }
+    }
+
+    /// Returns true if the fetch loop is running.
+    pub fn is_running(&self) -> bool {
+        self.join_handle.is_some()
+    }
+
+    /// Returns a reference to the underlying HTTPFetcher.
+    pub fn fetcher(&self) -> &HTTPFetcher {
+        &self.fetcher
+    }
+
+    /// Returns a mutable reference to the underlying HTTPFetcher.
+    pub fn fetcher_mut(&mut self) -> &mut HTTPFetcher {
+        &mut self.fetcher
+    }
+}
+
+impl HTTPFetcher {
     pub async fn initial_fetch(&mut self) -> FetchResult {
         let response = self.fetch().await?;
 
@@ -433,12 +492,13 @@ impl HTTPFetcher {
 
 #[cfg(test)]
 mod tests {
-    use futures::FutureExt;
-    use mockito::Server;
-
+    use super::FetcherHandle;
     use crate::http::Authentication;
     use crate::http::FetchMode;
     use crate::http::HTTPFetcherBuilder;
+    use futures::FutureExt;
+    use mockito::Server;
+    use std::time::Duration;
     use tokio::sync::mpsc;
 
     #[tokio::test]
@@ -719,5 +779,94 @@ mod tests {
         let unwrapped_string: Authentication = serde_json::from_str(json).unwrap_or_default();
 
         assert_eq!(unwrapped_string, Authentication::JwtToken("secret".into()));
+    }
+
+    #[tokio::test]
+    async fn test_fetcher_handle_polling_start_stop_restart() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .expect_at_least(2)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .create_async()
+            .await;
+
+        let url = server.url();
+        let fetcher = HTTPFetcherBuilder::new(&url, "default")
+            .authentication(Authentication::None)
+            .update_interval(Duration::from_millis(10))
+            .build()
+            .unwrap();
+
+        let mut handle = FetcherHandle::new(fetcher);
+        // Start the fetcher
+        let mut rx = handle.start();
+        assert!(handle.is_running());
+        // Receive at least one update
+        let doc = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .expect("timeout waiting for update");
+        assert!(doc.is_some());
+        // Stop the fetcher
+        handle.stop().await;
+        assert!(!handle.is_running());
+        // Restart the fetcher
+        let mut rx2 = handle.start();
+        assert!(handle.is_running());
+        // Receive at least one update again
+        let doc2 = tokio::time::timeout(Duration::from_secs(2), rx2.recv())
+            .await
+            .expect("timeout waiting for update after restart");
+        assert!(doc2.is_some());
+        handle.stop().await;
+        mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_fetcher_handle_streaming_start_stop_restart() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshots?[]namespaces=default")
+            .expect_at_least(2)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_chunked_body(|w| {
+                w.write_all(b"{\"result\":{ \"namespaces\":{\"default\":{\"namespace\": {\"key\": \"default\"}, \"flags\":[]}}}}\n")?;
+                Ok(())
+            })
+            .create_async()
+            .await;
+
+        let url = server.url();
+        let fetcher = HTTPFetcherBuilder::new(&url, "default")
+            .authentication(Authentication::None)
+            .mode(FetchMode::Streaming)
+            .build()
+            .unwrap();
+
+        let mut handle = FetcherHandle::new(fetcher);
+        // Start the fetcher
+        let mut rx = handle.start();
+        assert!(handle.is_running());
+        // Receive at least one update
+        let doc = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .expect("timeout waiting for streaming update");
+        assert!(doc.is_some());
+        // Stop the fetcher
+        handle.stop().await;
+        assert!(!handle.is_running());
+        // Restart the fetcher
+        let mut rx2 = handle.start();
+        assert!(handle.is_running());
+        // Receive at least one update again
+        let doc2 = tokio::time::timeout(Duration::from_secs(2), rx2.recv())
+            .await
+            .expect("timeout waiting for streaming update after restart");
+        assert!(doc2.is_some());
+        handle.stop().await;
+        mock.assert();
     }
 }

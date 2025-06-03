@@ -6,6 +6,7 @@ use fliptengine::{
 };
 use fliptevaluation::EvaluationRequest;
 use std::collections::HashMap;
+use tokio;
 
 fn main() {
     let namespace = "default";
@@ -20,12 +21,12 @@ fn main() {
     let mut context: HashMap<String, String> = HashMap::new();
     context.insert("fizz".into(), "buzz".into());
 
-    std::thread::sleep(std::time::Duration::from_millis(5000));
-    let variant = engine.variant(&EvaluationRequest {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let variant = rt.block_on(engine.variant_async(&EvaluationRequest {
         flag_key: "flag1".into(),
         entity_id: "entity".into(),
         context: context.clone(),
-    });
+    }));
 
     println!("variant key {:?}", variant.unwrap().variant_key);
 }
