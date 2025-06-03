@@ -201,7 +201,7 @@ public class TestFliptEvaluationClient {
     for (int i = 0; i < 5; i++) {
       // variant evaluation
       VariantEvaluationResponse response =
-          invalidFliptClient.evaluateVariant("flag2", "entity", context);
+          invalidFliptClient.evaluateVariant("flag1", "entity", context);
 
       Assertions.assertEquals("flag1", response.getFlagKey());
       Assertions.assertTrue(response.isMatch());
