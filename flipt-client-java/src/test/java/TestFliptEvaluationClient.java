@@ -201,7 +201,7 @@ public class TestFliptEvaluationClient {
     for (int i = 0; i < 5; i++) {
       // variant evaluation
       VariantEvaluationResponse response =
-          invalidFliptClient.evaluateVariant("flag1", "entity", context);
+          invalidFliptClient.evaluateVariant("flag2", "entity", context);
 
       Assertions.assertEquals("flag1", response.getFlagKey());
       Assertions.assertTrue(response.isMatch());
@@ -224,6 +224,8 @@ public class TestFliptEvaluationClient {
       // get snapshot
       String snapshot = invalidFliptClient.getSnapshot();
       Assertions.assertNotNull(snapshot);
+
+      invalidFliptClient.close();
     }
   }
 
