@@ -266,7 +266,7 @@ pub unsafe extern "C" fn initialize_engine_ffi(
     opts: *const c_char,
 ) -> *mut c_void {
     match std::panic::catch_unwind(|| {
-        let _ = env_logger::try_init();
+        init_logging();
         debug!(
             "[FFI] initialize_engine_ffi called: namespace ptr=0x{:x}, opts ptr=0x{:x}",
             namespace as usize, opts as usize
@@ -293,7 +293,7 @@ pub unsafe extern "C" fn initialize_engine(
     opts: *const c_char,
 ) -> *mut c_void {
     match std::panic::catch_unwind(|| {
-        let _ = env_logger::try_init();
+        init_logging();
         debug!(
             "[FFI] initialize_engine called: namespace ptr=0x{:x}, opts ptr=0x{:x}",
             namespace as usize, opts as usize
@@ -317,7 +317,6 @@ pub unsafe extern "C" fn initialize_engine(
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn get_snapshot_ffi(engine_ptr: *mut c_void) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        let _ = env_logger::try_init();
         debug!(
             "[FFI] get_snapshot_ffi called: engine ptr=0x{:x}",
             engine_ptr as usize
@@ -341,7 +340,6 @@ pub unsafe extern "C" fn get_snapshot_ffi(engine_ptr: *mut c_void) -> *const c_c
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn get_snapshot(engine_ptr: *mut c_void) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        let _ = env_logger::try_init();
         debug!(
             "[FFI] get_snapshot called: engine ptr=0x{:x}",
             engine_ptr as usize
@@ -366,7 +364,6 @@ pub unsafe extern "C" fn evaluate_variant_ffi(
     evaluation_request: *const c_char,
 ) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        let _ = env_logger::try_init();
         debug!(
             "[FFI] evaluate_variant_ffi called: engine ptr=0x{:x}, req ptr=0x{:x}",
             engine_ptr as usize, evaluation_request as usize
@@ -393,7 +390,6 @@ pub unsafe extern "C" fn evaluate_variant(
     evaluation_request: *const c_char,
 ) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        let _ = env_logger::try_init();
         debug!(
             "[FFI] evaluate_variant called: engine ptr=0x{:x}, req ptr=0x{:x}",
             engine_ptr as usize, evaluation_request as usize
@@ -420,7 +416,6 @@ pub unsafe extern "C" fn evaluate_boolean_ffi(
     evaluation_request: *const c_char,
 ) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        let _ = env_logger::try_init();
         debug!(
             "[FFI] evaluate_boolean_ffi called: engine ptr=0x{:x}, req ptr=0x{:x}",
             engine_ptr as usize, evaluation_request as usize
@@ -447,7 +442,6 @@ pub unsafe extern "C" fn evaluate_boolean(
     evaluation_request: *const c_char,
 ) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        let _ = env_logger::try_init();
         debug!(
             "[FFI] evaluate_boolean called: engine ptr=0x{:x}, req ptr=0x{:x}",
             engine_ptr as usize, evaluation_request as usize
@@ -474,7 +468,6 @@ pub unsafe extern "C" fn evaluate_batch_ffi(
     batch_evaluation_request: *const c_char,
 ) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        let _ = env_logger::try_init();
         debug!(
             "[FFI] evaluate_batch_ffi called: engine ptr=0x{:x}, req ptr=0x{:x}",
             engine_ptr as usize, batch_evaluation_request as usize
@@ -501,7 +494,6 @@ pub unsafe extern "C" fn evaluate_batch(
     batch_evaluation_request: *const c_char,
 ) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        let _ = env_logger::try_init();
         debug!(
             "[FFI] evaluate_batch called: engine ptr=0x{:x}, req ptr=0x{:x}",
             engine_ptr as usize, batch_evaluation_request as usize
@@ -523,7 +515,6 @@ pub unsafe extern "C" fn evaluate_batch(
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        let _ = env_logger::try_init();
         debug!(
             "[FFI] list_flags_ffi called: engine ptr=0x{:x}",
             engine_ptr as usize
@@ -545,7 +536,6 @@ pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_cha
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        let _ = env_logger::try_init();
         debug!(
             "[FFI] list_flags called: engine ptr=0x{:x}",
             engine_ptr as usize
@@ -567,7 +557,6 @@ pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> *const c_char {
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn destroy_engine_ffi(engine_ptr: *mut c_void) {
     match std::panic::catch_unwind(|| {
-        let _ = env_logger::try_init();
         debug!(
             "[FFI] destroy_engine_ffi called: engine ptr=0x{:x}",
             engine_ptr as usize
@@ -589,7 +578,6 @@ pub unsafe extern "C" fn destroy_engine_ffi(engine_ptr: *mut c_void) {
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
     match std::panic::catch_unwind(|| {
-        let _ = env_logger::try_init();
         debug!(
             "[FFI] destroy_engine called: engine ptr=0x{:x}",
             engine_ptr as usize
@@ -611,7 +599,6 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn destroy_string_ffi(ptr: *mut c_char) {
     match std::panic::catch_unwind(|| {
-        let _ = env_logger::try_init();
         debug!("[FFI] destroy_string_ffi called: ptr=0x{:x}", ptr as usize);
         _destroy_string(ptr)
     }) {
@@ -629,7 +616,6 @@ pub unsafe extern "C" fn destroy_string_ffi(ptr: *mut c_char) {
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn destroy_string(ptr: *mut c_char) {
     match std::panic::catch_unwind(|| {
-        let _ = env_logger::try_init();
         debug!("[FFI] destroy_string called: ptr=0x{:x}", ptr as usize);
         _destroy_string(ptr)
     }) {
@@ -646,9 +632,6 @@ unsafe extern "C" fn _initialize_engine(
     opts: *const c_char,
 ) -> *mut c_void {
     let result = std::panic::catch_unwind(|| {
-        let _ = env_logger::Builder::from_env(env_logger::Env::new().filter("FLIPT_ENGINE_LOG"))
-            .try_init();
-
         // Null pointer checks
         if namespace.is_null() || opts.is_null() {
             return std::ptr::null_mut();
@@ -895,6 +878,11 @@ unsafe fn get_batch_evaluation_request(
     }
 
     evaluation_requests
+}
+
+fn init_logging() {
+    let _ =
+        env_logger::Builder::from_env(env_logger::Env::new().filter("FLIPT_ENGINE_LOG")).try_init();
 }
 
 #[cfg(test)]
