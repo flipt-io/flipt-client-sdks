@@ -12,6 +12,7 @@ use fliptevaluation::{
 };
 use http::{Authentication, ErrorStrategy, FetchMode, HTTPFetcher, HTTPFetcherBuilder};
 use libc::c_void;
+use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
@@ -264,7 +265,25 @@ pub unsafe extern "C" fn initialize_engine_ffi(
     namespace: *const c_char,
     opts: *const c_char,
 ) -> *mut c_void {
-    _initialize_engine(namespace, opts)
+    match std::panic::catch_unwind(|| {
+        init_logging();
+        debug!(
+            "[FFI] initialize_engine_ffi called: namespace ptr=0x{:x}, opts ptr=0x{:x}",
+            namespace as usize, opts as usize
+        );
+        let ptr = _initialize_engine(namespace, opts);
+        debug!(
+            "[FFI] initialize_engine_ffi returning engine ptr=0x{:x}",
+            ptr as usize
+        );
+        ptr
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in initialize_engine_ffi: {:?}", e);
+            std::ptr::null_mut()
+        }
+    }
 }
 
 /// # Safety
@@ -276,7 +295,25 @@ pub unsafe extern "C" fn initialize_engine(
     namespace: *const c_char,
     opts: *const c_char,
 ) -> *mut c_void {
-    _initialize_engine(namespace, opts)
+    match std::panic::catch_unwind(|| {
+        init_logging();
+        debug!(
+            "[FFI] initialize_engine called: namespace ptr=0x{:x}, opts ptr=0x{:x}",
+            namespace as usize, opts as usize
+        );
+        let ptr = _initialize_engine(namespace, opts);
+        debug!(
+            "[FFI] initialize_engine returning engine ptr=0x{:x}",
+            ptr as usize
+        );
+        ptr
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in initialize_engine: {:?}", e);
+            std::ptr::null_mut()
+        }
+    }
 }
 
 /// # Safety
@@ -285,7 +322,21 @@ pub unsafe extern "C" fn initialize_engine(
 #[no_mangle]
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn get_snapshot_ffi(engine_ptr: *mut c_void) -> *const c_char {
-    _get_snapshot(engine_ptr)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] get_snapshot_ffi called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _get_snapshot(engine_ptr)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in get_snapshot_ffi: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in get_snapshot_ffi".to_string(),
+            )))
+        }
+    }
 }
 
 /// # Safety
@@ -294,7 +345,19 @@ pub unsafe extern "C" fn get_snapshot_ffi(engine_ptr: *mut c_void) -> *const c_c
 #[no_mangle]
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn get_snapshot(engine_ptr: *mut c_void) -> *const c_char {
-    _get_snapshot(engine_ptr)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] get_snapshot called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _get_snapshot(engine_ptr)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in get_snapshot: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal("panic in get_snapshot".to_string())))
+        }
+    }
 }
 
 /// # Safety
@@ -306,7 +369,21 @@ pub unsafe extern "C" fn evaluate_variant_ffi(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
-    _evaluate_variant(engine_ptr, evaluation_request)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] evaluate_variant_ffi called: engine ptr=0x{:x}, req ptr=0x{:x}",
+            engine_ptr as usize, evaluation_request as usize
+        );
+        _evaluate_variant(engine_ptr, evaluation_request)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in evaluate_variant_ffi: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in evaluate_variant_ffi".to_string(),
+            )))
+        }
+    }
 }
 
 /// # Safety
@@ -318,7 +395,21 @@ pub unsafe extern "C" fn evaluate_variant(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
-    _evaluate_variant(engine_ptr, evaluation_request)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] evaluate_variant called: engine ptr=0x{:x}, req ptr=0x{:x}",
+            engine_ptr as usize, evaluation_request as usize
+        );
+        _evaluate_variant(engine_ptr, evaluation_request)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in evaluate_variant: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in evaluate_variant".to_string(),
+            )))
+        }
+    }
 }
 
 /// # Safety
@@ -330,7 +421,21 @@ pub unsafe extern "C" fn evaluate_boolean_ffi(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
-    _evaluate_boolean(engine_ptr, evaluation_request)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] evaluate_boolean_ffi called: engine ptr=0x{:x}, req ptr=0x{:x}",
+            engine_ptr as usize, evaluation_request as usize
+        );
+        _evaluate_boolean(engine_ptr, evaluation_request)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in evaluate_boolean_ffi: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in evaluate_boolean_ffi".to_string(),
+            )))
+        }
+    }
 }
 
 /// # Safety
@@ -342,7 +447,21 @@ pub unsafe extern "C" fn evaluate_boolean(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
-    _evaluate_boolean(engine_ptr, evaluation_request)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] evaluate_boolean called: engine ptr=0x{:x}, req ptr=0x{:x}",
+            engine_ptr as usize, evaluation_request as usize
+        );
+        _evaluate_boolean(engine_ptr, evaluation_request)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in evaluate_boolean: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in evaluate_boolean".to_string(),
+            )))
+        }
+    }
 }
 
 /// # Safety
@@ -354,7 +473,21 @@ pub unsafe extern "C" fn evaluate_batch_ffi(
     engine_ptr: *mut c_void,
     batch_evaluation_request: *const c_char,
 ) -> *const c_char {
-    _evaluate_batch(engine_ptr, batch_evaluation_request)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] evaluate_batch_ffi called: engine ptr=0x{:x}, req ptr=0x{:x}",
+            engine_ptr as usize, batch_evaluation_request as usize
+        );
+        _evaluate_batch(engine_ptr, batch_evaluation_request)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in evaluate_batch_ffi: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in evaluate_batch_ffi".to_string(),
+            )))
+        }
+    }
 }
 
 /// # Safety
@@ -366,7 +499,19 @@ pub unsafe extern "C" fn evaluate_batch(
     engine_ptr: *mut c_void,
     batch_evaluation_request: *const c_char,
 ) -> *const c_char {
-    _evaluate_batch(engine_ptr, batch_evaluation_request)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] evaluate_batch called: engine ptr=0x{:x}, req ptr=0x{:x}",
+            engine_ptr as usize, batch_evaluation_request as usize
+        );
+        _evaluate_batch(engine_ptr, batch_evaluation_request)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in evaluate_batch: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal("panic in evaluate_batch".to_string())))
+        }
+    }
 }
 
 /// # Safety
@@ -375,7 +520,19 @@ pub unsafe extern "C" fn evaluate_batch(
 #[no_mangle]
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_char {
-    _list_flags(engine_ptr)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] list_flags_ffi called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _list_flags(engine_ptr)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in list_flags_ffi: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal("panic in list_flags_ffi".to_string())))
+        }
+    }
 }
 
 /// # Safety
@@ -384,7 +541,19 @@ pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_cha
 #[no_mangle]
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> *const c_char {
-    _list_flags(engine_ptr)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] list_flags called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _list_flags(engine_ptr)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in list_flags: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal("panic in list_flags".to_string())))
+        }
+    }
 }
 
 /// # Safety
@@ -393,7 +562,19 @@ pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> *const c_char {
 #[no_mangle]
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn destroy_engine_ffi(engine_ptr: *mut c_void) {
-    _destroy_engine(engine_ptr)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] destroy_engine_ffi called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _destroy_engine(engine_ptr)
+        // No return value
+    }) {
+        Ok(_) => (),
+        Err(e) => {
+            error!("[FFI] PANIC in destroy_engine_ffi: {:?}", e);
+        }
+    }
 }
 
 /// # Safety
@@ -402,7 +583,19 @@ pub unsafe extern "C" fn destroy_engine_ffi(engine_ptr: *mut c_void) {
 #[no_mangle]
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
-    _destroy_engine(engine_ptr)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] destroy_engine called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _destroy_engine(engine_ptr)
+        // No return value
+    }) {
+        Ok(_) => (),
+        Err(e) => {
+            error!("[FFI] PANIC in destroy_engine: {:?}", e);
+        }
+    }
 }
 
 /// # Safety
@@ -411,7 +604,15 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
 #[no_mangle]
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn destroy_string_ffi(ptr: *mut c_char) {
-    _destroy_string(ptr)
+    match std::panic::catch_unwind(|| {
+        debug!("[FFI] destroy_string_ffi called: ptr=0x{:x}", ptr as usize);
+        _destroy_string(ptr)
+    }) {
+        Ok(_) => (),
+        Err(e) => {
+            error!("[FFI] PANIC in destroy_string_ffi: {:?}", e);
+        }
+    }
 }
 
 /// # Safety
@@ -420,7 +621,15 @@ pub unsafe extern "C" fn destroy_string_ffi(ptr: *mut c_char) {
 #[no_mangle]
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn destroy_string(ptr: *mut c_char) {
-    _destroy_string(ptr)
+    match std::panic::catch_unwind(|| {
+        debug!("[FFI] destroy_string called: ptr=0x{:x}", ptr as usize);
+        _destroy_string(ptr)
+    }) {
+        Ok(_) => (),
+        Err(e) => {
+            error!("[FFI] PANIC in destroy_string: {:?}", e);
+        }
+    }
 }
 
 // Private implementation functions
@@ -675,6 +884,11 @@ unsafe fn get_batch_evaluation_request(
     }
 
     evaluation_requests
+}
+
+fn init_logging() {
+    let _ =
+        env_logger::Builder::from_env(env_logger::Env::new().filter("FLIPT_ENGINE_LOG")).try_init();
 }
 
 #[cfg(test)]
