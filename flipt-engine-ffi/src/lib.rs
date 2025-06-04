@@ -25,6 +25,7 @@ use thiserror::Error;
 use tokio::runtime::Builder;
 use tokio::runtime::Handle;
 use tokio::runtime::Runtime;
+use tokio::sync::Notify;
 
 #[derive(Deserialize)]
 struct FFIEvaluationRequest {
@@ -114,6 +115,8 @@ impl Default for EngineOpts {
 pub struct Engine {
     evaluator: Arc<RwLock<Evaluator<snapshot::Snapshot>>>,
     stop_signal: Arc<AtomicBool>,
+    fetcher_handle: Option<tokio::task::JoinHandle<()>>,
+    stop_notify: Arc<Notify>,
 }
 
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
@@ -145,6 +148,9 @@ impl Engine {
         let stop_signal = Arc::new(AtomicBool::new(false));
         let stop_signal_clone = stop_signal.clone();
 
+        let stop_notify = Arc::new(Notify::new());
+        let stop_notify_clone = stop_notify.clone();
+
         let evaluator = Arc::new(RwLock::new(evaluator));
         let evaluator_clone = evaluator.clone();
 
@@ -171,9 +177,9 @@ impl Engine {
             }
         });
 
-        // Spawn the continuous polling task
-        handle.spawn(async move {
-            let mut rx = fetcher.start(stop_signal_clone);
+        // Spawn the continuous polling task and store the JoinHandle
+        let fetcher_handle = handle.spawn(async move {
+            let mut rx = fetcher.start(stop_signal_clone, stop_notify_clone);
             while let Some(res) = rx.recv().await {
                 match res {
                     Ok(doc) => {
@@ -196,6 +202,8 @@ impl Engine {
         Self {
             evaluator,
             stop_signal,
+            fetcher_handle: Some(fetcher_handle),
+            stop_notify,
         }
     }
 
@@ -646,11 +654,17 @@ unsafe extern "C" fn _destroy_engine(engine_ptr: *mut c_void) {
     if engine_ptr.is_null() {
         return;
     }
-
     let engine = Box::from_raw(engine_ptr as *mut Engine);
     engine.stop_signal.store(true, Ordering::Relaxed);
+    // Notify the fetcher task to stop
+    engine.stop_notify.notify_waiters();
+    // Wait for fetcher task to exit
+    if let Some(handle) = engine.fetcher_handle {
+        let rt = get_or_create_runtime();
+        let _ = rt.block_on(handle);
+    }
 
-    // The engine will be dropped here, cleaning up all resources
+    // Engine is dropped here
 }
 
 unsafe extern "C" fn _destroy_string(ptr: *mut c_char) {
