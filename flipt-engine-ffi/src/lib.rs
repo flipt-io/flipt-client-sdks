@@ -17,7 +17,6 @@ use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
-use std::str::Utf8Error;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock, RwLock};
 use std::time::Duration;
@@ -96,6 +95,7 @@ pub struct EngineOpts {
     fetch_mode: Option<FetchMode>,
     reference: Option<String>,
     error_strategy: Option<ErrorStrategy>,
+    snapshot: Option<String>,
 }
 
 impl Default for EngineOpts {
@@ -108,6 +108,7 @@ impl Default for EngineOpts {
             reference: None,
             fetch_mode: Some(FetchMode::default()),
             error_strategy: Some(ErrorStrategy::Fail),
+            snapshot: None,
         }
     }
 }
@@ -140,10 +141,10 @@ fn get_or_create_runtime() -> &'static Handle {
 
 impl Engine {
     pub fn new(
-        namespace: &str,
         mut fetcher: HTTPFetcher,
         evaluator: Evaluator<snapshot::Snapshot>,
         error_strategy: ErrorStrategy,
+        initial_snapshot: Option<snapshot::Snapshot>,
     ) -> Self {
         let stop_signal = Arc::new(AtomicBool::new(false));
         let stop_signal_clone = stop_signal.clone();
@@ -154,28 +155,33 @@ impl Engine {
         let evaluator = Arc::new(RwLock::new(evaluator));
         let evaluator_clone = evaluator.clone();
 
-        let namespace_clone = namespace.to_string();
-
         let handle = get_or_create_runtime();
 
-        // Block on initial fetch
-        handle.block_on(async {
-            match fetcher.initial_fetch().await {
-                Ok(doc) => {
-                    let snap = snapshot::Snapshot::build(&namespace_clone, doc);
-                    if let Ok(mut lock) = evaluator_clone.write() {
-                        lock.replace_snapshot(Ok(snap));
-                    }
-                }
-                Err(err) => {
-                    if error_strategy == ErrorStrategy::Fail {
+        // Use initial snapshot if provided, otherwise fetch from server
+        if let Some(snap) = initial_snapshot {
+            if let Ok(mut lock) = evaluator_clone.write() {
+                lock.replace_snapshot(Ok(snap));
+            }
+        } else {
+            // Block on initial fetch
+            handle.block_on(async {
+                match fetcher.initial_fetch().await {
+                    Ok(doc) => {
+                        let snap = snapshot::Snapshot::build(doc);
                         if let Ok(mut lock) = evaluator_clone.write() {
-                            lock.replace_snapshot(Err(err));
+                            lock.replace_snapshot(Ok(snap));
+                        }
+                    }
+                    Err(err) => {
+                        if error_strategy == ErrorStrategy::Fail {
+                            if let Ok(mut lock) = evaluator_clone.write() {
+                                lock.replace_snapshot(Err(err));
+                            }
                         }
                     }
                 }
-            }
-        });
+            });
+        }
 
         // Spawn the continuous polling task and store the JoinHandle
         let fetcher_handle = handle.spawn(async move {
@@ -183,7 +189,7 @@ impl Engine {
             while let Some(res) = rx.recv().await {
                 match res {
                     Ok(doc) => {
-                        let snap = snapshot::Snapshot::build(&namespace_clone, doc);
+                        let snap = snapshot::Snapshot::build(doc);
                         if let Ok(mut lock) = evaluator_clone.write() {
                             lock.replace_snapshot(Ok(snap));
                         }
@@ -205,18 +211,6 @@ impl Engine {
             fetcher_handle: Some(fetcher_handle),
             stop_notify,
         }
-    }
-
-    /// Helper to lock the evaluator for writing and run a closure, mapping lock errors to Error::Internal
-    fn with_evaluator_write_lock<F, R>(&self, f: F) -> Result<R, Error>
-    where
-        F: FnOnce(&mut Evaluator<snapshot::Snapshot>) -> Result<R, Error>,
-    {
-        let mut lock = self
-            .evaluator
-            .write()
-            .map_err(|_| Error::Internal("failed to acquire lock".to_string()))?;
-        f(&mut lock)
     }
 
     /// Helper to lock the evaluator for reading and run a closure, mapping lock errors to Error::Internal
@@ -256,13 +250,6 @@ impl Engine {
         self.with_evaluator_read_lock(|lock| lock.list_flags())
     }
 
-    pub fn set_snapshot(&self, snapshot: snapshot::Snapshot) -> Result<(), Error> {
-        self.with_evaluator_write_lock(|lock| {
-            lock.replace_snapshot(Ok(snapshot));
-            Ok(())
-        })
-    }
-
     pub fn get_snapshot(&self) -> Result<snapshot::Snapshot, Error> {
         self.with_evaluator_read_lock(|lock| lock.get_snapshot())
     }
@@ -292,30 +279,6 @@ pub unsafe extern "C" fn initialize_engine(
     opts: *const c_char,
 ) -> *mut c_void {
     _initialize_engine(namespace, opts)
-}
-
-/// # Safety
-///
-/// This function will take in a pointer to the engine and a snapshot string, and replace the in-memory snapshot.
-#[no_mangle]
-#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
-pub unsafe extern "C" fn set_snapshot_ffi(
-    engine_ptr: *mut c_void,
-    snapshot: *const c_char,
-) -> *const c_char {
-    _set_snapshot(engine_ptr, snapshot)
-}
-
-/// # Safety
-///
-/// This function will take in a pointer to the engine and a snapshot string, and replace the in-memory snapshot.
-#[no_mangle]
-#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
-pub unsafe extern "C" fn set_snapshot(
-    engine_ptr: *mut c_void,
-    snapshot: *const c_char,
-) -> *const c_char {
-    _set_snapshot(engine_ptr, snapshot)
 }
 
 /// # Safety
@@ -492,7 +455,8 @@ unsafe extern "C" fn _initialize_engine(
         let mut fetcher_builder = HTTPFetcherBuilder::new(
             &engine_opts
                 .url
-                .unwrap_or_else(|| "http://localhost:8080".into()),
+                .as_deref()
+                .unwrap_or("http://localhost:8080"),
             namespace,
         );
 
@@ -520,11 +484,24 @@ unsafe extern "C" fn _initialize_engine(
 
         let evaluator = Evaluator::new(namespace);
 
+        // Handle initial snapshot if provided
+        let initial_snapshot = if let Some(snapshot_b64) = &engine_opts.snapshot {
+            match BASE64_STANDARD.decode(snapshot_b64) {
+                Ok(decoded) => match serde_json::from_slice::<snapshot::Snapshot>(&decoded) {
+                    Ok(snap) => Some(snap),
+                    Err(_) => None,
+                },
+                Err(_) => None,
+            }
+        } else {
+            None
+        };
+
         let engine = Engine::new(
-            namespace,
             fetcher,
             evaluator,
             engine_opts.error_strategy.unwrap_or_default(),
+            initial_snapshot,
         );
 
         // Convert to raw pointer
@@ -532,38 +509,6 @@ unsafe extern "C" fn _initialize_engine(
     });
 
     result.unwrap_or(std::ptr::null_mut())
-}
-
-unsafe extern "C" fn _set_snapshot(
-    engine_ptr: *mut c_void,
-    snapshot: *const c_char,
-) -> *const c_char {
-    let e = match get_engine(engine_ptr) {
-        Ok(e) => e,
-        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
-    };
-
-    let snapshot_bytes = CStr::from_ptr(snapshot).to_bytes();
-    let snapshot_str = match std::str::from_utf8(snapshot_bytes) {
-        Ok(s) => s,
-        Err(e) => return result_to_json_ptr::<(), Utf8Error>(Err(e)),
-    };
-
-    // Base64 decode the string
-    let decoded = match BASE64_STANDARD.decode(snapshot_str) {
-        Ok(decoded) => decoded,
-        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
-    };
-
-    let snap: snapshot::Snapshot = match serde_json::from_slice(&decoded) {
-        Ok(snap) => snap,
-        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
-    };
-
-    match e.set_snapshot(snap) {
-        Ok(()) => result_to_json_ptr::<(), std::convert::Infallible>(Ok(())),
-        Err(err) => result_to_json_ptr::<(), _>(Err(err)),
-    }
 }
 
 unsafe extern "C" fn _get_snapshot(engine_ptr: *mut c_void) -> *const c_char {

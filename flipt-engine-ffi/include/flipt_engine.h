@@ -20,22 +20,6 @@ void *initialize_engine(const char *namespace_, const char *opts);
 /**
  * # Safety
  *
- * This function will take in a pointer to the engine and a snapshot string, and replace the in-memory snapshot.
- */
-const char *set_snapshot_ffi(void *engine_ptr,
-                             const char *snapshot);
-
-/**
- * # Safety
- *
- * This function will take in a pointer to the engine and a snapshot string, and replace the in-memory snapshot.
- */
-const char *set_snapshot(void *engine_ptr,
-                         const char *snapshot);
-
-/**
- * # Safety
- *
  * This function will take in a pointer to the engine and return the current snapshot as a JSON string.
  */
 const char *get_snapshot_ffi(void *engine_ptr);

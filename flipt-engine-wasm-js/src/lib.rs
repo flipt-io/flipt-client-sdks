@@ -73,7 +73,7 @@ impl Engine {
             }
         };
 
-        self.store = snapshot::Snapshot::build(&self.namespace, doc);
+        self.store = snapshot::Snapshot::build(doc);
         Ok(())
     }
 

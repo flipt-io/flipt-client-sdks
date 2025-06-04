@@ -33,7 +33,7 @@ impl Snapshot {
         }
     }
 
-    pub fn build(namespace: &str, doc: source::Document) -> Snapshot {
+    pub fn build(doc: source::Document) -> Snapshot {
         let mut flags: HashMap<String, flipt::Flag> = HashMap::new();
         let mut eval_rules: HashMap<String, Vec<flipt::EvaluationRule>> = HashMap::new();
         let mut eval_rollouts: HashMap<String, Vec<flipt::EvaluationRollout>> = HashMap::new();
@@ -185,7 +185,7 @@ impl Snapshot {
         Self {
             version: 1,
             namespace: Namespace {
-                key: namespace.to_string(),
+                key: doc.namespace.key.clone(),
                 flags,
                 eval_rules,
                 eval_rollouts,
