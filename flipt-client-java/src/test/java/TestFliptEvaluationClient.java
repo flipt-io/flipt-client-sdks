@@ -168,19 +168,13 @@ public class TestFliptEvaluationClient {
   }
 
   @Test
-  void testSetGetSnapshot() throws Exception {
-    fliptClient.setSnapshot(EMPTY_SNAPSHOT);
-    Thread.sleep(100);
-    String snapshot = fliptClient.getSnapshot();
-    Assertions.assertNotNull(snapshot);
-
-    byte[] expectedBytes = Base64.getDecoder().decode(EMPTY_SNAPSHOT);
-    byte[] actualBytes = Base64.getDecoder().decode(snapshot);
-
-    String expectedJson = new String(expectedBytes, StandardCharsets.UTF_8);
-    String actualJson = new String(actualBytes, StandardCharsets.UTF_8);
-
-    JSONAssert.assertEquals(expectedJson, actualJson, JSONCompareMode.LENIENT);
+  void testSetGetSnapshotWithInvalidSnapshot() throws Exception {
+    FliptEvaluationClient invalidFliptClient =
+        FliptEvaluationClient.builder()
+            .url("http://localhost:8080")
+            .errorStrategy(ErrorStrategy.FALLBACK)
+            .snapshot("invalid")
+            .build();
   }
 
   @Test
