@@ -17,7 +17,6 @@ use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
-use std::str::Utf8Error;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock, RwLock};
 use std::time::Duration;
@@ -96,6 +95,7 @@ pub struct EngineOpts {
     fetch_mode: Option<FetchMode>,
     reference: Option<String>,
     error_strategy: Option<ErrorStrategy>,
+    snapshot: Option<String>,
 }
 
 impl Default for EngineOpts {
@@ -108,6 +108,7 @@ impl Default for EngineOpts {
             reference: None,
             fetch_mode: Some(FetchMode::default()),
             error_strategy: Some(ErrorStrategy::Fail),
+            snapshot: None,
         }
     }
 }
@@ -140,10 +141,10 @@ fn get_or_create_runtime() -> &'static Handle {
 
 impl Engine {
     pub fn new(
-        namespace: &str,
         mut fetcher: HTTPFetcher,
         evaluator: Evaluator<snapshot::Snapshot>,
         error_strategy: ErrorStrategy,
+        initial_snapshot: Option<snapshot::Snapshot>,
     ) -> Self {
         let stop_signal = Arc::new(AtomicBool::new(false));
         let stop_signal_clone = stop_signal.clone();
@@ -154,28 +155,33 @@ impl Engine {
         let evaluator = Arc::new(RwLock::new(evaluator));
         let evaluator_clone = evaluator.clone();
 
-        let namespace_clone = namespace.to_string();
-
         let handle = get_or_create_runtime();
 
-        // Block on initial fetch
-        handle.block_on(async {
-            match fetcher.initial_fetch().await {
-                Ok(doc) => {
-                    let snap = snapshot::Snapshot::build(&namespace_clone, doc);
-                    if let Ok(mut lock) = evaluator_clone.write() {
-                        lock.replace_snapshot(Ok(snap));
-                    }
-                }
-                Err(err) => {
-                    if error_strategy == ErrorStrategy::Fail {
+        // Use initial snapshot if provided, otherwise fetch from server
+        if let Some(snap) = initial_snapshot {
+            if let Ok(mut lock) = evaluator_clone.write() {
+                lock.replace_snapshot(Ok(snap));
+            }
+        } else {
+            // Block on initial fetch
+            handle.block_on(async {
+                match fetcher.initial_fetch().await {
+                    Ok(doc) => {
+                        let snap = snapshot::Snapshot::build(doc);
                         if let Ok(mut lock) = evaluator_clone.write() {
-                            lock.replace_snapshot(Err(err));
+                            lock.replace_snapshot(Ok(snap));
+                        }
+                    }
+                    Err(err) => {
+                        if error_strategy == ErrorStrategy::Fail {
+                            if let Ok(mut lock) = evaluator_clone.write() {
+                                lock.replace_snapshot(Err(err));
+                            }
                         }
                     }
                 }
-            }
-        });
+            });
+        }
 
         // Spawn the continuous polling task and store the JoinHandle
         let fetcher_handle = handle.spawn(async move {
@@ -183,7 +189,7 @@ impl Engine {
             while let Some(res) = rx.recv().await {
                 match res {
                     Ok(doc) => {
-                        let snap = snapshot::Snapshot::build(&namespace_clone, doc);
+                        let snap = snapshot::Snapshot::build(doc);
                         if let Ok(mut lock) = evaluator_clone.write() {
                             lock.replace_snapshot(Ok(snap));
                         }
@@ -205,18 +211,6 @@ impl Engine {
             fetcher_handle: Some(fetcher_handle),
             stop_notify,
         }
-    }
-
-    /// Helper to lock the evaluator for writing and run a closure, mapping lock errors to Error::Internal
-    fn with_evaluator_write_lock<F, R>(&self, f: F) -> Result<R, Error>
-    where
-        F: FnOnce(&mut Evaluator<snapshot::Snapshot>) -> Result<R, Error>,
-    {
-        let mut lock = self
-            .evaluator
-            .write()
-            .map_err(|_| Error::Internal("failed to acquire lock".to_string()))?;
-        f(&mut lock)
     }
 
     /// Helper to lock the evaluator for reading and run a closure, mapping lock errors to Error::Internal
@@ -256,13 +250,6 @@ impl Engine {
         self.with_evaluator_read_lock(|lock| lock.list_flags())
     }
 
-    pub fn set_snapshot(&self, snapshot: snapshot::Snapshot) -> Result<(), Error> {
-        self.with_evaluator_write_lock(|lock| {
-            lock.replace_snapshot(Ok(snapshot));
-            Ok(())
-        })
-    }
-
     pub fn get_snapshot(&self) -> Result<snapshot::Snapshot, Error> {
         self.with_evaluator_read_lock(|lock| lock.get_snapshot())
     }
@@ -292,30 +279,6 @@ pub unsafe extern "C" fn initialize_engine(
     opts: *const c_char,
 ) -> *mut c_void {
     _initialize_engine(namespace, opts)
-}
-
-/// # Safety
-///
-/// This function will take in a pointer to the engine and a snapshot string, and replace the in-memory snapshot.
-#[no_mangle]
-#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
-pub unsafe extern "C" fn set_snapshot_ffi(
-    engine_ptr: *mut c_void,
-    snapshot: *const c_char,
-) -> *const c_char {
-    _set_snapshot(engine_ptr, snapshot)
-}
-
-/// # Safety
-///
-/// This function will take in a pointer to the engine and a snapshot string, and replace the in-memory snapshot.
-#[no_mangle]
-#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
-pub unsafe extern "C" fn set_snapshot(
-    engine_ptr: *mut c_void,
-    snapshot: *const c_char,
-) -> *const c_char {
-    _set_snapshot(engine_ptr, snapshot)
 }
 
 /// # Safety
@@ -490,9 +453,10 @@ unsafe extern "C" fn _initialize_engine(
         let engine_opts: EngineOpts = serde_json::from_str(bytes_str_repr).unwrap_or_default();
 
         let mut fetcher_builder = HTTPFetcherBuilder::new(
-            &engine_opts
+            engine_opts
                 .url
-                .unwrap_or_else(|| "http://localhost:8080".into()),
+                .as_deref()
+                .unwrap_or("http://localhost:8080"),
             namespace,
         );
 
@@ -520,11 +484,21 @@ unsafe extern "C" fn _initialize_engine(
 
         let evaluator = Evaluator::new(namespace);
 
+        // Handle initial snapshot if provided
+        let initial_snapshot = if let Some(snapshot_b64) = &engine_opts.snapshot {
+            match BASE64_STANDARD.decode(snapshot_b64) {
+                Ok(decoded) => serde_json::from_slice::<snapshot::Snapshot>(&decoded).ok(),
+                Err(_) => None,
+            }
+        } else {
+            None
+        };
+
         let engine = Engine::new(
-            namespace,
             fetcher,
             evaluator,
             engine_opts.error_strategy.unwrap_or_default(),
+            initial_snapshot,
         );
 
         // Convert to raw pointer
@@ -532,38 +506,6 @@ unsafe extern "C" fn _initialize_engine(
     });
 
     result.unwrap_or(std::ptr::null_mut())
-}
-
-unsafe extern "C" fn _set_snapshot(
-    engine_ptr: *mut c_void,
-    snapshot: *const c_char,
-) -> *const c_char {
-    let e = match get_engine(engine_ptr) {
-        Ok(e) => e,
-        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
-    };
-
-    let snapshot_bytes = CStr::from_ptr(snapshot).to_bytes();
-    let snapshot_str = match std::str::from_utf8(snapshot_bytes) {
-        Ok(s) => s,
-        Err(e) => return result_to_json_ptr::<(), Utf8Error>(Err(e)),
-    };
-
-    // Base64 decode the string
-    let decoded = match BASE64_STANDARD.decode(snapshot_str) {
-        Ok(decoded) => decoded,
-        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
-    };
-
-    let snap: snapshot::Snapshot = match serde_json::from_slice(&decoded) {
-        Ok(snap) => snap,
-        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
-    };
-
-    match e.set_snapshot(snap) {
-        Ok(()) => result_to_json_ptr::<(), std::convert::Infallible>(Ok(())),
-        Err(err) => result_to_json_ptr::<(), _>(Err(err)),
-    }
 }
 
 unsafe extern "C" fn _get_snapshot(engine_ptr: *mut c_void) -> *const c_char {
@@ -737,11 +679,135 @@ unsafe fn get_batch_evaluation_request(
 
 #[cfg(test)]
 mod tests {
-    use crate::{http::ErrorStrategy, EngineOpts};
+    use super::*;
+
     #[test]
-    fn test_engine_ops_with_error_strategy() {
-        let input = r#"{"url":"http://localhost:8080","update_interval":120,"authentication":null,"error_strategy":"fallback"}"#;
-        let engine_opts: EngineOpts = serde_json::from_str(input).unwrap_or_default();
-        assert_eq!(ErrorStrategy::Fallback, engine_opts.error_strategy.unwrap());
+    fn test_engine_opts_with_invalid_snapshot() {
+        let json = r#"{\"url\":\"http://localhost:8080\",\"snapshot\":\"eyJmb28iOiJiYXIifQ==\",\"error_strategy\":\"fallback\"}"#;
+
+        match serde_json::from_str::<EngineOpts>(json) {
+            Ok(_) => panic!("Expected error, but got Ok"),
+            Err(_) => (),
+        }
+    }
+
+    #[test]
+    fn test_engine_opts_with_valid_snapshot() {
+        let snapshot = r#"
+{
+    "version": 1,
+    "namespace": {
+        "key": "default",
+        "flags": {
+            "flag1": {
+                "key": "flag1",
+                "enabled": true,
+                "type": "VARIANT_FLAG_TYPE",
+                "description": "flag description"
+            },
+            "flag_boolean": {
+                "key": "flag_boolean",
+                "enabled": true,
+                "type": "BOOLEAN_FLAG_TYPE",
+                "description": "flag description"
+            }
+        },
+        "eval_rules": {
+            "flag1": [
+                {
+                    "id": "flag1-1",
+                    "flag_key": "flag1",
+                    "segments": {
+                        "segment1": {
+                            "segment_key": "segment1",
+                            "match_type": "ANY_SEGMENT_MATCH_TYPE",
+                            "constraints": [
+                                {
+                                    "type": "STRING_CONSTRAINT_COMPARISON_TYPE",
+                                    "property": "fizz",
+                                    "operator": "eq",
+                                    "value": "buzz"
+                                }
+                            ]
+                        }
+                    },
+                    "rank": 1,
+                    "segment_operator": "OR_SEGMENT_OPERATOR"
+                }
+            ],
+            "flag_boolean": []
+        },
+        "eval_rollouts": {
+            "flag1": [],
+            "flag_boolean": [
+                {
+                    "rollout_type": "SEGMENT_ROLLOUT_TYPE",
+                    "rank": 1,
+                    "segment": {
+                        "value": true,
+                        "segment_operator": "OR_SEGMENT_OPERATOR",
+                        "segments": {
+                            "segment1": {
+                                "segment_key": "segment1",
+                                "match_type": "ANY_SEGMENT_MATCH_TYPE",
+                                "constraints": [
+                                    {
+                                        "type": "STRING_CONSTRAINT_COMPARISON_TYPE",
+                                        "property": "fizz",
+                                        "operator": "eq",
+                                        "value": "buzz"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                {
+                    "rollout_type": "THRESHOLD_ROLLOUT_TYPE",
+                    "rank": 2,
+                    "threshold": {
+                        "percentage": 50.0,
+                        "value": true
+                    }
+                }
+            ]
+        },
+        "eval_distributions": {
+            "flag1-1": [
+                {
+                    "rule_id": "flag1-1",
+                    "rollout": 100.0,
+                    "variant_key": "variant1"
+                }
+            ]
+        }
+    }
+}
+"#;
+
+        let encoded_snapshot = BASE64_STANDARD.encode(snapshot);
+
+        let json = format!(
+            r#"{{"url":"http://localhost:8080","snapshot":"{}","error_strategy":"fallback"}}"#,
+            encoded_snapshot
+        );
+
+        let opts: EngineOpts = serde_json::from_str(&json).unwrap();
+        assert_eq!(opts.url, Some("http://localhost:8080".to_string()));
+        assert_eq!(opts.snapshot, Some(encoded_snapshot));
+        assert_eq!(opts.error_strategy, Some(ErrorStrategy::Fallback));
+    }
+
+    #[test]
+    fn test_engine_opts_default() {
+        let opts: EngineOpts = EngineOpts::default();
+        assert_eq!(opts.url, Some("http://localhost:8080".to_string()));
+        assert_eq!(opts.authentication, None);
+        assert_eq!(opts.request_timeout, None);
+        assert_eq!(opts.update_interval, Some(120));
+        assert_eq!(opts.reference, None);
+        assert_eq!(opts.fetch_mode, Some(FetchMode::default()));
+        assert_eq!(opts.error_strategy, Some(ErrorStrategy::Fail));
+        assert_eq!(opts.snapshot, None);
     }
 }
