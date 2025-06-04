@@ -264,7 +264,21 @@ pub unsafe extern "C" fn initialize_engine_ffi(
     namespace: *const c_char,
     opts: *const c_char,
 ) -> *mut c_void {
-    _initialize_engine(namespace, opts)
+    match std::panic::catch_unwind(|| {
+        eprintln!(
+            "[FFI] initialize_engine_ffi called: namespace ptr={:?}, opts ptr={:?}",
+            namespace, opts
+        );
+        let ptr = _initialize_engine(namespace, opts);
+        eprintln!("[FFI] initialize_engine_ffi returning engine ptr={:?}", ptr);
+        ptr
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            eprintln!("[FFI] PANIC in initialize_engine_ffi: {:?}", e);
+            std::ptr::null_mut()
+        }
+    }
 }
 
 /// # Safety
@@ -276,7 +290,21 @@ pub unsafe extern "C" fn initialize_engine(
     namespace: *const c_char,
     opts: *const c_char,
 ) -> *mut c_void {
-    _initialize_engine(namespace, opts)
+    match std::panic::catch_unwind(|| {
+        eprintln!(
+            "[FFI] initialize_engine called: namespace ptr={:?}, opts ptr={:?}",
+            namespace, opts
+        );
+        let ptr = _initialize_engine(namespace, opts);
+        eprintln!("[FFI] initialize_engine returning engine ptr={:?}", ptr);
+        ptr
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            eprintln!("[FFI] PANIC in initialize_engine: {:?}", e);
+            std::ptr::null_mut()
+        }
+    }
 }
 
 /// # Safety
@@ -285,7 +313,18 @@ pub unsafe extern "C" fn initialize_engine(
 #[no_mangle]
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn get_snapshot_ffi(engine_ptr: *mut c_void) -> *const c_char {
-    _get_snapshot(engine_ptr)
+    match std::panic::catch_unwind(|| {
+        eprintln!("[FFI] get_snapshot_ffi called: engine ptr={:?}", engine_ptr);
+        _get_snapshot(engine_ptr)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            eprintln!("[FFI] PANIC in get_snapshot_ffi: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in get_snapshot_ffi".to_string(),
+            )))
+        }
+    }
 }
 
 /// # Safety
@@ -294,7 +333,16 @@ pub unsafe extern "C" fn get_snapshot_ffi(engine_ptr: *mut c_void) -> *const c_c
 #[no_mangle]
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn get_snapshot(engine_ptr: *mut c_void) -> *const c_char {
-    _get_snapshot(engine_ptr)
+    match std::panic::catch_unwind(|| {
+        eprintln!("[FFI] get_snapshot called: engine ptr={:?}", engine_ptr);
+        _get_snapshot(engine_ptr)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            eprintln!("[FFI] PANIC in get_snapshot: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal("panic in get_snapshot".to_string())))
+        }
+    }
 }
 
 /// # Safety
@@ -306,7 +354,21 @@ pub unsafe extern "C" fn evaluate_variant_ffi(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
-    _evaluate_variant(engine_ptr, evaluation_request)
+    match std::panic::catch_unwind(|| {
+        eprintln!(
+            "[FFI] evaluate_variant_ffi called: engine ptr={:?}, req ptr={:?}",
+            engine_ptr, evaluation_request
+        );
+        _evaluate_variant(engine_ptr, evaluation_request)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            eprintln!("[FFI] PANIC in evaluate_variant_ffi: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in evaluate_variant_ffi".to_string(),
+            )))
+        }
+    }
 }
 
 /// # Safety
@@ -318,7 +380,21 @@ pub unsafe extern "C" fn evaluate_variant(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
-    _evaluate_variant(engine_ptr, evaluation_request)
+    match std::panic::catch_unwind(|| {
+        eprintln!(
+            "[FFI] evaluate_variant called: engine ptr={:?}, req ptr={:?}",
+            engine_ptr, evaluation_request
+        );
+        _evaluate_variant(engine_ptr, evaluation_request)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            eprintln!("[FFI] PANIC in evaluate_variant: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in evaluate_variant".to_string(),
+            )))
+        }
+    }
 }
 
 /// # Safety
@@ -330,7 +406,21 @@ pub unsafe extern "C" fn evaluate_boolean_ffi(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
-    _evaluate_boolean(engine_ptr, evaluation_request)
+    match std::panic::catch_unwind(|| {
+        eprintln!(
+            "[FFI] evaluate_boolean_ffi called: engine ptr={:?}, req ptr={:?}",
+            engine_ptr, evaluation_request
+        );
+        _evaluate_boolean(engine_ptr, evaluation_request)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            eprintln!("[FFI] PANIC in evaluate_boolean_ffi: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in evaluate_boolean_ffi".to_string(),
+            )))
+        }
+    }
 }
 
 /// # Safety
@@ -342,7 +432,21 @@ pub unsafe extern "C" fn evaluate_boolean(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
-    _evaluate_boolean(engine_ptr, evaluation_request)
+    match std::panic::catch_unwind(|| {
+        eprintln!(
+            "[FFI] evaluate_boolean called: engine ptr={:?}, req ptr={:?}",
+            engine_ptr, evaluation_request
+        );
+        _evaluate_boolean(engine_ptr, evaluation_request)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            eprintln!("[FFI] PANIC in evaluate_boolean: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in evaluate_boolean".to_string(),
+            )))
+        }
+    }
 }
 
 /// # Safety
@@ -354,7 +458,21 @@ pub unsafe extern "C" fn evaluate_batch_ffi(
     engine_ptr: *mut c_void,
     batch_evaluation_request: *const c_char,
 ) -> *const c_char {
-    _evaluate_batch(engine_ptr, batch_evaluation_request)
+    match std::panic::catch_unwind(|| {
+        eprintln!(
+            "[FFI] evaluate_batch_ffi called: engine ptr={:?}, req ptr={:?}",
+            engine_ptr, batch_evaluation_request
+        );
+        _evaluate_batch(engine_ptr, batch_evaluation_request)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            eprintln!("[FFI] PANIC in evaluate_batch_ffi: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in evaluate_batch_ffi".to_string(),
+            )))
+        }
+    }
 }
 
 /// # Safety
@@ -366,7 +484,19 @@ pub unsafe extern "C" fn evaluate_batch(
     engine_ptr: *mut c_void,
     batch_evaluation_request: *const c_char,
 ) -> *const c_char {
-    _evaluate_batch(engine_ptr, batch_evaluation_request)
+    match std::panic::catch_unwind(|| {
+        eprintln!(
+            "[FFI] evaluate_batch called: engine ptr={:?}, req ptr={:?}",
+            engine_ptr, batch_evaluation_request
+        );
+        _evaluate_batch(engine_ptr, batch_evaluation_request)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            eprintln!("[FFI] PANIC in evaluate_batch: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal("panic in evaluate_batch".to_string())))
+        }
+    }
 }
 
 /// # Safety
@@ -375,7 +505,16 @@ pub unsafe extern "C" fn evaluate_batch(
 #[no_mangle]
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_char {
-    _list_flags(engine_ptr)
+    match std::panic::catch_unwind(|| {
+        eprintln!("[FFI] list_flags_ffi called: engine ptr={:?}", engine_ptr);
+        _list_flags(engine_ptr)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            eprintln!("[FFI] PANIC in list_flags_ffi: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal("panic in list_flags_ffi".to_string())))
+        }
+    }
 }
 
 /// # Safety
@@ -384,7 +523,16 @@ pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_cha
 #[no_mangle]
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> *const c_char {
-    _list_flags(engine_ptr)
+    match std::panic::catch_unwind(|| {
+        eprintln!("[FFI] list_flags called: engine ptr={:?}", engine_ptr);
+        _list_flags(engine_ptr)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            eprintln!("[FFI] PANIC in list_flags: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal("panic in list_flags".to_string())))
+        }
+    }
 }
 
 /// # Safety
@@ -393,7 +541,19 @@ pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> *const c_char {
 #[no_mangle]
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn destroy_engine_ffi(engine_ptr: *mut c_void) {
-    _destroy_engine(engine_ptr)
+    match std::panic::catch_unwind(|| {
+        eprintln!(
+            "[FFI] destroy_engine_ffi called: engine ptr={:?}",
+            engine_ptr
+        );
+        _destroy_engine(engine_ptr)
+        // No return value
+    }) {
+        Ok(_) => (),
+        Err(e) => {
+            eprintln!("[FFI] PANIC in destroy_engine_ffi: {:?}", e);
+        }
+    }
 }
 
 /// # Safety
@@ -402,7 +562,16 @@ pub unsafe extern "C" fn destroy_engine_ffi(engine_ptr: *mut c_void) {
 #[no_mangle]
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
-    _destroy_engine(engine_ptr)
+    match std::panic::catch_unwind(|| {
+        eprintln!("[FFI] destroy_engine called: engine ptr={:?}", engine_ptr);
+        _destroy_engine(engine_ptr)
+        // No return value
+    }) {
+        Ok(_) => (),
+        Err(e) => {
+            eprintln!("[FFI] PANIC in destroy_engine: {:?}", e);
+        }
+    }
 }
 
 /// # Safety
@@ -411,7 +580,15 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
 #[no_mangle]
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn destroy_string_ffi(ptr: *mut c_char) {
-    _destroy_string(ptr)
+    match std::panic::catch_unwind(|| {
+        eprintln!("[FFI] destroy_string_ffi called: ptr={:?}", ptr);
+        _destroy_string(ptr)
+    }) {
+        Ok(_) => (),
+        Err(e) => {
+            eprintln!("[FFI] PANIC in destroy_string_ffi: {:?}", e);
+        }
+    }
 }
 
 /// # Safety
@@ -420,7 +597,15 @@ pub unsafe extern "C" fn destroy_string_ffi(ptr: *mut c_char) {
 #[no_mangle]
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn destroy_string(ptr: *mut c_char) {
-    _destroy_string(ptr)
+    match std::panic::catch_unwind(|| {
+        eprintln!("[FFI] destroy_string called: ptr={:?}", ptr);
+        _destroy_string(ptr)
+    }) {
+        Ok(_) => (),
+        Err(e) => {
+            eprintln!("[FFI] PANIC in destroy_string: {:?}", e);
+        }
+    }
 }
 
 // Private implementation functions
