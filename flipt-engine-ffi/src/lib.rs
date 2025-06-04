@@ -646,8 +646,8 @@ unsafe extern "C" fn _initialize_engine(
     opts: *const c_char,
 ) -> *mut c_void {
     let result = std::panic::catch_unwind(|| {
-        let _ = env_logger::Builder::from_env(env_logger::Env::new().filter("FLIPT_ENGINE_LOG"))
-            .try_init();
+        let _ =
+            env_logger::Builder::from_env(env_logger::Env::new().filter("FLIPT_ENGINE_LOG")).init();
 
         // Null pointer checks
         if namespace.is_null() || opts.is_null() {
