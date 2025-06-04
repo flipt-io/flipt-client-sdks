@@ -18,6 +18,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class TestFliptEvaluationClient {
+  static {
+    System.setProperty(org.slf4j.impl.SimpleLogger.DEFAULT_LOG_LEVEL_KEY, "DEBUG");
+  }
+
   private static final Logger logger = LoggerFactory.getLogger(TestFliptEvaluationClient.class);
   private static final String SNAPSHOT =
       Base64.getEncoder()
