@@ -135,17 +135,5 @@ void main() {
 
       expect(actualJson, equals(expectedJson));
     });
-
-    test('Set and Get Snapshot', () {
-      client.setSnapshot(emptySnapshotBase64);
-      final snapshot = client.getSnapshot();
-      expect(snapshot, isNotNull);
-
-      final expectedJson =
-          jsonDecode(utf8.decode(base64.decode(emptySnapshotBase64)));
-      final actualJson = jsonDecode(utf8.decode(base64.decode(snapshot)));
-
-      expect(actualJson, equals(expectedJson));
-    });
   });
 }

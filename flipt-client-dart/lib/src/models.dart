@@ -24,6 +24,7 @@ class Options {
   final int? requestTimeout;
   final int? updateInterval;
   final Map<String, dynamic>? authentication;
+  final String? snapshot;
 
   /// Note: Streaming is currently only supported when using the SDK with Flipt Cloud (https://flipt.io/cloud).
   final FetchMode? fetchMode;
@@ -37,6 +38,7 @@ class Options {
     this.authentication,
     this.fetchMode = FetchMode.polling,
     this.errorStrategy = ErrorStrategy.fail,
+    this.snapshot,
   });
 
   factory Options.fromJson(Map<String, dynamic> json) =>

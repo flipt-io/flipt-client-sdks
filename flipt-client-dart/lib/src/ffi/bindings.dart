@@ -64,48 +64,6 @@ class FliptEngine {
 
   /// # Safety
   ///
-  /// This function will take in a pointer to the engine and a snapshot string, and replace the in-memory snapshot.
-  ffi.Pointer<ffi.Char> set_snapshot_ffi(
-    ffi.Pointer<ffi.Void> engine_ptr,
-    ffi.Pointer<ffi.Char> snapshot,
-  ) {
-    return _set_snapshot_ffi(
-      engine_ptr,
-      snapshot,
-    );
-  }
-
-  late final _set_snapshot_ffiPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>,
-              ffi.Pointer<ffi.Char>)>>('set_snapshot_ffi');
-  late final _set_snapshot_ffi = _set_snapshot_ffiPtr.asFunction<
-      ffi.Pointer<ffi.Char> Function(
-          ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>)>();
-
-  /// # Safety
-  ///
-  /// This function will take in a pointer to the engine and a snapshot string, and replace the in-memory snapshot.
-  ffi.Pointer<ffi.Char> set_snapshot(
-    ffi.Pointer<ffi.Void> engine_ptr,
-    ffi.Pointer<ffi.Char> snapshot,
-  ) {
-    return _set_snapshot(
-      engine_ptr,
-      snapshot,
-    );
-  }
-
-  late final _set_snapshotPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Pointer<ffi.Char> Function(
-              ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>)>>('set_snapshot');
-  late final _set_snapshot = _set_snapshotPtr.asFunction<
-      ffi.Pointer<ffi.Char> Function(
-          ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>)>();
-
-  /// # Safety
-  ///
   /// This function will take in a pointer to the engine and return the current snapshot as a JSON string.
   ffi.Pointer<ffi.Char> get_snapshot_ffi(
     ffi.Pointer<ffi.Void> engine_ptr,
