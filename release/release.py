@@ -157,8 +157,6 @@ def main():
         
     # Check if the SDK supports pull requests
     create_pull_request = False if isinstance(sdk_instance, TagBasedSDK) else get_pull_request()
-    # Check if we should push straight to main
-    push_to_main = not (isinstance(sdk_instance, TagBasedSDK) or create_pull_request)
     
     # Add confirmation prompt for tag
     tag_confirmation = yes_no_dialog(
@@ -172,7 +170,6 @@ def main():
 
     opts = {
         "create_pull_request": create_pull_request,
-        "push_to_main": push_to_main,
         "dry_run": args.dry_run
     }
         

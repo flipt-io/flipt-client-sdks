@@ -31,8 +31,7 @@ class SDK(ABC):
                 )
             else:
                 subprocess.run(["git", "commit", "-s", "-a", "--allow-empty", "-m", f"Release {tag}"], check=True, cwd=self.path)
-                if opts["push_to_main"]:
-                    subprocess.run(["git", "push", "origin", "main"], check=True, cwd=self.path)
+                subprocess.run(["git", "push", "origin", "main"], check=True, cwd=self.path)
             
             # Create and push tag
             subprocess.run(["git", "tag", tag], check=True, cwd=self.path)
