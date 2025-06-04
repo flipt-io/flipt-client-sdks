@@ -428,6 +428,7 @@ func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		}).
 		WithDirectory("/src/src/main/resources/linux-x86-64", t.engine.Directory(libDir)).
 		WithServiceBinding("flipt", t.flipt.AsService()).
+		WithEnvVariable("FLIPT_ENGINE_LOG", "debug").
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec(args("chown -R gradle:gradle /src")).
