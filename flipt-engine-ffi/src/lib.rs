@@ -19,7 +19,7 @@ use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::str::Utf8Error;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, OnceLock, RwLock};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::runtime::Builder;
@@ -112,7 +112,7 @@ impl Default for EngineOpts {
 }
 
 pub struct Engine {
-    evaluator: Arc<Mutex<Evaluator<snapshot::Snapshot>>>,
+    evaluator: Arc<RwLock<Evaluator<snapshot::Snapshot>>>,
     stop_signal: Arc<AtomicBool>,
 }
 
@@ -145,7 +145,7 @@ impl Engine {
         let stop_signal = Arc::new(AtomicBool::new(false));
         let stop_signal_clone = stop_signal.clone();
 
-        let evaluator = Arc::new(Mutex::new(evaluator));
+        let evaluator = Arc::new(RwLock::new(evaluator));
         let evaluator_clone = evaluator.clone();
 
         let namespace_clone = namespace.to_string();
@@ -157,13 +157,13 @@ impl Engine {
             match fetcher.initial_fetch().await {
                 Ok(doc) => {
                     let snap = snapshot::Snapshot::build(&namespace_clone, doc);
-                    if let Ok(mut lock) = evaluator_clone.lock() {
+                    if let Ok(mut lock) = evaluator_clone.write() {
                         lock.replace_snapshot(Ok(snap));
                     }
                 }
                 Err(err) => {
                     if error_strategy == ErrorStrategy::Fail {
-                        if let Ok(mut lock) = evaluator_clone.lock() {
+                        if let Ok(mut lock) = evaluator_clone.write() {
                             lock.replace_snapshot(Err(err));
                         }
                     }
@@ -178,13 +178,13 @@ impl Engine {
                 match res {
                     Ok(doc) => {
                         let snap = snapshot::Snapshot::build(&namespace_clone, doc);
-                        if let Ok(mut lock) = evaluator_clone.lock() {
+                        if let Ok(mut lock) = evaluator_clone.write() {
                             lock.replace_snapshot(Ok(snap));
                         }
                     }
                     Err(err) => {
                         if error_strategy == ErrorStrategy::Fail {
-                            if let Ok(mut lock) = evaluator_clone.lock() {
+                            if let Ok(mut lock) = evaluator_clone.write() {
                                 lock.replace_snapshot(Err(err));
                             }
                         }
@@ -199,52 +199,64 @@ impl Engine {
         }
     }
 
-    /// Helper to lock the evaluator and run a closure, mapping lock errors to Error::Internal
-    fn with_evaluator_lock<F, R>(&self, f: F) -> Result<R, Error>
+    /// Helper to lock the evaluator for writing and run a closure, mapping lock errors to Error::Internal
+    fn with_evaluator_write_lock<F, R>(&self, f: F) -> Result<R, Error>
     where
         F: FnOnce(&mut Evaluator<snapshot::Snapshot>) -> Result<R, Error>,
     {
         let mut lock = self
             .evaluator
-            .lock()
+            .write()
             .map_err(|_| Error::Internal("failed to acquire lock".to_string()))?;
         f(&mut lock)
+    }
+
+    /// Helper to lock the evaluator for reading and run a closure, mapping lock errors to Error::Internal
+    fn with_evaluator_read_lock<F, R>(&self, f: F) -> Result<R, Error>
+    where
+        F: FnOnce(&Evaluator<snapshot::Snapshot>) -> Result<R, Error>,
+    {
+        let lock = self
+            .evaluator
+            .read()
+            .map_err(|_| Error::Internal("failed to acquire lock".to_string()))?;
+        f(&lock)
     }
 
     pub fn variant(
         &self,
         evaluation_request: &EvaluationRequest,
     ) -> Result<VariantEvaluationResponse, Error> {
-        self.with_evaluator_lock(|lock| lock.variant(evaluation_request))
+        self.with_evaluator_read_lock(|lock| lock.variant(evaluation_request))
     }
 
     pub fn boolean(
         &self,
         evaluation_request: &EvaluationRequest,
     ) -> Result<BooleanEvaluationResponse, Error> {
-        self.with_evaluator_lock(|lock| lock.boolean(evaluation_request))
+        self.with_evaluator_read_lock(|lock| lock.boolean(evaluation_request))
     }
 
     pub fn batch(
         &self,
         batch_evaluation_request: Vec<EvaluationRequest>,
     ) -> Result<BatchEvaluationResponse, Error> {
-        self.with_evaluator_lock(|lock| lock.batch(batch_evaluation_request))
+        self.with_evaluator_read_lock(|lock| lock.batch(batch_evaluation_request))
     }
 
     pub fn list_flags(&self) -> Result<Vec<flipt::Flag>, Error> {
-        self.with_evaluator_lock(|lock| lock.list_flags())
+        self.with_evaluator_read_lock(|lock| lock.list_flags())
     }
 
     pub fn set_snapshot(&self, snapshot: snapshot::Snapshot) -> Result<(), Error> {
-        self.with_evaluator_lock(|lock| {
+        self.with_evaluator_write_lock(|lock| {
             lock.replace_snapshot(Ok(snapshot));
             Ok(())
         })
     }
 
     pub fn get_snapshot(&self) -> Result<snapshot::Snapshot, Error> {
-        self.with_evaluator_lock(|lock| lock.get_snapshot())
+        self.with_evaluator_read_lock(|lock| lock.get_snapshot())
     }
 }
 
