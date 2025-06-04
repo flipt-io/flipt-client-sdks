@@ -191,9 +191,9 @@ public class TestFliptEvaluationClient {
             .errorStrategy(ErrorStrategy.FALLBACK)
             .build();
 
-    Thread.sleep(100);
+    // wait for initial fetch to fail
+    Thread.sleep(5000);
     invalidFliptClient.setSnapshot(SNAPSHOT);
-    Thread.sleep(100);
 
     Map<String, String> context = new HashMap<>();
     context.put("fizz", "buzz");
