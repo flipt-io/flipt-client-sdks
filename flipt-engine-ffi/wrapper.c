@@ -7,7 +7,6 @@ extern const char* evaluate_boolean_ffi(void* engine, const char* request);
 extern const char* evaluate_variant_ffi(void* engine, const char* request);
 extern const char* evaluate_batch_ffi(void* engine, const char* request);
 extern const char* list_flags_ffi(void* engine);
-extern const char* set_snapshot_ffi(void* engine, const char* snapshot);
 extern const char* get_snapshot_ffi(void* engine);
 extern void destroy_engine_ffi(void* engine);
 extern void destroy_string_ffi(char* str);
@@ -31,10 +30,6 @@ const char* evaluate_batch(void* engine, const char* request) {
 
 const char* list_flags(void* engine) {
     return list_flags_ffi(engine);
-}
-
-const char* set_snapshot(void* engine, const char* snapshot) {
-    return set_snapshot_ffi(engine, snapshot);
 }
 
 const char* get_snapshot(void* engine) {
