@@ -34,8 +34,6 @@ public class FliptEvaluationClient {
 
     Pointer list_flags(Pointer engine);
 
-    Pointer set_snapshot(Pointer engine, String snapshot);
-
     Pointer get_snapshot(Pointer engine);
 
     void destroy_engine(Pointer engine);
@@ -76,6 +74,7 @@ public class FliptEvaluationClient {
     private Duration updateInterval;
     private FetchMode fetchMode = FetchMode.POLLING;
     private ErrorStrategy errorStrategy = ErrorStrategy.FAIL;
+    private String snapshot;
 
     public FliptEvaluationClientBuilder() {}
 
@@ -170,6 +169,17 @@ public class FliptEvaluationClient {
     }
 
     /**
+     * snapshot sets the initial snapshot for the Flipt client.
+     *
+     * @param snapshot the initial snapshot to set
+     * @return the FliptEvaluationClientBuilder
+     */
+    public FliptEvaluationClientBuilder snapshot(String snapshot) {
+      this.snapshot = snapshot;
+      return this;
+    }
+
+    /**
      * build builds a new FliptEvaluationClient.
      *
      * @return the FliptEvaluationClient
@@ -185,7 +195,8 @@ public class FliptEvaluationClient {
               Optional.ofNullable(authentication),
               Optional.ofNullable(reference),
               Optional.ofNullable(fetchMode),
-              Optional.ofNullable(errorStrategy)));
+              Optional.ofNullable(errorStrategy),
+              Optional.ofNullable(snapshot)));
     }
   }
 
@@ -350,21 +361,6 @@ public class FliptEvaluationClient {
       throw new EvaluationException(resp.getErrorMessage().get());
     }
     return resp.getResult().get();
-  }
-
-  /**
-   * setSnapshot sets the snapshot for the Flipt client.
-   *
-   * @param snapshot the snapshot to set
-   * @throws EvaluationException if the snapshot could not be set
-   */
-  public void setSnapshot(String snapshot) throws EvaluationException {
-    Pointer value = CLibrary.INSTANCE.set_snapshot(this.engine, snapshot);
-    TypeReference<Result<String>> typeRef = new TypeReference<Result<String>>() {};
-    Result<String> resp = this.readValue(value, typeRef);
-    if (!FliptEvaluationClient.STATUS_SUCCESS.equals(resp.getStatus())) {
-      throw new EvaluationException(resp.getErrorMessage().get());
-    }
   }
 
   /**

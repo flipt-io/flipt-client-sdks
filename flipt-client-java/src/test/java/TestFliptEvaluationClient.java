@@ -189,11 +189,8 @@ public class TestFliptEvaluationClient {
         FliptEvaluationClient.builder()
             .url("http://invalid.flipt.com")
             .errorStrategy(ErrorStrategy.FALLBACK)
+            .snapshot(SNAPSHOT)
             .build();
-
-    // wait for initial fetch to fail
-    Thread.sleep(5000);
-    invalidFliptClient.setSnapshot(SNAPSHOT);
 
     Map<String, String> context = new HashMap<>();
     context.put("fizz", "buzz");
