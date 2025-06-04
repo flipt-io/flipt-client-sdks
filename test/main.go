@@ -430,6 +430,8 @@ func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithServiceBinding("flipt", t.flipt.AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
+		WithEnvVariable("FLIPT_ENGINE_LOG", "debug").
+		WithEnvVariable("SLF4J_SIMPLE_LEVEL", "debug").
 		WithExec(args("chown -R gradle:gradle /src")).
 		WithExec(args("gradle clean")).
 		WithExec(args("gradle test --warning-mode all --info")).

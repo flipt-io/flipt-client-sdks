@@ -14,8 +14,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.skyscreamer.jsonassert.JSONAssert;
 import org.skyscreamer.jsonassert.JSONCompareMode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TestFliptEvaluationClient {
+  private static final Logger logger = LoggerFactory.getLogger(TestFliptEvaluationClient.class);
   private static final String SNAPSHOT =
       Base64.getEncoder()
           .encodeToString(readResourceFile("snapshot.json").getBytes(StandardCharsets.UTF_8));
@@ -35,6 +38,7 @@ public class TestFliptEvaluationClient {
 
   @BeforeEach
   void init() throws Exception {
+    logger.debug("Initializing FliptEvaluationClient");
     String fliptURL = System.getenv().get("FLIPT_URL");
     String clientToken = System.getenv().get("FLIPT_AUTH_TOKEN");
 
@@ -45,6 +49,7 @@ public class TestFliptEvaluationClient {
             .url(fliptURL)
             .authentication(new ClientTokenAuthentication(clientToken))
             .build();
+    logger.debug("FliptEvaluationClient initialized");
   }
 
   @Test
@@ -88,7 +93,10 @@ public class TestFliptEvaluationClient {
     Map<String, String> context = new HashMap<>();
     context.put("fizz", "buzz");
 
+    logger.debug(
+        "Evaluating variant with flagKey: {}, entity: {}, context: {}", "flag1", "entity", context);
     VariantEvaluationResponse response = fliptClient.evaluateVariant("flag1", "entity", context);
+    logger.debug("Variant evaluation response: {}", response);
 
     Assertions.assertEquals("flag1", response.getFlagKey());
     Assertions.assertTrue(response.isMatch());
@@ -102,8 +110,14 @@ public class TestFliptEvaluationClient {
     Map<String, String> context = new HashMap<>();
     context.put("fizz", "buzz");
 
+    logger.debug(
+        "Evaluating boolean with flagKey: {}, entity: {}, context: {}",
+        "flag_boolean",
+        "entity",
+        context);
     BooleanEvaluationResponse response =
         fliptClient.evaluateBoolean("flag_boolean", "entity", context);
+    logger.debug("Boolean evaluation response: {}", response);
 
     Assertions.assertEquals("flag_boolean", response.getFlagKey());
     Assertions.assertTrue(response.isEnabled());
@@ -115,13 +129,16 @@ public class TestFliptEvaluationClient {
     Map<String, String> context = new HashMap<>();
     context.put("fizz", "buzz");
 
+    logger.debug("Evaluating batch with context: {}", context);
     EvaluationRequest[] evalRequests = {
       new EvaluationRequest("flag1", "entity", context),
       new EvaluationRequest("flag_boolean", "entity", context),
       new EvaluationRequest("notfound", "entity", context)
     };
 
+    logger.debug("Batch evaluation requests: {}", (Object) evalRequests);
     BatchEvaluationResponse response = fliptClient.evaluateBatch(evalRequests);
+    logger.debug("Batch evaluation response: {}", response);
 
     Assertions.assertEquals(3, response.getResponses().length);
     Response[] responses = response.getResponses();
@@ -149,13 +166,17 @@ public class TestFliptEvaluationClient {
 
   @Test
   void testListFlags() throws Exception {
+    logger.debug("Listing flags");
     ArrayList<Flag> flags = fliptClient.listFlags();
+    logger.debug("Flags listed: {}", flags);
     Assertions.assertEquals(2, flags.size());
   }
 
   @Test
   void testGetSnapshot() throws Exception {
+    logger.debug("Getting snapshot");
     String snapshot = fliptClient.getSnapshot();
+    logger.debug("Snapshot retrieved: {}", snapshot);
     Assertions.assertNotNull(snapshot);
 
     byte[] expectedBytes = Base64.getDecoder().decode(SNAPSHOT);
@@ -179,20 +200,26 @@ public class TestFliptEvaluationClient {
 
   @Test
   void testSetGetSnapshotWithInvalidFliptURL() throws Exception {
+    logger.debug("Running testSetGetSnapshotWithInvalidFliptURL");
     FliptEvaluationClient invalidFliptClient =
         FliptEvaluationClient.builder()
             .url("http://invalid.flipt.com")
             .errorStrategy(ErrorStrategy.FALLBACK)
             .snapshot(SNAPSHOT)
             .build();
+    logger.debug("Built FliptEvaluationClient with invalid URL and fallback error strategy");
 
     Map<String, String> context = new HashMap<>();
     context.put("fizz", "buzz");
 
     for (int i = 0; i < 5; i++) {
-      // variant evaluation
+      logger.debug(
+          "Iteration {}: Evaluating variant with flagKey=flag1, entity=entity, context={}",
+          i,
+          context);
       VariantEvaluationResponse response =
           invalidFliptClient.evaluateVariant("flag1", "entity", context);
+      logger.debug("Iteration {}: Variant evaluation response: {}", i, response);
 
       Assertions.assertEquals("flag1", response.getFlagKey());
       Assertions.assertTrue(response.isMatch());
@@ -200,28 +227,37 @@ public class TestFliptEvaluationClient {
       Assertions.assertEquals("variant1", response.getVariantKey());
       Assertions.assertEquals("segment1", response.getSegmentKeys()[0]);
 
-      // boolean evaluation
+      logger.debug(
+          "Iteration {}: Evaluating boolean with flagKey=flag_boolean, entity=entity, context={}",
+          i,
+          context);
       BooleanEvaluationResponse booleanResponse =
           invalidFliptClient.evaluateBoolean("flag_boolean", "entity", context);
+      logger.debug("Iteration {}: Boolean evaluation response: {}", i, booleanResponse);
 
       Assertions.assertEquals("flag_boolean", booleanResponse.getFlagKey());
       Assertions.assertTrue(booleanResponse.isEnabled());
       Assertions.assertEquals("MATCH_EVALUATION_REASON", booleanResponse.getReason());
 
-      // list flags
+      logger.debug("Iteration {}: Listing flags", i);
       ArrayList<Flag> flags = invalidFliptClient.listFlags();
+      logger.debug("Iteration {}: Flags listed: {}", i, flags);
       Assertions.assertEquals(2, flags.size());
 
-      // get snapshot
+      logger.debug("Iteration {}: Getting snapshot", i);
       String snapshot = invalidFliptClient.getSnapshot();
+      logger.debug("Iteration {}: Snapshot retrieved: {}", i, snapshot);
       Assertions.assertNotNull(snapshot);
-
-      invalidFliptClient.close();
     }
+    logger.debug("Closing FliptEvaluationClient");
+    invalidFliptClient.close();
+    logger.debug("FliptEvaluationClient closed");
   }
 
   @AfterEach
   void tearDown() throws Exception {
+    logger.debug("Tearing down test");
     if (fliptClient != null) fliptClient.close();
+    logger.debug("FliptEvaluationClient closed");
   }
 }
