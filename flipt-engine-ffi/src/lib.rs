@@ -272,7 +272,10 @@ pub unsafe extern "C" fn initialize_engine_ffi(
             namespace as usize, opts as usize
         );
         let ptr = _initialize_engine(namespace, opts);
-        debug!("[FFI] initialize_engine_ffi returning engine ptr={:?}", ptr);
+        debug!(
+            "[FFI] initialize_engine_ffi returning engine ptr=0x{:x}",
+            ptr as usize
+        );
         ptr
     }) {
         Ok(ptr) => ptr,
@@ -299,7 +302,10 @@ pub unsafe extern "C" fn initialize_engine(
             namespace as usize, opts as usize
         );
         let ptr = _initialize_engine(namespace, opts);
-        debug!("[FFI] initialize_engine returning engine ptr={:?}", ptr);
+        debug!(
+            "[FFI] initialize_engine returning engine ptr=0x{:x}",
+            ptr as usize
+        );
         ptr
     }) {
         Ok(ptr) => ptr,
