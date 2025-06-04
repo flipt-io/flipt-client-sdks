@@ -13,7 +13,6 @@ See [ARCHITECTURE.md](../ARCHITECTURE.md).
 ### Prerequisites
 
 - [Rust](https://www.rust-lang.org/tools/install)
-- [cbindgen](https://github.com/mozilla/cbindgen)
 
 ### Build
 
@@ -22,6 +21,16 @@ cargo build -p flipt-engine-ffi --release
 ```
 
 There are some language SDKs that might require a C file header which has the definitions of the functions accessible through the FFI layer.
+
+We use [cbindgen](https://github.com/mozilla/cbindgen) to generate the C file header automatically at build time. The generated header is located in the `include` directory.
+
+### Logging
+
+The FFI layer uses the `log` and `env_logger` crates for logging. The `FLIPT_ENGINE_LOG` environment variable can be used to set the log level.
+
+```bash
+export FLIPT_ENGINE_LOG=debug
+```
 
 ### Test
 
