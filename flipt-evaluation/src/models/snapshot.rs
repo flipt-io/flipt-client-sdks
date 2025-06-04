@@ -19,6 +19,12 @@ pub struct Namespace {
     pub eval_distributions: HashMap<String, Vec<flipt::EvaluationDistribution>>,
 }
 
+impl Default for Snapshot {
+    fn default() -> Self {
+        Self::empty("default")
+    }
+}
+
 impl Snapshot {
     pub fn empty(namespace: &str) -> Snapshot {
         Self {
