@@ -453,7 +453,7 @@ unsafe extern "C" fn _initialize_engine(
         let engine_opts: EngineOpts = serde_json::from_str(bytes_str_repr).unwrap_or_default();
 
         let mut fetcher_builder = HTTPFetcherBuilder::new(
-            &engine_opts
+            engine_opts
                 .url
                 .as_deref()
                 .unwrap_or("http://localhost:8080"),
@@ -487,10 +487,7 @@ unsafe extern "C" fn _initialize_engine(
         // Handle initial snapshot if provided
         let initial_snapshot = if let Some(snapshot_b64) = &engine_opts.snapshot {
             match BASE64_STANDARD.decode(snapshot_b64) {
-                Ok(decoded) => match serde_json::from_slice::<snapshot::Snapshot>(&decoded) {
-                    Ok(snap) => Some(snap),
-                    Err(_) => None,
-                },
+                Ok(decoded) => serde_json::from_slice::<snapshot::Snapshot>(&decoded).ok(),
                 Err(_) => None,
             }
         } else {
