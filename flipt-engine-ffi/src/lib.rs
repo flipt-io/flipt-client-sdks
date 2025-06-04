@@ -679,11 +679,135 @@ unsafe fn get_batch_evaluation_request(
 
 #[cfg(test)]
 mod tests {
-    use crate::{http::ErrorStrategy, EngineOpts};
+    use super::*;
+
     #[test]
-    fn test_engine_ops_with_error_strategy() {
-        let input = r#"{"url":"http://localhost:8080","update_interval":120,"authentication":null,"error_strategy":"fallback"}"#;
-        let engine_opts: EngineOpts = serde_json::from_str(input).unwrap_or_default();
-        assert_eq!(ErrorStrategy::Fallback, engine_opts.error_strategy.unwrap());
+    fn test_engine_opts_with_invalid_snapshot() {
+        let json = r#"{\"url\":\"http://localhost:8080\",\"snapshot\":\"eyJmb28iOiJiYXIifQ==\",\"error_strategy\":\"fallback\"}"#;
+
+        match serde_json::from_str::<EngineOpts>(json) {
+            Ok(_) => panic!("Expected error, but got Ok"),
+            Err(_) => (),
+        }
+    }
+
+    #[test]
+    fn test_engine_opts_with_valid_snapshot() {
+        let snapshot = r#"
+{
+    "version": 1,
+    "namespace": {
+        "key": "default",
+        "flags": {
+            "flag1": {
+                "key": "flag1",
+                "enabled": true,
+                "type": "VARIANT_FLAG_TYPE",
+                "description": "flag description"
+            },
+            "flag_boolean": {
+                "key": "flag_boolean",
+                "enabled": true,
+                "type": "BOOLEAN_FLAG_TYPE",
+                "description": "flag description"
+            }
+        },
+        "eval_rules": {
+            "flag1": [
+                {
+                    "id": "flag1-1",
+                    "flag_key": "flag1",
+                    "segments": {
+                        "segment1": {
+                            "segment_key": "segment1",
+                            "match_type": "ANY_SEGMENT_MATCH_TYPE",
+                            "constraints": [
+                                {
+                                    "type": "STRING_CONSTRAINT_COMPARISON_TYPE",
+                                    "property": "fizz",
+                                    "operator": "eq",
+                                    "value": "buzz"
+                                }
+                            ]
+                        }
+                    },
+                    "rank": 1,
+                    "segment_operator": "OR_SEGMENT_OPERATOR"
+                }
+            ],
+            "flag_boolean": []
+        },
+        "eval_rollouts": {
+            "flag1": [],
+            "flag_boolean": [
+                {
+                    "rollout_type": "SEGMENT_ROLLOUT_TYPE",
+                    "rank": 1,
+                    "segment": {
+                        "value": true,
+                        "segment_operator": "OR_SEGMENT_OPERATOR",
+                        "segments": {
+                            "segment1": {
+                                "segment_key": "segment1",
+                                "match_type": "ANY_SEGMENT_MATCH_TYPE",
+                                "constraints": [
+                                    {
+                                        "type": "STRING_CONSTRAINT_COMPARISON_TYPE",
+                                        "property": "fizz",
+                                        "operator": "eq",
+                                        "value": "buzz"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                {
+                    "rollout_type": "THRESHOLD_ROLLOUT_TYPE",
+                    "rank": 2,
+                    "threshold": {
+                        "percentage": 50.0,
+                        "value": true
+                    }
+                }
+            ]
+        },
+        "eval_distributions": {
+            "flag1-1": [
+                {
+                    "rule_id": "flag1-1",
+                    "rollout": 100.0,
+                    "variant_key": "variant1"
+                }
+            ]
+        }
+    }
+}
+"#;
+
+        let encoded_snapshot = BASE64_STANDARD.encode(snapshot);
+
+        let json = format!(
+            r#"{{"url":"http://localhost:8080","snapshot":"{}","error_strategy":"fallback"}}"#,
+            encoded_snapshot
+        );
+
+        let opts: EngineOpts = serde_json::from_str(&json).unwrap();
+        assert_eq!(opts.url, Some("http://localhost:8080".to_string()));
+        assert_eq!(opts.snapshot, Some(encoded_snapshot));
+        assert_eq!(opts.error_strategy, Some(ErrorStrategy::Fallback));
+    }
+
+    #[test]
+    fn test_engine_opts_default() {
+        let opts: EngineOpts = EngineOpts::default();
+        assert_eq!(opts.url, Some("http://localhost:8080".to_string()));
+        assert_eq!(opts.authentication, None);
+        assert_eq!(opts.request_timeout, None);
+        assert_eq!(opts.update_interval, Some(120));
+        assert_eq!(opts.reference, None);
+        assert_eq!(opts.fetch_mode, Some(FetchMode::default()));
+        assert_eq!(opts.error_strategy, Some(ErrorStrategy::Fail));
+        assert_eq!(opts.snapshot, None);
     }
 }
