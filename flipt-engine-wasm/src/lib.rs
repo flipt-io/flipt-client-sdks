@@ -82,7 +82,7 @@ impl Engine {
     pub fn new(namespace: &str, snapshot: &str) -> Result<Self, WASMError> {
         let doc: source::Document =
             serde_json::from_str(snapshot).map_err(WASMError::InvalidJson)?;
-        let store = snapshot::Snapshot::build(namespace, doc);
+        let store = snapshot::Snapshot::build(doc);
 
         Ok(Self {
             namespace: namespace.to_string(),
@@ -92,7 +92,7 @@ impl Engine {
 
     pub fn snapshot(&mut self, data: &str) -> Result<(), WASMError> {
         let doc: source::Document = serde_json::from_str(data).map_err(WASMError::InvalidJson)?;
-        self.store = snapshot::Snapshot::build(&self.namespace, doc);
+        self.store = snapshot::Snapshot::build(doc);
         Ok(())
     }
 

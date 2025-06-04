@@ -136,7 +136,7 @@ mod tests {
         let mut tp = TestFetcher::new();
         let doc = tp.fetch("default").unwrap();
 
-        let snapshot = Snapshot::build("default", doc.unwrap());
+        let snapshot = Snapshot::build(doc.unwrap());
 
         assert_eq!(1, snapshot.version);
 
