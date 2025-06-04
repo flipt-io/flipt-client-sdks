@@ -144,7 +144,7 @@ impl Engine {
         mut fetcher: HTTPFetcher,
         evaluator: Evaluator<snapshot::Snapshot>,
         error_strategy: ErrorStrategy,
-        initial_snapshot: Option<snapshot::Snapshot>,
+        initial_snapshot: snapshot::Snapshot,
     ) -> Self {
         let stop_signal = Arc::new(AtomicBool::new(false));
         let stop_signal_clone = stop_signal.clone();
@@ -157,31 +157,29 @@ impl Engine {
 
         let handle = get_or_create_runtime();
 
-        // Use initial snapshot if provided, otherwise fetch from server
-        if let Some(snap) = initial_snapshot {
-            if let Ok(mut lock) = evaluator_clone.write() {
-                lock.replace_snapshot(Ok(snap));
-            }
-        } else {
-            // Block on initial fetch
-            handle.block_on(async {
-                match fetcher.initial_fetch().await {
-                    Ok(doc) => {
-                        let snap = snapshot::Snapshot::build(doc);
-                        if let Ok(mut lock) = evaluator_clone.write() {
-                            lock.replace_snapshot(Ok(snap));
-                        }
+        // Set the initial snapshot
+        if let Ok(mut lock) = evaluator.write() {
+            lock.replace_snapshot(Ok(initial_snapshot));
+        }
+
+        // Block on initial fetch
+        handle.block_on(async {
+            match fetcher.initial_fetch().await {
+                Ok(doc) => {
+                    let snap = snapshot::Snapshot::build(doc);
+                    if let Ok(mut lock) = evaluator.write() {
+                        lock.replace_snapshot(Ok(snap));
                     }
-                    Err(err) => {
-                        if error_strategy == ErrorStrategy::Fail {
-                            if let Ok(mut lock) = evaluator_clone.write() {
-                                lock.replace_snapshot(Err(err));
-                            }
+                }
+                Err(err) => {
+                    if error_strategy == ErrorStrategy::Fail {
+                        if let Ok(mut lock) = evaluator.write() {
+                            lock.replace_snapshot(Err(err));
                         }
                     }
                 }
-            });
-        }
+            }
+        });
 
         // Spawn the continuous polling task and store the JoinHandle
         let fetcher_handle = handle.spawn(async move {
@@ -485,14 +483,16 @@ unsafe extern "C" fn _initialize_engine(
         let evaluator = Evaluator::new(namespace);
 
         // Handle initial snapshot if provided
-        let initial_snapshot = if let Some(snapshot_b64) = &engine_opts.snapshot {
-            match BASE64_STANDARD.decode(snapshot_b64) {
-                Ok(decoded) => serde_json::from_slice::<snapshot::Snapshot>(&decoded).ok(),
-                Err(_) => None,
-            }
-        } else {
-            None
-        };
+        let initial_snapshot = engine_opts
+            .snapshot
+            .as_ref()
+            .and_then(|snapshot_b64| {
+                BASE64_STANDARD
+                    .decode(snapshot_b64)
+                    .ok()
+                    .and_then(|decoded| serde_json::from_slice::<snapshot::Snapshot>(&decoded).ok())
+            })
+            .unwrap_or_default();
 
         let engine = Engine::new(
             fetcher,
