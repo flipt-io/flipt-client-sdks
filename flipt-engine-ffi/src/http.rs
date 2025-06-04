@@ -10,7 +10,7 @@ use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::policies::ExponentialBackoff;
 use reqwest_retry::{Jitter, RetryTransientMiddleware};
 use serde::Deserialize;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Notify};
 use tokio_util::io::StreamReader;
 
 use fliptevaluation::error::Error;
@@ -215,10 +215,17 @@ type FetchResult = Result<source::Document, Error>;
 
 impl HTTPFetcher {
     /// Start the fetcher and return a channel to receive updates on the snapshot changes
-    pub fn start(&mut self, stop_signal: Arc<AtomicBool>) -> mpsc::Receiver<FetchResult> {
+    pub fn start(
+        &mut self,
+        stop_signal: Arc<AtomicBool>,
+        stop_notify: Arc<Notify>,
+    ) -> mpsc::Receiver<FetchResult> {
         let (tx, rx) = mpsc::channel(100);
 
         let mut fetcher = self.clone();
+        let update_interval = fetcher.update_interval;
+        // Clone for move into async
+        let stop_notify_clone = stop_notify.clone();
 
         tokio::spawn(async move {
             while !stop_signal.load(Ordering::Relaxed) {
@@ -228,7 +235,12 @@ impl HTTPFetcher {
                             // TODO: log error
                             break;
                         }
-                        tokio::time::sleep(fetcher.update_interval).await;
+                        let sleep = tokio::time::sleep(update_interval);
+                        tokio::pin!(sleep);
+                        tokio::select! {
+                            _ = &mut sleep => {},
+                            _ = stop_notify_clone.notified() => {},
+                        }
                     }
                     FetchMode::Streaming => {
                         if fetcher.handle_streaming(&tx).await.is_err() {
