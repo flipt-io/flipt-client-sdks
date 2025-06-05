@@ -431,7 +431,6 @@ func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithEnvVariable("FLIPT_ENGINE_LOG", "debug").
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithEnvVariable("FLIPT_ENGINE_LOG", "debug").
 		WithExec(args("chown -R gradle:gradle /src")).
 		WithExec(args("gradle clean")).
 		WithExec(args("gradle test --warning-mode all --info")).
