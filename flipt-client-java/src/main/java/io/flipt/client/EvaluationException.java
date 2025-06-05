@@ -1,10 +1,7 @@
 package io.flipt.client;
 
 /** Base exception for all Flipt client errors. */
-public sealed class FliptException extends RuntimeException
-    permits FliptException.EvaluationException,
-        FliptException.ConfigurationException,
-        FliptException.ConnectionException {
+public class FliptException extends RuntimeException {
   public FliptException() {
     super();
   }
