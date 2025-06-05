@@ -42,6 +42,7 @@ class FliptEvaluationClient(
         private var updateInterval: Duration? = null
         private var fetchMode = FetchMode.POLLING
         private var errorStrategy = ErrorStrategy.FAIL
+        private var snapshot: String? = null
 
         /**
          * url sets the URL for the Flipt server.
@@ -134,6 +135,17 @@ class FliptEvaluationClient(
         }
 
         /**
+         * snapshot sets the initial snapshot for evaluation.
+         *
+         * @param snapshot the initial snapshot for evaluation
+         * @return the FliptEvaluationClientBuilder
+         */
+        fun snapshot(snapshot: String?): FliptEvaluationClientBuilder {
+            this.snapshot = snapshot
+            return this
+        }
+
+        /**
          * build builds a new FliptEvaluationClient.
          *
          * @return the FliptEvaluationClient
@@ -165,6 +177,7 @@ class FliptEvaluationClient(
                     reference,
                     fetchMode,
                     errorStrategy,
+                    snapshot,
                 ),
             )
         }
@@ -182,15 +195,19 @@ class FliptEvaluationClient(
         entityId: String,
         context: Map<String, String>,
     ): VariantEvaluationResponse {
-        val evaluationRequest = InternalEvaluationRequest(flagKey, entityId, context)
-        val evaluationRequestSerialized = json.encodeToString(evaluationRequest)
+        try {
+            val evaluationRequest = InternalEvaluationRequest(flagKey, entityId, context)
+            val evaluationRequestSerialized = json.encodeToString(evaluationRequest)
 
-        val value = CLibrary.INSTANCE.evaluateVariant(engine, evaluationRequestSerialized)
+            val value = CLibrary.INSTANCE.evaluateVariant(engine, evaluationRequestSerialized)
 
-        val resp: Result<VariantEvaluationResponse> =
-            json.decodeFromString(Result.serializer(VariantEvaluationResponse.serializer()), value)
+            val resp: Result<VariantEvaluationResponse> =
+                json.decodeFromString(Result.serializer(VariantEvaluationResponse.serializer()), value)
 
-        return resp.result ?: throw EvaluationException(resp.errorMessage ?: "Unknown Error")
+            return resp.result ?: throw EvaluationException(resp.errorMessage ?: "Unknown Error")
+        } finally {
+            CLibrary.INSTANCE.destroyString(value)
+        }
     }
 
     fun evaluateBoolean(
@@ -198,40 +215,61 @@ class FliptEvaluationClient(
         entityId: String,
         context: Map<String, String>,
     ): BooleanEvaluationResponse? {
-        val evaluationRequest = InternalEvaluationRequest(flagKey, entityId, context)
-        val evaluationRequestSerialized = json.encodeToString(evaluationRequest)
+        try {
+            val evaluationRequest = InternalEvaluationRequest(flagKey, entityId, context)
+            val evaluationRequestSerialized = json.encodeToString(evaluationRequest)
 
-        val value = CLibrary.INSTANCE.evaluateBoolean(engine, evaluationRequestSerialized)
+            val value = CLibrary.INSTANCE.evaluateBoolean(engine, evaluationRequestSerialized)
 
-        val resp: Result<BooleanEvaluationResponse> =
-            json.decodeFromString(Result.serializer(BooleanEvaluationResponse.serializer()), value)
+            val resp: Result<BooleanEvaluationResponse> =
+                json.decodeFromString(Result.serializer(BooleanEvaluationResponse.serializer()), value)
 
-        return resp.result ?: throw EvaluationException(resp.errorMessage ?: "Unknown Error")
+            return resp.result ?: throw EvaluationException(resp.errorMessage ?: "Unknown Error")
+        } finally {
+            CLibrary.INSTANCE.destroyString(value)
+        }
     }
 
     fun evaluateBatch(batchEvaluationRequest: Array<EvaluationRequest>): BatchEvaluationResponse? {
-        val evaluationrequests = mutableListOf<InternalEvaluationRequest>()
+        try {
+            val evaluationrequests = mutableListOf<InternalEvaluationRequest>()
 
-        batchEvaluationRequest.map {
-            evaluationrequests.add(InternalEvaluationRequest(it.flagKey, it.entityId, it.context))
+            batchEvaluationRequest.map {
+                evaluationrequests.add(InternalEvaluationRequest(it.flagKey, it.entityId, it.context))
+            }
+
+            val batchEvaluationRequestSerialized = json.encodeToString(evaluationrequests)
+            val value = CLibrary.INSTANCE.evaluateBatch(engine, batchEvaluationRequestSerialized)
+
+            val resp: Result<BatchEvaluationResponse> =
+                json.decodeFromString(
+                    Result.serializer(BatchEvaluationResponse.serializer()),
+                    value,
+                )
+
+            return resp.result ?: throw EvaluationException(resp.errorMessage ?: "Unknown Error")
+        } finally {
+            CLibrary.INSTANCE.destroyString(value)
         }
-
-        val batchEvaluationRequestSerialized = json.encodeToString(evaluationrequests)
-        val value = CLibrary.INSTANCE.evaluateBatch(engine, batchEvaluationRequestSerialized)
-
-        val resp: Result<BatchEvaluationResponse> =
-            json.decodeFromString(
-                Result.serializer(BatchEvaluationResponse.serializer()),
-                value,
-            )
-
-        return resp.result ?: throw EvaluationException(resp.errorMessage ?: "Unknown Error")
     }
 
     fun listFlags(): ArrayList<Flag>? {
-        val value = CLibrary.INSTANCE.listFlags(engine)
-        val resp = json.decodeFromString<Result<ArrayList<Flag>>>(value)
-        return resp.result ?: throw EvaluationException(resp.errorMessage ?: "Unknown Error")
+        try {
+            val value = CLibrary.INSTANCE.listFlags(engine)
+            val resp = json.decodeFromString<Result<ArrayList<Flag>>>(value)
+            return resp.result ?: throw EvaluationException(resp.errorMessage ?: "Unknown Error")
+        } finally {
+            CLibrary.INSTANCE.destroyString(value)
+        }
+    }
+
+    fun getSnapshot(): String {
+        try {
+            val value = CLibrary.INSTANCE.getSnapshot(engine)
+            return value.getString(0, "UTF-8")
+        } finally {
+            CLibrary.INSTANCE.destroyString(value)
+        }
     }
 
     fun close() {
