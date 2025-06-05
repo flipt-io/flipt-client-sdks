@@ -1,4 +1,3 @@
-import os
 import argparse
 from semver import VersionInfo
 from prompt_toolkit.shortcuts import radiolist_dialog, yes_no_dialog, input_dialog
@@ -89,10 +88,10 @@ def get_sdk_selection() -> str | None:
     return selected_sdk
 
 
-def get_bump_type():
+def get_bump_type(current_version: str):
     bump_type = radiolist_dialog(
         title="Select version bump type",
-        text="Choose the type of version bump:",
+        text=f"Choose the type of version bump. Current version: {current_version}",
         values=[
             ("patch", "Patch (0.0.X)"),
             ("minor", "Minor (0.X.0)"),
@@ -132,15 +131,15 @@ def main():
 
     selected_sdk = get_sdk_selection()
     if selected_sdk is None:
-        print("SDK selection cancelled. Exiting.")
+        print("SDK selection canceled. Exiting.")
         return
 
     sdk_instance = get_sdk(selected_sdk)
     current_version = sdk_instance.get_current_version()
 
-    bump_type = get_bump_type()
+    bump_type = get_bump_type(current_version)
     if bump_type is None:
-        print("Version selection cancelled. Exiting.")
+        print("Version selection canceled. Exiting.")
         return
 
     # Determine the new version
@@ -165,7 +164,7 @@ def main():
     ).run()
     
     if not tag_confirmation:
-        print("Tag creation cancelled. Exiting.")
+        print("Tag creation canceled. Exiting.")
         return
 
     opts = {
