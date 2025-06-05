@@ -112,17 +112,6 @@ public class FliptEvaluationClient {
     }
 
     /**
-     * namespace sets the namespace for the Flipt server.
-     *
-     * @param namespace the namespace for the Flipt server
-     * @return the FliptEvaluationClientBuilder
-     */
-    public FliptEvaluationClientBuilder namespace(String namespace) {
-      this.namespace = namespace;
-      return this;
-    }
-
-    /**
      * authentication sets the authentication strategy for the Flipt server.
      *
      * @param authentication the authentication strategy for the Flipt server
