@@ -147,7 +147,7 @@ The client supports snapshotting of flag state as well as seeding the client wit
 
 To get the snapshot for the client, you can use the `getSnapshot` method. This returns a base64 encoded JSON string that represents the flag state for the client.
 
-You can then set the snapshot for the client using the `snapshot` builder method.
+You can set the snapshot for the client using the `snapshot` builder method.
 
 **Note:** You most likely will want to also set the `errorStrategy` to `fallback` when using snapshots. This will ensure that you wont get an error if the Flipt server is not available or reachable even on the initial fetch.
 
