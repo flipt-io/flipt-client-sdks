@@ -2,7 +2,7 @@
 #include "flipt_engine.h"
 
 // Declare the Rust functions we're wrapping
-extern void* initialize_engine_ffi(const char* namespace, const char* options);
+extern void* initialize_engine_ffi(const char* options);
 extern const char* evaluate_boolean_ffi(void* engine, const char* request);
 extern const char* evaluate_variant_ffi(void* engine, const char* request);
 extern const char* evaluate_batch_ffi(void* engine, const char* request);
@@ -12,8 +12,8 @@ extern void destroy_engine_ffi(void* engine);
 extern void destroy_string_ffi(char* str);
 
 // Wrapper functions that will be exported in our .so
-void* initialize_engine(const char* namespace, const char* options) {
-    return initialize_engine_ffi(namespace, options);
+void* initialize_engine(const char* options) {
+    return initialize_engine_ffi(options);
 }
 
 const char* evaluate_boolean(void* engine, const char* request) {
