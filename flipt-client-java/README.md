@@ -44,7 +44,7 @@ Upon instantiation, the `flipt-client-java` library will fetch the flag state fr
 
 By default, the SDK will poll the Flipt server for new flag state at a regular interval. This interval can be configured using the `fetchMode` option when constructing a client. The default interval is 120 seconds.
 
-### Streaming (Flipt Cloud and Flipt v2+ Only)
+### Streaming (Flipt Cloud/Flipt v2)
 
 [Flipt Cloud](https://flipt.io/cloud) and [Flipt v2](https://docs.flipt.io/v2) users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
 
