@@ -89,6 +89,8 @@ fn result_to_json_ptr<T: Serialize, E: std::error::Error>(result: Result<T, E>) 
 
 #[derive(Deserialize, Debug)]
 pub struct EngineOpts {
+    environment: Option<String>,
+    namespace: Option<String>,
     url: Option<String>,
     authentication: Option<Authentication>,
     request_timeout: Option<u64>,
@@ -102,6 +104,8 @@ pub struct EngineOpts {
 impl Default for EngineOpts {
     fn default() -> Self {
         Self {
+            environment: Some("default".into()),
+            namespace: Some("default".into()),
             url: Some("http://localhost:8080".into()),
             authentication: None,
             request_timeout: None,
@@ -265,18 +269,14 @@ impl Engine {
 /// This function will initialize an Engine and return a pointer back to the caller.
 #[no_mangle]
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
-pub unsafe extern "C" fn initialize_engine_ffi(
-    namespace: *const c_char,
-    opts: *const c_char,
-) -> *mut c_void {
+pub unsafe extern "C" fn initialize_engine_ffi(opts: *const c_char) -> *mut c_void {
     match std::panic::catch_unwind(|| {
         init_logging();
         trace!(
-            "[FFI] initialize_engine_ffi called: namespace ptr=0x{:x}, opts ptr=0x{:x}",
-            namespace as usize,
+            "[FFI] initialize_engine_ffi called: opts ptr=0x{:x}",
             opts as usize
         );
-        let ptr = _initialize_engine(namespace, opts);
+        let ptr = _initialize_engine(opts);
         trace!(
             "[FFI] initialize_engine_ffi returning engine ptr=0x{:x}",
             ptr as usize
@@ -296,18 +296,14 @@ pub unsafe extern "C" fn initialize_engine_ffi(
 /// This function will initialize an Engine and return a pointer back to the caller.
 #[no_mangle]
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
-pub unsafe extern "C" fn initialize_engine(
-    namespace: *const c_char,
-    opts: *const c_char,
-) -> *mut c_void {
+pub unsafe extern "C" fn initialize_engine(opts: *const c_char) -> *mut c_void {
     match std::panic::catch_unwind(|| {
         init_logging();
         trace!(
-            "[FFI] initialize_engine called: namespace ptr=0x{:x}, opts ptr=0x{:x}",
-            namespace as usize,
+            "[FFI] initialize_engine called: opts ptr=0x{:x}",
             opts as usize
         );
-        let ptr = _initialize_engine(namespace, opts);
+        let ptr = _initialize_engine(opts);
         trace!(
             "[FFI] initialize_engine returning engine ptr=0x{:x}",
             ptr as usize
@@ -645,21 +641,12 @@ pub unsafe extern "C" fn destroy_string(ptr: *mut c_char) {
 }
 
 // Private implementation functions
-unsafe extern "C" fn _initialize_engine(
-    namespace: *const c_char,
-    opts: *const c_char,
-) -> *mut c_void {
+unsafe extern "C" fn _initialize_engine(opts: *const c_char) -> *mut c_void {
     let result = std::panic::catch_unwind(|| {
         // Null pointer checks
-        if namespace.is_null() || opts.is_null() {
+        if opts.is_null() {
             return std::ptr::null_mut();
         }
-
-        // Safe string conversion with error handling
-        let namespace = match CStr::from_ptr(namespace).to_str() {
-            Ok(s) => s,
-            Err(_) => return std::ptr::null_mut(),
-        };
 
         let engine_opts_bytes = CStr::from_ptr(opts).to_bytes();
 
@@ -676,8 +663,19 @@ unsafe extern "C" fn _initialize_engine(
                 .url
                 .as_deref()
                 .unwrap_or("http://localhost:8080"),
-            namespace,
         );
+
+        if let Some(environment) = engine_opts.environment {
+            fetcher_builder = fetcher_builder.environment(&environment);
+        }
+
+        let namespace = engine_opts
+            .namespace
+            .as_deref()
+            .unwrap_or("default")
+            .to_string();
+
+        fetcher_builder = fetcher_builder.namespace(&namespace);
 
         if let Some(request_timeout) = engine_opts.request_timeout {
             fetcher_builder = fetcher_builder.request_timeout(Duration::from_secs(request_timeout));
@@ -701,7 +699,7 @@ unsafe extern "C" fn _initialize_engine(
 
         let fetcher = fetcher_builder.build().unwrap();
 
-        let evaluator = Evaluator::new(namespace);
+        let evaluator = Evaluator::new(&namespace);
 
         // Handle initial snapshot if provided
         let initial_snapshot = engine_opts

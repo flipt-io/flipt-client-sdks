@@ -7,6 +7,8 @@ import java.util.Optional;
 
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public class ClientOptions {
+  private final Optional<String> environment;
+  private final Optional<String> namespace;
   private final Optional<String> url;
   private final Optional<Long> requestTimeout;
   private final Optional<Long> updateInterval;
@@ -17,6 +19,8 @@ public class ClientOptions {
   private final Optional<String> snapshot;
 
   public ClientOptions(
+      Optional<String> environment,
+      Optional<String> namespace,
       Optional<String> url,
       Optional<Duration> requestTimeout,
       Optional<Duration> updateInterval,
@@ -25,6 +29,8 @@ public class ClientOptions {
       Optional<FetchMode> fetchMode,
       Optional<ErrorStrategy> errorStrategy,
       Optional<String> snapshot) {
+    this.environment = environment;
+    this.namespace = namespace;
     this.url = url;
     this.authentication = authentication;
     this.reference = reference;
@@ -44,6 +50,16 @@ public class ClientOptions {
     this.fetchMode = fetchMode;
     this.errorStrategy = errorStrategy;
     this.snapshot = snapshot;
+  }
+
+  @JsonProperty("environment")
+  public Optional<String> getEnvironment() {
+    return environment;
+  }
+
+  @JsonProperty("namespace")
+  public Optional<String> getNamespace() {
+    return namespace;
   }
 
   @JsonProperty("url")

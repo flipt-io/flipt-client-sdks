@@ -24,7 +24,7 @@ public class FliptEvaluationClient {
   public interface CLibrary extends Library {
     CLibrary INSTANCE = Native.load("fliptengine", CLibrary.class);
 
-    Pointer initialize_engine(String namespace, String opts);
+    Pointer initialize_engine(String opts);
 
     Pointer evaluate_boolean(Pointer engine, String evaluation_request);
 
@@ -41,8 +41,7 @@ public class FliptEvaluationClient {
     void destroy_string(Pointer str);
   }
 
-  private FliptEvaluationClient(String namespace, ClientOptions clientOptions)
-      throws EvaluationException {
+  private FliptEvaluationClient(ClientOptions clientOptions) throws EvaluationException {
 
     ObjectMapper objectMapper = new ObjectMapper();
     objectMapper.registerModule(new Jdk8Module());
@@ -54,7 +53,7 @@ public class FliptEvaluationClient {
       throw new EvaluationException(e);
     }
 
-    Pointer engine = CLibrary.INSTANCE.initialize_engine(namespace, clientOptionsSerialized);
+    Pointer engine = CLibrary.INSTANCE.initialize_engine(clientOptionsSerialized);
 
     this.objectMapper = objectMapper;
     this.engine = engine;
@@ -66,6 +65,7 @@ public class FliptEvaluationClient {
 
   /** FliptEvaluationClientBuilder is a builder for creating a FliptEvaluationClient. */
   public static final class FliptEvaluationClientBuilder {
+    private String environment = "default";
     private String namespace = "default";
     private String url = "http://localhost:8080";
     private AuthenticationStrategy authentication;
@@ -79,13 +79,13 @@ public class FliptEvaluationClient {
     public FliptEvaluationClientBuilder() {}
 
     /**
-     * url sets the URL for the Flipt server.
+     * environment sets the environment for the Flipt server.
      *
-     * @param url the URL for the Flipt server
+     * @param environment the environment for the Flipt server
      * @return the FliptEvaluationClientBuilder
      */
-    public FliptEvaluationClientBuilder url(String url) {
-      this.url = url;
+    public FliptEvaluationClientBuilder environment(String environment) {
+      this.environment = environment;
       return this;
     }
 
@@ -97,6 +97,17 @@ public class FliptEvaluationClient {
      */
     public FliptEvaluationClientBuilder namespace(String namespace) {
       this.namespace = namespace;
+      return this;
+    }
+
+    /**
+     * url sets the URL for the Flipt server.
+     *
+     * @param url the URL for the Flipt server
+     * @return the FliptEvaluationClientBuilder
+     */
+    public FliptEvaluationClientBuilder url(String url) {
+      this.url = url;
       return this;
     }
 
@@ -187,8 +198,9 @@ public class FliptEvaluationClient {
      */
     public FliptEvaluationClient build() throws EvaluationException {
       return new FliptEvaluationClient(
-          namespace,
           new ClientOptions(
+              Optional.of(environment),
+              Optional.of(namespace),
               Optional.of(url),
               Optional.ofNullable(requestTimeout),
               Optional.ofNullable(updateInterval),
