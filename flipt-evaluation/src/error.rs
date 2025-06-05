@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[non_exhaustive]
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     #[error("error parsing json: {0}")]
     InvalidJSON(String),

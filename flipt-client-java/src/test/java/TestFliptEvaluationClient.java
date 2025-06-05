@@ -167,6 +167,55 @@ public class TestFliptEvaluationClient {
     JSONAssert.assertEquals(expectedJson, actualJson, JSONCompareMode.LENIENT);
   }
 
+  @Test
+  void testSetGetSnapshotWithInvalidSnapshot() throws Exception {
+    FliptEvaluationClient invalidFliptClient =
+        FliptEvaluationClient.builder()
+            .url("http://localhost:8080")
+            .errorStrategy(ErrorStrategy.FALLBACK)
+            .snapshot("invalid")
+            .build();
+  }
+
+  @Test
+  void testSetGetSnapshotWithInvalidFliptURL() throws Exception {
+    FliptEvaluationClient invalidFliptClient =
+        FliptEvaluationClient.builder()
+            .url("http://invalid.flipt.com")
+            .errorStrategy(ErrorStrategy.FALLBACK)
+            .snapshot(SNAPSHOT)
+            .build();
+
+    Map<String, String> context = new HashMap<>();
+    context.put("fizz", "buzz");
+
+    for (int i = 0; i < 5; i++) {
+      VariantEvaluationResponse response =
+          invalidFliptClient.evaluateVariant("flag1", "entity", context);
+
+      Assertions.assertEquals("flag1", response.getFlagKey());
+      Assertions.assertTrue(response.isMatch());
+      Assertions.assertEquals("MATCH_EVALUATION_REASON", response.getReason());
+      Assertions.assertEquals("variant1", response.getVariantKey());
+      Assertions.assertEquals("segment1", response.getSegmentKeys()[0]);
+
+      BooleanEvaluationResponse booleanResponse =
+          invalidFliptClient.evaluateBoolean("flag_boolean", "entity", context);
+
+      Assertions.assertEquals("flag_boolean", booleanResponse.getFlagKey());
+      Assertions.assertTrue(booleanResponse.isEnabled());
+      Assertions.assertEquals("MATCH_EVALUATION_REASON", booleanResponse.getReason());
+
+      ArrayList<Flag> flags = invalidFliptClient.listFlags();
+      Assertions.assertEquals(2, flags.size());
+
+      String snapshot = invalidFliptClient.getSnapshot();
+      Assertions.assertNotNull(snapshot);
+    }
+
+    invalidFliptClient.close();
+  }
+
   @AfterEach
   void tearDown() throws Exception {
     if (fliptClient != null) fliptClient.close();
