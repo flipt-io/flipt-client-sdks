@@ -12,19 +12,20 @@ use fliptevaluation::{
 };
 use http::{Authentication, ErrorStrategy, FetchMode, HTTPFetcher, HTTPFetcherBuilder};
 use libc::c_void;
+use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
-use std::str::Utf8Error;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, OnceLock, RwLock};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::runtime::Builder;
 use tokio::runtime::Handle;
 use tokio::runtime::Runtime;
+use tokio::sync::Notify;
 
 #[derive(Deserialize)]
 struct FFIEvaluationRequest {
@@ -95,6 +96,7 @@ pub struct EngineOpts {
     fetch_mode: Option<FetchMode>,
     reference: Option<String>,
     error_strategy: Option<ErrorStrategy>,
+    snapshot: Option<String>,
 }
 
 impl Default for EngineOpts {
@@ -107,13 +109,16 @@ impl Default for EngineOpts {
             reference: None,
             fetch_mode: Some(FetchMode::default()),
             error_strategy: Some(ErrorStrategy::Fail),
+            snapshot: None,
         }
     }
 }
 
 pub struct Engine {
-    evaluator: Arc<Mutex<Evaluator<snapshot::Snapshot>>>,
+    evaluator: Arc<RwLock<Evaluator<snapshot::Snapshot>>>,
     stop_signal: Arc<AtomicBool>,
+    fetcher_handle: Option<tokio::task::JoinHandle<()>>,
+    stop_notify: Arc<Notify>,
 }
 
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
@@ -137,33 +142,39 @@ fn get_or_create_runtime() -> &'static Handle {
 
 impl Engine {
     pub fn new(
-        namespace: &str,
         mut fetcher: HTTPFetcher,
         evaluator: Evaluator<snapshot::Snapshot>,
         error_strategy: ErrorStrategy,
+        initial_snapshot: snapshot::Snapshot,
     ) -> Self {
         let stop_signal = Arc::new(AtomicBool::new(false));
         let stop_signal_clone = stop_signal.clone();
 
-        let evaluator = Arc::new(Mutex::new(evaluator));
+        let stop_notify = Arc::new(Notify::new());
+        let stop_notify_clone = stop_notify.clone();
+
+        let evaluator = Arc::new(RwLock::new(evaluator));
         let evaluator_clone = evaluator.clone();
 
-        let namespace_clone = namespace.to_string();
-
         let handle = get_or_create_runtime();
+
+        // Set the initial snapshot
+        if let Ok(mut lock) = evaluator.write() {
+            lock.replace_snapshot(Ok(initial_snapshot));
+        }
 
         // Block on initial fetch
         handle.block_on(async {
             match fetcher.initial_fetch().await {
                 Ok(doc) => {
-                    let snap = snapshot::Snapshot::build(&namespace_clone, doc);
-                    if let Ok(mut lock) = evaluator_clone.lock() {
+                    let snap = snapshot::Snapshot::build(doc);
+                    if let Ok(mut lock) = evaluator.write() {
                         lock.replace_snapshot(Ok(snap));
                     }
                 }
                 Err(err) => {
                     if error_strategy == ErrorStrategy::Fail {
-                        if let Ok(mut lock) = evaluator_clone.lock() {
+                        if let Ok(mut lock) = evaluator.write() {
                             lock.replace_snapshot(Err(err));
                         }
                     }
@@ -171,20 +182,20 @@ impl Engine {
             }
         });
 
-        // Spawn the continuous polling task
-        handle.spawn(async move {
-            let mut rx = fetcher.start(stop_signal_clone);
+        // Spawn the continuous polling task and store the JoinHandle
+        let fetcher_handle = handle.spawn(async move {
+            let mut rx = fetcher.start(stop_signal_clone, stop_notify_clone);
             while let Some(res) = rx.recv().await {
                 match res {
                     Ok(doc) => {
-                        let snap = snapshot::Snapshot::build(&namespace_clone, doc);
-                        if let Ok(mut lock) = evaluator_clone.lock() {
+                        let snap = snapshot::Snapshot::build(doc);
+                        if let Ok(mut lock) = evaluator_clone.write() {
                             lock.replace_snapshot(Ok(snap));
                         }
                     }
                     Err(err) => {
                         if error_strategy == ErrorStrategy::Fail {
-                            if let Ok(mut lock) = evaluator_clone.lock() {
+                            if let Ok(mut lock) = evaluator_clone.write() {
                                 lock.replace_snapshot(Err(err));
                             }
                         }
@@ -196,55 +207,50 @@ impl Engine {
         Self {
             evaluator,
             stop_signal,
+            fetcher_handle: Some(fetcher_handle),
+            stop_notify,
         }
     }
 
-    /// Helper to lock the evaluator and run a closure, mapping lock errors to Error::Internal
-    fn with_evaluator_lock<F, R>(&self, f: F) -> Result<R, Error>
+    /// Helper to lock the evaluator for reading and run a closure, mapping lock errors to Error::Internal
+    fn with_evaluator_read_lock<F, R>(&self, f: F) -> Result<R, Error>
     where
-        F: FnOnce(&mut Evaluator<snapshot::Snapshot>) -> Result<R, Error>,
+        F: FnOnce(&Evaluator<snapshot::Snapshot>) -> Result<R, Error>,
     {
-        let mut lock = self
+        let lock = self
             .evaluator
-            .lock()
+            .read()
             .map_err(|_| Error::Internal("failed to acquire lock".to_string()))?;
-        f(&mut lock)
+        f(&lock)
     }
 
     pub fn variant(
         &self,
         evaluation_request: &EvaluationRequest,
     ) -> Result<VariantEvaluationResponse, Error> {
-        self.with_evaluator_lock(|lock| lock.variant(evaluation_request))
+        self.with_evaluator_read_lock(|lock| lock.variant(evaluation_request))
     }
 
     pub fn boolean(
         &self,
         evaluation_request: &EvaluationRequest,
     ) -> Result<BooleanEvaluationResponse, Error> {
-        self.with_evaluator_lock(|lock| lock.boolean(evaluation_request))
+        self.with_evaluator_read_lock(|lock| lock.boolean(evaluation_request))
     }
 
     pub fn batch(
         &self,
         batch_evaluation_request: Vec<EvaluationRequest>,
     ) -> Result<BatchEvaluationResponse, Error> {
-        self.with_evaluator_lock(|lock| lock.batch(batch_evaluation_request))
+        self.with_evaluator_read_lock(|lock| lock.batch(batch_evaluation_request))
     }
 
     pub fn list_flags(&self) -> Result<Vec<flipt::Flag>, Error> {
-        self.with_evaluator_lock(|lock| lock.list_flags())
-    }
-
-    pub fn set_snapshot(&self, snapshot: snapshot::Snapshot) -> Result<(), Error> {
-        self.with_evaluator_lock(|lock| {
-            lock.replace_snapshot(Ok(snapshot));
-            Ok(())
-        })
+        self.with_evaluator_read_lock(|lock| lock.list_flags())
     }
 
     pub fn get_snapshot(&self) -> Result<snapshot::Snapshot, Error> {
-        self.with_evaluator_lock(|lock| lock.get_snapshot())
+        self.with_evaluator_read_lock(|lock| lock.get_snapshot())
     }
 }
 
@@ -259,7 +265,25 @@ pub unsafe extern "C" fn initialize_engine_ffi(
     namespace: *const c_char,
     opts: *const c_char,
 ) -> *mut c_void {
-    _initialize_engine(namespace, opts)
+    match std::panic::catch_unwind(|| {
+        init_logging();
+        debug!(
+            "[FFI] initialize_engine_ffi called: namespace ptr=0x{:x}, opts ptr=0x{:x}",
+            namespace as usize, opts as usize
+        );
+        let ptr = _initialize_engine(namespace, opts);
+        debug!(
+            "[FFI] initialize_engine_ffi returning engine ptr=0x{:x}",
+            ptr as usize
+        );
+        ptr
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in initialize_engine_ffi: {:?}", e);
+            std::ptr::null_mut()
+        }
+    }
 }
 
 /// # Safety
@@ -271,31 +295,25 @@ pub unsafe extern "C" fn initialize_engine(
     namespace: *const c_char,
     opts: *const c_char,
 ) -> *mut c_void {
-    _initialize_engine(namespace, opts)
-}
-
-/// # Safety
-///
-/// This function will take in a pointer to the engine and a snapshot string, and replace the in-memory snapshot.
-#[no_mangle]
-#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
-pub unsafe extern "C" fn set_snapshot_ffi(
-    engine_ptr: *mut c_void,
-    snapshot: *const c_char,
-) -> *const c_char {
-    _set_snapshot(engine_ptr, snapshot)
-}
-
-/// # Safety
-///
-/// This function will take in a pointer to the engine and a snapshot string, and replace the in-memory snapshot.
-#[no_mangle]
-#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
-pub unsafe extern "C" fn set_snapshot(
-    engine_ptr: *mut c_void,
-    snapshot: *const c_char,
-) -> *const c_char {
-    _set_snapshot(engine_ptr, snapshot)
+    match std::panic::catch_unwind(|| {
+        init_logging();
+        debug!(
+            "[FFI] initialize_engine called: namespace ptr=0x{:x}, opts ptr=0x{:x}",
+            namespace as usize, opts as usize
+        );
+        let ptr = _initialize_engine(namespace, opts);
+        debug!(
+            "[FFI] initialize_engine returning engine ptr=0x{:x}",
+            ptr as usize
+        );
+        ptr
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in initialize_engine: {:?}", e);
+            std::ptr::null_mut()
+        }
+    }
 }
 
 /// # Safety
@@ -304,7 +322,21 @@ pub unsafe extern "C" fn set_snapshot(
 #[no_mangle]
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn get_snapshot_ffi(engine_ptr: *mut c_void) -> *const c_char {
-    _get_snapshot(engine_ptr)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] get_snapshot_ffi called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _get_snapshot(engine_ptr)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in get_snapshot_ffi: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in get_snapshot_ffi".to_string(),
+            )))
+        }
+    }
 }
 
 /// # Safety
@@ -313,7 +345,19 @@ pub unsafe extern "C" fn get_snapshot_ffi(engine_ptr: *mut c_void) -> *const c_c
 #[no_mangle]
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn get_snapshot(engine_ptr: *mut c_void) -> *const c_char {
-    _get_snapshot(engine_ptr)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] get_snapshot called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _get_snapshot(engine_ptr)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in get_snapshot: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal("panic in get_snapshot".to_string())))
+        }
+    }
 }
 
 /// # Safety
@@ -325,7 +369,21 @@ pub unsafe extern "C" fn evaluate_variant_ffi(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
-    _evaluate_variant(engine_ptr, evaluation_request)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] evaluate_variant_ffi called: engine ptr=0x{:x}, req ptr=0x{:x}",
+            engine_ptr as usize, evaluation_request as usize
+        );
+        _evaluate_variant(engine_ptr, evaluation_request)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in evaluate_variant_ffi: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in evaluate_variant_ffi".to_string(),
+            )))
+        }
+    }
 }
 
 /// # Safety
@@ -337,7 +395,21 @@ pub unsafe extern "C" fn evaluate_variant(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
-    _evaluate_variant(engine_ptr, evaluation_request)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] evaluate_variant called: engine ptr=0x{:x}, req ptr=0x{:x}",
+            engine_ptr as usize, evaluation_request as usize
+        );
+        _evaluate_variant(engine_ptr, evaluation_request)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in evaluate_variant: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in evaluate_variant".to_string(),
+            )))
+        }
+    }
 }
 
 /// # Safety
@@ -349,7 +421,21 @@ pub unsafe extern "C" fn evaluate_boolean_ffi(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
-    _evaluate_boolean(engine_ptr, evaluation_request)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] evaluate_boolean_ffi called: engine ptr=0x{:x}, req ptr=0x{:x}",
+            engine_ptr as usize, evaluation_request as usize
+        );
+        _evaluate_boolean(engine_ptr, evaluation_request)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in evaluate_boolean_ffi: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in evaluate_boolean_ffi".to_string(),
+            )))
+        }
+    }
 }
 
 /// # Safety
@@ -361,7 +447,21 @@ pub unsafe extern "C" fn evaluate_boolean(
     engine_ptr: *mut c_void,
     evaluation_request: *const c_char,
 ) -> *const c_char {
-    _evaluate_boolean(engine_ptr, evaluation_request)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] evaluate_boolean called: engine ptr=0x{:x}, req ptr=0x{:x}",
+            engine_ptr as usize, evaluation_request as usize
+        );
+        _evaluate_boolean(engine_ptr, evaluation_request)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in evaluate_boolean: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in evaluate_boolean".to_string(),
+            )))
+        }
+    }
 }
 
 /// # Safety
@@ -373,7 +473,21 @@ pub unsafe extern "C" fn evaluate_batch_ffi(
     engine_ptr: *mut c_void,
     batch_evaluation_request: *const c_char,
 ) -> *const c_char {
-    _evaluate_batch(engine_ptr, batch_evaluation_request)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] evaluate_batch_ffi called: engine ptr=0x{:x}, req ptr=0x{:x}",
+            engine_ptr as usize, batch_evaluation_request as usize
+        );
+        _evaluate_batch(engine_ptr, batch_evaluation_request)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in evaluate_batch_ffi: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in evaluate_batch_ffi".to_string(),
+            )))
+        }
+    }
 }
 
 /// # Safety
@@ -385,7 +499,19 @@ pub unsafe extern "C" fn evaluate_batch(
     engine_ptr: *mut c_void,
     batch_evaluation_request: *const c_char,
 ) -> *const c_char {
-    _evaluate_batch(engine_ptr, batch_evaluation_request)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] evaluate_batch called: engine ptr=0x{:x}, req ptr=0x{:x}",
+            engine_ptr as usize, batch_evaluation_request as usize
+        );
+        _evaluate_batch(engine_ptr, batch_evaluation_request)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in evaluate_batch: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal("panic in evaluate_batch".to_string())))
+        }
+    }
 }
 
 /// # Safety
@@ -394,7 +520,19 @@ pub unsafe extern "C" fn evaluate_batch(
 #[no_mangle]
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_char {
-    _list_flags(engine_ptr)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] list_flags_ffi called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _list_flags(engine_ptr)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in list_flags_ffi: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal("panic in list_flags_ffi".to_string())))
+        }
+    }
 }
 
 /// # Safety
@@ -403,7 +541,19 @@ pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_cha
 #[no_mangle]
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> *const c_char {
-    _list_flags(engine_ptr)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] list_flags called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _list_flags(engine_ptr)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            error!("[FFI] PANIC in list_flags: {:?}", e);
+            result_to_json_ptr::<(), _>(Err(Error::Internal("panic in list_flags".to_string())))
+        }
+    }
 }
 
 /// # Safety
@@ -412,7 +562,19 @@ pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> *const c_char {
 #[no_mangle]
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn destroy_engine_ffi(engine_ptr: *mut c_void) {
-    _destroy_engine(engine_ptr)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] destroy_engine_ffi called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _destroy_engine(engine_ptr)
+        // No return value
+    }) {
+        Ok(_) => (),
+        Err(e) => {
+            error!("[FFI] PANIC in destroy_engine_ffi: {:?}", e);
+        }
+    }
 }
 
 /// # Safety
@@ -421,7 +583,19 @@ pub unsafe extern "C" fn destroy_engine_ffi(engine_ptr: *mut c_void) {
 #[no_mangle]
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
-    _destroy_engine(engine_ptr)
+    match std::panic::catch_unwind(|| {
+        debug!(
+            "[FFI] destroy_engine called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _destroy_engine(engine_ptr)
+        // No return value
+    }) {
+        Ok(_) => (),
+        Err(e) => {
+            error!("[FFI] PANIC in destroy_engine: {:?}", e);
+        }
+    }
 }
 
 /// # Safety
@@ -430,7 +604,15 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
 #[no_mangle]
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn destroy_string_ffi(ptr: *mut c_char) {
-    _destroy_string(ptr)
+    match std::panic::catch_unwind(|| {
+        debug!("[FFI] destroy_string_ffi called: ptr=0x{:x}", ptr as usize);
+        _destroy_string(ptr)
+    }) {
+        Ok(_) => (),
+        Err(e) => {
+            error!("[FFI] PANIC in destroy_string_ffi: {:?}", e);
+        }
+    }
 }
 
 /// # Safety
@@ -439,7 +621,15 @@ pub unsafe extern "C" fn destroy_string_ffi(ptr: *mut c_char) {
 #[no_mangle]
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn destroy_string(ptr: *mut c_char) {
-    _destroy_string(ptr)
+    match std::panic::catch_unwind(|| {
+        debug!("[FFI] destroy_string called: ptr=0x{:x}", ptr as usize);
+        _destroy_string(ptr)
+    }) {
+        Ok(_) => (),
+        Err(e) => {
+            error!("[FFI] PANIC in destroy_string: {:?}", e);
+        }
+    }
 }
 
 // Private implementation functions
@@ -470,9 +660,10 @@ unsafe extern "C" fn _initialize_engine(
         let engine_opts: EngineOpts = serde_json::from_str(bytes_str_repr).unwrap_or_default();
 
         let mut fetcher_builder = HTTPFetcherBuilder::new(
-            &engine_opts
+            engine_opts
                 .url
-                .unwrap_or_else(|| "http://localhost:8080".into()),
+                .as_deref()
+                .unwrap_or("http://localhost:8080"),
             namespace,
         );
 
@@ -500,11 +691,23 @@ unsafe extern "C" fn _initialize_engine(
 
         let evaluator = Evaluator::new(namespace);
 
+        // Handle initial snapshot if provided
+        let initial_snapshot = engine_opts
+            .snapshot
+            .as_ref()
+            .and_then(|snapshot_b64| {
+                BASE64_STANDARD
+                    .decode(snapshot_b64)
+                    .ok()
+                    .and_then(|decoded| serde_json::from_slice::<snapshot::Snapshot>(&decoded).ok())
+            })
+            .unwrap_or_default();
+
         let engine = Engine::new(
-            namespace,
             fetcher,
             evaluator,
             engine_opts.error_strategy.unwrap_or_default(),
+            initial_snapshot,
         );
 
         // Convert to raw pointer
@@ -512,38 +715,6 @@ unsafe extern "C" fn _initialize_engine(
     });
 
     result.unwrap_or(std::ptr::null_mut())
-}
-
-unsafe extern "C" fn _set_snapshot(
-    engine_ptr: *mut c_void,
-    snapshot: *const c_char,
-) -> *const c_char {
-    let e = match get_engine(engine_ptr) {
-        Ok(e) => e,
-        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
-    };
-
-    let snapshot_bytes = CStr::from_ptr(snapshot).to_bytes();
-    let snapshot_str = match std::str::from_utf8(snapshot_bytes) {
-        Ok(s) => s,
-        Err(e) => return result_to_json_ptr::<(), Utf8Error>(Err(e)),
-    };
-
-    // Base64 decode the string
-    let decoded = match BASE64_STANDARD.decode(snapshot_str) {
-        Ok(decoded) => decoded,
-        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
-    };
-
-    let snap: snapshot::Snapshot = match serde_json::from_slice(&decoded) {
-        Ok(snap) => snap,
-        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
-    };
-
-    match e.set_snapshot(snap) {
-        Ok(()) => result_to_json_ptr::<(), std::convert::Infallible>(Ok(())),
-        Err(err) => result_to_json_ptr::<(), _>(Err(err)),
-    }
 }
 
 unsafe extern "C" fn _get_snapshot(engine_ptr: *mut c_void) -> *const c_char {
@@ -634,11 +805,17 @@ unsafe extern "C" fn _destroy_engine(engine_ptr: *mut c_void) {
     if engine_ptr.is_null() {
         return;
     }
-
     let engine = Box::from_raw(engine_ptr as *mut Engine);
     engine.stop_signal.store(true, Ordering::Relaxed);
+    // Notify the fetcher task to stop
+    engine.stop_notify.notify_waiters();
+    // Wait for fetcher task to exit
+    if let Some(handle) = engine.fetcher_handle {
+        let rt = get_or_create_runtime();
+        let _ = rt.block_on(handle);
+    }
 
-    // The engine will be dropped here, cleaning up all resources
+    // Engine is dropped here
 }
 
 unsafe extern "C" fn _destroy_string(ptr: *mut c_char) {
@@ -709,13 +886,142 @@ unsafe fn get_batch_evaluation_request(
     evaluation_requests
 }
 
+fn init_logging() {
+    let _ =
+        env_logger::Builder::from_env(env_logger::Env::new().filter("FLIPT_ENGINE_LOG")).try_init();
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{http::ErrorStrategy, EngineOpts};
+    use super::*;
+
     #[test]
-    fn test_engine_ops_with_error_strategy() {
-        let input = r#"{"url":"http://localhost:8080","update_interval":120,"authentication":null,"error_strategy":"fallback"}"#;
-        let engine_opts: EngineOpts = serde_json::from_str(input).unwrap_or_default();
-        assert_eq!(ErrorStrategy::Fallback, engine_opts.error_strategy.unwrap());
+    fn test_engine_opts_with_invalid_snapshot() {
+        let json = r#"{\"url\":\"http://localhost:8080\",\"snapshot\":\"eyJmb28iOiJiYXIifQ==\",\"error_strategy\":\"fallback\"}"#;
+
+        match serde_json::from_str::<EngineOpts>(json) {
+            Ok(_) => panic!("Expected error, but got Ok"),
+            Err(_) => (),
+        }
+    }
+
+    #[test]
+    fn test_engine_opts_with_valid_snapshot() {
+        let snapshot = r#"
+{
+    "version": 1,
+    "namespace": {
+        "key": "default",
+        "flags": {
+            "flag1": {
+                "key": "flag1",
+                "enabled": true,
+                "type": "VARIANT_FLAG_TYPE",
+                "description": "flag description"
+            },
+            "flag_boolean": {
+                "key": "flag_boolean",
+                "enabled": true,
+                "type": "BOOLEAN_FLAG_TYPE",
+                "description": "flag description"
+            }
+        },
+        "eval_rules": {
+            "flag1": [
+                {
+                    "id": "flag1-1",
+                    "flag_key": "flag1",
+                    "segments": {
+                        "segment1": {
+                            "segment_key": "segment1",
+                            "match_type": "ANY_SEGMENT_MATCH_TYPE",
+                            "constraints": [
+                                {
+                                    "type": "STRING_CONSTRAINT_COMPARISON_TYPE",
+                                    "property": "fizz",
+                                    "operator": "eq",
+                                    "value": "buzz"
+                                }
+                            ]
+                        }
+                    },
+                    "rank": 1,
+                    "segment_operator": "OR_SEGMENT_OPERATOR"
+                }
+            ],
+            "flag_boolean": []
+        },
+        "eval_rollouts": {
+            "flag1": [],
+            "flag_boolean": [
+                {
+                    "rollout_type": "SEGMENT_ROLLOUT_TYPE",
+                    "rank": 1,
+                    "segment": {
+                        "value": true,
+                        "segment_operator": "OR_SEGMENT_OPERATOR",
+                        "segments": {
+                            "segment1": {
+                                "segment_key": "segment1",
+                                "match_type": "ANY_SEGMENT_MATCH_TYPE",
+                                "constraints": [
+                                    {
+                                        "type": "STRING_CONSTRAINT_COMPARISON_TYPE",
+                                        "property": "fizz",
+                                        "operator": "eq",
+                                        "value": "buzz"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                {
+                    "rollout_type": "THRESHOLD_ROLLOUT_TYPE",
+                    "rank": 2,
+                    "threshold": {
+                        "percentage": 50.0,
+                        "value": true
+                    }
+                }
+            ]
+        },
+        "eval_distributions": {
+            "flag1-1": [
+                {
+                    "rule_id": "flag1-1",
+                    "rollout": 100.0,
+                    "variant_key": "variant1"
+                }
+            ]
+        }
+    }
+}
+"#;
+
+        let encoded_snapshot = BASE64_STANDARD.encode(snapshot);
+
+        let json = format!(
+            r#"{{"url":"http://localhost:8080","snapshot":"{}","error_strategy":"fallback"}}"#,
+            encoded_snapshot
+        );
+
+        let opts: EngineOpts = serde_json::from_str(&json).unwrap();
+        assert_eq!(opts.url, Some("http://localhost:8080".to_string()));
+        assert_eq!(opts.snapshot, Some(encoded_snapshot));
+        assert_eq!(opts.error_strategy, Some(ErrorStrategy::Fallback));
+    }
+
+    #[test]
+    fn test_engine_opts_default() {
+        let opts: EngineOpts = EngineOpts::default();
+        assert_eq!(opts.url, Some("http://localhost:8080".to_string()));
+        assert_eq!(opts.authentication, None);
+        assert_eq!(opts.request_timeout, None);
+        assert_eq!(opts.update_interval, Some(120));
+        assert_eq!(opts.reference, None);
+        assert_eq!(opts.fetch_mode, Some(FetchMode::default()));
+        assert_eq!(opts.error_strategy, Some(ErrorStrategy::Fail));
+        assert_eq!(opts.snapshot, None);
     }
 }
