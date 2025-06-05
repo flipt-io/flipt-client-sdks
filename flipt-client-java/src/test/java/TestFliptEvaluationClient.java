@@ -212,8 +212,10 @@ public class TestFliptEvaluationClient {
       String snapshot = invalidFliptClient.getSnapshot();
       Assertions.assertNotNull(snapshot);
     }
+
     invalidFliptClient.close();
   }
+
 
   @AfterEach
   void tearDown() throws Exception {
