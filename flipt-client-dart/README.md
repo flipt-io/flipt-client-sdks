@@ -114,6 +114,7 @@ The `FliptEvaluationClient` initializer accepts several options that can be used
 - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
 - `fetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
 - `errorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to `fail`. See the [Error Strategies](#error-strategies) section for more information.
+- `snapshot`: The initial snapshot to use when instantiating the client. See the [Snapshotting](#snapshotting) section for more information.
 
 ### Authentication
 
@@ -136,7 +137,7 @@ The client supports snapshotting of flag state as well as seeding the client wit
 
 To get the snapshot for the client, you can use the `getSnapshot` method. This returns a base64 encoded JSON string that represents the flag state for the client.
 
-You can then set the snapshot for the client using the `setSnapshot` method. This will replace the current snapshot for the client with the new snapshot.
+You can set the snapshot for the client using the `snapshot` option when constructing a client.
 
 **Note:** You most likely will want to also set the `errorStrategy` to `fallback` when using snapshots. This will ensure that you wont get an error if the Flipt server is not available or reachable even on the initial fetch.
 
