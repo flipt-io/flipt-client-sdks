@@ -195,18 +195,21 @@ class FliptEvaluationClient(
         entityId: String,
         context: Map<String, String>,
     ): VariantEvaluationResponse {
+        var value: String? = null
         try {
             val evaluationRequest = InternalEvaluationRequest(flagKey, entityId, context)
             val evaluationRequestSerialized = json.encodeToString(evaluationRequest)
 
-            val value = CLibrary.INSTANCE.evaluateVariant(engine, evaluationRequestSerialized)
+            value = CLibrary.INSTANCE.evaluateVariant(engine, evaluationRequestSerialized)
 
             val resp: Result<VariantEvaluationResponse> =
                 json.decodeFromString(Result.serializer(VariantEvaluationResponse.serializer()), value)
 
             return resp.result ?: throw EvaluationException(resp.errorMessage ?: "Unknown Error")
         } finally {
-            CLibrary.INSTANCE.destroyString(value)
+            if (value != null) {
+                CLibrary.INSTANCE.destroyString(value)
+            }
         }
     }
 
@@ -215,22 +218,26 @@ class FliptEvaluationClient(
         entityId: String,
         context: Map<String, String>,
     ): BooleanEvaluationResponse? {
+        var value: String? = null
         try {
             val evaluationRequest = InternalEvaluationRequest(flagKey, entityId, context)
             val evaluationRequestSerialized = json.encodeToString(evaluationRequest)
 
-            val value = CLibrary.INSTANCE.evaluateBoolean(engine, evaluationRequestSerialized)
+            value = CLibrary.INSTANCE.evaluateBoolean(engine, evaluationRequestSerialized)
 
             val resp: Result<BooleanEvaluationResponse> =
                 json.decodeFromString(Result.serializer(BooleanEvaluationResponse.serializer()), value)
 
             return resp.result ?: throw EvaluationException(resp.errorMessage ?: "Unknown Error")
         } finally {
-            CLibrary.INSTANCE.destroyString(value)
+            if (value != null) {
+                CLibrary.INSTANCE.destroyString(value)
+            }
         }
     }
 
     fun evaluateBatch(batchEvaluationRequest: Array<EvaluationRequest>): BatchEvaluationResponse? {
+        var value: String? = null
         try {
             val evaluationrequests = mutableListOf<InternalEvaluationRequest>()
 
@@ -239,7 +246,7 @@ class FliptEvaluationClient(
             }
 
             val batchEvaluationRequestSerialized = json.encodeToString(evaluationrequests)
-            val value = CLibrary.INSTANCE.evaluateBatch(engine, batchEvaluationRequestSerialized)
+            value = CLibrary.INSTANCE.evaluateBatch(engine, batchEvaluationRequestSerialized)
 
             val resp: Result<BatchEvaluationResponse> =
                 json.decodeFromString(
@@ -249,26 +256,34 @@ class FliptEvaluationClient(
 
             return resp.result ?: throw EvaluationException(resp.errorMessage ?: "Unknown Error")
         } finally {
-            CLibrary.INSTANCE.destroyString(value)
+            if (value != null) {
+                CLibrary.INSTANCE.destroyString(value)
+            }
         }
     }
 
     fun listFlags(): ArrayList<Flag>? {
+        var value: String? = null
         try {
-            val value = CLibrary.INSTANCE.listFlags(engine)
+            value = CLibrary.INSTANCE.listFlags(engine)
             val resp = json.decodeFromString<Result<ArrayList<Flag>>>(value)
             return resp.result ?: throw EvaluationException(resp.errorMessage ?: "Unknown Error")
         } finally {
-            CLibrary.INSTANCE.destroyString(value)
+            if (value != null) {
+                CLibrary.INSTANCE.destroyString(value)
+            }
         }
     }
 
     fun getSnapshot(): String {
+        var value: String? = null
         try {
-            val value = CLibrary.INSTANCE.getSnapshot(engine)
-            return value.getString(0, "UTF-8")
+            value = CLibrary.INSTANCE.getSnapshot(engine)
+            return value
         } finally {
-            CLibrary.INSTANCE.destroyString(value)
+            if (value != null) {
+                CLibrary.INSTANCE.destroyString(value)
+            }
         }
     }
 
