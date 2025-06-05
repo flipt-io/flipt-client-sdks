@@ -135,5 +135,49 @@ void main() {
 
       expect(actualJson, equals(expectedJson));
     });
+
+    test('Set/Get Snapshot With Invalid Flipt URL', () {
+      final invalidUrl = 'http://invalid.flipt.com';
+
+      final invalidClient = FliptEvaluationClient(
+        options: Options(
+          url: invalidUrl,
+          errorStrategy: ErrorStrategy.fallback,
+          snapshot: snapshotBase64,
+        ),
+      );
+
+      final context = {'fizz': 'buzz'};
+
+      for (var i = 0; i < 5; i++) {
+        final variant = invalidClient.evaluateVariant(
+          flagKey: 'flag1',
+          entityId: 'someentity',
+          context: context,
+        );
+        expect(variant.flagKey, equals('flag1'));
+        expect(variant.match, isTrue);
+        expect(variant.reason, equals('MATCH_EVALUATION_REASON'));
+        expect(variant.variantKey, equals('variant1'));
+        expect(variant.segmentKeys, contains('segment1'));
+
+        final boolean = invalidClient.evaluateBoolean(
+          flagKey: 'flag_boolean',
+          entityId: 'someentity',
+          context: context,
+        );
+        expect(boolean.flagKey, equals('flag_boolean'));
+        expect(boolean.enabled, isTrue);
+        expect(boolean.reason, equals('MATCH_EVALUATION_REASON'));
+
+        final flags = invalidClient.listFlags();
+        expect(flags, hasLength(2));
+
+        final snapshot = invalidClient.getSnapshot();
+        expect(snapshot, isNotNull);
+      }
+
+      invalidClient.close();
+    });
   });
 }

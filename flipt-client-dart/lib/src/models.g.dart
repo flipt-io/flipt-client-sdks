@@ -17,6 +17,7 @@ Options _$OptionsFromJson(Map<String, dynamic> json) => Options(
       errorStrategy:
           $enumDecodeNullable(_$ErrorStrategyEnumMap, json['error_strategy']) ??
               ErrorStrategy.fail,
+      snapshot: json['snapshot'] as String?,
     );
 
 Map<String, dynamic> _$OptionsToJson(Options instance) => <String, dynamic>{
@@ -25,6 +26,7 @@ Map<String, dynamic> _$OptionsToJson(Options instance) => <String, dynamic>{
       'request_timeout': instance.requestTimeout,
       'update_interval': instance.updateInterval,
       'authentication': instance.authentication,
+      'snapshot': instance.snapshot,
       'fetch_mode': _$FetchModeEnumMap[instance.fetchMode],
       'error_strategy': _$ErrorStrategyEnumMap[instance.errorStrategy],
     };
