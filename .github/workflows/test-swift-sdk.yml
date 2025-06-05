@@ -3,6 +3,12 @@ on:
   workflow_run:
     workflows: ["Package FFI Engine (Darwin)"]
     types: [requested, completed]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to download prebuilt xcframework (e.g. flipt-engine-ffi-v0.9.0)'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -30,10 +36,54 @@ jobs:
               target_url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
             });
 
-  test:
-    name: Integration Tests
+  test-prebuilt:
+    name: Integration Tests (Prebuilt XCFramework)
     runs-on: macos-14
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != '' }}
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Install Flipt
+        uses: flipt-io/setup-action@v0.3.1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download Prebuilt XCFramework
+        run: |
+          curl -L -o FliptEngineFFI.xcframework.tar.gz \
+            https://github.com/flipt-io/flipt-client-sdks/releases/download/${{ github.event.inputs.release_tag }}/FliptEngineFFI.xcframework.tar.gz
+          mkdir -p flipt-client-swift/Sources/
+          tar -xzvf FliptEngineFFI.xcframework.tar.gz -C flipt-client-swift/Sources/
+
+      - name: Run Flipt
+        env:
+          FLIPT_STORAGE_TYPE: "local"
+          FLIPT_STORAGE_LOCAL_PATH: "./test/fixtures/testdata"
+          FLIPT_AUTHENTICATION_REQUIRED: true
+          FLIPT_AUTHENTICATION_METHODS_TOKEN_ENABLED: true
+          FLIPT_AUTHENTICATION_METHODS_TOKEN_BOOTSTRAP_TOKEN: "secret"
+        run: flipt&
+
+      - name: Wait for Flipt to be ready
+        run: |
+          while ! curl -s http://0.0.0.0:8080/health | grep -q "SERVING"; do
+            echo "Waiting for Flipt to be ready..."
+            sleep 1
+          done
+
+      - name: Run Integration Tests
+        env:
+          FLIPT_URL: "http://0.0.0.0:8080"
+          FLIPT_AUTH_TOKEN: "secret"
+        run: |
+          cd ./flipt-client-swift
+          swift test
+
+  test-package:
+    name: Integration Tests (Package FFI Engine)
+    runs-on: macos-14
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
     timeout-minutes: 20
     steps:
       - name: Checkout Sources
@@ -150,19 +200,24 @@ jobs:
           cd ./flipt-client-swift
           swift test
 
+  update-status-check:
+    if: always()
+    runs-on: ubuntu-latest
+    needs: [test-prebuilt, test-package]
+    steps:
       - name: Update Status Check
-        if: always()
         uses: actions/github-script@v7
         with:
           script: |
-            const sha = context.payload.workflow_run.head_sha;
+            const sha = context.payload.workflow_run ? context.payload.workflow_run.head_sha : context.sha;
             const { owner, repo } = context.repo;
+            const jobStatus = process.env.JOB_STATUS || (process.env.GITHUB_JOB == 'test-prebuilt' ? 'success' : 'failure');
             await github.rest.repos.createCommitStatus({
               owner,
               repo,
               sha: sha,
-              state: '${{ job.status }}' === 'success' ? 'success' : 'failure',
+              state: jobStatus === 'success' ? 'success' : 'failure',
               context: 'Swift SDK Tests',
-              description: '${{ job.status }}' === 'success' ? 'Tests passed' : 'Tests failed',
-              target_url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+              description: jobStatus === 'success' ? 'Tests passed' : 'Tests failed',
+              target_url: `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`
             });

@@ -6,6 +6,23 @@ class FliptClientTests: XCTestCase {
     var fliptUrl: String = ""
     var authToken: String = ""
 
+    static var snapshot: String {
+        base64EncodedResource(named: "snapshot")
+    }
+
+    private static func base64EncodedResource(named name: String) -> String {
+        let bundle = Bundle(for: FliptClientTests.self)
+        guard let url = bundle.url(forResource: name, withExtension: "json") else {
+            XCTFail("Missing resource: \(name).json")
+            return ""
+        }
+        guard let data = try? Data(contentsOf: url) else {
+            XCTFail("Could not load data from: \(name).json")
+            return ""
+        }
+        return data.base64EncodedString()
+    }
+
     override func setUp() {
         super.setUp()
 
@@ -166,6 +183,52 @@ class FliptClientTests: XCTestCase {
             XCTFail("Expected an error, but got none")
         } catch let error as FliptClient.ClientError {
             XCTAssertFalse(error.localizedDescription.isEmpty)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testSetGetSnapshotWithInvalidFliptURL() {
+        do {
+            let invalidFliptClient = try FliptClient(
+                namespace: "default",
+                url: "http://invalid.flipt.com",
+                errorStrategy: .fallback,
+                snapshot: FliptClientTests.snapshot)
+
+            let context = ["fizz": "buzz"]
+
+            for _ in 0 ..< 5 {
+                // Variant evaluation
+                let variant = try invalidFliptClient.evaluateVariant(
+                    flagKey: "flag1",
+                    entityID: "entity",
+                    evalContext: context)
+                XCTAssertEqual(variant.flag_key, "flag1")
+                XCTAssertTrue(variant.match)
+                XCTAssertEqual(variant.reason, "MATCH_EVALUATION_REASON")
+                XCTAssertEqual(variant.variant_key, "variant1")
+                XCTAssertTrue(variant.segment_keys.contains("segment1"))
+
+                // Boolean evaluation
+                let boolean = try invalidFliptClient.evaluateBoolean(
+                    flagKey: "flag_boolean",
+                    entityID: "entity",
+                    evalContext: context)
+                XCTAssertEqual(boolean.flag_key, "flag_boolean")
+                XCTAssertTrue(boolean.enabled)
+                XCTAssertEqual(boolean.reason, "MATCH_EVALUATION_REASON")
+
+                // List flags
+                let flags = try invalidFliptClient.listFlags()
+                XCTAssertEqual(flags.count, 2)
+
+                // Get snapshot
+                let snapshot = try invalidFliptClient.getSnapshot()
+                XCTAssertNotNil(snapshot)
+            }
+
+            invalidFliptClient.close()
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
