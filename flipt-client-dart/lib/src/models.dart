@@ -19,6 +19,8 @@ enum ErrorStrategy {
 /// Options for the Flipt client
 @JsonSerializable()
 class Options {
+  final String? environment;
+  final String? namespace;
   final String? url;
   final String? reference;
   final int? requestTimeout;
@@ -26,12 +28,14 @@ class Options {
   final Map<String, dynamic>? authentication;
   final String? snapshot;
 
-  /// Note: Streaming is currently only supported when using the SDK with Flipt Cloud (https://flipt.io/cloud).
+  /// Note: Streaming is only supported when using the SDK with Flipt Cloud (https://flipt.io/cloud) or Flipt v2 (https://docs.flipt.io/v2)
   final FetchMode? fetchMode;
   final ErrorStrategy? errorStrategy;
 
   Options({
     this.url = 'http://localhost:8080',
+    this.environment = 'default',
+    this.namespace = 'default',
     this.reference,
     this.requestTimeout,
     this.updateInterval = 120,
@@ -47,6 +51,8 @@ class Options {
 
   static Options withClientToken(
     String token, {
+    String? environment,
+    String? namespace,
     String? url,
     String? reference,
     int? requestTimeout,
@@ -56,6 +62,8 @@ class Options {
   }) {
     return Options(
       url: url,
+      environment: environment,
+      namespace: namespace,
       reference: reference,
       requestTimeout: requestTimeout,
       updateInterval: updateInterval,
@@ -70,6 +78,8 @@ class Options {
   static Options withJwtToken(
     String token, {
     String? url,
+    String? environment,
+    String? namespace,
     String? reference,
     int? requestTimeout,
     int? updateInterval,
@@ -78,6 +88,8 @@ class Options {
   }) {
     return Options(
       url: url,
+      environment: environment,
+      namespace: namespace,
       reference: reference,
       requestTimeout: requestTimeout,
       updateInterval: updateInterval,

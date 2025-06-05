@@ -24,43 +24,37 @@ class FliptEngine {
   ///
   /// This function will initialize an Engine and return a pointer back to the caller.
   ffi.Pointer<ffi.Void> initialize_engine_ffi(
-    ffi.Pointer<ffi.Char> namespace_,
     ffi.Pointer<ffi.Char> opts,
   ) {
     return _initialize_engine_ffi(
-      namespace_,
       opts,
     );
   }
 
   late final _initialize_engine_ffiPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Void> Function(
               ffi.Pointer<ffi.Char>)>>('initialize_engine_ffi');
-  late final _initialize_engine_ffi = _initialize_engine_ffiPtr.asFunction<
-      ffi.Pointer<ffi.Void> Function(
-          ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>)>();
+  late final _initialize_engine_ffi = _initialize_engine_ffiPtr
+      .asFunction<ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Char>)>();
 
   /// # Safety
   ///
   /// This function will initialize an Engine and return a pointer back to the caller.
   ffi.Pointer<ffi.Void> initialize_engine(
-    ffi.Pointer<ffi.Char> namespace_,
     ffi.Pointer<ffi.Char> opts,
   ) {
     return _initialize_engine(
-      namespace_,
       opts,
     );
   }
 
   late final _initialize_enginePtr = _lookup<
       ffi.NativeFunction<
-          ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Void> Function(
               ffi.Pointer<ffi.Char>)>>('initialize_engine');
-  late final _initialize_engine = _initialize_enginePtr.asFunction<
-      ffi.Pointer<ffi.Void> Function(
-          ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>)>();
+  late final _initialize_engine = _initialize_enginePtr
+      .asFunction<ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Char>)>();
 
   /// # Safety
   ///

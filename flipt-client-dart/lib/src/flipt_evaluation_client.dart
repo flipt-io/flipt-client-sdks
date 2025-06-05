@@ -11,24 +11,21 @@ class FliptEvaluationClient {
   late Pointer<Void> _engine;
   late FliptEngine _bindings;
 
-  FliptEvaluationClient({String namespace = "default", Options? options}) {
+  FliptEvaluationClient({Options? options}) {
     final lib = loadFliptEngine();
     _bindings = FliptEngine(lib);
-    _initializeEngine(namespace, options);
+    _initializeEngine(options);
   }
 
-  void _initializeEngine(String namespace, Options? options) {
-    final namespaceUtf8 = namespace.toNativeUtf8();
+  void _initializeEngine(Options? options) {
     final optsJson = jsonEncode(options?.toJson() ?? {});
     final optsUtf8 = optsJson.toNativeUtf8();
 
     try {
       _engine = _bindings.initialize_engine(
-        namespaceUtf8.cast<Char>(),
         optsUtf8.cast<Char>(),
       );
     } finally {
-      calloc.free(namespaceUtf8);
       calloc.free(optsUtf8);
     }
   }
