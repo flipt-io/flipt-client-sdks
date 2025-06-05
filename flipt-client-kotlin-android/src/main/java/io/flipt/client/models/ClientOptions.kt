@@ -12,4 +12,5 @@ data class ClientOptions(
     @SerialName("reference")private val reference: String?,
     @SerialName("fetch_mode")private val fetchMode: FetchMode?,
     @SerialName("error_strategy")private val errorStrategy: ErrorStrategy?,
+    @SerialName("snapshot")private val snapshot: String?,
 )

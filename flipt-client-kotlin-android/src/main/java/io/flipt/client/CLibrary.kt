@@ -27,6 +27,8 @@ class CLibrary {
 
     external fun listFlags(enginePtr: Long): String
 
+    external fun getSnapshot(enginePtr: Long): String
+
     external fun destroyEngine(enginePtr: Long)
 
     external fun destroyString(ptr: String)
