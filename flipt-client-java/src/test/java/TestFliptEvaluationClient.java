@@ -216,7 +216,6 @@ public class TestFliptEvaluationClient {
     invalidFliptClient.close();
   }
 
-
   @AfterEach
   void tearDown() throws Exception {
     if (fliptClient != null) fliptClient.close();
