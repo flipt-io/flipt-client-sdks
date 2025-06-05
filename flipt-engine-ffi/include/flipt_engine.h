@@ -8,14 +8,14 @@
  *
  * This function will initialize an Engine and return a pointer back to the caller.
  */
-void *initialize_engine_ffi(const char *namespace_, const char *opts);
+void *initialize_engine_ffi(const char *opts);
 
 /**
  * # Safety
  *
  * This function will initialize an Engine and return a pointer back to the caller.
  */
-void *initialize_engine(const char *namespace_, const char *opts);
+void *initialize_engine(const char *opts);
 
 /**
  * # Safety

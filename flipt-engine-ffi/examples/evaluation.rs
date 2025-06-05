@@ -8,13 +8,12 @@ use fliptevaluation::{models::snapshot::Snapshot, EvaluationRequest};
 use std::collections::HashMap;
 
 fn main() {
-    let namespace = "default";
-    let fetcher = HTTPFetcherBuilder::new("http://localhost:8080", namespace)
+    let fetcher = HTTPFetcherBuilder::new("http://localhost:8080")
         .authentication(Authentication::with_client_token("secret".into()))
         .build()
         .unwrap();
 
-    let evaluator = Evaluator::new(namespace);
+    let evaluator = Evaluator::new("default");
 
     let engine =
         fliptengine::Engine::new(fetcher, evaluator, ErrorStrategy::Fail, Snapshot::default());
