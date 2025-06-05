@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'flipt_client'
-  s.version          = '0.9.0' # must match pubspec.yaml
+  s.version          = '0.10.0' # must match pubspec.yaml
   s.summary          = 'Dart FFI bindings for Flipt engine'
   s.description      = 'Precompiled Flipt engine as a static .xcframework for use via Dart FFI.'
   s.homepage         = 'https://github.com/flipt-io/flipt-client-sdks'
