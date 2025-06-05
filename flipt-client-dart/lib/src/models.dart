@@ -32,11 +32,11 @@ class Options {
   /// The reference to use for fetching flag state.
   final String? reference;
 
-  /// The request timeout in seconds.
-  final int? requestTimeout;
+  /// The request timeout duration.
+  final Duration? requestTimeout;
 
-  /// The update interval in seconds (default: 120).
-  final int? updateInterval;
+  /// The update interval duration (default: 120 seconds).
+  final Duration? updateInterval;
 
   /// Authentication options (client_token or jwt_token).
   final Map<String, dynamic>? authentication;
@@ -57,7 +57,7 @@ class Options {
     this.namespace = 'default',
     this.reference,
     this.requestTimeout,
-    this.updateInterval = 120,
+    this.updateInterval = const Duration(seconds: 120),
     this.authentication,
     this.fetchMode = FetchMode.polling,
     this.errorStrategy = ErrorStrategy.fail,
@@ -72,11 +72,48 @@ class Options {
     if (namespace != null && namespace!.isEmpty) {
       throw ValidationError('namespace must not be empty');
     }
+    if (requestTimeout != null && requestTimeout!.isNegative) {
+      throw ValidationError('requestTimeout must not be negative');
+    }
+    if (updateInterval != null && updateInterval!.isNegative) {
+      throw ValidationError('updateInterval must not be negative');
+    }
   }
 
-  factory Options.fromJson(Map<String, dynamic> json) =>
-      _$OptionsFromJson(json);
-  Map<String, dynamic> toJson() => _$OptionsToJson(this);
+  factory Options.fromJson(Map<String, dynamic> json) => Options(
+        url: json['url'] as String? ?? 'http://localhost:8080',
+        environment: json['environment'] as String? ?? 'default',
+        namespace: json['namespace'] as String? ?? 'default',
+        reference: json['reference'] as String?,
+        requestTimeout: json['request_timeout'] != null
+            ? Duration(seconds: json['request_timeout'] as int)
+            : null,
+        updateInterval: json['update_interval'] != null
+            ? Duration(seconds: json['update_interval'] as int)
+            : const Duration(seconds: 120),
+        authentication: json['authentication'] as Map<String, dynamic>?,
+        fetchMode:
+            $enumDecodeNullable(_$FetchModeEnumMap, json['fetch_mode']) ??
+                FetchMode.polling,
+        errorStrategy: $enumDecodeNullable(
+                _$ErrorStrategyEnumMap, json['error_strategy']) ??
+            ErrorStrategy.fail,
+        snapshot: json['snapshot'] as String?,
+      );
+  Map<String, dynamic> toJson() => {
+        'url': url,
+        'environment': environment,
+        'namespace': namespace,
+        'reference': reference,
+        'request_timeout': requestTimeout?.inSeconds,
+        'update_interval': updateInterval?.inSeconds,
+        'authentication': authentication,
+        'fetch_mode': fetchMode != null ? _$FetchModeEnumMap[fetchMode] : null,
+        'error_strategy': errorStrategy != null
+            ? _$ErrorStrategyEnumMap[errorStrategy]
+            : null,
+        'snapshot': snapshot,
+      };
 
   static Options withClientToken(
     String token, {
@@ -84,8 +121,8 @@ class Options {
     String? namespace,
     String? url,
     String? reference,
-    int? requestTimeout,
-    int? updateInterval,
+    Duration? requestTimeout,
+    Duration? updateInterval,
     FetchMode? fetchMode,
     ErrorStrategy? errorStrategy,
   }) {
@@ -110,8 +147,8 @@ class Options {
     String? environment,
     String? namespace,
     String? reference,
-    int? requestTimeout,
-    int? updateInterval,
+    Duration? requestTimeout,
+    Duration? updateInterval,
     FetchMode? fetchMode,
     ErrorStrategy? errorStrategy,
   }) {
