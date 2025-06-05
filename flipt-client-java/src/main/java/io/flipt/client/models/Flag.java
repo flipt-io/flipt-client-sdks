@@ -1,34 +1,25 @@
 package io.flipt.client.models;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import lombok.Builder;
+import lombok.Value;
 
+@Value
+@Builder
 @JsonIgnoreProperties(ignoreUnknown = true)
+@JsonDeserialize(builder = Flag.FlagBuilder.class)
 public class Flag {
-  private final String key;
-  private final boolean enabled;
-  private final String type;
+  @JsonProperty("key")
+  String key;
 
-  @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-  public Flag(
-      @JsonProperty("key") String key,
-      @JsonProperty("enabled") boolean enabled,
-      @JsonProperty("type") String type) {
-    this.key = key;
-    this.enabled = enabled;
-    this.type = type;
-  }
+  @JsonProperty("enabled")
+  boolean enabled;
 
-  public String getKey() {
-    return key;
-  }
+  @JsonProperty("type")
+  String type;
 
-  public boolean isEnabled() {
-    return enabled;
-  }
-
-  public String getType() {
-    return type;
-  }
+  @lombok.experimental.SuperBuilder
+  public static class FlagBuilder {}
 }

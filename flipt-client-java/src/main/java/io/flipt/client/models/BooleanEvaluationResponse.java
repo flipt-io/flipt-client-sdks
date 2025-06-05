@@ -2,54 +2,30 @@ package io.flipt.client.models;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import lombok.Builder;
+import lombok.Value;
 
+@Value
+@Builder
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
+@JsonDeserialize(builder = BooleanEvaluationResponse.BooleanEvaluationResponseBuilder.class)
 public class BooleanEvaluationResponse {
-  private final boolean enabled;
-
-  private final String flagKey;
-
-  private final String reason;
-
-  private final float requestDurationMillis;
-
-  private final String timestamp;
-
-  public BooleanEvaluationResponse(
-      @JsonProperty("enabled") boolean enabled,
-      @JsonProperty("flag_key") String flagKey,
-      @JsonProperty("reason") String reason,
-      @JsonProperty("request_duration_millis") float requestDurationMillis,
-      @JsonProperty("timestamp") String timestamp) {
-    this.enabled = enabled;
-    this.flagKey = flagKey;
-    this.requestDurationMillis = requestDurationMillis;
-    this.reason = reason;
-    this.timestamp = timestamp;
-  }
-
   @JsonProperty("enabled")
-  public boolean isEnabled() {
-    return enabled;
-  }
+  boolean enabled;
 
   @JsonProperty("flag_key")
-  public String getFlagKey() {
-    return flagKey;
-  }
+  String flagKey;
 
   @JsonProperty("reason")
-  public String getReason() {
-    return reason;
-  }
+  String reason;
 
   @JsonProperty("request_duration_millis")
-  public float getRequestDurationMillis() {
-    return requestDurationMillis;
-  }
+  float requestDurationMillis;
 
   @JsonProperty("timestamp")
-  public String getTimestamp() {
-    return timestamp;
-  }
+  String timestamp;
+
+  @lombok.experimental.SuperBuilder
+  public static class BooleanEvaluationResponseBuilder {}
 }
