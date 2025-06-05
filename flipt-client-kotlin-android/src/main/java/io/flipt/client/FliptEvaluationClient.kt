@@ -42,6 +42,7 @@ class FliptEvaluationClient(
         private var updateInterval: Duration? = null
         private var fetchMode = FetchMode.POLLING
         private var errorStrategy = ErrorStrategy.FAIL
+        private var snapshot: String? = null
 
         /**
          * url sets the URL for the Flipt server.
@@ -134,6 +135,17 @@ class FliptEvaluationClient(
         }
 
         /**
+         * snapshot sets the initial snapshot for evaluation.
+         *
+         * @param snapshot the initial snapshot for evaluation
+         * @return the FliptEvaluationClientBuilder
+         */
+        fun snapshot(snapshot: String?): FliptEvaluationClientBuilder {
+            this.snapshot = snapshot
+            return this
+        }
+
+        /**
          * build builds a new FliptEvaluationClient.
          *
          * @return the FliptEvaluationClient
@@ -165,6 +177,7 @@ class FliptEvaluationClient(
                     reference,
                     fetchMode,
                     errorStrategy,
+                    snapshot,
                 ),
             )
         }
@@ -245,18 +258,6 @@ class FliptEvaluationClient(
             val value = CLibrary.INSTANCE.listFlags(engine)
             val resp = json.decodeFromString<Result<ArrayList<Flag>>>(value)
             return resp.result ?: throw EvaluationException(resp.errorMessage ?: "Unknown Error")
-        } finally {
-            CLibrary.INSTANCE.destroyString(value)
-        }
-    }
-
-    fun setSnapshot(snapshot: String) {
-        try {
-            val value = CLibrary.INSTANCE.setSnapshot(engine, snapshot)
-            val resp = json.decodeFromString<Result<String>>(value)
-            if (resp.errorMessage != null) {
-                throw EvaluationException(resp.errorMessage)
-            }
         } finally {
             CLibrary.INSTANCE.destroyString(value)
         }
