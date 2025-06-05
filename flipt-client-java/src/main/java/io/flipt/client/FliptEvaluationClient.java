@@ -41,8 +41,7 @@ public class FliptEvaluationClient {
     void destroy_string(Pointer str);
   }
 
-  private FliptEvaluationClient(ClientOptions clientOptions)
-      throws EvaluationException {
+  private FliptEvaluationClient(ClientOptions clientOptions) throws EvaluationException {
 
     ObjectMapper objectMapper = new ObjectMapper();
     objectMapper.registerModule(new Jdk8Module());
