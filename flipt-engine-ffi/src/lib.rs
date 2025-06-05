@@ -12,7 +12,7 @@ use fliptevaluation::{
 };
 use http::{Authentication, ErrorStrategy, FetchMode, HTTPFetcher, HTTPFetcherBuilder};
 use libc::c_void;
-use log::{debug, error};
+use log::{debug, error, trace, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
@@ -167,12 +167,14 @@ impl Engine {
         handle.block_on(async {
             match fetcher.initial_fetch().await {
                 Ok(doc) => {
+                    debug!("[FFI] initial fetch succeeded");
                     let snap = snapshot::Snapshot::build(doc);
                     if let Ok(mut lock) = evaluator.write() {
                         lock.replace_snapshot(Ok(snap));
                     }
                 }
                 Err(err) => {
+                    warn!("[FFI] initial fetch failed: {:?}", err.clone());
                     if error_strategy == ErrorStrategy::Fail {
                         if let Ok(mut lock) = evaluator.write() {
                             lock.replace_snapshot(Err(err));
@@ -188,12 +190,14 @@ impl Engine {
             while let Some(res) = rx.recv().await {
                 match res {
                     Ok(doc) => {
+                        debug!("[FFI] fetch succeeded");
                         let snap = snapshot::Snapshot::build(doc);
                         if let Ok(mut lock) = evaluator_clone.write() {
                             lock.replace_snapshot(Ok(snap));
                         }
                     }
                     Err(err) => {
+                        warn!("[FFI] fetch failed: {:?}", err.clone());
                         if error_strategy == ErrorStrategy::Fail {
                             if let Ok(mut lock) = evaluator_clone.write() {
                                 lock.replace_snapshot(Err(err));
@@ -267,12 +271,13 @@ pub unsafe extern "C" fn initialize_engine_ffi(
 ) -> *mut c_void {
     match std::panic::catch_unwind(|| {
         init_logging();
-        debug!(
+        trace!(
             "[FFI] initialize_engine_ffi called: namespace ptr=0x{:x}, opts ptr=0x{:x}",
-            namespace as usize, opts as usize
+            namespace as usize,
+            opts as usize
         );
         let ptr = _initialize_engine(namespace, opts);
-        debug!(
+        trace!(
             "[FFI] initialize_engine_ffi returning engine ptr=0x{:x}",
             ptr as usize
         );
@@ -297,12 +302,13 @@ pub unsafe extern "C" fn initialize_engine(
 ) -> *mut c_void {
     match std::panic::catch_unwind(|| {
         init_logging();
-        debug!(
+        trace!(
             "[FFI] initialize_engine called: namespace ptr=0x{:x}, opts ptr=0x{:x}",
-            namespace as usize, opts as usize
+            namespace as usize,
+            opts as usize
         );
         let ptr = _initialize_engine(namespace, opts);
-        debug!(
+        trace!(
             "[FFI] initialize_engine returning engine ptr=0x{:x}",
             ptr as usize
         );
@@ -323,7 +329,7 @@ pub unsafe extern "C" fn initialize_engine(
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn get_snapshot_ffi(engine_ptr: *mut c_void) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        debug!(
+        trace!(
             "[FFI] get_snapshot_ffi called: engine ptr=0x{:x}",
             engine_ptr as usize
         );
@@ -346,7 +352,7 @@ pub unsafe extern "C" fn get_snapshot_ffi(engine_ptr: *mut c_void) -> *const c_c
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn get_snapshot(engine_ptr: *mut c_void) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        debug!(
+        trace!(
             "[FFI] get_snapshot called: engine ptr=0x{:x}",
             engine_ptr as usize
         );
@@ -370,9 +376,10 @@ pub unsafe extern "C" fn evaluate_variant_ffi(
     evaluation_request: *const c_char,
 ) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        debug!(
+        trace!(
             "[FFI] evaluate_variant_ffi called: engine ptr=0x{:x}, req ptr=0x{:x}",
-            engine_ptr as usize, evaluation_request as usize
+            engine_ptr as usize,
+            evaluation_request as usize
         );
         _evaluate_variant(engine_ptr, evaluation_request)
     }) {
@@ -396,9 +403,10 @@ pub unsafe extern "C" fn evaluate_variant(
     evaluation_request: *const c_char,
 ) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        debug!(
+        trace!(
             "[FFI] evaluate_variant called: engine ptr=0x{:x}, req ptr=0x{:x}",
-            engine_ptr as usize, evaluation_request as usize
+            engine_ptr as usize,
+            evaluation_request as usize
         );
         _evaluate_variant(engine_ptr, evaluation_request)
     }) {
@@ -422,9 +430,10 @@ pub unsafe extern "C" fn evaluate_boolean_ffi(
     evaluation_request: *const c_char,
 ) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        debug!(
+        trace!(
             "[FFI] evaluate_boolean_ffi called: engine ptr=0x{:x}, req ptr=0x{:x}",
-            engine_ptr as usize, evaluation_request as usize
+            engine_ptr as usize,
+            evaluation_request as usize
         );
         _evaluate_boolean(engine_ptr, evaluation_request)
     }) {
@@ -448,9 +457,10 @@ pub unsafe extern "C" fn evaluate_boolean(
     evaluation_request: *const c_char,
 ) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        debug!(
+        trace!(
             "[FFI] evaluate_boolean called: engine ptr=0x{:x}, req ptr=0x{:x}",
-            engine_ptr as usize, evaluation_request as usize
+            engine_ptr as usize,
+            evaluation_request as usize
         );
         _evaluate_boolean(engine_ptr, evaluation_request)
     }) {
@@ -474,9 +484,10 @@ pub unsafe extern "C" fn evaluate_batch_ffi(
     batch_evaluation_request: *const c_char,
 ) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        debug!(
+        trace!(
             "[FFI] evaluate_batch_ffi called: engine ptr=0x{:x}, req ptr=0x{:x}",
-            engine_ptr as usize, batch_evaluation_request as usize
+            engine_ptr as usize,
+            batch_evaluation_request as usize
         );
         _evaluate_batch(engine_ptr, batch_evaluation_request)
     }) {
@@ -500,9 +511,10 @@ pub unsafe extern "C" fn evaluate_batch(
     batch_evaluation_request: *const c_char,
 ) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        debug!(
+        trace!(
             "[FFI] evaluate_batch called: engine ptr=0x{:x}, req ptr=0x{:x}",
-            engine_ptr as usize, batch_evaluation_request as usize
+            engine_ptr as usize,
+            batch_evaluation_request as usize
         );
         _evaluate_batch(engine_ptr, batch_evaluation_request)
     }) {
@@ -521,7 +533,7 @@ pub unsafe extern "C" fn evaluate_batch(
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        debug!(
+        trace!(
             "[FFI] list_flags_ffi called: engine ptr=0x{:x}",
             engine_ptr as usize
         );
@@ -542,7 +554,7 @@ pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_cha
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> *const c_char {
     match std::panic::catch_unwind(|| {
-        debug!(
+        trace!(
             "[FFI] list_flags called: engine ptr=0x{:x}",
             engine_ptr as usize
         );
@@ -563,7 +575,7 @@ pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> *const c_char {
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn destroy_engine_ffi(engine_ptr: *mut c_void) {
     match std::panic::catch_unwind(|| {
-        debug!(
+        trace!(
             "[FFI] destroy_engine_ffi called: engine ptr=0x{:x}",
             engine_ptr as usize
         );
@@ -584,7 +596,7 @@ pub unsafe extern "C" fn destroy_engine_ffi(engine_ptr: *mut c_void) {
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
     match std::panic::catch_unwind(|| {
-        debug!(
+        trace!(
             "[FFI] destroy_engine called: engine ptr=0x{:x}",
             engine_ptr as usize
         );
@@ -605,7 +617,7 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
 pub unsafe extern "C" fn destroy_string_ffi(ptr: *mut c_char) {
     match std::panic::catch_unwind(|| {
-        debug!("[FFI] destroy_string_ffi called: ptr=0x{:x}", ptr as usize);
+        trace!("[FFI] destroy_string_ffi called: ptr=0x{:x}", ptr as usize);
         _destroy_string(ptr)
     }) {
         Ok(_) => (),
@@ -622,7 +634,7 @@ pub unsafe extern "C" fn destroy_string_ffi(ptr: *mut c_char) {
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
 pub unsafe extern "C" fn destroy_string(ptr: *mut c_char) {
     match std::panic::catch_unwind(|| {
-        debug!("[FFI] destroy_string called: ptr=0x{:x}", ptr as usize);
+        trace!("[FFI] destroy_string called: ptr=0x{:x}", ptr as usize);
         _destroy_string(ptr)
     }) {
         Ok(_) => (),
@@ -887,8 +899,12 @@ unsafe fn get_batch_evaluation_request(
 }
 
 fn init_logging() {
-    let _ =
-        env_logger::Builder::from_env(env_logger::Env::new().filter("FLIPT_ENGINE_LOG")).try_init();
+    let _ = env_logger::Builder::from_env(
+        env_logger::Env::new()
+            .filter("FLIPT_ENGINE_LOG")
+            .default_filter_or("error"),
+    )
+    .try_init();
 }
 
 #[cfg(test)]
