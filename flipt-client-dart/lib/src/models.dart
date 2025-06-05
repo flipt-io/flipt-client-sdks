@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'package:flipt_client/src/errors.dart';
 
 part 'models.g.dart';
 
@@ -16,20 +17,38 @@ enum ErrorStrategy {
   fallback,
 }
 
-/// Options for the Flipt client
+/// Options for configuring the Flipt client.
 @JsonSerializable()
 class Options {
+  /// The environment to use (default: 'default').
   final String? environment;
+
+  /// The namespace to use (default: 'default').
   final String? namespace;
+
+  /// The Flipt server URL (default: 'http://localhost:8080').
   final String? url;
+
+  /// The reference to use for fetching flag state.
   final String? reference;
+
+  /// The request timeout in seconds.
   final int? requestTimeout;
+
+  /// The update interval in seconds (default: 120).
   final int? updateInterval;
+
+  /// Authentication options (client_token or jwt_token).
   final Map<String, dynamic>? authentication;
+
+  /// The initial snapshot to use for the client.
   final String? snapshot;
 
+  /// The fetch mode to use (polling or streaming).
   /// Note: Streaming is only supported when using the SDK with Flipt Cloud (https://flipt.io/cloud) or Flipt v2 (https://docs.flipt.io/v2)
   final FetchMode? fetchMode;
+
+  /// The error strategy to use (fail or fallback).
   final ErrorStrategy? errorStrategy;
 
   Options({
@@ -43,7 +62,17 @@ class Options {
     this.fetchMode = FetchMode.polling,
     this.errorStrategy = ErrorStrategy.fail,
     this.snapshot,
-  });
+  }) {
+    if (url != null && url!.isEmpty) {
+      throw ValidationError('url must not be empty');
+    }
+    if (environment != null && environment!.isEmpty) {
+      throw ValidationError('environment must not be empty');
+    }
+    if (namespace != null && namespace!.isEmpty) {
+      throw ValidationError('namespace must not be empty');
+    }
+  }
 
   factory Options.fromJson(Map<String, dynamic> json) =>
       _$OptionsFromJson(json);
@@ -102,10 +131,16 @@ class Options {
   }
 }
 
+/// Represents a flag in Flipt.
 @JsonSerializable()
 class Flag {
+  /// The key of the flag.
   final String key;
+
+  /// Whether the flag is enabled.
   final bool enabled;
+
+  /// The type of the flag.
   final String type;
 
   Flag({
@@ -118,10 +153,16 @@ class Flag {
   Map<String, dynamic> toJson() => _$FlagToJson(this);
 }
 
+/// Request for evaluating a flag.
 @JsonSerializable()
 class EvaluationRequest {
+  /// The key of the flag to evaluate.
   final String flagKey;
+
+  /// The entity ID for evaluation.
   final String entityId;
+
+  /// The evaluation context.
   final Map<String, dynamic> context;
 
   EvaluationRequest({
@@ -142,10 +183,16 @@ enum Status {
   failure,
 }
 
+/// Generic result wrapper for Flipt responses.
 @JsonSerializable(genericArgumentFactories: true)
 class Result<T> {
+  /// The status of the response.
   final Status status;
+
+  /// The result object, if successful.
   final T? result;
+
+  /// The error message, if any.
   final String? errorMessage;
 
   Result({
@@ -160,15 +207,31 @@ class Result<T> {
           json, (object) => fromJsonT(object as Map<String, dynamic>));
 }
 
+/// Response for a variant flag evaluation.
 @JsonSerializable()
 class VariantEvaluationResponse {
+  /// Whether the evaluation matched.
   final bool match;
+
+  /// The segment keys involved in the evaluation.
   final List<String> segmentKeys;
+
+  /// The reason for the evaluation result.
   final String reason;
+
+  /// The flag key.
   final String flagKey;
+
+  /// The variant key returned.
   final String variantKey;
+
+  /// The variant attachment, if any.
   final String variantAttachment;
+
+  /// The request duration in milliseconds.
   final double requestDurationMillis;
+
+  /// The timestamp of the evaluation.
   final String timestamp;
 
   VariantEvaluationResponse({
@@ -187,12 +250,22 @@ class VariantEvaluationResponse {
   Map<String, dynamic> toJson() => _$VariantEvaluationResponseToJson(this);
 }
 
+/// Response for a boolean flag evaluation.
 @JsonSerializable()
 class BooleanEvaluationResponse {
+  /// Whether the flag is enabled.
   final bool enabled;
+
+  /// The flag key.
   final String flagKey;
+
+  /// The reason for the evaluation result.
   final String reason;
+
+  /// The request duration in milliseconds.
   final double requestDurationMillis;
+
+  /// The timestamp of the evaluation.
   final String timestamp;
 
   BooleanEvaluationResponse({
@@ -208,10 +281,16 @@ class BooleanEvaluationResponse {
   Map<String, dynamic> toJson() => _$BooleanEvaluationResponseToJson(this);
 }
 
+/// Response for an error during evaluation.
 @JsonSerializable()
 class ErrorEvaluationResponse {
+  /// The flag key for which the error occurred.
   final String flagKey;
+
+  /// The namespace key for which the error occurred.
   final String namespaceKey;
+
+  /// The reason for the error.
   final String reason;
 
   ErrorEvaluationResponse({
@@ -225,11 +304,19 @@ class ErrorEvaluationResponse {
   Map<String, dynamic> toJson() => _$ErrorEvaluationResponseToJson(this);
 }
 
+/// Response for a single evaluation (variant, boolean, or error).
 @JsonSerializable()
 class EvaluationResponse {
+  /// The type of the response.
   final String type;
+
+  /// The boolean evaluation response, if applicable.
   final BooleanEvaluationResponse? booleanEvaluationResponse;
+
+  /// The variant evaluation response, if applicable.
   final VariantEvaluationResponse? variantEvaluationResponse;
+
+  /// The error evaluation response, if applicable.
   final ErrorEvaluationResponse? errorEvaluationResponse;
 
   EvaluationResponse({
@@ -244,9 +331,13 @@ class EvaluationResponse {
   Map<String, dynamic> toJson() => _$EvaluationResponseToJson(this);
 }
 
+/// Response for a batch evaluation.
 @JsonSerializable()
 class BatchEvaluationResponse {
+  /// The list of evaluation responses.
   final List<EvaluationResponse> responses;
+
+  /// The request duration in milliseconds.
   final double requestDurationMillis;
 
   BatchEvaluationResponse({
@@ -271,10 +362,16 @@ class BatchEvaluationResponse {
       };
 }
 
+/// Response for listing flags.
 @JsonSerializable()
 class FlagListResponse {
+  /// The status of the response.
   final Status status;
+
+  /// The list of flags, if successful.
   final List<Flag>? result;
+
+  /// The error message, if any.
   final String? errorMessage;
 
   FlagListResponse({

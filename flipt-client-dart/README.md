@@ -71,9 +71,8 @@ import 'package:flipt_client/flipt_client.dart';
 
 void main() {
   // Initialize the client
-  final client = FliptEvaluationClient(
-    'default',
-    Options.withClientToken(
+  final client = FliptClient(
+    options: Options.withClientToken(
       'your-token',
       url: 'http://localhost:8080',
     ),
@@ -104,8 +103,9 @@ void main() {
 
 ### Client Options
 
-The `FliptEvaluationClient` initializer accepts several options that can be used to configure the client. The available options are:
+The `FliptClient` initializer accepts several options that can be used to configure the client. The available options are:
 
+- `environment`: The environment to fetch flag state from. If not provided, the client will default to the `default` environment.
 - `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
 - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
 - `requestTimeout`: The timeout (in seconds) for total request time to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.
@@ -118,7 +118,7 @@ The `FliptEvaluationClient` initializer accepts several options that can be used
 
 ### Authentication
 
-The `FliptEvaluationClient` supports the following authentication strategies:
+The `FliptClient` supports the following authentication strategies:
 
 - No Authentication (default)
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
