@@ -31,9 +31,9 @@ Upon instantiation, the `flipt-client-dart` library will fetch the flag state fr
 
 By default, the SDK will poll the Flipt server for new flag state at a regular interval. This interval can be configured using the `updateInterval` option when constructing a client. The default interval is 120 seconds.
 
-### Streaming (Flipt Cloud Only)
+### Streaming (Flipt Cloud and Flipt v2+ Only)
 
-[Flipt Cloud](https://flipt.io/cloud) users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
+[Flipt Cloud](https://flipt.io/cloud) and [Flipt v2](https://docs.flipt.io/v2) users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
 
 When in streaming mode, the SDK will connect to the Flipt server and open a persistent connection that will remain open until the client is closed. The SDK will then receive flag state changes in real-time.
 
@@ -63,6 +63,16 @@ This SDK currently supports the following OSes/architectures:
 - Android arm64
 - iOS arm64 ⚠️ See [iOS Integration](#ios-integration)
 - iOS arm64 (simulator) ⚠️ See [iOS Integration](#ios-integration)
+
+## Migration Notes
+
+### Pre-1.0.0 -> 1.0.0
+
+This section is for users who are migrating from a previous (pre-1.0.0) version of the SDK.
+
+- `FliptEvaluationClient` has been renamed to `FliptClient`.
+- `Options` now accept `namespace` and `environment` as optional parameters.
+- `requestTimeout` and `updateInterval` in `Options` are now `Duration` types instead of `int` (seconds). Update your code to use `Duration(seconds: ...)`.
 
 ## Usage
 
@@ -147,14 +157,6 @@ You also may want to store the snapshot in a local file so that you can use it t
 
 > [!IMPORTANT]
 > If the Flipt server becomes reachable after the setting the snapshot, the client will replace the snapshot with the new flag state from the Flipt server.
-
-## Migration Notes
-
-This section is for users who are migrating from a previous (pre-1.0.0) version of the SDK.
-
-- `FliptEvaluationClient` has been renamed to `FliptClient`.
-- `Options` now accept `namespace` and `environment` as optional parameters.
-- `requestTimeout` and `updateInterval` in `Options` are now `Duration` types instead of `int` (seconds). Update your code to use `Duration(seconds: ...)`.
 
 ## iOS Integration 📱
 
