@@ -46,7 +46,7 @@ By default, the SDK will poll the Flipt server for new flag state at a regular i
 
 ### Streaming (Flipt Cloud and Flipt v2+ Only)
 
-[Flipt Cloud](https://flipt.io/cloud) and Flipt v2+ users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
+[Flipt Cloud](https://flipt.io/cloud) and [Flipt v2](https://docs.flipt.io/v2) users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
 
 When in streaming mode, the SDK will connect to the Flipt server and open a persistent connection that will remain open until the client is closed. The SDK will then receive flag state changes in real-time.
 
