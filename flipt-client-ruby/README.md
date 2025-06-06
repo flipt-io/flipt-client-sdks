@@ -26,9 +26,9 @@ Upon instantiation, the `flipt-client-ruby` library will fetch the flag state fr
 
 By default, the SDK will poll the Flipt server for new flag state at a regular interval. This interval can be configured using the `update_interval` option when constructing a client. The default interval is 120 seconds.
 
-### Streaming (Flipt Cloud Only)
+### Streaming (Flipt Cloud/Flipt v2)
 
-[Flipt Cloud](https://flipt.io/cloud) users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
+[Flipt Cloud](https://flipt.io/cloud) and [Flipt v2](https://docs.flipt.io/v2) users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
 
 When in streaming mode, the SDK will connect to the Flipt server and open a persistent connection that will remain open until the client is closed. The SDK will then receive flag state changes in real-time.
 
@@ -67,6 +67,21 @@ gem install ffi -- --enable-system-libffi        # to install the gem manually
 bundle config build.ffi --enable-system-libffi   # for bundle install
 ```
 
+## Migration Notes
+
+### Pre-1.0.0 -> 1.0.0
+
+This section is for users who are migrating from a previous (pre-1.0.0) version of the SDK.
+
+- `Flipt::EvaluationClient` has been renamed to `Flipt::Client`. Update all usages and imports accordingly. A deprecation warning is emitted if you use the old class.
+- All evaluation methods now use **keyword arguments** (e.g., `flag_key:`, `entity_id:`, `context:`) instead of a single hash argument. Update your method calls to use keyword arguments.
+- All evaluation methods now return **response model objects** (`VariantEvaluationResponse`, `BooleanEvaluationResponse`, `BatchEvaluationResponse`, `ErrorEvaluationResponse`) instead of raw hashes. Update your code to use attribute readers (e.g., `resp.flag_key`, `resp.enabled`).
+- Batch evaluation responses now contain an array of model objects, not hashes.
+- Error handling is now standardized and idiomatic. All errors inherit from `Flipt::Error` (with subclasses like `ValidationError`, `EvaluationError`). Update your rescue blocks accordingly.
+- The minimum supported Ruby version is now 2.7.0.
+- The client constructor now accepts keyword arguments for configuration (e.g., `url:`, `namespace:`, `authentication:`). The `environment` option is now supported.
+- The API and documentation are more idiomatic and Ruby-like throughout.
+
 ## Usage
 
 In your Ruby code you can import this client and use it as so:
@@ -74,41 +89,42 @@ In your Ruby code you can import this client and use it as so:
 ```ruby
 require 'flipt_client'
 
-# namespace is the first positional argument and is optional here and will have a value of "default" if not specified.
-# opts is the second positional argument and is also optional, the structure is:
+# namespace is an optional keyword argument and will default to "default" if not specified.
+# opts is a hash of options for the client:
 # {
-#   "url": "http://localhost:8080",
-#   "update_interval": 120,
-#   "authentication": {
-#     "client_token": "secret"
-#   }
+#   url: "http://localhost:8080",
+#   update_interval: 120,
+#   authentication: Flipt::ClientTokenAuthentication.new("secret")
 # }
-#
-# You can replace the url with where your upstream Flipt instance points to, the update interval for how long you are willing
-# to wait for updated flag state, and the auth token if your Flipt instance requires it.
-client = Flipt::EvaluationClient.new()
-resp = client.evaluate_variant({ flag_key: 'buzz', entity_id: 'someentity', context: { fizz: 'buzz' } })
+client = Flipt::Client.new(url: 'http://localhost:8080', authentication: Flipt::ClientTokenAuthentication.new('secret'))
 
-puts resp
+resp = client.evaluate_variant(flag_key: 'buzz', entity_id: 'someentity', context: { fizz: 'buzz' })
+puts resp.flag_key # => 'buzz'
+puts resp.match # => true
+puts resp.reason # => 'MATCH_EVALUATION_REASON'
+
+resp = client.evaluate_boolean(flag_key: 'my-feature', entity_id: 'someentity')
+puts resp.enabled # => true
 ```
 
 ### Constructor Arguments
 
-The `Flipt::EvaluationClient` constructor accepts two optional arguments:
+The `Flipt::Client` constructor accepts the following keyword arguments:
 
-- `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
-- `opts`: A hash that supports several options for the client. The structure is:
-  - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
-  - `request_timeout`: The timeout (in seconds) for total request time to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.
-  - `update_interval`: The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
-  - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
-  - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
-  - `fetch_mode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
-  - `error_strategy`: The error strategy to use when fetching flag state. If not provide, the client will be default to fail. See the [Error Strategies](#error-strategies) section for more information.
+- `environment`: The environment to fetch flag state from. Defaults to `default`.
+- `namespace`: The namespace to fetch flag state from. Defaults to `default`.
+- `url`: The URL of the upstream Flipt instance. Defaults to `http://localhost:8080`.
+- `request_timeout`: Timeout (in seconds) for requests. Defaults to no timeout.
+- `update_interval`: Interval (in seconds) to fetch new flag state. Defaults to 120 seconds.
+- `authentication`: The authentication strategy to use. Defaults to no authentication. See [Authentication](#authentication).
+- `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state.
+- `fetch_mode`: The fetch mode to use. Defaults to polling.
+- `error_strategy`: The error strategy to use. Defaults to fail. See [Error Strategies](#error-strategies).
+- `snapshot`: The snapshot to use when initializing the client. Defaults to no snapshot. See [Snapshotting](#snapshotting).
 
 ### Authentication
 
-The `FliptEvaluationClient` supports the following authentication strategies:
+The `Flipt::Client` supports the following authentication strategies:
 
 - No Authentication (default)
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
@@ -120,6 +136,46 @@ The client supports the following error strategies:
 
 - `fail`: The client will throw an error if the flag state cannot be fetched. This is the default behavior.
 - `fallback`: The client will maintain the last known good state and use that state for evaluation in case of an error.
+
+### Response Models
+
+All evaluation methods return response model objects:
+
+- `evaluate_variant` returns a `Flipt::VariantEvaluationResponse`
+- `evaluate_boolean` returns a `Flipt::BooleanEvaluationResponse`
+- `evaluate_batch` returns a `Flipt::BatchEvaluationResponse`
+
+### Error Handling
+
+All errors inherit from `Flipt::Error`. Common subclasses include:
+
+- `Flipt::ValidationError`
+- `Flipt::EvaluationError`
+
+You can rescue these errors as needed:
+
+```ruby
+begin
+  client.evaluate_variant(flag_key: 'missing', entity_id: 'user')
+rescue Flipt::EvaluationError => e
+  puts "Evaluation failed: #{e.message}"
+end
+```
+
+### Snapshotting
+
+The client supports snapshotting of flag state as well as seeding the client with a snapshot for evaluation. This is helpful if you want to use the client in an environment where the Flipt server is not guaranteed to be available or reachable on startup.
+
+To get the snapshot for the client, you can use the `snapshot` method. This returns a base64 encoded JSON string that represents the flag state for the client.
+
+You can set the snapshot for the client using the `snapshot` option when constructing a client.
+
+**Note:** You most likely will want to also set the `error_strategy` to `fallback` when using snapshots. This will ensure that you wont get an error if the Flipt server is not available or reachable even on the initial fetch.
+
+You also may want to store the snapshot in a local file so that you can use it to seed the client on startup.
+
+> [!IMPORTANT]
+> If the Flipt server becomes reachable after the setting the snapshot, the client will replace the snapshot with the new flag state from the Flipt server.
 
 ## Load Test
 
