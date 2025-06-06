@@ -81,4 +81,45 @@ RSpec.describe Flipt::Client do
       expect(resp).to include({ 'description' => 'flag description', 'enabled' => true, 'key' => 'flag_boolean', 'type' => 'BOOLEAN_FLAG_TYPE' })
     end
   end
+
+  describe '#get_snapshot and snapshot restore' do
+    it 'can get a snapshot and use it to initialize a new client with fallback' do
+      # Get a snapshot from a working client
+      snapshot = @client.get_snapshot
+      expect(snapshot).not_to be_nil
+      expect(snapshot).to be_a(String)
+      expect(snapshot.length).to be > 0
+
+      # Create a client with the previous snapshot and an invalid URL
+      invalid_url = 'http://invalid.flipt.com'
+      fallback_client = Flipt::Client.new(
+        url: invalid_url,
+        error_strategy: :fallback,
+        snapshot: snapshot
+      )
+
+      3.times do
+        variant = fallback_client.evaluate_variant(flag_key: 'flag1', entity_id: 'someentity', context: { 'fizz' => 'buzz' })
+        expect(variant.flag_key).to eq('flag1')
+        expect(variant.match).to eq(true)
+        expect(variant.reason).to eq('MATCH_EVALUATION_REASON')
+        expect(variant.variant_key).to eq('variant1')
+        expect(variant.segment_keys).to eq(['segment1'])
+
+        boolean = fallback_client.evaluate_boolean(flag_key: 'flag_boolean', entity_id: 'someentity', context: { 'fizz' => 'buzz' })
+        expect(boolean.flag_key).to eq('flag_boolean')
+        expect(boolean.enabled).to eq(true)
+        expect(boolean.reason).to eq('MATCH_EVALUATION_REASON')
+
+        flags = fallback_client.list_flags
+        expect(flags).to_not be_nil
+        expect(flags).to include({ 'description' => 'flag description', 'enabled' => true, 'key' => 'flag_boolean', 'type' => 'BOOLEAN_FLAG_TYPE' })
+
+        new_snapshot = fallback_client.get_snapshot
+        expect(new_snapshot).not_to be_nil
+        expect(new_snapshot).to be_a(String)
+        expect(new_snapshot.length).to be > 0
+      end
+    end
+  end
 end

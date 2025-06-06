@@ -120,6 +120,7 @@ The `Flipt::Client` constructor accepts the following keyword arguments:
 - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state.
 - `fetch_mode`: The fetch mode to use. Defaults to polling.
 - `error_strategy`: The error strategy to use. Defaults to fail. See [Error Strategies](#error-strategies).
+- `snapshot`: The snapshot to use when initializing the client. Defaults to no snapshot. See [Snapshotting](#snapshotting).
 
 ### Authentication
 
@@ -160,6 +161,21 @@ rescue Flipt::EvaluationError => e
   puts "Evaluation failed: #{e.message}"
 end
 ```
+
+### Snapshotting
+
+The client supports snapshotting of flag state as well as seeding the client with a snapshot for evaluation. This is helpful if you want to use the client in an environment where the Flipt server is not guaranteed to be available or reachable on startup.
+
+To get the snapshot for the client, you can use the `get_snapshot` method. This returns a base64 encoded JSON string that represents the flag state for the client.
+
+You can set the snapshot for the client using the `snapshot` option when constructing a client.
+
+**Note:** You most likely will want to also set the `error_strategy` to `fallback` when using snapshots. This will ensure that you wont get an error if the Flipt server is not available or reachable even on the initial fetch.
+
+You also may want to store the snapshot in a local file so that you can use it to seed the client on startup.
+
+> [!IMPORTANT]
+> If the Flipt server becomes reachable after the setting the snapshot, the client will replace the snapshot with the new flag state from the Flipt server.
 
 ## Load Test
 

@@ -48,6 +48,8 @@ module Flipt
     attach_function :list_flags, [:pointer], :strptr
     # void destroy_string(const char *ptr);
     attach_function :destroy_string, [:pointer], :void
+    # const char *get_snapshot(void *engine_ptr);
+    attach_function :get_snapshot, [:pointer], :strptr
 
     # Create a new Flipt client
     #
@@ -60,8 +62,9 @@ module Flipt
     # @option opts [Integer] :update_interval interval in seconds to update the cache
     # @option opts [String] :reference reference to use for namespace data
     # @option opts [Symbol] :fetch_mode fetch mode to use for the client (:polling or :streaming).
-    #   Note: Streaming is currently only supported when using the SDK with Flipt Cloud (https://flipt.io/cloud).
+    #   Note: Streaming is currently only supported when using the SDK with Flipt Cloud or Flipt v2.
     # @option opts [Symbol] :error_strategy error strategy to use for the client (:fail or :fallback).
+    # @option opts [String] :snapshot snapshot to use when initializing the client
     def initialize(**opts)
       @namespace = opts.fetch(:namespace, 'default')
 
@@ -69,7 +72,7 @@ module Flipt
       opts[:fetch_mode] = validate_fetch_mode(opts.fetch(:fetch_mode, :polling))
       opts[:error_strategy] = validate_error_strategy(opts.fetch(:error_strategy, :fail))
 
-      @engine = self.class.initialize_engine(namespace, opts.to_json)
+      @engine = self.class.initialize_engine(opts.to_json)
       ObjectSpace.define_finalizer(self, self.class.finalize(@engine))
     end
 
@@ -180,6 +183,13 @@ module Flipt
       raise Error, data['error_message'] if data['status'] != 'success'
 
       data['result']
+    end
+
+    # Get the snapshot of the current flag state
+    def get_snapshot
+      resp, ptr = self.class.get_snapshot(@engine)
+      ptr = FFI::AutoPointer.new(ptr, Client.method(:destroy_string))
+      resp
     end
 
     private
