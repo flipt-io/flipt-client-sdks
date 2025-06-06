@@ -93,6 +93,7 @@ pub enum ErrorStrategy {
 pub struct HTTPFetcher {
     http_client: ClientWithMiddleware,
     base_url: String,
+    environment: String,
     namespace: String,
     authentication: HeaderMap,
     etag: Option<String>,
@@ -103,7 +104,8 @@ pub struct HTTPFetcher {
 
 pub struct HTTPFetcherBuilder {
     base_url: String,
-    namespace: String,
+    environment: Option<String>,
+    namespace: Option<String>,
     authentication: HeaderMap,
     reference: Option<String>,
     request_timeout: Option<Duration>,
@@ -124,16 +126,27 @@ struct StreamResult {
 static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
 impl HTTPFetcherBuilder {
-    pub fn new(base_url: &str, namespace: &str) -> Self {
+    pub fn new(base_url: &str) -> Self {
         Self {
             base_url: base_url.to_string(),
-            namespace: namespace.to_string(),
+            environment: None,
+            namespace: None,
             authentication: HeaderMap::new(),
             reference: None,
             request_timeout: None,
             update_interval: Duration::from_secs(120),
             mode: FetchMode::default(),
         }
+    }
+
+    pub fn environment(mut self, environment: &str) -> Self {
+        self.environment = Some(environment.to_string());
+        self
+    }
+
+    pub fn namespace(mut self, namespace: &str) -> Self {
+        self.namespace = Some(namespace.to_string());
+        self
     }
 
     pub fn authentication(mut self, authentication: Authentication) -> Self {
@@ -198,7 +211,8 @@ impl HTTPFetcherBuilder {
 
         Ok(HTTPFetcher {
             base_url: self.base_url,
-            namespace: self.namespace,
+            environment: self.environment.unwrap_or("default".to_string()),
+            namespace: self.namespace.unwrap_or("default".to_string()),
             http_client: ClientBuilder::new(client)
                 .with(RetryTransientMiddleware::new_with_policy(retry_policy))
                 .build(),
@@ -286,6 +300,13 @@ impl HTTPFetcher {
             headers.insert(
                 reqwest::header::IF_NONE_MATCH,
                 reqwest::header::HeaderValue::from_str(etag).unwrap(),
+            );
+        }
+
+        if !self.environment.is_empty() {
+            headers.insert(
+                "X-Flipt-Environment",
+                reqwest::header::HeaderValue::from_str(&self.environment).unwrap(),
             );
         }
 
@@ -458,6 +479,7 @@ mod tests {
         let mut server = Server::new_async().await;
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("x-flipt-environment", "default")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_header("etag", "etag")
@@ -466,7 +488,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .build()
             .unwrap();
@@ -487,6 +509,7 @@ mod tests {
                 "GET",
                 "/internal/v1/evaluation/snapshot/namespace/default?reference=123",
             )
+            .match_header("x-flipt-environment", "default")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_header("etag", "etag")
@@ -495,7 +518,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .reference("123")
             .build()
             .unwrap();
@@ -514,12 +537,13 @@ mod tests {
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
             .match_header("if-none-match", "etag")
+            .match_header("x-flipt-environment", "default")
             .with_status(304)
             .create_async()
             .await;
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .build()
             .unwrap();
@@ -539,13 +563,14 @@ mod tests {
         let mut server = mockito::Server::new_async().await;
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("x-flipt-environment", "default")
             .with_status(500)
             .expect_at_most(4)
             .create_async()
             .await;
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .build()
             .unwrap();
@@ -562,6 +587,7 @@ mod tests {
         let mut server = mockito::Server::new_async().await;
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("x-flipt-environment", "default")
             .match_header("authorization", "Bearer foo")
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -570,7 +596,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::ClientToken("foo".to_string()))
             .build()
             .unwrap();
@@ -586,6 +612,7 @@ mod tests {
         let mut server = mockito::Server::new_async().await;
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("x-flipt-environment", "default")
             .match_header("authorization", "JWT foo")
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -594,7 +621,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::JwtToken("foo".to_string()))
             .build()
             .unwrap();
@@ -610,6 +637,7 @@ mod tests {
         let mut server = mockito::Server::new_async().await;
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("x-flipt-environment", "default")
             .match_header("authorization", "JWT foo")
             .with_status(401)
             .with_header("content-type", "application/json")
@@ -618,7 +646,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::JwtToken("foo".to_string()))
             .build()
             .unwrap();
@@ -634,6 +662,7 @@ mod tests {
         let mut server = Server::new_async().await;
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshots?[]namespaces=default")
+            .match_header("x-flipt-environment", "default")
             .with_status(200)
             .with_header(
                 "content-type",
@@ -651,7 +680,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .mode(FetchMode::Streaming)
             .build()
@@ -686,13 +715,14 @@ mod tests {
         let mut server = Server::new_async().await;
         let mock = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("x-flipt-environment", "default")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
             .create();
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url, "default")
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .build()
             .unwrap();
