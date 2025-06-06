@@ -100,6 +100,7 @@ public class FliptClient implements AutoCloseable {
     }
 
     Pointer engine = CLibrary.INSTANCE.initialize_engine(clientOptionsSerialized);
+    Pointer engine = CLibrary.INSTANCE.initialize_engine(clientOptionsSerialized);
 
     this.objectMapper = objectMapper;
     this.engine = engine;
@@ -121,6 +122,8 @@ public class FliptClient implements AutoCloseable {
     public FliptClient build() {
       return new FliptClient(
           new ClientOptions(
+              Optional.of(environment),
+              Optional.of(namespace),
               Optional.of(environment),
               Optional.of(namespace),
               Optional.of(url),
