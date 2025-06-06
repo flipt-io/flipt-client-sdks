@@ -812,6 +812,8 @@ unsafe extern "C" fn _list_flags(engine_ptr: *mut c_void) -> *const c_char {
 }
 
 unsafe extern "C" fn _destroy_engine(engine_ptr: *mut c_void) {
+    init_logging();
+    trace!("[FFI] destroy_engine: destroying engine");
     if engine_ptr.is_null() {
         return;
     }
@@ -901,7 +903,7 @@ fn init_logging() {
     let _ = env_logger::Builder::from_env(
         env_logger::Env::new()
             .filter("FLIPT_ENGINE_LOG")
-            .default_filter_or("error"),
+            .default_filter_or("trace"),
     )
     .try_init();
 }
