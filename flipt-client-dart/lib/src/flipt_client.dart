@@ -3,32 +3,30 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:ffi/ffi.dart';
 import 'package:flipt_client/src/models.dart';
+import 'package:flipt_client/src/errors.dart';
 import 'package:path/path.dart' as path;
 import 'ffi/loader.dart';
 import 'ffi/bindings.dart';
 
-class FliptEvaluationClient {
+class FliptClient {
   late Pointer<Void> _engine;
   late FliptEngine _bindings;
 
-  FliptEvaluationClient({String namespace = "default", Options? options}) {
+  FliptClient({Options? options}) {
     final lib = loadFliptEngine();
     _bindings = FliptEngine(lib);
-    _initializeEngine(namespace, options);
+    _initializeEngine(options);
   }
 
-  void _initializeEngine(String namespace, Options? options) {
-    final namespaceUtf8 = namespace.toNativeUtf8();
+  void _initializeEngine(Options? options) {
     final optsJson = jsonEncode(options?.toJson() ?? {});
     final optsUtf8 = optsJson.toNativeUtf8();
 
     try {
       _engine = _bindings.initialize_engine(
-        namespaceUtf8.cast<Char>(),
         optsUtf8.cast<Char>(),
       );
     } finally {
-      calloc.free(namespaceUtf8);
       calloc.free(optsUtf8);
     }
   }
@@ -37,10 +35,18 @@ class FliptEvaluationClient {
     return ptr.cast<Utf8>().toDartString();
   }
 
-  VariantEvaluationResponse evaluateVariant(
-      {required String flagKey,
-      required String entityId,
-      required Map<String, dynamic> context}) {
+  VariantEvaluationResponse evaluateVariant({
+    required String flagKey,
+    required String entityId,
+    required Map<String, dynamic> context,
+  }) {
+    if (flagKey.isEmpty) {
+      throw ValidationError('flagKey must not be empty');
+    }
+    if (entityId.isEmpty) {
+      throw ValidationError('entityId must not be empty');
+    }
+
     final request = EvaluationRequest(
       flagKey: flagKey,
       entityId: entityId,
@@ -63,16 +69,25 @@ class FliptEvaluationClient {
     );
 
     if (response.status != Status.success) {
-      throw Exception('Failed to evaluate variant: ${response.errorMessage}');
+      throw EvaluationError(
+          'Failed to evaluate variant: ${response.errorMessage}');
     }
 
     return response.result!;
   }
 
-  BooleanEvaluationResponse evaluateBoolean(
-      {required String flagKey,
-      required String entityId,
-      required Map<String, dynamic> context}) {
+  BooleanEvaluationResponse evaluateBoolean({
+    required String flagKey,
+    required String entityId,
+    required Map<String, dynamic> context,
+  }) {
+    if (flagKey.isEmpty) {
+      throw ValidationError('flagKey must not be empty');
+    }
+    if (entityId.isEmpty) {
+      throw ValidationError('entityId must not be empty');
+    }
+
     final request = EvaluationRequest(
       flagKey: flagKey,
       entityId: entityId,
@@ -95,13 +110,17 @@ class FliptEvaluationClient {
     );
 
     if (response.status != Status.success) {
-      throw Exception('Failed to evaluate boolean: ${response.errorMessage}');
+      throw EvaluationError(
+          'Failed to evaluate boolean: ${response.errorMessage}');
     }
 
     return response.result!;
   }
 
   BatchEvaluationResponse evaluateBatch(List<EvaluationRequest> requests) {
+    if (requests.isEmpty) {
+      throw ValidationError('requests must not be empty');
+    }
     final requestsJson = jsonEncode(requests.map((r) => r.toJson()).toList());
     final requestsUtf8 = requestsJson.toNativeUtf8();
 
@@ -117,7 +136,8 @@ class FliptEvaluationClient {
     );
 
     if (response.status != Status.success) {
-      throw Exception('Failed to evaluate batch: ${response.errorMessage}');
+      throw EvaluationError(
+          'Failed to evaluate batch: ${response.errorMessage}');
     }
 
     return response.result!;
@@ -132,7 +152,7 @@ class FliptEvaluationClient {
         FlagListResponse.fromJson(jsonDecode(result) as Map<String, dynamic>);
 
     if (response.status != Status.success) {
-      throw Exception('Failed to list flags: ${response.errorMessage}');
+      throw EvaluationError('Failed to list flags: ${response.errorMessage}');
     }
 
     return response.toResult().result!;

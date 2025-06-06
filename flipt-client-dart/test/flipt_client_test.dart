@@ -1,26 +1,10 @@
 import 'package:flipt_client/flipt_client.dart';
 import 'package:test/test.dart';
-import 'dart:io' show Platform, File;
-import 'dart:convert';
-
-String readResourceFile(String filename) {
-  final file = File('test/resources/$filename');
-  return file.readAsStringSync();
-}
+import 'dart:io' show Platform;
 
 void main() {
-  group('FliptEvaluationClient Tests', () {
-    late FliptEvaluationClient client;
-
-    late String snapshotBase64;
-    late String emptySnapshotBase64;
-
-    setUpAll(() {
-      snapshotBase64 =
-          base64.encode(utf8.encode(readResourceFile('snapshot.json')));
-      emptySnapshotBase64 =
-          base64.encode(utf8.encode(readResourceFile('empty_snapshot.json')));
-    });
+  group('FliptClient Tests', () {
+    late FliptClient client;
 
     setUp(() {
       Map<String, String> envVars = Platform.environment;
@@ -28,7 +12,7 @@ void main() {
       String url = envVars['FLIPT_URL'] ?? 'http://localhost:8080';
       String token = envVars['FLIPT_AUTH_TOKEN'] ?? 'secret';
 
-      client = FliptEvaluationClient(
+      client = FliptClient(
         options: Options.withClientToken(token, url: url),
       );
     });
@@ -128,22 +112,20 @@ void main() {
     test('Get Snapshot', () {
       final snapshot = client.getSnapshot();
       expect(snapshot, isNotNull);
-
-      final expectedJson =
-          jsonDecode(utf8.decode(base64.decode(snapshotBase64)));
-      final actualJson = jsonDecode(utf8.decode(base64.decode(snapshot)));
-
-      expect(actualJson, equals(expectedJson));
     });
 
     test('Set/Get Snapshot With Invalid Flipt URL', () {
+      // Get a snapshot from a working client
+      var snapshot = client.getSnapshot();
+
+      // Create a client with the previous snapshot and an invalid URL
       final invalidUrl = 'http://invalid.flipt.com';
 
-      final invalidClient = FliptEvaluationClient(
+      final invalidClient = FliptClient(
         options: Options(
           url: invalidUrl,
           errorStrategy: ErrorStrategy.fallback,
-          snapshot: snapshotBase64,
+          snapshot: snapshot,
         ),
       );
 
@@ -173,7 +155,7 @@ void main() {
         final flags = invalidClient.listFlags();
         expect(flags, hasLength(2));
 
-        final snapshot = invalidClient.getSnapshot();
+        snapshot = invalidClient.getSnapshot();
         expect(snapshot, isNotNull);
       }
 

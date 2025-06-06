@@ -12,7 +12,7 @@ Add the dependency in your `build.gradle`:
 
 ```groovy
 dependencies {
-    implementation 'io.flipt:flipt-client-java:0.x.x'
+    implementation 'io.flipt:flipt-client-java:1.x.x'
 }
 ```
 
@@ -24,7 +24,7 @@ Add the dependency in your `pom.xml`:
 <dependency>
     <groupId>io.flipt</groupId>
     <artifactId>flipt-client-java</artifactId>
-    <version>0.x.x</version>
+    <version>1.x.x</version>
 </dependency>
 ```
 
@@ -44,9 +44,9 @@ Upon instantiation, the `flipt-client-java` library will fetch the flag state fr
 
 By default, the SDK will poll the Flipt server for new flag state at a regular interval. This interval can be configured using the `fetchMode` option when constructing a client. The default interval is 120 seconds.
 
-### Streaming (Flipt Cloud Only)
+### Streaming (Flipt Cloud/Flipt v2)
 
-[Flipt Cloud](https://flipt.io/cloud) users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
+[Flipt Cloud](https://flipt.io/cloud) and [Flipt v2](https://docs.flipt.io/v2) users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
 
 When in streaming mode, the SDK will connect to the Flipt server and open a persistent connection that will remain open until the client is closed. The SDK will then receive flag state changes in real-time.
 
@@ -74,6 +74,18 @@ This SDK currently supports the following OSes/architectures:
 - MacOS arm64
 - Windows x86_64
 
+## Migration Notes
+
+### Pre-1.0.0 -> 1.0.0
+
+This section is for users who are migrating from a previous (pre-1.0.0) version of the SDK.
+
+- `FliptEvaluationClient` has been renamed to `FliptClient`. Update all usages and imports accordingly.
+- The builder and all usages should be updated to the new class name and builder pattern.
+- All response models now use `List` instead of arrays (e.g., `List<String>` instead of `String[]`). Update your code to use `List` and related collection APIs.
+- Exceptions are now unchecked (runtime) and use `FliptException` and its subclasses (e.g., `FliptException.EvaluationException`).
+- The builder uses Lombok and is more idiomatic, reducing boilerplate.
+
 ## Usage
 
 In your Java code you can import this client and use it as so:
@@ -83,14 +95,15 @@ package org.example;
 
 import java.util.HashMap;
 import java.util.Map;
-import io.flipt.client.FliptEvaluationClient;
+import io.flipt.client.FliptClient;
 import io.flipt.client.models.*;
+import io.flipt.client.FliptException;
 
 public class Main {
     public static void main(String[] args) {
-        FliptEvaluationClient fliptClient = null;
+        FliptClient fliptClient = null;
         try {
-            fliptClient = FliptEvaluationClient.builder()
+            fliptClient = FliptClient.builder()
                     .url("http://localhost:8080")
                     .authentication(new ClientTokenAuthentication("secret"))
                     .build();
@@ -100,7 +113,7 @@ public class Main {
 
             VariantEvaluationResponse response =
                     fliptClient.evaluateVariant("flag1", "entity", context);
-        } catch (Exception e) {
+        } catch (FliptException.EvaluationException e) {
             e.printStackTrace();
         } finally {
             // Important: always close the client to release resources
@@ -112,9 +125,11 @@ public class Main {
 }
 ```
 
+This client is thread-safe and can be reused across your application.
+
 ### Builder Methods
 
-The `FliptEvaluationClient.builder()` method returns a `FliptEvaluationClient.Builder` object that allows you to configure the client with the following methods:
+The `FliptClient.builder()` method returns a `FliptClient.Builder` object that allows you to configure the client with the following methods:
 
 - `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
 - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
@@ -128,7 +143,7 @@ The `FliptEvaluationClient.builder()` method returns a `FliptEvaluationClient.Bu
 
 ### Authentication
 
-The `FliptEvaluationClient` supports the following authentication strategies:
+The `FliptClient` supports the following authentication strategies:
 
 - No Authentication (default)
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)

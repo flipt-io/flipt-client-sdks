@@ -8,9 +8,15 @@ part of 'models.dart';
 
 Options _$OptionsFromJson(Map<String, dynamic> json) => Options(
       url: json['url'] as String? ?? 'http://localhost:8080',
+      environment: json['environment'] as String? ?? 'default',
+      namespace: json['namespace'] as String? ?? 'default',
       reference: json['reference'] as String?,
-      requestTimeout: (json['request_timeout'] as num?)?.toInt(),
-      updateInterval: (json['update_interval'] as num?)?.toInt() ?? 120,
+      requestTimeout: json['request_timeout'] == null
+          ? null
+          : Duration(microseconds: (json['request_timeout'] as num).toInt()),
+      updateInterval: json['update_interval'] == null
+          ? const Duration(seconds: 120)
+          : Duration(microseconds: (json['update_interval'] as num).toInt()),
       authentication: json['authentication'] as Map<String, dynamic>?,
       fetchMode: $enumDecodeNullable(_$FetchModeEnumMap, json['fetch_mode']) ??
           FetchMode.polling,
@@ -21,10 +27,12 @@ Options _$OptionsFromJson(Map<String, dynamic> json) => Options(
     );
 
 Map<String, dynamic> _$OptionsToJson(Options instance) => <String, dynamic>{
+      'environment': instance.environment,
+      'namespace': instance.namespace,
       'url': instance.url,
       'reference': instance.reference,
-      'request_timeout': instance.requestTimeout,
-      'update_interval': instance.updateInterval,
+      'request_timeout': instance.requestTimeout?.inMicroseconds,
+      'update_interval': instance.updateInterval?.inMicroseconds,
       'authentication': instance.authentication,
       'snapshot': instance.snapshot,
       'fetch_mode': _$FetchModeEnumMap[instance.fetchMode],
