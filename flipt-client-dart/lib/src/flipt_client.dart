@@ -46,7 +46,7 @@ class FliptClient {
     if (entityId.isEmpty) {
       throw ValidationError('entityId must not be empty');
     }
-// Removed redundant null check for `context`.
+
     final request = EvaluationRequest(
       flagKey: flagKey,
       entityId: entityId,
@@ -87,7 +87,7 @@ class FliptClient {
     if (entityId.isEmpty) {
       throw ValidationError('entityId must not be empty');
     }
-// Removed redundant null check for 'context'.
+
     final request = EvaluationRequest(
       flagKey: flagKey,
       entityId: entityId,
