@@ -50,6 +50,7 @@ module Flipt
   # @attr_reader [Array<String>] segment_keys
   class VariantEvaluationResponse
     attr_reader :flag_key, :match, :reason, :variant_key, :variant_attachment, :segment_keys
+
     def initialize(flag_key:, match:, reason:, variant_key:, variant_attachment: nil, segment_keys: [])
       @flag_key = flag_key
       @match = match
@@ -67,6 +68,7 @@ module Flipt
   # @attr_reader [Array<String>] segment_keys
   class BooleanEvaluationResponse
     attr_reader :flag_key, :enabled, :reason, :segment_keys
+
     def initialize(flag_key:, enabled:, reason:, segment_keys: [])
       @flag_key = flag_key
       @enabled = enabled
@@ -82,6 +84,7 @@ module Flipt
   # @attr_reader [String] error_message
   class ErrorEvaluationResponse
     attr_reader :flag_key, :namespace_key, :reason, :error_message
+
     def initialize(flag_key:, namespace_key:, reason:, error_message:)
       @flag_key = flag_key
       @namespace_key = namespace_key
@@ -94,6 +97,7 @@ module Flipt
   # @attr_reader [Array] responses
   class BatchEvaluationResponse
     attr_reader :responses
+
     def initialize(responses: [])
       @responses = responses
     end

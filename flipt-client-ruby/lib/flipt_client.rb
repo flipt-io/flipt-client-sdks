@@ -92,6 +92,7 @@ module Flipt
       ptr = FFI::AutoPointer.new(ptr, Client.method(:destroy_string))
       data = JSON.parse(resp)
       raise EvaluationError, data['error_message'] if data['status'] != 'success'
+
       r = data['result']
       VariantEvaluationResponse.new(
         flag_key: r['flag_key'],
@@ -115,6 +116,7 @@ module Flipt
       ptr = FFI::AutoPointer.new(ptr, Client.method(:destroy_string))
       data = JSON.parse(resp)
       raise EvaluationError, data['error_message'] if data['status'] != 'success'
+
       r = data['result']
       BooleanEvaluationResponse.new(
         flag_key: r['flag_key'],
@@ -133,6 +135,7 @@ module Flipt
       unless requests.is_a?(Array)
         raise ValidationError, 'requests must be an array of evaluation requests'
       end
+
       requests.each do |request|
         validate_evaluation_request(request[:flag_key], request[:entity_id], request[:context] || {})
       end
@@ -140,6 +143,7 @@ module Flipt
       ptr = FFI::AutoPointer.new(ptr, Client.method(:destroy_string))
       data = JSON.parse(resp)
       raise EvaluationError, data['error_message'] if data['status'] != 'success'
+
       responses = (data['result']['responses'] || []).map do |r|
         case r['type']
         when 'VARIANT_EVALUATION_RESPONSE_TYPE'
@@ -197,9 +201,9 @@ module Flipt
     def validate_evaluation_request(flag_key, entity_id, context)
       raise ValidationError, 'flag_key is required' if flag_key.nil? || flag_key.empty?
       raise ValidationError, 'entity_id is required' if entity_id.nil? || entity_id.empty?
-      unless context.is_a?(Hash)
-        raise ValidationError, 'context must be a Hash<String, String>'
-      end
+      return if context.is_a?(Hash)
+
+      raise ValidationError, 'context must be a Hash<String, String>'
     end
 
     def validate_authentication(authentication)

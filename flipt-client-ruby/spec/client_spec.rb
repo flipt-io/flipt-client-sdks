@@ -34,10 +34,10 @@ RSpec.describe Flipt::Client do
   describe '#evaluate_batch' do
     it 'returns a batch result' do
       resp = @client.evaluate_batch(requests: [
-        { flag_key: 'flag1', entity_id: 'someentity', context: { 'fizz' => 'buzz' } },
-        { flag_key: 'flag_boolean', entity_id: 'someentity', context: { 'fizz' => 'buzz' } },
-        { flag_key: 'notfound', entity_id: 'someentity', context: { 'fizz' => 'buzz' } }
-      ])
+                                      { flag_key: 'flag1', entity_id: 'someentity', context: { 'fizz' => 'buzz' } },
+                                      { flag_key: 'flag_boolean', entity_id: 'someentity', context: { 'fizz' => 'buzz' } },
+                                      { flag_key: 'notfound', entity_id: 'someentity', context: { 'fizz' => 'buzz' } }
+                                    ])
       expect(resp).to be_a(Flipt::BatchEvaluationResponse)
       expect(resp.responses.length).to eq(3)
       variant = resp.responses[0]

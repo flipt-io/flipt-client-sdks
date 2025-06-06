@@ -15,7 +15,8 @@ NUM_REQUESTS_PER_CLIENT = 1000
 clients = []
 
 NUM_CLIENTS.times do
-  clients << Flipt::Client.new(namespace: 'default', url: FLIPT_URL, authentication: Flipt::ClientTokenAuthentication.new('secret'))
+  clients << Flipt::Client.new(namespace: 'default', url: FLIPT_URL,
+                               authentication: Flipt::ClientTokenAuthentication.new('secret'))
 end
 
 # capture start time
