@@ -9,8 +9,8 @@ String readResourceFile(String filename) {
 }
 
 void main() {
-  group('FliptEvaluationClient Tests', () {
-    late FliptEvaluationClient client;
+  group('FliptClient Tests', () {
+    late FliptClient client;
 
     late String snapshotBase64;
     late String emptySnapshotBase64;
@@ -28,7 +28,7 @@ void main() {
       String url = envVars['FLIPT_URL'] ?? 'http://localhost:8080';
       String token = envVars['FLIPT_AUTH_TOKEN'] ?? 'secret';
 
-      client = FliptEvaluationClient(
+      client = FliptClient(
         options: Options.withClientToken(token, url: url),
       );
     });
@@ -139,7 +139,7 @@ void main() {
     test('Set/Get Snapshot With Invalid Flipt URL', () {
       final invalidUrl = 'http://invalid.flipt.com';
 
-      final invalidClient = FliptEvaluationClient(
+      final invalidClient = FliptClient(
         options: Options(
           url: invalidUrl,
           errorStrategy: ErrorStrategy.fallback,
