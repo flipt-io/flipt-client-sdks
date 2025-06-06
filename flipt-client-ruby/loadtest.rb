@@ -15,7 +15,8 @@ NUM_REQUESTS_PER_CLIENT = 1000
 clients = []
 
 NUM_CLIENTS.times do
-  clients << Flipt::EvaluationClient.new('default', { url: FLIPT_URL, auth_token: 'secret' })
+  clients << Flipt::Client.new(namespace: 'default', url: FLIPT_URL,
+                               authentication: Flipt::ClientTokenAuthentication.new('secret'))
 end
 
 # capture start time
@@ -25,7 +26,7 @@ start_time = Time.now
 clients.each do |client|
   NUM_REQUESTS_PER_CLIENT.times do
     entity_id = rand(1_000_000).to_s
-    resp = client.evaluate_boolean({ flag_key: 'my-feature', entity_id: entity_id })
+    resp = client.evaluate_boolean(flag_key: 'my-feature', entity_id: entity_id)
   end
 end
 
