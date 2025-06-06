@@ -1,5 +1,6 @@
 import pydantic
 from packaging import version
+from datetime import timedelta
 
 PYDANTIC_V2 = version.parse(pydantic.VERSION) >= version.parse("2.0.0")
 
@@ -66,12 +67,56 @@ class ClientOptions(BaseModel):
     environment: Optional[str] = None  #: Environment name.
     namespace: Optional[str] = None  #: Namespace name.
     url: Optional[str] = None  #: Flipt server URL.
-    request_timeout: Optional[int] = None  #: Timeout for requests (ms).
-    update_interval: Optional[int] = None  #: Polling/streaming update interval (ms).
+    request_timeout: Optional[timedelta] = None  #: Timeout for requests.
+    update_interval: Optional[timedelta] = None  #: Polling/streaming update interval.
     authentication: Optional[AuthenticationStrategy] = None  #: Authentication strategy.
     reference: Optional[str] = None  #: Namespace or reference key.
     fetch_mode: Optional[FetchMode] = None  #: Fetch mode.
     error_strategy: Optional[ErrorStrategy] = None  #: Error handling strategy.
+
+    if PYDANTIC_V2:
+        from pydantic import field_serializer, field_validator
+
+        @field_serializer("request_timeout", "update_interval", mode="plain")
+        def serialize_timedelta(cls, value):
+            if value is None:
+                return None
+            return value.total_seconds()
+
+        @field_validator("request_timeout", "update_interval", mode="before")
+        def parse_timedelta(cls, v):
+            if v is None or isinstance(v, timedelta):
+                return v
+            # Accept int/float as seconds
+            if isinstance(v, (int, float)):
+                return timedelta(seconds=v)
+            raise TypeError(
+                "Expected timedelta, int, or float for time interval fields."
+            )
+
+    else:
+        from pydantic import validator
+
+        @validator("request_timeout", "update_interval", pre=True)
+        def parse_timedelta(cls, v):
+            if v is None or isinstance(v, timedelta):
+                return v
+            if isinstance(v, (int, float)):
+                return timedelta(seconds=v)
+            raise TypeError(
+                "Expected timedelta, int, or float for time interval fields."
+            )
+
+        def dict(self, *args, **kwargs):
+            d = super().dict(*args, **kwargs)
+            for k in ["request_timeout", "update_interval"]:
+                v = d.get(k)
+                if isinstance(v, timedelta):
+                    d[k] = v.total_seconds()
+            return d
+
+        def json(self, *args, **kwargs):
+            return super().json(*args, **kwargs)
 
 
 class VariantEvaluationResponse(BaseModel):

@@ -62,11 +62,12 @@ This SDK currently supports the following OSes/architectures:
 
 This section is for users who are migrating from a previous (pre-1.0.0) version of the SDK.
 
-- `FliptEvaluationClient` has been renamed to `FliptClient`. Update all usages and imports accordingly.
-- The `namespace` argument is now part of `ClientOptions` as `namespace` (and optionally `environment`). Update your client instantiation to use the new options pattern.
-- All response models are now Pydantic models with explicit types and improved docstrings. Update your code to use the new model field names and types.
+- `FliptEvaluationClient` has been renamed to `FliptClient`.
+- The `namespace` argument is now part of `ClientOptions` as `namespace` (and optionally `environment`).
+- `update_interval` and `request_timeout` are now `timedelta` objects instead of `int`.
+- All response models are now Pydantic models with explicit types and improved docstrings.
 - Backwards compatibility with Pydantic v1 is now maintained.
-- All errors now inherit from `FliptError` and use specific subclasses like `ValidationError` and `EvaluationError`. Update your error handling to catch these exceptions instead of `Exception` or `ValueError`.
+- All errors now inherit from `FliptError` and use specific subclasses like `ValidationError` and `EvaluationError`.
 - The client and models now follow Python naming conventions (snake_case for methods and fields).
 - The minimum supported Python version is now 3.8.
 
