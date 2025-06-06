@@ -9,6 +9,3 @@
 # Offense count: 1
 # Configuration parameters: Severity, Include.
 # Include: **/*.gemspec
-Gemspec/RequiredRubyVersion:
-  Exclude:
-    - "flipt-client-ruby.gemspec"
