@@ -15,6 +15,7 @@ from flipt_client.errors import ValidationError, EvaluationError
 
 class TestFliptClient(unittest.TestCase):
     def setUp(self) -> None:
+        os.environ["FLIPT_ENGINE_LOG"] = "trace"
         url = os.environ.get("FLIPT_URL")
         if url is None:
             raise Exception("FLIPT_URL not set")
