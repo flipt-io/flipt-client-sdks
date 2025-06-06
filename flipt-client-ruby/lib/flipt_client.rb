@@ -190,7 +190,7 @@ module Flipt
     end
 
     # Get the snapshot of the current flag state
-    def get_snapshot
+    def snapshot
       resp, ptr = self.class.get_snapshot(@engine)
       ptr = FFI::AutoPointer.new(ptr, Client.method(:destroy_string))
       resp

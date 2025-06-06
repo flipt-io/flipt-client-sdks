@@ -82,10 +82,10 @@ RSpec.describe Flipt::Client do
     end
   end
 
-  describe '#get_snapshot and snapshot restore' do
+  describe '#snapshot and snapshot restore' do
     it 'can get a snapshot and use it to initialize a new client with fallback' do
       # Get a snapshot from a working client
-      snapshot = @client.get_snapshot
+      snapshot = @client.snapshot
       expect(snapshot).not_to be_nil
       expect(snapshot).to be_a(String)
       expect(snapshot.length).to be > 0
@@ -115,7 +115,7 @@ RSpec.describe Flipt::Client do
         expect(flags).to_not be_nil
         expect(flags).to include({ 'description' => 'flag description', 'enabled' => true, 'key' => 'flag_boolean', 'type' => 'BOOLEAN_FLAG_TYPE' })
 
-        new_snapshot = fallback_client.get_snapshot
+        new_snapshot = fallback_client.snapshot
         expect(new_snapshot).not_to be_nil
         expect(new_snapshot).to be_a(String)
         expect(new_snapshot.length).to be > 0
