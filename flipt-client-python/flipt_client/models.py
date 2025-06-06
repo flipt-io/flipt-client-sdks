@@ -171,9 +171,9 @@ class VariantResult(BaseModel):
     """Result wrapper for variant evaluation."""
 
     status: str  #: Status of the evaluation (e.g., 'success', 'error').
-    result: Optional[
-        VariantEvaluationResponse
-    ] = None  #: The evaluation response if successful.
+    result: Optional[VariantEvaluationResponse] = (
+        None  #: The evaluation response if successful.
+    )
     error_message: Optional[str] = None  #: Error message if failed.
 
 
@@ -181,9 +181,9 @@ class BooleanResult(BaseModel):
     """Result wrapper for boolean evaluation."""
 
     status: str  #: Status of the evaluation (e.g., 'success', 'error').
-    result: Optional[
-        BooleanEvaluationResponse
-    ] = None  #: The evaluation response if successful.
+    result: Optional[BooleanEvaluationResponse] = (
+        None  #: The evaluation response if successful.
+    )
     error_message: Optional[str] = None  #: Error message if failed.
 
 
@@ -191,9 +191,9 @@ class BatchResult(BaseModel):
     """Result wrapper for batch evaluation."""
 
     status: str  #: Status of the evaluation (e.g., 'success', 'error').
-    result: Optional[
-        BatchEvaluationResponse
-    ] = None  #: The batch evaluation response if successful.
+    result: Optional[BatchEvaluationResponse] = (
+        None  #: The batch evaluation response if successful.
+    )
     error_message: Optional[str] = None  #: Error message if failed.
 
 
