@@ -92,9 +92,10 @@ class FliptClient:
 
         self.engine = self.ffi_core.initialize_engine(client_opts_serialized)
 
-    def __del__(self):
+    def close(self):
         if hasattr(self, "engine") and self.engine is not None:
             self.ffi_core.destroy_engine(self.engine)
+            self.engine = None
 
     def evaluate_variant(
         self, flag_key: str, entity_id: str, context: dict = {}
@@ -204,6 +205,9 @@ class FliptClient:
         if hasattr(self.ffi_core, "destroy_string"):
             self.ffi_core.destroy_string(response)
         return snapshot_bytes.decode("utf-8")
+
+    def __del__(self):
+        self.close()
 
 
 def serialize_evaluation_request(

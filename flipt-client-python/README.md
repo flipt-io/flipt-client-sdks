@@ -86,6 +86,9 @@ client = FliptClient(
 
 variant_result = client.evaluate_variant(flag_key="flag1", entity_id="entity", context={"fizz": "buzz"})
 print(variant_result)
+
+# Important: always close the client to release resources
+client.close()
 ```
 
 ### Constructor Arguments

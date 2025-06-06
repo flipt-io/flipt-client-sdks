@@ -30,6 +30,10 @@ class TestFliptClient(unittest.TestCase):
             )
         )
 
+    def tearDown(self) -> None:
+        if hasattr(self, "flipt_client") and self.flipt_client is not None:
+            self.flipt_client.close()
+
     def test_null_flag_key(self):
         with self.assertRaises(ValidationError) as context:
             self.flipt_client.evaluate_boolean(None, "someentity", {"fizz": "buzz"})
@@ -169,6 +173,7 @@ class TestFliptClient(unittest.TestCase):
         # Get a snapshot from a working client
         snapshot = self.flipt_client.get_snapshot()
         self.assertIsNotNone(snapshot)
+        self.flipt_client.close()
 
         # Now create a client with an invalid URL but with the snapshot
         invalid_url = "http://invalid.flipt.com"
@@ -210,3 +215,5 @@ class TestFliptClient(unittest.TestCase):
 
             snapshot2 = client_with_snapshot.get_snapshot()
             self.assertIsNotNone(snapshot2)
+
+            client_with_snapshot.close()
