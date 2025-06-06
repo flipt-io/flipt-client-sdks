@@ -1,5 +1,6 @@
 package io.flipt.client.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
@@ -7,7 +8,6 @@ import java.util.List;
 import lombok.Builder;
 import lombok.Singular;
 import lombok.Value;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Value
 @Builder
