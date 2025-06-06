@@ -36,23 +36,4 @@ public class FliptException extends RuntimeException {
       super(cause);
     }
   }
-
-  /** Thrown when a configuration error occurs. */
-  public static final class ConfigurationException extends FliptException {
-    public ConfigurationException() {
-      super();
-    }
-
-    public ConfigurationException(String message) {
-      super(message);
-    }
-
-    public ConfigurationException(String message, Throwable cause) {
-      super(message, cause);
-    }
-
-    public ConfigurationException(Throwable cause) {
-      super(cause);
-    }
-  }
 }

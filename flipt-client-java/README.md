@@ -83,10 +83,8 @@ This section is for users who are migrating from a previous (pre-1.0.0) version 
 - `FliptEvaluationClient` has been renamed to `FliptClient`. Update all usages and imports accordingly.
 - The builder and all usages should be updated to the new class name and builder pattern.
 - All response models now use `List` instead of arrays (e.g., `List<String>` instead of `String[]`). Update your code to use `List` and related collection APIs.
-- Exceptions are now unchecked (runtime) and use `FliptException` and its subclasses (e.g., `FliptException.EvaluationException`, `FliptException.ConfigurationException`).
-- Configuration validation now throws `FliptException.ConfigurationException` for invalid options (such as empty namespace or negative durations).
+- Exceptions are now unchecked (runtime) and use `FliptException` and its subclasses (e.g., `FliptException.EvaluationException`).
 - The builder uses Lombok and is more idiomatic, reducing boilerplate.
-- API signatures now use nullability annotations and improved type safety.
 
 ## Usage
 

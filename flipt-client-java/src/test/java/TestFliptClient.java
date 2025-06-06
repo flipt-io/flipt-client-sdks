@@ -96,7 +96,7 @@ public class TestFliptClient {
     Assertions.assertTrue(response.isMatch());
     Assertions.assertEquals("MATCH_EVALUATION_REASON", response.getReason());
     Assertions.assertEquals("variant1", response.getVariantKey());
-    Assertions.assertEquals("segment1", response.getSegmentKeys()[0]);
+    Assertions.assertEquals("segment1", response.getSegmentKeys().get(0));
   }
 
   @Test
@@ -201,7 +201,7 @@ public class TestFliptClient {
       Assertions.assertTrue(response.isMatch());
       Assertions.assertEquals("MATCH_EVALUATION_REASON", response.getReason());
       Assertions.assertEquals("variant1", response.getVariantKey());
-      Assertions.assertEquals("segment1", response.getSegmentKeys()[0]);
+      Assertions.assertEquals("segment1", response.getSegmentKeys().get(0));
 
       BooleanEvaluationResponse booleanResponse =
           invalidFliptClient.evaluateBoolean("flag_boolean", "entity", context);

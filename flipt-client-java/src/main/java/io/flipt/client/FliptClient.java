@@ -16,8 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.Builder;
-import lombok.Builder.Default;
-import lombok.Nullable;
 
 /**
  * A client for interacting with Flipt feature flags.
@@ -31,13 +29,23 @@ import lombok.Nullable;
  *     .build();
  * }</pre>
  *
- * @see FliptClientBuilder
  * @since 1.0.0
  */
 public class FliptClient implements AutoCloseable {
   private static final String STATUS_SUCCESS = "success";
-  private final Pointer engine;
 
+  private String environment;
+  private String namespace;
+  private String url;
+  private AuthenticationStrategy authentication;
+  private String reference;
+  private Duration requestTimeout;
+  private Duration updateInterval;
+  private FetchMode fetchMode;
+  private ErrorStrategy errorStrategy;
+  private String snapshot;
+
+  private final Pointer engine;
   private final ObjectMapper objectMapper;
 
   public interface CLibrary extends Library {
@@ -60,81 +68,54 @@ public class FliptClient implements AutoCloseable {
     void destroy_string(Pointer str);
   }
 
-  private FliptClient(ClientOptions clientOptions) {
-    // Validate client options
-    String environment = clientOptions.getEnvironment().orElse("default");
-    if (environment.isEmpty()) {
-      throw new FliptException.ConfigurationException("environment must not be empty");
-    }
-    String namespace = clientOptions.getNamespace().orElse("default");
-    if (namespace.isEmpty()) {
-      throw new FliptException.ConfigurationException("namespace must not be empty");
-    }
-    clientOptions
-        .getRequestTimeout()
-        .ifPresent(
-            timeout -> {
-              if (timeout < 0) {
-                throw new FliptException.ConfigurationException(
-                    "requestTimeout must not be negative");
-              }
-            });
-    clientOptions
-        .getUpdateInterval()
-        .ifPresent(
-            interval -> {
-              if (interval < 0) {
-                throw new FliptException.ConfigurationException(
-                    "updateInterval must not be negative");
-              }
-            });
+  @Builder
+  private FliptClient(
+      String environment,
+      String namespace,
+      String url,
+      AuthenticationStrategy authentication,
+      String reference,
+      Duration requestTimeout,
+      Duration updateInterval,
+      FetchMode fetchMode,
+      ErrorStrategy errorStrategy,
+      String snapshot) {
+    this.environment = environment != null ? environment : "default";
+    this.namespace = namespace != null ? namespace : "default";
+    this.url = url != null ? url : "http://localhost:8080";
+    this.authentication = authentication;
+    this.reference = reference;
+    this.requestTimeout = requestTimeout != null ? requestTimeout : Duration.ZERO;
+    this.updateInterval = updateInterval != null ? updateInterval : Duration.ZERO;
+    this.fetchMode = fetchMode != null ? fetchMode : FetchMode.POLLING;
+    this.errorStrategy = errorStrategy != null ? errorStrategy : ErrorStrategy.FAIL;
+    this.snapshot = snapshot;
 
-    ObjectMapper objectMapper = new ObjectMapper();
-    objectMapper.registerModule(new Jdk8Module());
+    this.objectMapper = new ObjectMapper();
+    this.objectMapper.registerModule(new Jdk8Module());
+
+    ClientOptions clientOptions =
+        new ClientOptions(
+            Optional.ofNullable(this.environment),
+            Optional.ofNullable(this.namespace),
+            Optional.ofNullable(this.url),
+            Optional.ofNullable(this.requestTimeout),
+            Optional.ofNullable(this.updateInterval),
+            Optional.ofNullable(this.authentication),
+            Optional.ofNullable(this.reference),
+            Optional.ofNullable(this.fetchMode),
+            Optional.ofNullable(this.errorStrategy),
+            Optional.ofNullable(this.snapshot));
 
     String clientOptionsSerialized;
+
     try {
       clientOptionsSerialized = objectMapper.writeValueAsString(clientOptions);
     } catch (JsonProcessingException e) {
       throw new FliptException.EvaluationException(e);
     }
 
-    Pointer engine = CLibrary.INSTANCE.initialize_engine(clientOptionsSerialized);
-    Pointer engine = CLibrary.INSTANCE.initialize_engine(clientOptionsSerialized);
-
-    this.objectMapper = objectMapper;
-    this.engine = engine;
-  }
-
-  @Builder
-  public static final class FliptClientBuilder {
-    @Default private String environment = "default";
-    @Default private String namespace = "default";
-    @Default private String url = "http://localhost:8080";
-    @Nullable private AuthenticationStrategy authentication;
-    @Nullable private String reference;
-    @Nullable private Duration requestTimeout;
-    @Nullable private Duration updateInterval;
-    @Default private FetchMode fetchMode = FetchMode.POLLING;
-    @Default private ErrorStrategy errorStrategy = ErrorStrategy.FAIL;
-    @Nullable private String snapshot;
-
-    public FliptClient build() {
-      return new FliptClient(
-          new ClientOptions(
-              Optional.of(environment),
-              Optional.of(namespace),
-              Optional.of(environment),
-              Optional.of(namespace),
-              Optional.of(url),
-              Optional.ofNullable(requestTimeout),
-              Optional.ofNullable(updateInterval),
-              Optional.ofNullable(authentication),
-              Optional.ofNullable(reference),
-              Optional.ofNullable(fetchMode),
-              Optional.ofNullable(errorStrategy),
-              Optional.ofNullable(snapshot)));
-    }
+    this.engine = CLibrary.INSTANCE.initialize_engine(clientOptionsSerialized);
   }
 
   private static class InternalEvaluationRequest {
@@ -203,9 +184,11 @@ public class FliptClient implements AutoCloseable {
 
     Result<VariantEvaluationResponse> resp = this.readValue(value, typeRef);
     if (!FliptClient.STATUS_SUCCESS.equals(resp.getStatus())) {
-      throw new FliptException.EvaluationException(resp.getErrorMessage().get());
+      throw new FliptException.EvaluationException(resp.getErrorMessage().orElse("Unknown error"));
     }
-    return resp.getResult().get();
+    return resp.getResult()
+        .orElseThrow(
+            () -> new FliptException.EvaluationException("No result returned from engine"));
   }
 
   /**
@@ -234,9 +217,11 @@ public class FliptClient implements AutoCloseable {
     Result<BooleanEvaluationResponse> resp = this.readValue(value, typeRef);
 
     if (!FliptClient.STATUS_SUCCESS.equals(resp.getStatus())) {
-      throw new FliptException.EvaluationException(resp.getErrorMessage().get());
+      throw new FliptException.EvaluationException(resp.getErrorMessage().orElse("Unknown error"));
     }
-    return resp.getResult().get();
+    return resp.getResult()
+        .orElseThrow(
+            () -> new FliptException.EvaluationException("No result returned from engine"));
   }
 
   /**
@@ -267,9 +252,11 @@ public class FliptClient implements AutoCloseable {
 
     Result<BatchEvaluationResponse> resp = this.readValue(value, typeRef);
     if (!FliptClient.STATUS_SUCCESS.equals(resp.getStatus())) {
-      throw new FliptException.EvaluationException(resp.getErrorMessage().get());
+      throw new FliptException.EvaluationException(resp.getErrorMessage().orElse("Unknown error"));
     }
-    return resp.getResult().get();
+    return resp.getResult()
+        .orElseThrow(
+            () -> new FliptException.EvaluationException("No result returned from engine"));
   }
 
   /**
@@ -285,9 +272,11 @@ public class FliptClient implements AutoCloseable {
 
     Result<ArrayList<Flag>> resp = this.readValue(value, typeRef);
     if (!FliptClient.STATUS_SUCCESS.equals(resp.getStatus())) {
-      throw new FliptException.EvaluationException(resp.getErrorMessage().get());
+      throw new FliptException.EvaluationException(resp.getErrorMessage().orElse("Unknown error"));
     }
-    return resp.getResult().get();
+    return resp.getResult()
+        .orElseThrow(
+            () -> new FliptException.EvaluationException("No result returned from engine"));
   }
 
   /**
