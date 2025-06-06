@@ -173,7 +173,7 @@ module Flipt
             error_message: e['error_message']
           )
         else
-          r
+          raise EvaluationError, "Unknown response type encountered: #{r['type']}"
         end
       end
       BatchEvaluationResponse.new(responses: responses)
