@@ -381,7 +381,7 @@ func pythonTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithServiceBinding("flipt", t.flipt.AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithExec(args("poetry install --without=dev")).
+		WithExec(args("poetry install")).
 		WithExec(args("poetry run pytest -v --durations=10 --durations-min=1.0")).
 		Sync(ctx)
 
