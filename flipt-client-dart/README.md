@@ -10,7 +10,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  flipt_client: ^0.1.0
+  flipt_client: ^1.0.0
 ```
 
 Then run `dart pub get` to install the package.
@@ -31,9 +31,9 @@ Upon instantiation, the `flipt-client-dart` library will fetch the flag state fr
 
 By default, the SDK will poll the Flipt server for new flag state at a regular interval. This interval can be configured using the `updateInterval` option when constructing a client. The default interval is 120 seconds.
 
-### Streaming (Flipt Cloud Only)
+### Streaming (Flipt Cloud/Flipt v2)
 
-[Flipt Cloud](https://flipt.io/cloud) users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
+[Flipt Cloud](https://flipt.io/cloud) and [Flipt v2](https://docs.flipt.io/v2) users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
 
 When in streaming mode, the SDK will connect to the Flipt server and open a persistent connection that will remain open until the client is closed. The SDK will then receive flag state changes in real-time.
 
@@ -64,6 +64,16 @@ This SDK currently supports the following OSes/architectures:
 - iOS arm64 ⚠️ See [iOS Integration](#ios-integration)
 - iOS arm64 (simulator) ⚠️ See [iOS Integration](#ios-integration)
 
+## Migration Notes
+
+### Pre-1.0.0 -> 1.0.0
+
+This section is for users who are migrating from a previous (pre-1.0.0) version of the SDK.
+
+- `FliptEvaluationClient` has been renamed to `FliptClient`.
+- `Options` now accept `namespace` and `environment` as optional parameters.
+- `requestTimeout` and `updateInterval` in `Options` are now `Duration` types instead of `int` (seconds). Update your code to use `Duration(seconds: ...)`.
+
 ## Usage
 
 ```dart
@@ -71,11 +81,12 @@ import 'package:flipt_client/flipt_client.dart';
 
 void main() {
   // Initialize the client
-  final client = FliptEvaluationClient(
-    'default',
-    Options.withClientToken(
+  final client = FliptClient(
+    options: Options.withClientToken(
       'your-token',
       url: 'http://localhost:8080',
+      requestTimeout: Duration(seconds: 10),
+      updateInterval: Duration(minutes: 2),
     ),
   );
 
@@ -104,12 +115,13 @@ void main() {
 
 ### Client Options
 
-The `FliptEvaluationClient` initializer accepts several options that can be used to configure the client. The available options are:
+The `FliptClient` initializer accepts several options that can be used to configure the client. The available options are:
 
+- `environment`: The environment to fetch flag state from. If not provided, the client will default to the `default` environment.
 - `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
 - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
-- `requestTimeout`: The timeout (in seconds) for total request time to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.
-- `updateInterval`: The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
+- `requestTimeout`: The timeout as a `Duration` for total request time to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.
+- `updateInterval`: The interval as a `Duration` in which to fetch new flag state. If not provided, the client will default to `Duration(seconds: 120)`.
 - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
 - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
 - `fetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
@@ -118,7 +130,7 @@ The `FliptEvaluationClient` initializer accepts several options that can be used
 
 ### Authentication
 
-The `FliptEvaluationClient` supports the following authentication strategies:
+The `FliptClient` supports the following authentication strategies:
 
 - No Authentication (default)
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)

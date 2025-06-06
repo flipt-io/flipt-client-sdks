@@ -1,28 +1,28 @@
 package io.flipt.client.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import java.util.List;
+import lombok.Builder;
+import lombok.Singular;
+import lombok.Value;
 
+@Value
+@Builder
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
+@JsonDeserialize(builder = BatchEvaluationResponse.BatchEvaluationResponseBuilder.class)
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class BatchEvaluationResponse {
-  private final Response[] responses;
-
-  private final float requestDurationMillis;
-
-  public BatchEvaluationResponse(
-      @JsonProperty("responses") Response[] responses,
-      @JsonProperty("request_duration_millis") float requestDurationMillis) {
-    this.responses = responses;
-    this.requestDurationMillis = requestDurationMillis;
-  }
-
   @JsonProperty("responses")
-  public Response[] getResponses() {
-    return responses;
-  }
+  @Singular
+  List<Response> responses;
 
   @JsonProperty("request_duration_millis")
-  public float getRequestDurationMillis() {
-    return requestDurationMillis;
-  }
+  float requestDurationMillis;
+
+  @lombok.experimental.SuperBuilder
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public static class BatchEvaluationResponseBuilder {}
 }
