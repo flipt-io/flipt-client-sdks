@@ -210,7 +210,3 @@ class TestFliptClient(unittest.TestCase):
 
             snapshot2 = client_with_snapshot.get_snapshot()
             self.assertIsNotNone(snapshot2)
-
-
-if __name__ == "__main__":
-    unittest.main()
