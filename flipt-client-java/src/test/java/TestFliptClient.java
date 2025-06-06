@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
@@ -153,7 +152,7 @@ public class TestFliptClient {
 
   @Test
   void testListFlags() throws Exception {
-    ArrayList<Flag> flags = fliptClient.listFlags();
+    List<Flag> flags = fliptClient.listFlags();
     Assertions.assertEquals(2, flags.size());
   }
 
@@ -210,7 +209,7 @@ public class TestFliptClient {
       Assertions.assertTrue(booleanResponse.isEnabled());
       Assertions.assertEquals("MATCH_EVALUATION_REASON", booleanResponse.getReason());
 
-      ArrayList<Flag> flags = invalidFliptClient.listFlags();
+      List<Flag> flags = invalidFliptClient.listFlags();
       Assertions.assertEquals(2, flags.size());
 
       String snapshot = invalidFliptClient.getSnapshot();
