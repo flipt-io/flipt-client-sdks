@@ -187,7 +187,7 @@ public class TestFliptClient {
       List<Flag> flags = invalidFliptClient.listFlags();
       Assertions.assertEquals(2, flags.size());
 
-      String snapshot = invalidFliptClient.getSnapshot();
+      snapshot = invalidFliptClient.getSnapshot();
       Assertions.assertNotNull(snapshot);
     }
 
