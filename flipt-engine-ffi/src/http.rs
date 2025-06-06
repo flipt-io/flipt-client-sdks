@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use futures::TryStreamExt;
 use futures_util::stream::StreamExt;
+use log::trace;
 use reqwest::header::{self, HeaderMap};
 use reqwest::Response;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
@@ -261,6 +262,7 @@ impl HTTPFetcher {
                                     elapsed += check;
                                 },
                                 _ = stop_notify_clone.notified() => {
+                                    trace!("[FFI] fetcher task: received stop_notify");
                                     // Shutdown requested
                                     return;
                                 },
