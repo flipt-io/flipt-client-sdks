@@ -1,129 +1,217 @@
+import pydantic
+from packaging import version
+
+PYDANTIC_V2 = version.parse(pydantic.VERSION) >= version.parse("2.0.0")
+
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel
+
+if PYDANTIC_V2:
+    from pydantic import RootModel
 
 
 class EvaluationRequest(BaseModel):
-    flag_key: str
-    entity_id: str
-    context: dict
+    """Request for evaluating a flag for a given entity and context."""
+
+    flag_key: str  #: The key of the flag to evaluate.
+    entity_id: str  #: The entity identifier.
+    context: dict  #: Additional context for evaluation.
 
 
 class AuthenticationStrategy(BaseModel):
+    """Base class for authentication strategies."""
+
     client_token: Optional[str] = None
     jwt_token: Optional[str] = None
 
 
 class ClientTokenAuthentication(AuthenticationStrategy):
+    """Client token authentication."""
+
     client_token: str
 
 
 class JWTAuthentication(AuthenticationStrategy):
+    """JWT authentication."""
+
     jwt_token: str
 
 
 class FetchMode(Enum):
+    """Flag fetch mode."""
+
     POLLING = "polling"
     STREAMING = "streaming"
 
 
 class ErrorStrategy(Enum):
+    """Error handling strategy."""
+
     FAIL = "fail"
     FALLBACK = "fallback"
 
 
 class FlagType(str, Enum):
+    """Type of flag."""
+
     BOOLEAN = "BOOLEAN_FLAG_TYPE"
     VARIANT = "VARIANT_FLAG_TYPE"
 
 
 class ClientOptions(BaseModel):
-    url: Optional[str] = None
-    request_timeout: Optional[int] = None
-    update_interval: Optional[int] = None
-    authentication: Optional[AuthenticationStrategy] = None
-    reference: Optional[str] = None
-    fetch_mode: Optional[FetchMode] = None
-    error_strategy: Optional[ErrorStrategy] = None
+    """Configuration options for FliptClient."""
+
+    environment: Optional[str] = None  #: Environment name.
+    namespace: Optional[str] = None  #: Namespace name.
+    url: Optional[str] = None  #: Flipt server URL.
+    request_timeout: Optional[int] = None  #: Timeout for requests (ms).
+    update_interval: Optional[int] = None  #: Polling/streaming update interval (ms).
+    authentication: Optional[AuthenticationStrategy] = None  #: Authentication strategy.
+    reference: Optional[str] = None  #: Namespace or reference key.
+    fetch_mode: Optional[FetchMode] = None  #: Fetch mode.
+    error_strategy: Optional[ErrorStrategy] = None  #: Error handling strategy.
 
 
 class VariantEvaluationResponse(BaseModel):
-    match: bool
-    segment_keys: List[str]
-    reason: str
-    flag_key: str
-    variant_key: str
-    variant_attachment: Optional[str] = None
-    request_duration_millis: float
-    timestamp: str
+    """Response for a variant flag evaluation."""
+
+    match: bool  #: Whether the evaluation matched a segment.
+    segment_keys: List[str]  #: List of matched segment keys.
+    reason: str  #: Reason for the evaluation result.
+    flag_key: str  #: The flag key.
+    variant_key: str  #: The variant key returned.
+    variant_attachment: Optional[str] = None  #: Optional variant attachment.
+    request_duration_millis: float  #: Duration of the request in milliseconds.
+    timestamp: str  #: Timestamp of the evaluation.
 
 
 class BooleanEvaluationResponse(BaseModel):
-    enabled: bool
-    flag_key: str
-    reason: str
-    request_duration_millis: float
-    timestamp: str
+    """Response for a boolean flag evaluation."""
+
+    enabled: bool  #: Whether the flag is enabled.
+    flag_key: str  #: The flag key.
+    reason: str  #: Reason for the evaluation result.
+    request_duration_millis: float  #: Duration of the request in milliseconds.
+    timestamp: str  #: Timestamp of the evaluation.
 
 
 class ErrorEvaluationResponse(BaseModel):
-    flag_key: str
-    namespace_key: str
-    reason: str
+    """Response for an error during evaluation."""
+
+    flag_key: str  #: The flag key.
+    namespace_key: str  #: The namespace key.
+    reason: str  #: Reason for the error.
 
 
 class EvaluationResponse(BaseModel):
-    type: str
+    """General evaluation response, can be boolean, variant, or error."""
+
+    type: str  #: Type of the response.
     boolean_evaluation_response: Optional[BooleanEvaluationResponse] = None
     variant_evaluation_response: Optional[VariantEvaluationResponse] = None
     error_evaluation_response: Optional[ErrorEvaluationResponse] = None
 
 
 class BatchEvaluationResponse(BaseModel):
-    responses: List[EvaluationResponse]
-    request_duration_millis: float
+    """Response for a batch evaluation request."""
+
+    responses: List[EvaluationResponse]  #: List of evaluation responses.
+    request_duration_millis: float  #: Duration of the batch request in milliseconds.
 
 
 class VariantResult(BaseModel):
-    status: str
-    result: Optional[VariantEvaluationResponse] = None
-    error_message: Optional[str] = None
+    """Result wrapper for variant evaluation."""
+
+    status: str  #: Status of the evaluation (e.g., 'success', 'error').
+    result: Optional[
+        VariantEvaluationResponse
+    ] = None  #: The evaluation response if successful.
+    error_message: Optional[str] = None  #: Error message if failed.
 
 
 class BooleanResult(BaseModel):
-    status: str
-    result: Optional[BooleanEvaluationResponse] = None
-    error_message: Optional[str] = None
+    """Result wrapper for boolean evaluation."""
+
+    status: str  #: Status of the evaluation (e.g., 'success', 'error').
+    result: Optional[
+        BooleanEvaluationResponse
+    ] = None  #: The evaluation response if successful.
+    error_message: Optional[str] = None  #: Error message if failed.
 
 
 class BatchResult(BaseModel):
-    status: str
-    result: Optional[BatchEvaluationResponse] = None
-    error_message: Optional[str] = None
+    """Result wrapper for batch evaluation."""
+
+    status: str  #: Status of the evaluation (e.g., 'success', 'error').
+    result: Optional[
+        BatchEvaluationResponse
+    ] = None  #: The batch evaluation response if successful.
+    error_message: Optional[str] = None  #: Error message if failed.
 
 
 class Flag(BaseModel):
-    key: str
-    enabled: bool
-    type: FlagType
-    description: Optional[str] = None
+    """Feature flag definition."""
+
+    key: str  #: The flag key.
+    enabled: bool  #: Whether the flag is enabled.
+    type: FlagType  #: The type of the flag.
+    description: Optional[str] = None  #: Optional description of the flag.
 
 
-class FlagList(RootModel):
-    root: List[Flag]
+# --- FlagList root model compatibility ---
+if PYDANTIC_V2:
 
-    def __iter__(self):
-        return iter(self.root)
+    class FlagList(RootModel):
+        """List of feature flags."""
 
-    def __getitem__(self, item):
-        return self.root[item]
+        root: List[Flag]
 
-    def __len__(self):
-        return len(self.root)
+        def __iter__(self):
+            return iter(self.root)
+
+        def __getitem__(self, item):
+            return self.root[item]
+
+        def __len__(self):
+            return len(self.root)
+
+else:
+
+    class FlagList(BaseModel):
+        """List of feature flags."""
+
+        __root__: List[Flag]
+
+        def __iter__(self):
+            return iter(self.__root__)
+
+        def __getitem__(self, item):
+            return self.__root__[item]
+
+        def __len__(self):
+            return len(self.__root__)
 
 
 class ListFlagsResult(BaseModel):
-    status: str
-    result: Optional[FlagList] = None
-    error_message: Optional[str] = None
+    """Result wrapper for listing flags."""
+
+    status: str  #: Status of the operation.
+    result: Optional[FlagList] = None  #: The list of flags if successful.
+    error_message: Optional[str] = None  #: Error message if failed.
+
+
+# --- Serialization/Deserialization shims ---
+def model_to_json(model):
+    """Serialize a Pydantic model to JSON, compatible with v1 and v2."""
+    if hasattr(model, "model_dump_json"):
+        return model.model_dump_json()
+    return model.json()
+
+
+def model_from_json(cls, data):
+    """Deserialize a Pydantic model from JSON, compatible with v1 and v2."""
+    if hasattr(cls, "model_validate_json"):
+        return cls.model_validate_json(data)
+    return cls.parse_raw(data)

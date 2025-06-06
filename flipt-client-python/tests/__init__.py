@@ -1,16 +1,17 @@
 import os
 import unittest
 
-from flipt_client import FliptEvaluationClient
+from flipt_client import FliptClient
 from flipt_client.models import (
     ClientOptions,
     ClientTokenAuthentication,
     EvaluationRequest,
     FlagType,
 )
+from flipt_client.errors import ValidationError, EvaluationError
 
 
-class TestFliptEvaluationClient(unittest.TestCase):
+class TestFliptClient(unittest.TestCase):
     def setUp(self) -> None:
         url = os.environ.get("FLIPT_URL")
         if url is None:
@@ -20,7 +21,7 @@ class TestFliptEvaluationClient(unittest.TestCase):
         if auth_token is None:
             raise Exception("FLIPT_AUTH_TOKEN not set")
 
-        self.flipt_client = FliptEvaluationClient(
+        self.flipt_client = FliptClient(
             opts=ClientOptions(
                 url=url,
                 authentication=ClientTokenAuthentication(client_token=auth_token),
@@ -28,22 +29,22 @@ class TestFliptEvaluationClient(unittest.TestCase):
         )
 
     def test_null_flag_key(self):
-        with self.assertRaises(ValueError) as context:
+        with self.assertRaises(ValidationError) as context:
             self.flipt_client.evaluate_boolean(None, "someentity", {"fizz": "buzz"})
         self.assertEqual("flag_key cannot be empty or null", str(context.exception))
 
     def test_empty_flag_key(self):
-        with self.assertRaises(ValueError) as context:
+        with self.assertRaises(ValidationError) as context:
             self.flipt_client.evaluate_boolean("", "someentity", {"fizz": "buzz"})
         self.assertEqual("flag_key cannot be empty or null", str(context.exception))
 
     def test_null_entity_id(self):
-        with self.assertRaises(ValueError) as context:
+        with self.assertRaises(ValidationError) as context:
             self.flipt_client.evaluate_boolean("flag1", None, {"fizz": "buzz"})
         self.assertEqual("entity_id cannot be empty or null", str(context.exception))
 
     def test_empty_entity_id(self):
-        with self.assertRaises(ValueError) as context:
+        with self.assertRaises(ValidationError) as context:
             self.flipt_client.evaluate_boolean("flag1", "", {"fizz": "buzz"})
         self.assertEqual("entity_id cannot be empty or null", str(context.exception))
 
@@ -122,22 +123,20 @@ class TestFliptEvaluationClient(unittest.TestCase):
         self.assertEqual("NOT_FOUND_ERROR_EVALUATION_REASON", error.reason)
 
     def test_failure_variant(self):
-        with self.assertRaises(Exception) as context:
+        with self.assertRaises(EvaluationError) as context:
             self.flipt_client.evaluate_variant(
                 "nonexistent", "someentity", {"fizz": "buzz"}
             )
-
         self.assertEqual(
             "invalid request: failed to get flag information default/nonexistent",
             str(context.exception),
         )
 
     def test_failure_boolean(self):
-        with self.assertRaises(Exception) as context:
+        with self.assertRaises(EvaluationError) as context:
             self.flipt_client.evaluate_boolean(
                 "nonexistent", "someentity", {"fizz": "buzz"}
             )
-
         self.assertEqual(
             str(context.exception),
             "invalid request: failed to get flag information default/nonexistent",

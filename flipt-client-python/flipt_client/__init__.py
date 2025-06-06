@@ -2,6 +2,8 @@ from pydantic import BaseModel
 import ctypes
 import os
 import platform
+import warnings
+from .errors import FliptError, ValidationError, EvaluationError
 
 from .models import (
     BatchEvaluationResponse,
@@ -26,10 +28,11 @@ class InternalEvaluationRequest(BaseModel):
     context: dict
 
 
-class FliptEvaluationClient:
-    def __init__(
-        self, namespace: str = "default", opts: ClientOptions = ClientOptions()
-    ):
+class FliptClient:
+    """Main client for interacting with Flipt feature flag engine."""
+
+    def __init__(self, opts: ClientOptions = ClientOptions()):
+        namespace = opts.reference or "default"
         # Mapping of platform-architecture combinations to their respective library file paths
         lib_files = {
             "Darwin-x86_64": "darwin_x86_64/libfliptengine.dylib",
@@ -48,7 +51,7 @@ class FliptEvaluationClient:
         libfile = lib_files.get(key)
 
         if not libfile:
-            raise Exception(f"Unsupported platform/processor: {platform_name}/{arch}")
+            raise FliptError(f"Unsupported platform/processor: {platform_name}/{arch}")
 
         # Get the absolute path to the engine library from the ../ext directory
         engine_library_path = os.path.join(
@@ -56,7 +59,7 @@ class FliptEvaluationClient:
         )
 
         if not os.path.exists(engine_library_path):
-            raise Exception(
+            raise FliptError(
                 f"The engine library could not be found at the path: {engine_library_path}"
             )
 
@@ -82,11 +85,9 @@ class FliptEvaluationClient:
         self.ffi_core.destroy_string.argtypes = [ctypes.POINTER(ctypes.c_char_p)]
         self.ffi_core.destroy_string.restype = ctypes.c_void_p
 
-        ns = namespace.encode("utf-8")
-
         client_opts_serialized = opts.model_dump_json(exclude_none=True).encode("utf-8")
 
-        self.engine = self.ffi_core.initialize_engine(ns, client_opts_serialized)
+        self.engine = self.ffi_core.initialize_engine(client_opts_serialized)
 
     def __del__(self):
         if hasattr(self, "engine") and self.engine is not None:
@@ -96,9 +97,9 @@ class FliptEvaluationClient:
         self, flag_key: str, entity_id: str, context: dict = {}
     ) -> VariantEvaluationResponse:
         if not flag_key or not flag_key.strip():
-            raise ValueError("flag_key cannot be empty or null")
+            raise ValidationError("flag_key cannot be empty or null")
         if not entity_id or not entity_id.strip():
-            raise ValueError("entity_id cannot be empty or null")
+            raise ValidationError("entity_id cannot be empty or null")
 
         response = self.ffi_core.evaluate_variant(
             self.engine,
@@ -112,7 +113,7 @@ class FliptEvaluationClient:
         self.ffi_core.destroy_string(response)
 
         if variant_result.status != "success":
-            raise Exception(variant_result.error_message)
+            raise EvaluationError(variant_result.error_message)
 
         return variant_result.result
 
@@ -120,9 +121,9 @@ class FliptEvaluationClient:
         self, flag_key: str, entity_id: str, context: dict = {}
     ) -> BooleanEvaluationResponse:
         if not flag_key or not flag_key.strip():
-            raise ValueError("flag_key cannot be empty or null")
+            raise ValidationError("flag_key cannot be empty or null")
         if not entity_id or not entity_id.strip():
-            raise ValueError("entity_id cannot be empty or null")
+            raise ValidationError("entity_id cannot be empty or null")
 
         response = self.ffi_core.evaluate_boolean(
             self.engine,
@@ -136,7 +137,7 @@ class FliptEvaluationClient:
         self.ffi_core.destroy_string(response)
 
         if boolean_result.status != "success":
-            raise Exception(boolean_result.error_message)
+            raise EvaluationError(boolean_result.error_message)
 
         return boolean_result.result
 
@@ -147,9 +148,9 @@ class FliptEvaluationClient:
 
         for r in requests:
             if not r.flag_key or not r.flag_key.strip():
-                raise ValueError("flag_key cannot be empty or null")
+                raise ValidationError("flag_key cannot be empty or null")
             if not r.entity_id or not r.entity_id.strip():
-                raise ValueError("entity_id cannot be empty or null")
+                raise ValidationError("entity_id cannot be empty or null")
 
             evaluation_requests.append(
                 InternalEvaluationRequest(
@@ -175,7 +176,7 @@ class FliptEvaluationClient:
         self.ffi_core.destroy_string(response)
 
         if batch_result.status != "success":
-            raise Exception(batch_result.error_message)
+            raise EvaluationError(batch_result.error_message)
 
         return batch_result.result
 
@@ -187,7 +188,7 @@ class FliptEvaluationClient:
         self.ffi_core.destroy_string(response)
 
         if result.status != "success":
-            raise Exception(result.error_message)
+            raise EvaluationError(result.error_message)
 
         return result.result
 
@@ -196,9 +197,9 @@ def serialize_evaluation_request(
     namespace_key: str, flag_key: str, entity_id: str, context: dict
 ) -> str:
     if not flag_key or not flag_key.strip():
-        raise ValueError("flag_key cannot be empty or null")
+        raise ValidationError("flag_key cannot be empty or null")
     if not entity_id or not entity_id.strip():
-        raise ValueError("entity_id cannot be empty or null")
+        raise ValidationError("entity_id cannot be empty or null")
 
     evaluation_request = InternalEvaluationRequest(
         namespace_key=namespace_key,
@@ -208,3 +209,14 @@ def serialize_evaluation_request(
     )
 
     return evaluation_request.model_dump_json().encode("utf-8")
+
+
+# Deprecation alias
+class FliptEvaluationClient(FliptClient):
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "FliptEvaluationClient is deprecated and will be removed in a future release. Use FliptClient instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(*args, **kwargs)
