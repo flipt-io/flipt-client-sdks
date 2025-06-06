@@ -382,7 +382,7 @@ func pythonTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec(args("poetry install --without=dev")).
-		WithExec(args("poetry run test")).
+		WithExec(args("poetry run python -m unittest -v tests")).
 		Sync(ctx)
 
 	return err
