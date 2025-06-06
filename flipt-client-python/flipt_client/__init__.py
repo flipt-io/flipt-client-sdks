@@ -32,7 +32,7 @@ class FliptClient:
     """Main client for interacting with Flipt feature flag engine."""
 
     def __init__(self, opts: ClientOptions = ClientOptions()):
-        namespace = opts.reference or "default"
+        namespace = opts.namespace or "default"
         # Mapping of platform-architecture combinations to their respective library file paths
         lib_files = {
             "Darwin-x86_64": "darwin_x86_64/libfliptengine.dylib",
