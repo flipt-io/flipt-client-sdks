@@ -264,7 +264,7 @@ public class FliptClient implements AutoCloseable {
    *
    * @return the list of flags
    */
-  public ArrayList<Flag> listFlags() {
+  public List<Flag> listFlags() {
     Pointer value = CLibrary.INSTANCE.list_flags(this.engine);
 
     TypeReference<Result<ArrayList<Flag>>> typeRef =
