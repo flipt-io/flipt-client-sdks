@@ -819,6 +819,7 @@ unsafe extern "C" fn _destroy_engine(engine_ptr: *mut c_void) {
     engine.stop_signal.store(true, Ordering::Relaxed);
     // Notify the fetcher task to stop
     engine.stop_notify.notify_waiters();
+    trace!("[FFI] destroy_engine: waiting for fetcher task to exit");
     // Wait for fetcher task to exit
     if let Some(handle) = engine.fetcher_handle {
         let rt = get_or_create_runtime();
