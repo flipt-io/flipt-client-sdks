@@ -85,6 +85,9 @@ class FliptClient:
         self.ffi_core.destroy_string.argtypes = [ctypes.POINTER(ctypes.c_char_p)]
         self.ffi_core.destroy_string.restype = ctypes.c_void_p
 
+        self.ffi_core.get_snapshot.argtypes = [ctypes.c_void_p]
+        self.ffi_core.get_snapshot.restype = ctypes.POINTER(ctypes.c_char_p)
+
         client_opts_serialized = opts.model_dump_json(exclude_none=True).encode("utf-8")
 
         self.engine = self.ffi_core.initialize_engine(client_opts_serialized)
@@ -191,6 +194,16 @@ class FliptClient:
             raise EvaluationError(result.error_message)
 
         return result.result
+
+    def get_snapshot(self) -> str:
+        """
+        Returns a snapshot of the current engine state as a base64 encoded JSON string.
+        """
+        response = self.ffi_core.get_snapshot(self.engine)
+        snapshot_bytes = ctypes.cast(response, ctypes.c_char_p).value
+        if hasattr(self.ffi_core, "destroy_string"):
+            self.ffi_core.destroy_string(response)
+        return snapshot_bytes.decode("utf-8")
 
 
 def serialize_evaluation_request(

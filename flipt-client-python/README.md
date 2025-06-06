@@ -102,6 +102,7 @@ The `FliptClient` constructor accepts a single `opts` argument:
   - `reference`: The namespace or reference key. Defaults to `default`.
   - `fetch_mode`: Fetch mode (`polling` or `streaming`). Defaults to polling.
   - `error_strategy`: Error strategy (`fail` or `fallback`). Defaults to fail.
+  - `snapshot`: A base64 encoded snapshot of the engine state. Defaults to `None`.
 
 ### Authentication
 

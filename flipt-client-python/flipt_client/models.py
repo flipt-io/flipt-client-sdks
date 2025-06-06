@@ -73,6 +73,7 @@ class ClientOptions(BaseModel):
     reference: Optional[str] = None  #: Namespace or reference key.
     fetch_mode: Optional[FetchMode] = None  #: Fetch mode.
     error_strategy: Optional[ErrorStrategy] = None  #: Error handling strategy.
+    snapshot: Optional[str] = None  #: Snapshot to use to initialize the client.
 
     if PYDANTIC_V2:
         from pydantic import field_serializer, field_validator

@@ -1,5 +1,7 @@
 import os
 import unittest
+import base64
+import json
 
 from flipt_client import FliptClient
 from flipt_client.models import (
@@ -151,6 +153,63 @@ class TestFliptClient(unittest.TestCase):
         boolean = self.flipt_client.evaluate_boolean("flag_boolean", "someentity")
         self.assertTrue(boolean.enabled)
         self.assertEqual("flag_boolean", boolean.flag_key)
+
+    def test_get_snapshot(self):
+        snapshot = self.flipt_client.get_snapshot()
+        self.assertIsNotNone(snapshot)
+
+        try:
+            decoded = base64.b64decode(snapshot)
+            json_obj = json.loads(decoded)
+            self.assertIsInstance(json_obj, dict)
+        except Exception as e:
+            self.fail(f"Snapshot is not valid base64-encoded JSON: {e}")
+
+    def test_set_get_snapshot_with_invalid_url(self):
+        # Get a snapshot from a working client
+        snapshot = self.flipt_client.get_snapshot()
+        self.assertIsNotNone(snapshot)
+
+        # Now create a client with an invalid URL but with the snapshot
+        invalid_url = "http://invalid.flipt.com"
+        opts = ClientOptions(
+            url=invalid_url,
+            error_strategy="fallback",
+            snapshot=snapshot,
+            authentication=ClientTokenAuthentication(
+                client_token=os.environ.get("FLIPT_AUTH_TOKEN")
+            ),
+        )
+        client_with_snapshot = FliptClient(opts=opts)
+        context = {"fizz": "buzz"}
+
+        # Should be able to evaluate using the snapshot
+        for _ in range(3):
+            variant = client_with_snapshot.evaluate_variant(
+                flag_key="flag1",
+                entity_id="someentity",
+                context=context,
+            )
+            self.assertEqual("flag1", variant.flag_key)
+            self.assertTrue(variant.match)
+            self.assertEqual("MATCH_EVALUATION_REASON", variant.reason)
+            self.assertEqual("variant1", variant.variant_key)
+            self.assertIn("segment1", variant.segment_keys)
+
+            boolean = client_with_snapshot.evaluate_boolean(
+                flag_key="flag_boolean",
+                entity_id="someentity",
+                context=context,
+            )
+            self.assertEqual("flag_boolean", boolean.flag_key)
+            self.assertTrue(boolean.enabled)
+            self.assertEqual("MATCH_EVALUATION_REASON", boolean.reason)
+
+            flags = client_with_snapshot.list_flags()
+            self.assertEqual(2, len(flags))
+
+            snapshot2 = client_with_snapshot.get_snapshot()
+            self.assertIsNotNone(snapshot2)
 
 
 if __name__ == "__main__":
