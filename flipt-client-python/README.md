@@ -102,7 +102,7 @@ The `FliptClient` constructor accepts a single `opts` argument:
   - `reference`: The namespace or reference key. Defaults to `default`.
   - `fetch_mode`: Fetch mode (`polling` or `streaming`). Defaults to polling.
   - `error_strategy`: Error strategy (`fail` or `fallback`). Defaults to fail.
-  - `snapshot`: A base64 encoded snapshot of the engine state. Defaults to `None`.
+  - `snapshot`: A base64 encoded snapshot of the engine state. Defaults to `None`. See [Snapshotting](#snapshotting).
 
 ### Authentication
 
@@ -131,6 +131,21 @@ except ValidationError as e:
 except EvaluationError as e:
     print(f"Evaluation error: {e}")
 ```
+
+### Snapshotting
+
+The client supports snapshotting of flag state as well as seeding the client with a snapshot for evaluation. This is helpful if you want to use the client in an environment where the Flipt server is not guaranteed to be available or reachable on startup.
+
+To get the snapshot for the client, you can use the `get_snapshot` method. This returns a base64 encoded JSON string that represents the flag state for the client.
+
+You can set the snapshot for the client using the `snapshot` option when constructing a client.
+
+**Note:** You most likely will want to also set the `error_strategy` to `fallback` when using snapshots. This will ensure that you wont get an error if the Flipt server is not available or reachable even on the initial fetch.
+
+You also may want to store the snapshot in a local file so that you can use it to seed the client on startup.
+
+> [!IMPORTANT]
+> If the Flipt server becomes reachable after the setting the snapshot, the client will replace the snapshot with the new flag state from the Flipt server.
 
 ## Contributing
 
