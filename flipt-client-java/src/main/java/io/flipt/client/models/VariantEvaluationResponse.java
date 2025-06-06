@@ -7,18 +7,22 @@ import java.util.List;
 import lombok.Builder;
 import lombok.Singular;
 import lombok.Value;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Value
 @Builder
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 @JsonDeserialize(builder = VariantEvaluationResponse.VariantEvaluationResponseBuilder.class)
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class VariantEvaluationResponse {
+  @JsonProperty("match")
   boolean match;
 
   @JsonProperty("segment_keys")
   @Singular
   List<String> segmentKeys;
 
+  @JsonProperty("reason")
   String reason;
 
   @JsonProperty("flag_key")
@@ -33,8 +37,10 @@ public class VariantEvaluationResponse {
   @JsonProperty("request_duration_millis")
   float requestDurationMillis;
 
+  @JsonProperty("timestamp")
   String timestamp;
 
   @lombok.experimental.SuperBuilder
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public static class VariantEvaluationResponseBuilder {}
 }

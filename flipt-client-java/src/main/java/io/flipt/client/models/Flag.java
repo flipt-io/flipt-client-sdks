@@ -21,5 +21,6 @@ public class Flag {
   String type;
 
   @lombok.experimental.SuperBuilder
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public static class FlagBuilder {}
 }

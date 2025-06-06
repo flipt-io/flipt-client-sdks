@@ -7,11 +7,13 @@ import java.util.List;
 import lombok.Builder;
 import lombok.Singular;
 import lombok.Value;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Value
 @Builder
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 @JsonDeserialize(builder = BatchEvaluationResponse.BatchEvaluationResponseBuilder.class)
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class BatchEvaluationResponse {
   @JsonProperty("responses")
   @Singular
@@ -21,5 +23,6 @@ public class BatchEvaluationResponse {
   float requestDurationMillis;
 
   @lombok.experimental.SuperBuilder
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public static class BatchEvaluationResponseBuilder {}
 }

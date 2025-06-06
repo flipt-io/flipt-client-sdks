@@ -27,5 +27,6 @@ public class BooleanEvaluationResponse {
   String timestamp;
 
   @lombok.experimental.SuperBuilder
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public static class BooleanEvaluationResponseBuilder {}
 }
