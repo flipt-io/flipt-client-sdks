@@ -6,23 +6,6 @@ class FliptClientTests: XCTestCase {
     var fliptUrl: String = ""
     var authToken: String = ""
 
-    static var snapshot: String {
-        base64EncodedResource(named: "snapshot")
-    }
-
-    private static func base64EncodedResource(named name: String) -> String {
-        let bundle = Bundle(for: FliptClientTests.self)
-        guard let url = bundle.url(forResource: name, withExtension: "json") else {
-            XCTFail("Missing resource: \(name).json")
-            return ""
-        }
-        guard let data = try? Data(contentsOf: url) else {
-            XCTFail("Could not load data from: \(name).json")
-            return ""
-        }
-        return data.base64EncodedString()
-    }
-
     override func setUp() {
         super.setUp()
 
@@ -44,6 +27,7 @@ class FliptClientTests: XCTestCase {
     }
 
     override func tearDown() {
+        evaluationClient?.close()
         evaluationClient = nil
         super.tearDown()
     }
@@ -190,11 +174,14 @@ class FliptClientTests: XCTestCase {
 
     func testSetGetSnapshotWithInvalidFliptURL() {
         do {
+            let snapshot = try evaluationClient?.getSnapshot()
+            XCTAssertNotNil(snapshot)
+
             let invalidFliptClient = try FliptClient(
                 namespace: "default",
                 url: "http://invalid.flipt.com",
                 errorStrategy: .fallback,
-                snapshot: FliptClientTests.snapshot)
+                snapshot: snapshot)
 
             let context = ["fizz": "buzz"]
 

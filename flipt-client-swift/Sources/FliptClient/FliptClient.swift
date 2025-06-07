@@ -3,6 +3,7 @@ import Foundation
 
 public class FliptClient {
     private var engine: UnsafeMutableRawPointer?
+    private var environment: String = "default"
     private var namespace: String = "default"
     private var url: String = "http://localhost:8080"
     private var authentication: Authentication?
@@ -14,6 +15,7 @@ public class FliptClient {
     private var snapshot: String?
 
     public init(
+        environment: String? = nil,
         namespace: String? = nil,
         url: String? = nil,
         authentication: Authentication? = nil,
@@ -24,6 +26,7 @@ public class FliptClient {
         errorStrategy: ErrorStrategy = .fail,
         snapshot: String? = nil) throws
     {
+        self.environment = environment ?? "default"
         self.namespace = namespace ?? "default"
         self.url = url ?? "http://localhost:8080"
         self.authentication = authentication
@@ -35,6 +38,8 @@ public class FliptClient {
         self.snapshot = snapshot
 
         let clientOptions = ClientOptions(
+            environment: self.environment,
+            namespace: self.namespace,
             url: self.url,
             authentication: authentication,
             requestTimeout: self.requestTimeout,
@@ -50,15 +55,13 @@ public class FliptClient {
             throw ClientError.invalidOptions
         }
 
-        let namespaceCString = strdup(self.namespace)
         let clientOptionsCString = strdup(jsonStr)
 
         defer {
-            free(namespaceCString)
             free(clientOptionsCString)
         }
 
-        engine = initialize_engine(namespaceCString, clientOptionsCString)
+        engine = initialize_engine(clientOptionsCString)
     }
 
     deinit {
@@ -299,6 +302,8 @@ public enum ErrorStrategy: String, Codable {
 }
 
 public struct ClientOptions<T: Encodable>: Encodable {
+    public let environment: String
+    public let namespace: String
     public let url: String
     public let authentication: T?
     public let requestTimeout: Int
