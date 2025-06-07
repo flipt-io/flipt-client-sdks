@@ -152,9 +152,9 @@ func WithRequestTimeout(timeout time.Duration) Option {
 // NewClient constructs a Client and performs an initial fetch of flag state.
 func NewClient(ctx context.Context, opts ...Option) (_ *Client, err error) {
 	cfg := config{
+		Environment:    defaultEnvironment,
 		Namespace:      defaultNamespace,
 		URL:            "http://localhost:8080",
-		RequestTimeout: 30 * time.Second,
 		UpdateInterval: 2 * time.Minute,
 		FetchMode:      FetchModePolling,
 		ErrorStrategy:  ErrorStrategyFail,
