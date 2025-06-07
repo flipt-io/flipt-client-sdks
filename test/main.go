@@ -373,15 +373,16 @@ func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirec
 // pythonTests runs the python integration test suite against a container running Flipt.
 func pythonTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 	_, err := root.
-		WithExec(args("pip install poetry==1.7.0")).
+		WithExec(args("pip install --upgrade pip")).
+		WithExec(args("pip install poetry==1.8.5")).
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-python")).
 		WithDirectory("/src/ext/linux_x86_64", t.engine.Directory(libDir)).
 		WithServiceBinding("flipt", t.flipt.AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithExec(args("poetry install --without=dev")).
-		WithExec(args("poetry run test")).
+		WithExec(args("poetry install")).
+		WithExec(args("poetry run pytest -v --durations=10 --durations-min=1.0")).
 		Sync(ctx)
 
 	return err
