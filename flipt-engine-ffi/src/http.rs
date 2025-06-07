@@ -246,14 +246,26 @@ impl HTTPFetcher {
                 match fetcher.mode {
                     FetchMode::Polling => {
                         if fetcher.handle_polling(&tx).await.is_err() {
-                            // TODO: log error
                             break;
                         }
-                        let sleep = tokio::time::sleep(update_interval);
-                        tokio::pin!(sleep);
-                        tokio::select! {
-                            _ = &mut sleep => {},
-                            _ = stop_notify_clone.notified() => {},
+                        let mut elapsed = Duration::ZERO;
+                        let interval = update_interval;
+                        let check = Duration::from_millis(500);
+
+                        while elapsed < interval {
+                            if stop_signal.load(Ordering::Relaxed) {
+                                return;
+                            }
+                            let sleep = tokio::time::sleep(check);
+                            tokio::pin!(sleep);
+                            tokio::select! {
+                                _ = &mut sleep => {
+                                    elapsed += check;
+                                },
+                                _ = stop_notify_clone.notified() => {
+                                    return;
+                                },
+                            }
                         }
                     }
                     FetchMode::Streaming => {

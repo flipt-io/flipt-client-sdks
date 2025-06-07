@@ -17,11 +17,10 @@ path = "ext/**/*"
 path = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
-pydantic = "<3.0"
-
-[tool.poetry.scripts]
-test = "scripts:test"
+python = ">=3.8,<4.0"
+pydantic = ">=1.10,<3.0"
+packaging = "^24.0"
 
 [tool.poetry.group.dev.dependencies]
 black = ">=23.11,<26.0"
+pytest = "^8.2.0"

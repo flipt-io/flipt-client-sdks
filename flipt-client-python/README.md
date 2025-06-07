@@ -26,9 +26,9 @@ Upon instantiation, the `flipt-client-python` library will fetch the flag state 
 
 By default, the SDK will poll the Flipt server for new flag state at a regular interval. This interval can be configured using the `update_interval` option when constructing a client. The default interval is 120 seconds.
 
-### Streaming (Flipt Cloud Only)
+### Streaming (Flipt Cloud/Flipt v2)
 
-[Flipt Cloud](https://flipt.io/cloud) users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
+[Flipt Cloud](https://flipt.io/cloud) and [Flipt v2](https://docs.flipt.io/v2) users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
 
 When in streaming mode, the SDK will connect to the Flipt server and open a persistent connection that will remain open until the client is closed. The SDK will then receive flag state changes in real-time.
 
@@ -56,51 +56,99 @@ This SDK currently supports the following OSes/architectures:
 - MacOS arm64
 - Windows x86_64
 
+## Migration Notes
+
+### Pre-1.0.0 -> 1.0.0
+
+This section is for users who are migrating from a previous (pre-1.0.0) version of the SDK.
+
+- `FliptEvaluationClient` has been renamed to `FliptClient`.
+- The `namespace` argument is now part of `ClientOptions` as `namespace` (and optionally `environment`).
+- `update_interval` and `request_timeout` are now `timedelta` objects instead of `int`.
+- All response models are now Pydantic models with explicit types and improved docstrings.
+- Backwards compatibility with Pydantic v1 is now maintained.
+- All errors now inherit from `FliptError` and use specific subclasses like `ValidationError` and `EvaluationError`.
+- The client and models now follow Python naming conventions (snake_case for methods and fields).
+- The minimum supported Python version is now 3.8.
+
 ## Usage
 
-In your Python code you can import this client and use it as so:
-
 ```python
-from flipt_client import FliptEvaluationClient
+from flipt_client import FliptClient
+from flipt_client.models import ClientOptions, ClientTokenAuthentication
 
-# "namespace" and "options" are two keyword arguments that this constructor accepts
-# namespace: which namespace to fetch flag state from
-# options: follows the model ClientOptions in the models.py file. Configures the url of the upstream Flipt instance, the interval in which to fetch new flag state, and the authentication method if your upstream Flipt instance requires it
-flipt_evaluation_client = FliptEvaluationClient()
+client = FliptClient(
+    opts=ClientOptions(
+        url="http://localhost:8080",
+        authentication=ClientTokenAuthentication(client_token="your-token"),
+    )
+)
 
-variant_result = flipt_evaluation_client.evaluate_variant(flag_key="flag1", entity_id="entity", context={"fizz": "buzz"})
-
+variant_result = client.evaluate_variant(flag_key="flag1", entity_id="entity", context={"fizz": "buzz"})
 print(variant_result)
+
+# Important: always close the client to release resources
+client.close()
 ```
 
 ### Constructor Arguments
 
-The `FliptEvaluationClient` constructor accepts two optional arguments:
+The `FliptClient` constructor accepts a single `opts` argument:
 
-- `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
-- `options`: An instance of the `ClientOptions` class that supports several options for the client. The structure is:
-  - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
-  - `request_timeout`: The timeout (in seconds) for total request time to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.
-  - `update_interval`: The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
-  - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
-  - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
-  - `fetch_mode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
-  - `error_strategy`: The error strategy to use when fetching flag state. If not provide, the client will be default to fail. See the [Error Strategies](#error-strategies) section for more information.
+- `opts`: An instance of the `ClientOptions` class. The structure is:
+  - `environment`: The environment name. Defaults to `default`.
+  - `namespace`: The namespace name. Defaults to `default`.
+  - `url`: The URL of the upstream Flipt instance. Defaults to `http://localhost:8080`.
+  - `request_timeout`: Timeout for requests. Defaults to no timeout.
+  - `update_interval`: Interval to fetch new flag state. Defaults to 120s.
+  - `authentication`: Authentication strategy. See [Authentication](#authentication).
+  - `reference`: The namespace or reference key. Defaults to `default`.
+  - `fetch_mode`: Fetch mode (`polling` or `streaming`). Defaults to polling.
+  - `error_strategy`: Error strategy (`fail` or `fallback`). Defaults to fail.
+  - `snapshot`: A base64 encoded snapshot of the engine state. Defaults to `None`. See [Snapshotting](#snapshotting).
 
 ### Authentication
 
-The `FliptEvaluationClient` supports the following authentication strategies:
+The `FliptClient` supports:
 
 - No Authentication (default)
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
 - [JWT Authentication](https://docs.flipt.io/authentication/using-jwts)
 
-### Error Strategies
+### Error Handling
 
-The client supports the following error strategies:
+All errors raised by the client derive from `flipt_client.errors.FliptError`:
 
-- `fail`: The client will throw an error if the flag state cannot be fetched. This is the default behavior.
-- `fallback`: The client will maintain the last known good state and use that state for evaluation in case of an error.
+- `ValidationError`: Raised for invalid arguments or configuration.
+- `EvaluationError`: Raised for evaluation failures (e.g., flag not found).
+
+Example:
+
+```python
+from flipt_client.errors import ValidationError, EvaluationError
+
+try:
+    client.evaluate_variant(flag_key=None, entity_id="entity")
+except ValidationError as e:
+    print(f"Validation error: {e}")
+except EvaluationError as e:
+    print(f"Evaluation error: {e}")
+```
+
+### Snapshotting
+
+The client supports snapshotting of flag state as well as seeding the client with a snapshot for evaluation. This is helpful if you want to use the client in an environment where the Flipt server is not guaranteed to be available or reachable on startup.
+
+To get the snapshot for the client, you can use the `get_snapshot` method. This returns a base64 encoded JSON string that represents the flag state for the client.
+
+You can set the snapshot for the client using the `snapshot` option when constructing a client.
+
+**Note:** You most likely will want to also set the `error_strategy` to `fallback` when using snapshots. This will ensure that you wont get an error if the Flipt server is not available or reachable even on the initial fetch.
+
+You also may want to store the snapshot in a local file so that you can use it to seed the client on startup.
+
+> [!IMPORTANT]
+> If the Flipt server becomes reachable after the setting the snapshot, the client will replace the snapshot with the new flag state from the Flipt server.
 
 ## Contributing
 
