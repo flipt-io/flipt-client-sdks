@@ -117,7 +117,7 @@ void main() {
 
 The `FliptClient` initializer accepts several options that can be used to configure the client. The available options are:
 
-- `environment`: The environment to fetch flag state from. If not provided, the client will default to the `default` environment.
+- `environment`: The environment (Flipt v2) to fetch flag state from. If not provided, the client will default to the `default` environment.
 - `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
 - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
 - `requestTimeout`: The timeout as a `Duration` for total request time to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.

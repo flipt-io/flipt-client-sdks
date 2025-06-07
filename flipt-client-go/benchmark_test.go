@@ -1,4 +1,4 @@
-package evaluation_test
+package flipt_test
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	benchClient *flipt.EvaluationClient
+	benchClient *flipt.Client
 	cpuProfile  = flag.String("cpuprofile", "", "write cpu profile to file")
 	memProfile  = flag.String("memprofile", "", "write memory profile to file")
 )
@@ -53,7 +53,7 @@ func TestMain(m *testing.M) {
 }
 
 func init() {
-	opts := []flipt.ClientOption{}
+	opts := []flipt.Option{}
 
 	if os.Getenv("FLIPT_URL") != "" {
 		opts = append(opts, flipt.WithURL(os.Getenv("FLIPT_URL")))
@@ -64,7 +64,7 @@ func init() {
 	}
 
 	var err error
-	benchClient, err = flipt.NewEvaluationClient(
+	benchClient, err = flipt.NewClient(
 		context.TODO(),
 		opts...,
 	)
@@ -87,9 +87,9 @@ func BenchmarkVariantEvaluation(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			_, err := benchClient.EvaluateVariant(ctx, "flag1", "someentity", map[string]string{
+			_, err := benchClient.EvaluateVariant(ctx, &flipt.EvaluationRequest{FlagKey: "flag1", EntityID: "someentity", Context: map[string]string{
 				"fizz": "buzz",
-			})
+			}})
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -102,7 +102,7 @@ func BenchmarkVariantEvaluation(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			_, err := benchClient.EvaluateVariant(ctx, "flag1", "someentity", context)
+			_, err := benchClient.EvaluateVariant(ctx, &flipt.EvaluationRequest{FlagKey: "flag1", EntityID: "someentity", Context: context})
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -115,7 +115,7 @@ func BenchmarkVariantEvaluation(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			_, err := benchClient.EvaluateVariant(ctx, "flag1", "someentity", context)
+			_, err := benchClient.EvaluateVariant(ctx, &flipt.EvaluationRequest{FlagKey: "flag1", EntityID: "someentity", Context: context})
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -129,9 +129,9 @@ func BenchmarkBooleanEvaluation(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			_, err := benchClient.EvaluateBoolean(ctx, "flag_boolean", "someentity", map[string]string{
+			_, err := benchClient.EvaluateBoolean(ctx, &flipt.EvaluationRequest{FlagKey: "flag_boolean", EntityID: "someentity", Context: map[string]string{
 				"fizz": "buzz",
-			})
+			}})
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -144,7 +144,7 @@ func BenchmarkBooleanEvaluation(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			_, err := benchClient.EvaluateBoolean(ctx, "flag_boolean", "someentity", context)
+			_, err := benchClient.EvaluateBoolean(ctx, &flipt.EvaluationRequest{FlagKey: "flag_boolean", EntityID: "someentity", Context: context})
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -157,7 +157,7 @@ func BenchmarkBooleanEvaluation(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			_, err := benchClient.EvaluateBoolean(ctx, "flag_boolean", "someentity", context)
+			_, err := benchClient.EvaluateBoolean(ctx, &flipt.EvaluationRequest{FlagKey: "flag_boolean", EntityID: "someentity", Context: context})
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -171,14 +171,14 @@ func BenchmarkBatchEvaluation(b *testing.B) {
 		requests := []*flipt.EvaluationRequest{
 			{
 				FlagKey:  "flag1",
-				EntityId: "someentity",
+				EntityID: "someentity",
 				Context: map[string]string{
 					"fizz": "buzz",
 				},
 			},
 			{
 				FlagKey:  "flag_boolean",
-				EntityId: "someentity",
+				EntityID: "someentity",
 				Context: map[string]string{
 					"fizz": "buzz",
 				},
@@ -201,7 +201,7 @@ func BenchmarkBatchEvaluation(b *testing.B) {
 		for i := range requests {
 			requests[i] = &flipt.EvaluationRequest{
 				FlagKey:  fmt.Sprintf("flag%d", i),
-				EntityId: "someentity",
+				EntityID: "someentity",
 				Context:  context,
 			}
 		}
@@ -222,7 +222,7 @@ func BenchmarkBatchEvaluation(b *testing.B) {
 		for i := range requests {
 			requests[i] = &flipt.EvaluationRequest{
 				FlagKey:  fmt.Sprintf("flag%d", i),
-				EntityId: "someentity",
+				EntityID: "someentity",
 				Context:  context,
 			}
 		}

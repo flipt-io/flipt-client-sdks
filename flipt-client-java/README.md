@@ -131,6 +131,7 @@ This client is thread-safe and can be reused across your application.
 
 The `FliptClient.builder()` method returns a `FliptClient.Builder` object that allows you to configure the client with the following methods:
 
+- `environment`: The environment (Flipt v2) to fetch flag state from. If not provided, the client will default to the `default` environment.
 - `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
 - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
 - `requestTimeout`: The timeout (Duration) for requests to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.

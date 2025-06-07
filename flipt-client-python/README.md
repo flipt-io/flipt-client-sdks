@@ -96,8 +96,8 @@ client.close()
 The `FliptClient` constructor accepts a single `opts` argument:
 
 - `opts`: An instance of the `ClientOptions` class. The structure is:
-  - `environment`: The environment name. Defaults to `default`.
-  - `namespace`: The namespace name. Defaults to `default`.
+  - `environment`: The environment (Flipt v2) to fetch flag state from. If not provided, the client will default to the `default` environment.
+  - `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
   - `url`: The URL of the upstream Flipt instance. Defaults to `http://localhost:8080`.
   - `request_timeout`: Timeout for requests. Defaults to no timeout.
   - `update_interval`: Interval to fetch new flag state. Defaults to 120s.

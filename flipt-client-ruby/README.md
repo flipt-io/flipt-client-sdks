@@ -89,13 +89,6 @@ In your Ruby code you can import this client and use it as so:
 ```ruby
 require 'flipt_client'
 
-# namespace is an optional keyword argument and will default to "default" if not specified.
-# opts is a hash of options for the client:
-# {
-#   url: "http://localhost:8080",
-#   update_interval: 120,
-#   authentication: Flipt::ClientTokenAuthentication.new("secret")
-# }
 client = Flipt::Client.new(url: 'http://localhost:8080', authentication: Flipt::ClientTokenAuthentication.new('secret'))
 
 resp = client.evaluate_variant(flag_key: 'buzz', entity_id: 'someentity', context: { fizz: 'buzz' })
@@ -111,8 +104,8 @@ puts resp.enabled # => true
 
 The `Flipt::Client` constructor accepts the following keyword arguments:
 
-- `environment`: The environment to fetch flag state from. Defaults to `default`.
-- `namespace`: The namespace to fetch flag state from. Defaults to `default`.
+- `environment`: The environment (Flipt v2) to fetch flag state from. If not provided, the client will default to the `default` environment.
+- `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
 - `url`: The URL of the upstream Flipt instance. Defaults to `http://localhost:8080`.
 - `request_timeout`: Timeout (in seconds) for requests. Defaults to no timeout.
 - `update_interval`: Interval (in seconds) to fetch new flag state. Defaults to 120 seconds.
