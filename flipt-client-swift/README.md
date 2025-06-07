@@ -37,9 +37,9 @@ Upon instantiation, the `flipt-client-swift` library will fetch the flag state f
 
 By default, the SDK will poll the Flipt server for new flag state at a regular interval. This interval can be configured using the `updateInterval` option when constructing a client. The default interval is 120 seconds.
 
-### Streaming (Flipt Cloud Only)
+### Streaming (Flipt Cloud/Flipt v2)
 
-[Flipt Cloud](https://flipt.io/cloud) users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
+[Flipt Cloud](https://flipt.io/cloud) and [Flipt v2](https://docs.flipt.io/v2) users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
 
 When in streaming mode, the SDK will connect to the Flipt server and open a persistent connection that will remain open until the client is closed. The SDK will then receive flag state changes in real-time.
 
@@ -65,6 +65,15 @@ This SDK currently supports the following platforms/architectures:
 - iOS Simulator arm64
 - macOS arm64
 
+## Migration Notes
+
+### 1.1.0 -> 1.2.0
+
+This section is for users who are migrating from a previous (1.1.0) version of the SDK.
+
+- The `FliptClient` initializer now accepts an `environment` option. If not provided, the client will default to the `default` environment.
+- `requestTimeout` and `updateInterval` are now `Duration` types instead of `Int`.
+
 ## Usage
 
 ```swift
@@ -75,7 +84,7 @@ let client = try FliptClient(
     namespace: "default",
     url: "http://localhost:8080",
     authentication: .clientToken("your-token"),
-    updateInterval: 120,
+    updateInterval: .seconds(120),
     fetchMode: .polling
 )
 
@@ -105,21 +114,16 @@ defer {
 
 The `FliptClient` initializer accepts several options that can be used to configure the client. The available options are:
 
+- `environment`: The environment to fetch flag state from. If not provided, the client will default to the `default` environment.
 - `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
 - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
-- `requestTimeout`: The timeout (in seconds) for total request time to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.
-- `updateInterval`: The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
+- `requestTimeout`: The timeout for total request time to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.
+- `updateInterval`: The interval in which to fetch new flag state. If not provided, the client will default to 120 seconds.
 - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
 - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
 - `fetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
 - `errorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to `fail`. See the [Error Strategies](#error-strategies) section for more information.
-
-### Error Strategies
-
-The `FliptClient` supports the following error strategies:
-
-- `fail`: The client will throw an error if the flag state cannot be fetched. This is the default behavior.
-- `fallback`: The client will maintain the last known good state and use that state for evaluation in case of an error.
+- `snapshot`: The snapshot to use when fetching flag state. If not provided, the client will default to no snapshot. See the [Snapshot](#snapshotting) section for more information.
 
 ### Authentication
 
@@ -128,6 +132,28 @@ The `FliptClient` supports the following authentication strategies:
 - No Authentication (default)
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
 - [JWT Authentication](https://docs.flipt.io/authentication/using-jwts)
+
+### Error Strategies
+
+The `FliptClient` supports the following error strategies:
+
+- `fail`: The client will throw an error if the flag state cannot be fetched. This is the default behavior.
+- `fallback`: The client will maintain the last known good state and use that state for evaluation in case of an error.
+
+### Snapshotting
+
+The client supports snapshotting of flag state as well as seeding the client with a snapshot for evaluation. This is helpful if you want to use the client in an environment where the Flipt server is not guaranteed to be available or reachable on startup.
+
+To get the snapshot for the client, you can use the `getSnapshot` method. This returns a base64 encoded JSON string that represents the flag state for the client.
+
+You can set the snapshot for the client using the `snapshot` option when constructing a client.
+
+**Note:** You most likely will want to also set the `errorStrategy` to `fallback` when using snapshots. This will ensure that you wont get an error if the Flipt server is not available or reachable even on the initial fetch.
+
+You also may want to store the snapshot in a local file so that you can use it to seed the client on startup.
+
+> [!IMPORTANT]
+> If the Flipt server becomes reachable after the setting the snapshot, the client will replace the snapshot with the new flag state from the Flipt server.
 
 ## Memory Management
 

@@ -3,55 +3,65 @@ import Foundation
 
 public class FliptClient {
     private var engine: UnsafeMutableRawPointer?
+    private var environment: String = "default"
     private var namespace: String = "default"
-    private var url: String = ""
+    private var url: String = "http://localhost:8080"
     private var authentication: Authentication?
-    private var ref: String = ""
+    private var reference: String?
     private var requestTimeout: Int = 0
-    private var updateInterval: Int = 0
+    private var updateInterval: Int = 120
     private var fetchMode: FetchMode = .polling
     private var errorStrategy: ErrorStrategy = .fail
+    private var snapshot: String?
 
     public init(
-        namespace: String = "default",
-        url: String = "",
+        environment: String? = nil,
+        namespace: String? = nil,
+        url: String? = nil,
         authentication: Authentication? = nil,
-        ref: String = "",
-        requestTimeout: Int = 0,
-        updateInterval: Int = 120,
+        reference: String? = nil,
+        requestTimeout: Duration? = nil,
+        updateInterval: Duration? = nil,
         fetchMode: FetchMode = .polling,
-        errorStrategy: ErrorStrategy = .fail) throws
+        errorStrategy: ErrorStrategy = .fail,
+        snapshot: String? = nil) throws
     {
-        self.namespace = namespace
-        self.url = url
+        self.environment = environment ?? "default"
+        self.namespace = namespace ?? "default"
+        self.url = url ?? "http://localhost:8080"
         self.authentication = authentication
-        self.ref = ref
-        self.requestTimeout = requestTimeout
-        self.updateInterval = updateInterval
+        self.requestTimeout = requestTimeout?.components.seconds ?? 0
+        self.updateInterval = updateInterval?.components.seconds ?? 120
+        self.reference = reference
         self.fetchMode = fetchMode
         self.errorStrategy = errorStrategy
+        self.snapshot = snapshot
 
         let clientOptions = ClientOptions(
-            url: url,
+            environment: self.environment,
+            namespace: self.namespace,
+            url: self.url,
             authentication: authentication,
-            requestTimeout: requestTimeout,
-            updateInterval: updateInterval,
-            reference: ref,
+            requestTimeout: self.requestTimeout,
+            updateInterval: self.updateInterval,
+            reference: self.reference,
             fetchMode: fetchMode,
-            errorStrategy: errorStrategy)
+            errorStrategy: errorStrategy,
+            snapshot: self.snapshot)
 
-        guard let jsonData = try? JSONEncoder().encode(clientOptions) else {
+        guard let jsonData = try? JSONEncoder().encode(clientOptions),
+              let jsonStr = String(data: jsonData, encoding: .utf8)
+        else {
             throw ClientError.invalidOptions
         }
 
-        let jsonStr = String(data: jsonData, encoding: .utf8)
-        let namespaceCString = strdup(namespace)
         let clientOptionsCString = strdup(jsonStr)
 
-        engine = initialize_engine(namespaceCString, clientOptionsCString)
+        defer {
+            free(clientOptionsCString)
+        }
 
-        free(namespaceCString)
-        free(clientOptionsCString)
+        engine = initialize_engine(clientOptionsCString)
     }
 
     deinit {
@@ -215,6 +225,15 @@ public class FliptClient {
         return result
     }
 
+    public func getSnapshot() throws -> String {
+        guard let snapshotCString = get_snapshot(engine) else {
+            throw ClientError.evaluationFailed(message: "No response from engine")
+        }
+        let snapshot = String(cString: snapshotCString)
+        destroy_string(UnsafeMutablePointer(mutating: snapshotCString))
+        return snapshot
+    }
+
     public enum ClientError: Error {
         case invalidOptions
         case invalidRequest
@@ -283,13 +302,16 @@ public enum ErrorStrategy: String, Codable {
 }
 
 public struct ClientOptions<T: Encodable>: Encodable {
+    public let environment: String
+    public let namespace: String
     public let url: String
     public let authentication: T?
     public let requestTimeout: Int
     public let updateInterval: Int
-    public let reference: String
+    public let reference: String?
     public let fetchMode: FetchMode
     public let errorStrategy: ErrorStrategy
+    public let snapshot: String?
 }
 
 public struct Flag: Codable {

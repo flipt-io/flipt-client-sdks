@@ -27,6 +27,7 @@ class FliptClientTests: XCTestCase {
     }
 
     override func tearDown() {
+        evaluationClient?.close()
         evaluationClient = nil
         super.tearDown()
     }
@@ -74,14 +75,14 @@ class FliptClientTests: XCTestCase {
 
     func testVariant() {
         do {
-            let variant = try evaluationClient?.evaluateVariant(
+            let variantResult = try evaluationClient?.evaluateVariant(
                 flagKey: "flag1",
                 entityID: "someentity",
                 evalContext: ["fizz": "buzz"])
-            XCTAssertTrue(variant?.match ?? false)
-            XCTAssertEqual(variant?.flag_key, "flag1")
-            XCTAssertEqual(variant?.reason, "MATCH_EVALUATION_REASON")
-            XCTAssertTrue(variant?.segment_keys.contains("segment1") ?? false)
+            XCTAssertTrue(variantResult.match)
+            XCTAssertEqual(variantResult.flag_key, "flag1")
+            XCTAssertEqual(variantResult.reason, "MATCH_EVALUATION_REASON")
+            XCTAssertTrue(variantResult.segment_keys.contains("segment1"))
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
@@ -89,13 +90,13 @@ class FliptClientTests: XCTestCase {
 
     func testBoolean() {
         do {
-            let boolean = try evaluationClient?.evaluateBoolean(
+            let booleanResult = try evaluationClient?.evaluateBoolean(
                 flagKey: "flag_boolean",
                 entityID: "someentity",
                 evalContext: ["fizz": "buzz"])
-            XCTAssertEqual(boolean?.flag_key, "flag_boolean")
-            XCTAssertTrue(boolean?.enabled ?? false)
-            XCTAssertEqual(boolean?.reason, "MATCH_EVALUATION_REASON")
+            XCTAssertEqual(booleanResult.flag_key, "flag_boolean")
+            XCTAssertTrue(booleanResult.enabled)
+            XCTAssertEqual(booleanResult.reason, "MATCH_EVALUATION_REASON")
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
@@ -109,12 +110,12 @@ class FliptClientTests: XCTestCase {
                 EvaluationRequest(flag_key: "notfound", entity_id: "someentity", context: ["fizz": "buzz"])
             ]
 
-            let batch = try evaluationClient?.evaluateBatch(requests: requests)
-            XCTAssertEqual(batch?.responses.count, 3)
+            let batchResult = try evaluationClient?.evaluateBatch(requests: requests)
+            XCTAssertEqual(batchResult.responses.count, 3)
 
-            let variant = batch?.responses[0]
-            XCTAssertEqual(variant?.type, "VARIANT_EVALUATION_RESPONSE_TYPE")
-            guard let variantResp = variant?.variant_evaluation_response else {
+            let variantResult = batchResult.responses[0]
+            XCTAssertEqual(variantResult.type, "VARIANT_EVALUATION_RESPONSE_TYPE")
+            guard let variantResp = variantResult.variant_evaluation_response else {
                 XCTFail("unexpected response type")
                 return
             }
@@ -123,9 +124,9 @@ class FliptClientTests: XCTestCase {
             XCTAssertEqual(variantResp.reason, "MATCH_EVALUATION_REASON")
             XCTAssertTrue(variantResp.segment_keys.contains("segment1"))
 
-            let boolean = batch?.responses[1]
-            XCTAssertEqual(boolean?.type, "BOOLEAN_EVALUATION_RESPONSE_TYPE")
-            guard let boolResp = boolean?.boolean_evaluation_response else {
+            let booleanResult = batchResult.responses[1]
+            XCTAssertEqual(booleanResult.type, "BOOLEAN_EVALUATION_RESPONSE_TYPE")
+            guard let boolResp = booleanResult.boolean_evaluation_response else {
                 XCTFail("unexpected response type")
                 return
             }
@@ -133,9 +134,9 @@ class FliptClientTests: XCTestCase {
             XCTAssertTrue(boolResp.enabled)
             XCTAssertEqual(boolResp.reason, "MATCH_EVALUATION_REASON")
 
-            let errorResponse = batch?.responses[2]
-            XCTAssertEqual(errorResponse?.type, "ERROR_EVALUATION_RESPONSE_TYPE")
-            guard let errResp = errorResponse?.error_evaluation_response else {
+            let errorResult = batchResult.responses[2]
+            XCTAssertEqual(errorResult.type, "ERROR_EVALUATION_RESPONSE_TYPE")
+            guard let errResp = errorResult.error_evaluation_response else {
                 XCTFail("unexpected response type")
                 return
             }
@@ -166,6 +167,55 @@ class FliptClientTests: XCTestCase {
             XCTFail("Expected an error, but got none")
         } catch let error as FliptClient.ClientError {
             XCTAssertFalse(error.localizedDescription.isEmpty)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testSetGetSnapshotWithInvalidFliptURL() {
+        do {
+            let snapshot = try evaluationClient?.getSnapshot()
+            XCTAssertNotNil(snapshot)
+
+            let invalidFliptClient = try FliptClient(
+                namespace: "default",
+                url: "http://invalid.flipt.com",
+                errorStrategy: .fallback,
+                snapshot: snapshot)
+
+            let context = ["fizz": "buzz"]
+
+            for _ in 0 ..< 5 {
+                // Variant evaluation
+                let variant = try invalidFliptClient.evaluateVariant(
+                    flagKey: "flag1",
+                    entityID: "entity",
+                    evalContext: context)
+                XCTAssertEqual(variant.flag_key, "flag1")
+                XCTAssertTrue(variant.match)
+                XCTAssertEqual(variant.reason, "MATCH_EVALUATION_REASON")
+                XCTAssertEqual(variant.variant_key, "variant1")
+                XCTAssertTrue(variant.segment_keys.contains("segment1"))
+
+                // Boolean evaluation
+                let boolean = try invalidFliptClient.evaluateBoolean(
+                    flagKey: "flag_boolean",
+                    entityID: "entity",
+                    evalContext: context)
+                XCTAssertEqual(boolean.flag_key, "flag_boolean")
+                XCTAssertTrue(boolean.enabled)
+                XCTAssertEqual(boolean.reason, "MATCH_EVALUATION_REASON")
+
+                // List flags
+                let flags = try invalidFliptClient.listFlags()
+                XCTAssertEqual(flags.count, 2)
+
+                // Get snapshot
+                let snapshot = try invalidFliptClient.getSnapshot()
+                XCTAssertNotNil(snapshot)
+            }
+
+            invalidFliptClient.close()
         } catch {
             XCTFail("Unexpected error: \(error)")
         }

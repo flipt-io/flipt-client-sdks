@@ -103,7 +103,7 @@ jobs:
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           script: |
-            const tag = context.ref.replace('refs/tags/', '');
+            const release_tag = context.ref.replace('refs/tags/', '');
 
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
@@ -111,8 +111,8 @@ jobs:
               workflow_id: 'package-ffi-engine-ios.yml',
               ref: 'main',
               inputs: {
-                tag: tag
+                release_tag: release_tag
               }
             });
 
-            console.log(`Successfully triggered iOS packaging workflow for tag: ${tag}`);
+            console.log(`Successfully triggered iOS packaging workflow for release tag: ${release_tag}`);
