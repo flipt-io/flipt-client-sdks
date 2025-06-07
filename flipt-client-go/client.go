@@ -149,6 +149,29 @@ func WithRequestTimeout(timeout time.Duration) Option {
 	}
 }
 
+var defaultHTTPClient = &http.Client{
+	Transport: &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 5 * time.Second, // More aggressive TCP keepalive
+		}).DialContext,
+		IdleConnTimeout:       60 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   10,
+		// Enable HTTP/2 ping frames and other settings
+		Proxy:           http.ProxyFromEnvironment,
+		ReadBufferSize:  32 * 1024,
+		WriteBufferSize: 32 * 1024,
+		// HTTP/2 specific settings
+		MaxResponseHeaderBytes: 4 * 1024, // 4KB
+		DisableCompression:     false,    // Enable compression
+	},
+}
+
 // NewClient constructs a Client and performs an initial fetch of flag state.
 func NewClient(ctx context.Context, opts ...Option) (_ *Client, err error) {
 	cfg := config{
@@ -158,7 +181,9 @@ func NewClient(ctx context.Context, opts ...Option) (_ *Client, err error) {
 		UpdateInterval: 2 * time.Minute,
 		FetchMode:      FetchModePolling,
 		ErrorStrategy:  ErrorStrategyFail,
+		HTTPClient:     defaultHTTPClient,
 	}
+
 	for _, opt := range opts {
 		opt(&cfg)
 	}
@@ -199,27 +224,8 @@ func NewClient(ctx context.Context, opts ...Option) (_ *Client, err error) {
 		snapshotChan: make(chan snapshot, 1),
 	}
 
-	c.cfg.HTTPClient = &http.Client{
-		Transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout:   10 * time.Second,
-				KeepAlive: 5 * time.Second, // More aggressive TCP keepalive
-			}).DialContext,
-			IdleConnTimeout:       60 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ResponseHeaderTimeout: 10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-			ForceAttemptHTTP2:     true,
-			MaxIdleConns:          100,
-			MaxIdleConnsPerHost:   10,
-			// Enable HTTP/2 ping frames and other settings
-			Proxy:           http.ProxyFromEnvironment,
-			ReadBufferSize:  32 * 1024,
-			WriteBufferSize: 32 * 1024,
-			// HTTP/2 specific settings
-			MaxResponseHeaderBytes: 4 * 1024, // 4KB
-			DisableCompression:     false,    // Enable compression
-		},
+	if c.cfg.HTTPClient == nil {
+		c.cfg.HTTPClient = defaultHTTPClient
 	}
 
 	if c.cfg.Namespace == "" {
