@@ -66,6 +66,7 @@ This SDK currently supports the following OSes/architectures:
 This section is for users who are migrating from a previous (pre-1.0.0) version of the SDK.
 
 - The package name is now `flipt` and the main client is `Client`.
+- `WithEnvironment` is now a valid option for fetching flag state from Flipt v2.
 - All client methods now use request structs (e.g., `EvaluateVariant(ctx, &flipt.EvaluationRequest{...})`).
 - Configuration is now done via functional options (e.g., `WithNamespace`, `WithURL`, etc.).
 - Error handling uses standardized error types and codes.
@@ -88,7 +89,6 @@ func main() {
   ctx := context.Background()
   client, err := flipt.NewClient(
     ctx,
-    flipt.WithNamespace("default"),
     flipt.WithURL("http://localhost:8080"),
     flipt.WithRequestTimeout(30 * time.Second),
     flipt.WithUpdateInterval(2 * time.Minute),
