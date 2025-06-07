@@ -144,6 +144,15 @@ fn get_or_create_runtime() -> &'static Handle {
     }
 }
 
+fn init_logging() {
+    let _ = env_logger::Builder::from_env(
+        env_logger::Env::new()
+            .filter("FLIPT_ENGINE_LOG")
+            .default_filter_or("error"),
+    )
+    .try_init();
+}
+
 impl Engine {
     pub fn new(
         mut fetcher: HTTPFetcher,
@@ -894,15 +903,6 @@ unsafe fn get_batch_evaluation_request(
     }
 
     evaluation_requests
-}
-
-fn init_logging() {
-    let _ = env_logger::Builder::from_env(
-        env_logger::Env::new()
-            .filter("FLIPT_ENGINE_LOG")
-            .default_filter_or("trace"),
-    )
-    .try_init();
 }
 
 #[cfg(test)]

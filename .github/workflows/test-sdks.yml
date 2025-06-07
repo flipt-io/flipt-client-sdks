@@ -53,7 +53,7 @@ jobs:
 
     name: Integration Tests FFI - (${{ matrix.sdk }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
