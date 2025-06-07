@@ -308,9 +308,10 @@ public struct ClientOptions<T: Encodable>: Encodable {
     public let authentication: T?
     public let requestTimeout: Int
     public let updateInterval: Int
-    public let reference: String
+    public let reference: String?
     public let fetchMode: FetchMode
     public let errorStrategy: ErrorStrategy
+    public let snapshot: String?
 }
 
 public struct Flag: Codable {
