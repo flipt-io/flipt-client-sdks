@@ -4,7 +4,6 @@ use std::time::Duration;
 
 use futures::TryStreamExt;
 use futures_util::stream::StreamExt;
-use log::trace;
 use reqwest::header::{self, HeaderMap};
 use reqwest::Response;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
@@ -247,7 +246,6 @@ impl HTTPFetcher {
                 match fetcher.mode {
                     FetchMode::Polling => {
                         if fetcher.handle_polling(&tx).await.is_err() {
-                            // TODO: log error
                             break;
                         }
                         let mut elapsed = Duration::ZERO;
@@ -255,6 +253,9 @@ impl HTTPFetcher {
                         let check = Duration::from_millis(500);
 
                         while elapsed < interval {
+                            if stop_signal.load(Ordering::Relaxed) {
+                                return;
+                            }
                             let sleep = tokio::time::sleep(check);
                             tokio::pin!(sleep);
                             tokio::select! {
@@ -262,8 +263,6 @@ impl HTTPFetcher {
                                     elapsed += check;
                                 },
                                 _ = stop_notify_clone.notified() => {
-                                    trace!("[FFI] fetcher task: received stop_notify");
-                                    // Shutdown requested
                                     return;
                                 },
                             }

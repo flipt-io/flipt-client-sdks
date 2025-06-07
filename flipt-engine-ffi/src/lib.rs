@@ -812,8 +812,6 @@ unsafe extern "C" fn _list_flags(engine_ptr: *mut c_void) -> *const c_char {
 }
 
 unsafe extern "C" fn _destroy_engine(engine_ptr: *mut c_void) {
-    init_logging();
-    trace!("[FFI] destroy_engine: destroying engine");
     if engine_ptr.is_null() {
         return;
     }
@@ -821,7 +819,6 @@ unsafe extern "C" fn _destroy_engine(engine_ptr: *mut c_void) {
     engine.stop_signal.store(true, Ordering::Relaxed);
     // Notify the fetcher task to stop
     engine.stop_notify.notify_waiters();
-    trace!("[FFI] destroy_engine: waiting for fetcher task to exit");
     // Wait for fetcher task to exit
     if let Some(handle) = engine.fetcher_handle {
         let rt = get_or_create_runtime();
