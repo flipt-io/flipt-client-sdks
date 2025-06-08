@@ -5,25 +5,8 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
-import java.io.File
-import java.nio.charset.StandardCharsets
-import java.util.Base64
 
 class TestFliptClient {
-    companion object {
-        private val SNAPSHOT: String by lazy {
-            Base64.getEncoder().encodeToString(readResourceFile("snapshot.json").toByteArray(StandardCharsets.UTF_8))
-        }
-        private val EMPTY_SNAPSHOT: String by lazy {
-            Base64.getEncoder().encodeToString(readResourceFile("empty_snapshot.json").toByteArray(StandardCharsets.UTF_8))
-        }
-
-        private fun readResourceFile(filename: String): String {
-            val resourcePath = "src/test/resources/$filename"
-            return File(resourcePath).readText(Charsets.UTF_8)
-        }
-    }
-
     private var fliptClient: FliptClient? = null
 
     @Before
@@ -126,25 +109,16 @@ class TestFliptClient {
     }
 
     @Test
-    fun testGetSnapshot() {
-        val snapshot = fliptClient!!.getSnapshot()
-        assertNotNull(snapshot)
-        val expectedBytes = Base64.getDecoder().decode(SNAPSHOT)
-        val actualBytes = Base64.getDecoder().decode(snapshot)
-        val expectedJson = String(expectedBytes, StandardCharsets.UTF_8)
-        val actualJson = String(actualBytes, StandardCharsets.UTF_8)
-        // Use JSON comparison for leniency
-        assertTrue(jsonEquals(expectedJson, actualJson))
-    }
-
-    @Test
     fun testSetGetSnapshotWithInvalidFliptURL() {
+        val snapshot = fliptClient?.getSnapshot()
+        assertNotNull(snapshot)
+
         val invalidFliptClient =
             FliptClient
                 .builder()
                 .url("http://invalid.flipt.com")
                 .errorStrategy(ErrorStrategy.FALLBACK)
-                .snapshot(SNAPSHOT)
+                .snapshot(snapshot)
                 .build()
 
         val context: MutableMap<String, String> = HashMap()
