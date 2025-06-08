@@ -16,6 +16,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Thrown when a validation error occurs in FliptClient.
