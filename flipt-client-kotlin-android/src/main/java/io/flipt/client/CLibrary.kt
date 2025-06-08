@@ -5,10 +5,7 @@ class CLibrary {
         System.loadLibrary("fliptengine_wrapper")
     }
 
-    external fun initializeEngine(
-        namespace: String,
-        opts: String,
-    ): Long
+    external fun initializeEngine(options: String): Long
 
     external fun evaluateVariant(
         enginePtr: Long,
