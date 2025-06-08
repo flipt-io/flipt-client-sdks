@@ -112,7 +112,7 @@ The `FliptClient` constructor accepts one optional argument:
   - `Reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
   - `FetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
   - `ErrorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to `Fail`. See the [Error Strategies](#error-strategies) section for more information.
-- `Snapshot`: The initial snapshot to use when instantiating the client. See the [Snapshotting](#snapshotting) section for more information.
+  - `Snapshot`: The initial snapshot to use when instantiating the client. See the [Snapshotting](#snapshotting) section for more information.
 
 ### Authentication
 
