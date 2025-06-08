@@ -159,8 +159,6 @@ class FliptClient(
          */
         @Throws(EvaluationException::class)
         fun build(): FliptClient {
-            val requestTimeout = this.requestTimeout?.inWholeSeconds
-            val updateInterval = this.updateInterval?.inWholeSeconds
             val options =
                 ClientOptions(
                     environment = environment,
