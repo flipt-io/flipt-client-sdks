@@ -41,6 +41,7 @@ namespace FliptClient
         public static DestroyEngineDelegate DestroyEngine;
         public static DestroyStringDelegate DestroyString;
         public static GetSnapshotDelegate GetSnapshot;
+
         static NativeMethods()
         {
             string libraryPath = GetLibraryName();
