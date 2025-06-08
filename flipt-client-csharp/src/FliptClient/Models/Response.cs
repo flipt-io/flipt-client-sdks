@@ -14,7 +14,7 @@ public class Flag
     public required string Key { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether whether the flag is enabled.
+    /// Gets or sets a value indicating whether the flag is enabled.
     /// </summary>
     [JsonPropertyName("enabled")]
     public bool Enabled { get; set; }
@@ -38,7 +38,7 @@ public class VariantEvaluationResponse
     public required string FlagKey { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether whether the evaluation matched a segment.
+    /// Gets or sets a value indicating whether the evaluation matched a segment.
     /// </summary>
     [JsonPropertyName("match")]
     public bool Match { get; set; }
@@ -92,7 +92,7 @@ public class BooleanEvaluationResponse
     public required string FlagKey { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether whether the flag is enabled for the evaluation.
+    /// Gets or sets a value indicating whether the flag is enabled for the evaluation.
     /// </summary>
     [JsonPropertyName("enabled")]
     public bool Enabled { get; set; }
