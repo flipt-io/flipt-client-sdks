@@ -8,11 +8,11 @@ using FliptClient.Models;
 
 namespace FliptClient.Tests
 {
-    public class EvaluationClientTests : IDisposable
+    public class FliptClientTests : IDisposable
     {
-        private readonly EvaluationClient _client;
+        private readonly FliptClient _client;
 
-        public EvaluationClientTests(ITestOutputHelper output)
+        public FliptClientTests(ITestOutputHelper output)
         {
             Console.SetOut(new ConsoleWriter(output));
             string? fliptUrl = Environment.GetEnvironmentVariable("FLIPT_URL");
@@ -20,21 +20,22 @@ namespace FliptClient.Tests
 
             if (string.IsNullOrEmpty(fliptUrl))
             {
-                throw new Exception("FLIPT_URL environment variable is not set");
+                throw new ValidationException("FLIPT_URL environment variable is not set");
             }
 
             if (string.IsNullOrEmpty(authToken))
             {
-                throw new Exception("FLIPT_AUTH_TOKEN environment variable is not set");
+                throw new ValidationException("FLIPT_AUTH_TOKEN environment variable is not set");
             }
 
             var options = new ClientOptions
             {
                 Url = fliptUrl,
+                Namespace = "default",
                 Authentication = new Authentication { ClientToken = authToken }
             };
 
-            _client = new EvaluationClient("default", options);
+            _client = new FliptClient(options);
         }
 
         public class ConsoleWriter : StringWriter
@@ -62,25 +63,25 @@ namespace FliptClient.Tests
         [Fact]
         public void TestNullFlagKey()
         {
-            Assert.Throws<ArgumentException>(() => _client.EvaluateBoolean(null!, "someentity", new Dictionary<string, string>()));
+            Assert.Throws<ValidationException>(() => _client.EvaluateBoolean(null!, "someentity", new Dictionary<string, string>()));
         }
 
         [Fact]
         public void TestEmptyFlagKey()
         {
-            Assert.Throws<ArgumentException>(() => _client.EvaluateBoolean("", "someentity", new Dictionary<string, string>()));
+            Assert.Throws<ValidationException>(() => _client.EvaluateBoolean("", "someentity", new Dictionary<string, string>()));
         }
 
         [Fact]
         public void TestNullEntityId()
         {
-            Assert.Throws<ArgumentException>(() => _client.EvaluateBoolean("flag1", null!, new Dictionary<string, string>()));
+            Assert.Throws<ValidationException>(() => _client.EvaluateBoolean("flag1", null!, new Dictionary<string, string>()));
         }
 
         [Fact]
         public void TestEmptyEntityId()
         {
-            Assert.Throws<ArgumentException>(() => _client.EvaluateBoolean("flag1", "", new Dictionary<string, string>()));
+            Assert.Throws<ValidationException>(() => _client.EvaluateBoolean("flag1", "", new Dictionary<string, string>()));
         }
 
         [Fact]
@@ -149,7 +150,7 @@ namespace FliptClient.Tests
         public void TestEvaluateVariantFailure()
         {
             var context = new Dictionary<string, string> { { "fizz", "buzz" } };
-            var exception = Assert.Throws<Exception>(() => _client.EvaluateVariant("nonexistent", "someentity", context));
+            var exception = Assert.Throws<EvaluationException>(() => _client.EvaluateVariant("nonexistent", "someentity", context));
             Assert.Equal("invalid request: failed to get flag information default/nonexistent", exception.Message);
         }
 
@@ -157,7 +158,7 @@ namespace FliptClient.Tests
         public void TestEvaluateBooleanFailure()
         {
             var context = new Dictionary<string, string> { { "fizz", "buzz" } };
-            var exception = Assert.Throws<Exception>(() => _client.EvaluateBoolean("nonexistent", "someentity", context));
+            var exception = Assert.Throws<EvaluationException>(() => _client.EvaluateBoolean("nonexistent", "someentity", context));
             Assert.Equal("invalid request: failed to get flag information default/nonexistent", exception.Message);
         }
 
@@ -174,8 +175,54 @@ namespace FliptClient.Tests
         {
             var options = new ClientOptions { ErrorStrategy = ErrorStrategy.Fallback };
             string optsJson = JsonSerializer.Serialize(options);
-            string expectedJson = """{"url":"http://localhost:8080","error_strategy":"fallback"}""";
+            string expectedJson = """{"environment":"default","namespace":"default","url":"http://localhost:8080","error_strategy":"fallback"}""";
             Assert.Equal(expectedJson, optsJson);
+        }
+
+        [Fact]
+        public void TestSetGetSnapshotWithInvalidFliptURL()
+        {
+            // Get a snapshot from a working client
+            string? snapshot = _client.GetSnapshot();
+            Assert.False(string.IsNullOrEmpty(snapshot));
+
+            // Create a client with the previous snapshot and an invalid URL
+            var authToken = Environment.GetEnvironmentVariable("FLIPT_AUTH_TOKEN") ?? throw new ValidationException("FLIPT_AUTH_TOKEN environment variable is not set");
+            var options = new ClientOptions
+            {
+                Url = "http://invalid.flipt.com",
+                Namespace = "default",
+                Snapshot = snapshot!,
+                ErrorStrategy = ErrorStrategy.Fallback,
+                Authentication = new Authentication { ClientToken = authToken }
+            };
+            using var invalidClient = new FliptClient(options);
+
+            var context = new Dictionary<string, string> { { "fizz", "buzz" } };
+
+            for (int i = 0; i < 5; i++)
+            {
+                var variantResponse = invalidClient.EvaluateVariant("flag1", "someentity", context);
+                Assert.NotNull(variantResponse);
+                Assert.Equal("flag1", variantResponse!.FlagKey);
+                Assert.True(variantResponse.Match);
+                Assert.Equal("MATCH_EVALUATION_REASON", variantResponse.Reason);
+                Assert.Equal("variant1", variantResponse.VariantKey);
+                Assert.Contains("segment1", variantResponse.SegmentKeys);
+
+                var booleanResponse = invalidClient.EvaluateBoolean("flag_boolean", "someentity", context);
+                Assert.NotNull(booleanResponse);
+                Assert.Equal("flag_boolean", booleanResponse!.FlagKey);
+                Assert.True(booleanResponse.Enabled);
+                Assert.Equal("MATCH_EVALUATION_REASON", booleanResponse.Reason);
+
+                var flags = invalidClient.ListFlags();
+                Assert.NotNull(flags);
+                Assert.Equal(2, flags!.Length);
+
+                snapshot = invalidClient.GetSnapshot();
+                Assert.False(string.IsNullOrEmpty(snapshot));
+            }
         }
     }
 }

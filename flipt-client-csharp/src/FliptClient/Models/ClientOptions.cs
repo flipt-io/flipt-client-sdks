@@ -5,32 +5,74 @@ namespace FliptClient.Models
 {
     public class ClientOptions
     {
+        /// <summary>
+        /// Gets or sets the Flipt environment to use for evaluations. Defaults to 'default'.
+        /// </summary>
+        [JsonPropertyName("environment")]
+        public string Environment { get; set; } = "default";
+
+        /// <summary>
+        /// Gets or sets the Flipt namespace to use for evaluations. Defaults to 'default'.
+        /// </summary>
+        [JsonPropertyName("namespace")]
+        public string Namespace { get; set; } = "default";
+
+        /// <summary>
+        /// Gets or sets the Flipt API URL.
+        /// </summary>
         [JsonPropertyName("url")]
         public string Url { get; set; } = "http://localhost:8080";
 
+        /// <summary>
+        /// Gets or sets request timeout as a duration (serialized as seconds).
+        /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("request_timeout")]
-        public int? RequestTimeout { get; set; }
+        [JsonConverter(typeof(TimeSpanSecondsConverter))]
+        public TimeSpan? RequestTimeout { get; set; }
 
+        /// <summary>
+        /// Gets or sets update interval as a duration (serialized as seconds).
+        /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("update_interval")]
-        public int? UpdateInterval { get; set; }
+        [JsonConverter(typeof(TimeSpanSecondsConverter))]
+        public TimeSpan? UpdateInterval { get; set; }
 
+        /// <summary>
+        /// Gets or sets authentication options.
+        /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("authentication")]
         public Authentication? Authentication { get; set; }
 
+        /// <summary>
+        /// Gets or sets reference string for advanced use cases.
+        /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("reference")]
         public string? Reference { get; set; }
 
+        /// <summary>
+        /// Gets or sets fetch mode for flag data (polling or streaming).
+        /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("fetch_mode")]
         public FetchMode FetchMode { get; set; } = FetchMode.Polling;
 
+        /// <summary>
+        /// Gets or sets error strategy for evaluation failures.
+        /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("error_strategy")]
         public ErrorStrategy ErrorStrategy { get; set; } = ErrorStrategy.Fail;
+
+        /// <summary>
+        /// Gets or sets the initial snapshot to use when instantiating the client.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("snapshot")]
+        public string? Snapshot { get; set; }
     }
 
     [JsonConverter(typeof(LowercaseEnumConverter<ErrorStrategy>))]
@@ -77,6 +119,36 @@ namespace FliptClient.Models
         public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options)
         {
             writer.WriteStringValue(value.ToString().ToLower()); // Convert enum name to lowercase
+        }
+    }
+
+    public class TimeSpanSecondsConverter : JsonConverter<TimeSpan?>
+    {
+        public override TimeSpan? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType == JsonTokenType.Null)
+            {
+                return null;
+            }
+
+            if (reader.TokenType == JsonTokenType.Number && reader.TryGetInt32(out int seconds))
+            {
+                return TimeSpan.FromSeconds(seconds);
+            }
+
+            throw new JsonException($"Invalid value for TimeSpan: {reader.GetString()}");
+        }
+
+        public override void Write(Utf8JsonWriter writer, TimeSpan? value, JsonSerializerOptions options)
+        {
+            if (value.HasValue)
+            {
+                writer.WriteNumberValue((int)value.Value.TotalSeconds);
+            }
+            else
+            {
+                writer.WriteNullValue();
+            }
         }
     }
 }
