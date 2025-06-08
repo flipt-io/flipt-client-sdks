@@ -10,7 +10,7 @@ namespace FliptClient
         private static IntPtr _nativeLibraryHandle;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate IntPtr InitializeEngineDelegate(string ns, string opts);
+        public delegate IntPtr InitializeEngineDelegate(string opts);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate IntPtr EvaluateVariantDelegate(IntPtr engine, string request);
