@@ -29,9 +29,9 @@ Upon instantiation, the `flipt-client-go` library will fetch the flag state from
 
 By default, the SDK will poll the Flipt server for new flag state at a regular interval. This interval can be configured using the `WithUpdateInterval` option when constructing a client. The default interval is 120 seconds.
 
-### Streaming (Flipt Cloud Only)
+### Streaming (Flipt Cloud/Flipt v2)
 
-[Flipt Cloud](https://flipt.io/cloud) users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
+[Flipt Cloud](https://flipt.io/cloud) and [Flipt v2](https://docs.flipt.io/v2) users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
 
 When in streaming mode, the SDK will connect to the Flipt server and open a persistent connection that will remain open until the client is closed. The SDK will then receive flag state changes in real-time.
 
@@ -59,9 +59,19 @@ This SDK currently supports the following OSes/architectures:
 - MacOS arm64
 - Windows x86_64
 
-## Usage
+## Migration Notes
 
-In your Go code you can import this client and use it as so:
+### Pre-1.0.0 -> 1.0.0
+
+This section is for users who are migrating from a previous (pre-1.0.0) version of the SDK.
+
+- The package name is now `flipt` and the main client is `Client`.
+- `WithEnvironment` is now a valid option for fetching flag state from Flipt v2.
+- All client methods now use request structs (e.g., `EvaluateVariant(ctx, &flipt.EvaluationRequest{...})`).
+- Configuration is now done via functional options (e.g., `WithNamespace`, `WithURL`, etc.).
+- Error handling uses standardized error types and codes.
+
+## Usage
 
 ```go
 package main
@@ -70,39 +80,47 @@ import (
   "context"
   "fmt"
   "log"
+  "time"
 
   flipt "go.flipt.io/flipt-client"
 )
 
 func main() {
   ctx := context.Background()
-  evaluationClient, err := flipt.NewEvaluationClient(ctx)
+  client, err := flipt.NewClient(
+    ctx,
+    flipt.WithURL("http://localhost:8080"),
+    flipt.WithRequestTimeout(30 * time.Second),
+    flipt.WithUpdateInterval(2 * time.Minute),
+    flipt.WithFetchMode(flipt.FetchModePolling),
+    flipt.WithErrorStrategy(flipt.ErrorStrategyFail),
+  )
   if err != nil {
     log.Fatal(err)
   }
+  defer client.Close(ctx)
 
-  defer evaluationClient.Close(ctx)
-
-  variantResult, err := evaluationClient.EvaluateVariant(context.Background(), "flag1", "someentity", map[string]string{
-    "fizz": "buzz",
+  variantResult, err := client.EvaluateVariant(ctx, &flipt.EvaluationRequest{
+    FlagKey:  "flag1",
+    EntityID: "someentity",
+    Context:  map[string]string{"fizz": "buzz"},
   })
-
   if err != nil {
     log.Fatal(err)
   }
-
-  fmt.Println(*variantResult)
+  fmt.Println(variantResult)
 }
 ```
 
 ### Client Options
 
-The `NewClient` constructor accepts a variadic number of `ClientOption` functions that can be used to configure the client. The available options are:
+The `NewClient` constructor accepts a variadic number of `Option` functions that can be used to configure the client. The available options are:
 
+- `WithEnvironment`: The environment (Flipt v2) to fetch flag state from. If not provided, the client will default to the `default` environment.
 - `WithNamespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
 - `WithURL`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
-- `WithRequestTimeout`: The timeout (in seconds) for total request time to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.
-- `WithUpdateInterval`: The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
+- `WithRequestTimeout`: The timeout for total request time to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.
+- `WithUpdateInterval`: The interval in which to fetch new flag state. If not provided, the client will default to 120 seconds.
 - `With{Method}Authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
 - `WithReference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
 - `WithFetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
@@ -120,15 +138,15 @@ The `Client` supports the following authentication strategies:
 
 The `Client` supports the following error strategies:
 
-- `Fail`: The client will return an error for any method calls if the flag state cannot be fetched. This is the default behavior.
-- `Fallback`: The client will maintain the last known good state and use that state for evaluation in case of an error.
+- `ErrorStrategyFail`: The client will return an error for any method calls if the flag state cannot be fetched. This is the default behavior.
+- `ErrorStrategyFallback`: The client will maintain the last known good state and use that state for evaluation in case of an error.
 
 ### `Err` Method
 
 The `Err` method can be used to check the last error that occurred regardless of the error strategy. This allows you to handle errors in a more flexible way and decide what to do based on the error.
 
 ```go
-err := evaluationClient.Err()
+err := client.Err()
 if err != nil {
   log.Fatal(err)
 }
@@ -143,7 +161,7 @@ The engine that is allocated on the WASM side to compute evaluations for flag st
 **Please be sure to do this to avoid leaking memory!**
 
 ```go
-defer evaluationClient.Close(context.Background())
+defer client.Close(context.Background())
 ```
 
 ## Benchmarking
@@ -153,12 +171,12 @@ The `flipt-client-go` library includes a benchmarking suite that can be used to 
 To run the benchmarks, use the following command:
 
 ```bash
-go test -benchmem -run='^$' -bench=. go.flipt.io/flipt-client
+go test -tags=benchmarks -benchmem -run='^$' -bench=. go.flipt.io/flipt-client
 ```
 
 You should see output similar to the following:
 
-```
+```text
 goos: darwin
 goarch: arm64
 pkg: go.flipt.io/flipt-client

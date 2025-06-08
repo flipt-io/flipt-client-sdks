@@ -1,4 +1,4 @@
-package evaluation
+package flipt
 
 import (
 	"bufio"
@@ -11,7 +11,6 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -27,8 +26,9 @@ import (
 var wasm []byte
 
 const (
-	defaultNamespace = "default"
-	statusSuccess    = "success"
+	defaultEnvironment = "default"
+	defaultNamespace   = "default"
+	statusSuccess      = "success"
 
 	fInitializeEngine = "initialize_engine"
 	fAllocate         = "allocate"
@@ -45,26 +45,17 @@ const (
 	streamingPath = "/internal/v1/evaluation/snapshots?[]namespaces=%s"
 )
 
-// EvaluationClient wraps the functionality of evaluating Flipt feature flags.
-type EvaluationClient struct {
+// Client wraps the functionality of evaluating Flipt feature flags.
+type Client struct {
 	runtime wazero.Runtime
 	mod     api.Module
 	mu      sync.RWMutex
 
-	engine    uint32
-	namespace string
-	err       error
+	engine uint32
+	err    error
 
-	baseURL        string
-	authentication any
-	ref            string
-	updateInterval time.Duration
-	fetchMode      FetchMode
-	errorStrategy  ErrorStrategy
-
-	httpClient     *http.Client
-	requestTimeout time.Duration
-	etag           string
+	cfg  config
+	etag string
 
 	wg     sync.WaitGroup
 	cancel context.CancelFunc
@@ -77,213 +68,60 @@ type EvaluationClient struct {
 	exportedFuncs map[string]api.Function
 }
 
-// ClientOption adds additional configuration for Client parameters
-type ClientOption func(*EvaluationClient)
-
-// WithNamespace allows for specifying which namespace the clients wants to make evaluations from.
-func WithNamespace(namespace string) ClientOption {
-	return func(c *EvaluationClient) {
-		c.namespace = namespace
+// NewClient constructs a Client and performs an initial fetch of flag state.
+func NewClient(ctx context.Context, opts ...Option) (_ *Client, err error) {
+	cfg := config{
+		Environment:    defaultEnvironment,
+		Namespace:      defaultNamespace,
+		URL:            "http://localhost:8080",
+		UpdateInterval: 2 * time.Minute,
+		FetchMode:      FetchModePolling,
+		ErrorStrategy:  ErrorStrategyFail,
+		HTTPClient:     defaultHTTPClient,
 	}
-}
 
-// WithURL allows for configuring the URL of an upstream Flipt instance to fetch feature data.
-func WithURL(url string) ClientOption {
-	return func(c *EvaluationClient) {
-		c.baseURL = url
+	for _, opt := range opts {
+		opt(&cfg)
 	}
-}
 
-// WithHTTPClient allows for configuring the HTTP client that the library will use.
-func WithHTTPClient(httpClient *http.Client) ClientOption {
-	return func(c *EvaluationClient) {
-		c.httpClient = httpClient
+	if err := cfg.validate(); err != nil {
+		return nil, fmt.Errorf("failed to validate configuration: %w", err)
 	}
-}
 
-// WithRef allows for specifying a reference to fetch feature data from.
-func WithRef(ref string) ClientOption {
-	return func(c *EvaluationClient) {
-		c.ref = ref
-	}
-}
-
-// WithUpdateInterval allows for specifying how often flag state data should be fetched from an upstream Flipt instance.
-func WithUpdateInterval(updateInterval time.Duration) ClientOption {
-	return func(c *EvaluationClient) {
-		c.updateInterval = updateInterval
-	}
-}
-
-// WithClientTokenAuthentication allows authenticating with Flipt using a static client token.
-func WithClientTokenAuthentication(token string) ClientOption {
-	return func(c *EvaluationClient) {
-		c.authentication = clientTokenAuthentication{
-			Token: token,
-		}
-	}
-}
-
-// WithJWTAuthentication allows authenticating with Flipt using a JSON Web Token.
-func WithJWTAuthentication(token string) ClientOption {
-	return func(c *EvaluationClient) {
-		c.authentication = jwtAuthentication{
-			Token: token,
-		}
-	}
-}
-
-// WithFetchMode allows for specifying the fetch mode for the Flipt client (e.g. polling, streaming).
-// Note: Streaming is currently only supported when using the SDK with Flipt Cloud (https://flipt.io/cloud).
-func WithFetchMode(fetchMode FetchMode) ClientOption {
-	return func(c *EvaluationClient) {
-		c.fetchMode = fetchMode
-	}
-}
-
-// WithErrorStrategy allows for specifying the error strategy for the Flipt client when fetching flag state (e.g. fail, fallback).
-func WithErrorStrategy(errorStrategy ErrorStrategy) ClientOption {
-	return func(c *EvaluationClient) {
-		c.errorStrategy = errorStrategy
-	}
-}
-
-// WithRequestTimeout allows for specifying the request timeout for the Flipt client.
-// Note: this only affects polling mode. Streaming mode will have no timeout set.
-func WithRequestTimeout(timeout time.Duration) ClientOption {
-	return func(c *EvaluationClient) {
-		c.requestTimeout = timeout
-	}
-}
-
-type fetchError struct {
-	code int
-	err  error
-}
-
-func (e fetchError) Error() string {
-	if e.err == nil {
-		return fmt.Sprintf("fetch error: %d", e.code)
-	}
-	return e.err.Error()
-}
-
-// NewEvaluationClient constructs a Client and performs an initial fetch of flag state.
-func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *EvaluationClient, cerr error) {
 	runtime := wazero.NewRuntime(ctx)
 
-	// cleanup function that only runs if we return an error
 	defer func() {
-		if cerr != nil {
-			// closing the runtime will release any allocated memory
+		if err != nil {
 			_ = runtime.Close(ctx)
 		}
 	}()
 
-	_, err := wasi_snapshot_preview1.Instantiate(ctx, runtime)
+	_, err = wasi_snapshot_preview1.Instantiate(ctx, runtime)
 	if err != nil {
-		cerr = fmt.Errorf("failed to instantiate WASI: %w", err)
-		return
+		return nil, fmt.Errorf("failed to instantiate WASI: %w", err)
 	}
 
 	compiled, err := runtime.CompileModule(ctx, wasm)
 	if err != nil {
-		cerr = fmt.Errorf("failed to compile and load evaluation engine: %w", err)
-		return
+		return nil, fmt.Errorf("failed to compile and load evaluation engine: %w", err)
 	}
 
-	cfg := wazero.NewModuleConfig().WithName("flipt_engine")
-	mod, err := runtime.InstantiateModule(ctx, compiled, cfg)
+	mod, err := runtime.InstantiateModule(ctx, compiled, wazero.NewModuleConfig().WithName("flipt_engine"))
 	if err != nil {
-		cerr = fmt.Errorf("can't instantiate Wasm module: %w", err)
-		return
+		return nil, fmt.Errorf("can't instantiate Wasm module: %w", err)
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
 
-	c := &EvaluationClient{
+	c := &Client{
 		runtime: runtime,
 		mod:     mod,
 
-		// default values
-		namespace:      defaultNamespace,
-		baseURL:        "http://localhost:8080",
-		updateInterval: 2 * time.Minute, // default 120 seconds
-		errorStrategy:  ErrorStrategyFail,
-		fetchMode:      FetchModePolling,
-		requestTimeout: 30 * time.Second, // default timeout
+		cfg: cfg,
 
 		cancel:       cancel,
 		errChan:      make(chan error, 1),
 		snapshotChan: make(chan snapshot, 1),
-	}
-
-	c.httpClient = &http.Client{
-		Transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout:   10 * time.Second,
-				KeepAlive: 5 * time.Second, // More aggressive TCP keepalive
-			}).DialContext,
-			IdleConnTimeout:       60 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ResponseHeaderTimeout: 10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-			ForceAttemptHTTP2:     true,
-			MaxIdleConns:          100,
-			MaxIdleConnsPerHost:   10,
-			// Enable HTTP/2 ping frames and other settings
-			Proxy:           http.ProxyFromEnvironment,
-			ReadBufferSize:  32 * 1024,
-			WriteBufferSize: 32 * 1024,
-			// HTTP/2 specific settings
-			MaxResponseHeaderBytes: 4 * 1024, // 4KB
-			DisableCompression:     false,    // Enable compression
-		},
-	}
-
-	for _, opt := range opts {
-		opt(c)
-	}
-
-	if c.namespace == "" {
-		cerr = fmt.Errorf("namespace cannot be empty")
-		return
-	}
-
-	if c.baseURL == "" {
-		cerr = fmt.Errorf("baseURL cannot be empty")
-		return
-	}
-
-	if c.fetchMode == FetchModePolling {
-		if c.updateInterval < 1*time.Second {
-			cerr = fmt.Errorf("update interval must be greater than 1 second")
-			return
-		}
-
-		if c.requestTimeout < 1*time.Second {
-			cerr = fmt.Errorf("request timeout must be greater than 1 second")
-			return
-		}
-	}
-
-	// Store the base URL without trailing slash
-	c.baseURL = strings.TrimRight(c.baseURL, "/")
-
-	// Set timeout only for polling mode
-	if c.fetchMode == FetchModePolling {
-		c.httpClient.Timeout = c.requestTimeout
-	}
-
-	// Validate fetch mode
-	if c.fetchMode != FetchModePolling && c.fetchMode != FetchModeStreaming {
-		return nil, fmt.Errorf("invalid fetch mode: %s", c.fetchMode)
-	}
-
-	// Get initial snapshot URL (always uses polling endpoint)
-	initialURL := fmt.Sprintf(c.baseURL+snapshotPath, c.namespace)
-	if c.ref != "" {
-		initialURL += "?reference=" + c.ref
 	}
 
 	var (
@@ -302,22 +140,25 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 	}
 
 	// allocate namespace
-	nsPtr, err := allocFunc.Call(ctx, uint64(len(c.namespace)))
+	nsPtr, err := allocFunc.Call(ctx, uint64(len(c.cfg.Namespace)))
 	if err != nil {
-		cerr = fmt.Errorf("failed to allocate memory for namespace: %w", err)
-		return
+		return nil, fmt.Errorf("failed to allocate memory for namespace: %w", err)
 	}
 
-	if !mod.Memory().Write(uint32(nsPtr[0]), []byte(c.namespace)) {
-		cerr = fmt.Errorf("failed to write namespace to memory")
-		return
+	if !mod.Memory().Write(uint32(nsPtr[0]), []byte(c.cfg.Namespace)) {
+		return nil, fmt.Errorf("failed to write namespace to memory")
+	}
+
+	// Get initial snapshot URL (always uses polling endpoint)
+	initialURL := fmt.Sprintf(c.cfg.URL+snapshotPath, c.cfg.Namespace)
+	if c.cfg.Reference != "" {
+		initialURL += "?reference=" + c.cfg.Reference
 	}
 
 	// fetch initial state
 	snapshot, err := c.fetch(ctx, initialURL, "")
 	if err != nil {
-		cerr = fmt.Errorf("failed to fetch initial state: %w", err)
-		return
+		return nil, fmt.Errorf("failed to fetch initial state: %w", err)
 	}
 
 	// set initial etag
@@ -326,25 +167,21 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 	// allocate payload
 	pmPtr, err := allocFunc.Call(ctx, uint64(len(snapshot.payload)))
 	if err != nil {
-		cerr = fmt.Errorf("failed to allocate memory for payload: %w", err)
-		return
+		return nil, fmt.Errorf("failed to allocate memory for payload: %w", err)
 	}
 
 	if !mod.Memory().Write(uint32(pmPtr[0]), []byte(snapshot.payload)) {
-		cerr = fmt.Errorf("failed to write payload to memory")
-		return
+		return nil, fmt.Errorf("failed to write payload to memory")
 	}
 
 	// initialize engine
-	res, err := initializeEngine.Call(ctx, nsPtr[0], uint64(len(c.namespace)), pmPtr[0], uint64(len(snapshot.payload)))
+	res, err := initializeEngine.Call(ctx, nsPtr[0], uint64(len(c.cfg.Namespace)), pmPtr[0], uint64(len(snapshot.payload)))
 	if err != nil {
-		cerr = fmt.Errorf("failed to initialize engine: %w", err)
-		return
+		return nil, fmt.Errorf("failed to initialize engine: %w", err)
 	}
 
 	if len(res) < 1 || res[0] == 0 {
-		cerr = fmt.Errorf("failed to initialize engine: invalid pointer returned")
-		return
+		return nil, fmt.Errorf("failed to initialize engine: invalid pointer returned")
 	}
 
 	c.engine = uint32(res[0])
@@ -389,7 +226,7 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 	c.wg.Add(1)
 	go func() {
 		defer c.wg.Done()
-		switch c.fetchMode {
+		switch cfg.FetchMode {
 		case FetchModeStreaming:
 			c.startStreaming(fctx)
 		case FetchModePolling:
@@ -401,21 +238,15 @@ func NewEvaluationClient(ctx context.Context, opts ...ClientOption) (_ *Evaluati
 }
 
 // Err returns the last error that occurred.
-func (c *EvaluationClient) Err() error {
+func (c *Client) Err() error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.err
 }
 
 // EvaluateVariant performs evaluation for a variant flag.
-func (c *EvaluationClient) EvaluateVariant(ctx context.Context, flagKey, entityID string, evalContext map[string]string) (*VariantEvaluationResponse, error) {
-	request := EvaluationRequest{
-		FlagKey:  flagKey,
-		EntityId: entityID,
-		Context:  evalContext,
-	}
-
-	result, err := c.evaluateWASM(ctx, fEvaluateVariant, request)
+func (c *Client) EvaluateVariant(ctx context.Context, req *EvaluationRequest) (*VariantEvaluationResponse, error) {
+	result, err := c.evaluateWASM(ctx, fEvaluateVariant, req)
 	if err != nil {
 		return nil, err
 	}
@@ -437,14 +268,8 @@ func (c *EvaluationClient) EvaluateVariant(ctx context.Context, flagKey, entityI
 }
 
 // EvaluateBoolean performs evaluation for a boolean flag.
-func (c *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityID string, evalContext map[string]string) (*BooleanEvaluationResponse, error) {
-	request := EvaluationRequest{
-		FlagKey:  flagKey,
-		EntityId: entityID,
-		Context:  evalContext,
-	}
-
-	result, err := c.evaluateWASM(ctx, fEvaluateBoolean, request)
+func (c *Client) EvaluateBoolean(ctx context.Context, req *EvaluationRequest) (*BooleanEvaluationResponse, error) {
+	result, err := c.evaluateWASM(ctx, fEvaluateBoolean, req)
 	if err != nil {
 		return nil, err
 	}
@@ -466,7 +291,7 @@ func (c *EvaluationClient) EvaluateBoolean(ctx context.Context, flagKey, entityI
 }
 
 // EvaluateBatch performs evaluation for a batch of flags.
-func (c *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
+func (c *Client) EvaluateBatch(ctx context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
 	result, err := c.evaluateWASM(ctx, fEvaluateBatch, requests)
 	if err != nil {
 		return nil, err
@@ -489,11 +314,11 @@ func (c *EvaluationClient) EvaluateBatch(ctx context.Context, requests []*Evalua
 }
 
 // ListFlags lists all flags.
-func (c *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
+func (c *Client) ListFlags(ctx context.Context) ([]Flag, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	if c.err != nil && c.errorStrategy == ErrorStrategyFail {
+	if c.err != nil && c.cfg.ErrorStrategy == ErrorStrategyFail {
 		return nil, c.err
 	}
 
@@ -548,7 +373,7 @@ func (c *EvaluationClient) ListFlags(ctx context.Context) ([]Flag, error) {
 }
 
 // Close cleans up the allocated resources.
-func (c *EvaluationClient) Close(ctx context.Context) (err error) {
+func (c *Client) Close(ctx context.Context) (err error) {
 	c.closeOnce.Do(func() {
 		// signal background goroutines to stop
 		c.cancel()
@@ -583,7 +408,7 @@ type snapshot struct {
 	etag    string
 }
 
-func (c *EvaluationClient) handleUpdates(ctx context.Context) error {
+func (c *Client) handleUpdates(ctx context.Context) error {
 	var (
 		allocFunc    = c.exportedFuncs[fAllocate]
 		deallocFunc  = c.exportedFuncs[fDeallocate]
@@ -649,8 +474,8 @@ func (c *EvaluationClient) handleUpdates(ctx context.Context) error {
 }
 
 // startPolling starts the background polling for the given update interval.
-func (c *EvaluationClient) startPolling(ctx context.Context) {
-	ticker := time.NewTicker(c.updateInterval)
+func (c *Client) startPolling(ctx context.Context) {
+	ticker := time.NewTicker(c.cfg.UpdateInterval)
 	defer ticker.Stop()
 
 	url := c.getSnapshotURL()
@@ -727,7 +552,7 @@ func doWithRetry[T any](ctx context.Context, fn func(attempt *int) (T, error)) (
 	}
 }
 
-func (c *EvaluationClient) newRequest(ctx context.Context, url string) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, url string) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -737,8 +562,12 @@ func (c *EvaluationClient) newRequest(ctx context.Context, url string) (*http.Re
 	req.Header.Set("User-Agent", "flipt-client-go/"+Version)
 	req.Header.Set("x-flipt-accept-server-version", "1.47.0")
 
-	if c.authentication != nil {
-		switch auth := c.authentication.(type) {
+	if c.cfg.Environment != "" {
+		req.Header.Set("x-flipt-environment", c.cfg.Environment)
+	}
+
+	if c.cfg.Authentication != nil {
+		switch auth := c.cfg.Authentication.(type) {
 		case clientTokenAuthentication:
 			req.Header.Set("Authorization", "Bearer "+auth.Token)
 		case jwtAuthentication:
@@ -749,7 +578,7 @@ func (c *EvaluationClient) newRequest(ctx context.Context, url string) (*http.Re
 }
 
 // fetch fetches the snapshot for the given namespace.
-func (c *EvaluationClient) fetch(ctx context.Context, url, etag string) (snapshot, error) {
+func (c *Client) fetch(ctx context.Context, url, etag string) (snapshot, error) {
 	return doWithRetry(ctx, func(_ *int) (snapshot, error) {
 		req, err := c.newRequest(ctx, url)
 		if err != nil {
@@ -759,7 +588,7 @@ func (c *EvaluationClient) fetch(ctx context.Context, url, etag string) (snapsho
 			req.Header.Set("If-None-Match", etag)
 		}
 
-		resp, err := c.httpClient.Do(req)
+		resp, err := c.cfg.HTTPClient.Do(req)
 		if resp != nil {
 			defer func() {
 				_, _ = io.Copy(io.Discard, resp.Body)
@@ -782,7 +611,7 @@ func (c *EvaluationClient) fetch(ctx context.Context, url, etag string) (snapsho
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			return snapshot{}, fetchError{resp.StatusCode, fmt.Errorf("unexpected status code: %d", resp.StatusCode)}
+			return snapshot{}, &networkError{msg: fmt.Sprintf("unexpected status code: %d", resp.StatusCode), status: resp.StatusCode}
 		}
 
 		etag = resp.Header.Get("ETag")
@@ -799,7 +628,7 @@ type streamResult struct {
 }
 
 // startStreaming starts the background streaming.
-func (c *EvaluationClient) startStreaming(ctx context.Context) {
+func (c *Client) startStreaming(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -815,7 +644,7 @@ func (c *EvaluationClient) startStreaming(ctx context.Context) {
 	}
 }
 
-func (c *EvaluationClient) initiateStream(ctx context.Context) error {
+func (c *Client) initiateStream(ctx context.Context) error {
 	url := c.getSnapshotURL()
 	_, err := doWithRetry(ctx, func(attempt *int) (struct{}, error) {
 		req, err := c.newRequest(ctx, url)
@@ -823,7 +652,7 @@ func (c *EvaluationClient) initiateStream(ctx context.Context) error {
 			return struct{}{}, err
 		}
 
-		resp, err := c.httpClient.Do(req)
+		resp, err := c.cfg.HTTPClient.Do(req)
 		if err != nil {
 			return struct{}{}, err
 		}
@@ -834,7 +663,7 @@ func (c *EvaluationClient) initiateStream(ctx context.Context) error {
 		}()
 
 		if resp.StatusCode != http.StatusOK {
-			return struct{}{}, fetchError{resp.StatusCode, fmt.Errorf("unexpected status code: %d", resp.StatusCode)}
+			return struct{}{}, &networkError{msg: fmt.Sprintf("unexpected status code: %d", resp.StatusCode), status: resp.StatusCode}
 		}
 
 		// Reset attempt counter on successful connection
@@ -849,12 +678,14 @@ func (c *EvaluationClient) initiateStream(ctx context.Context) error {
 	return err
 }
 
-func (c *EvaluationClient) handleStream(ctx context.Context, r io.ReadCloser) error {
-	reader := bufio.NewReaderSize(r, 32*1024)
-	var buffer bytes.Buffer
+func (c *Client) handleStream(ctx context.Context, r io.ReadCloser) error {
+	var (
+		reader = bufio.NewReaderSize(r, 32*1024)
+		buffer bytes.Buffer
 
-	readErrCh := make(chan error, 1)
-	readCh := make(chan []byte, 1)
+		readErrCh = make(chan error, 1)
+		readCh    = make(chan []byte, 1)
+	)
 
 	// Start a goroutine to handle reading
 	go func() {
@@ -887,7 +718,7 @@ func (c *EvaluationClient) handleStream(ctx context.Context, r io.ReadCloser) er
 					}
 
 					for ns, payload := range chunk.Result.Namespaces {
-						if ns == c.namespace {
+						if ns == c.cfg.Namespace {
 							select {
 							case <-ctx.Done():
 								return ctx.Err()
@@ -903,9 +734,9 @@ func (c *EvaluationClient) handleStream(ctx context.Context, r io.ReadCloser) er
 }
 
 // evaluateWASM evaluates the given function name with the given request.
-func (c *EvaluationClient) evaluateWASM(ctx context.Context, funcName string, request any) ([]byte, error) {
+func (c *Client) evaluateWASM(ctx context.Context, funcName string, request any) ([]byte, error) {
 	c.mu.RLock()
-	if c.err != nil && c.errorStrategy == ErrorStrategyFail {
+	if c.err != nil && c.cfg.ErrorStrategy == ErrorStrategyFail {
 		c.mu.RUnlock()
 		return nil, c.err
 	}
@@ -980,22 +811,22 @@ func isTransientError(err error) bool {
 		return false
 	}
 
-	// check for specific HTTP status codes if the error is a fetchError
-	var fetchErr fetchError
-	if errors.As(err, &fetchErr) {
-		if fetchErr.code > 400 && (fetchErr.code == http.StatusTooManyRequests ||
-			fetchErr.code == http.StatusBadGateway ||
-			fetchErr.code == http.StatusServiceUnavailable ||
-			fetchErr.code == http.StatusGatewayTimeout) {
+	// check for specific HTTP status codes if the error is a network error
+	var netErr *networkError
+	if errors.As(err, &netErr) {
+		if netErr.Status() > 400 && (netErr.Status() == http.StatusTooManyRequests ||
+			netErr.Status() == http.StatusBadGateway ||
+			netErr.Status() == http.StatusServiceUnavailable ||
+			netErr.Status() == http.StatusGatewayTimeout) {
 			return true
 		}
 		return false
 	}
 
 	// check for network errors
-	var netErr net.Error
-	if errors.As(err, &netErr) {
-		return netErr.Timeout()
+	var netErr2 net.Error
+	if errors.As(err, &netErr2) {
+		return netErr2.Timeout()
 	}
 
 	// check for specific network operation errors
@@ -1043,16 +874,16 @@ func isTransientError(err error) bool {
 }
 
 // getSnapshotURL returns the URL for fetching snapshots based on the fetch mode
-func (c *EvaluationClient) getSnapshotURL() string {
-	switch c.fetchMode {
+func (c *Client) getSnapshotURL() string {
+	switch c.cfg.FetchMode {
 	case FetchModeStreaming:
 		// Streaming uses a different endpoint that accepts multiple namespaces
-		return fmt.Sprintf(c.baseURL+streamingPath, c.namespace)
+		return fmt.Sprintf(c.cfg.URL+streamingPath, c.cfg.Namespace)
 	case FetchModePolling:
 		// Polling uses the single namespace snapshot endpoint
-		url := fmt.Sprintf(c.baseURL+snapshotPath, c.namespace)
-		if c.ref != "" {
-			url += "?reference=" + c.ref
+		url := fmt.Sprintf(c.cfg.URL+snapshotPath, c.cfg.Namespace)
+		if c.cfg.Reference != "" {
+			url += "?reference=" + c.cfg.Reference
 		}
 		return url
 	default:
