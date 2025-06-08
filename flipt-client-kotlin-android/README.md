@@ -12,7 +12,7 @@ Add the dependency in your `build.gradle`:
 
 ```groovy
 dependencies {
-    implementation 'io.flipt:flipt-client-android:0.x.x'
+    implementation 'io.flipt:flipt-client-android:1.x.x'
 }
 ```
 
@@ -24,7 +24,7 @@ Add the dependency in your `pom.xml`:
 <dependency>
     <groupId>io.flipt</groupId>
     <artifactId>flipt-client-android</artifactId>
-    <version>0.x.x</version>
+    <version>1.x.x</version>
 </dependency>
 ```
 
@@ -44,9 +44,9 @@ Upon instantiation, the `flipt-client-android` library will fetch the flag state
 
 By default, the SDK will poll the Flipt server for new flag state at a regular interval. This interval can be configured using the `fetchMode` option when constructing a client. The default interval is 120 seconds.
 
-### Streaming (Flipt Cloud Only)
+### Streaming (Flipt Cloud/Flipt v2)
 
-[Flipt Cloud](https://flipt.io/cloud) users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
+[Flipt Cloud](https://flipt.io/cloud) and [Flipt v2](https://docs.flipt.io/v2) users can use the `streaming` fetch method to stream flag state changes from the Flipt server to the SDK.
 
 When in streaming mode, the SDK will connect to the Flipt server and open a persistent connection that will remain open until the client is closed. The SDK will then receive flag state changes in real-time.
 
@@ -71,52 +71,63 @@ This SDK currently supports the following OSes/architectures:
 - Android x86_64
 - Android arm64
 
+## Migration Notes
+
+### 0.x -> 1.0.0
+
+- `FliptEvaluationClient` has been renamed to `FliptClient`. Update all usages and imports accordingly.
+- The builder and all usages should be updated to the new class name and builder pattern.
+- All response models now use `List` instead of arrays (e.g., `List<String>` instead of `String[]`). Update your code to use `List` and related collection APIs.
+- Exceptions are now unchecked (runtime) and use `EvaluationException` and `ValidationException`.
+- The builder is more idiomatic and uses Kotlin DSL style, reducing boilerplate.
+- `requestTimeout` and `updateInterval` now use `kotlin.time.Duration`.
+
 ## Usage
 
 In your Kotlin Android code you can import this client and use it as so:
 
-```java
-package org.example;
+```kotlin
+import io.flipt.client.FliptClient
+import io.flipt.client.models.ClientTokenAuthentication
+import io.flipt.client.models.VariantEvaluationResponse
+import kotlin.time.Duration.Companion.seconds
 
-import java.util.HashMap;
-import java.util.Map;
-import io.flipt.client.FliptEvaluationClient;
-import io.flipt.client.models.*;
+fun main() {
+    val fliptClient = FliptClient.builder()
+        .url("http://localhost:8080")
+        .authentication(ClientTokenAuthentication("secret"))
+        .namespace("default")
+        .environment("default")
+        .requestTimeout(10.seconds)
+        .updateInterval(120.seconds)
+        .build()
 
-public class Main {
-    public static void main(String[] args) {
-        FliptEvaluationClient fliptClient = null;
-        try {
-            fliptClient = FliptEvaluationClient.builder()
-                    .url("http://localhost:8080")
-                    .authentication(new ClientTokenAuthentication("secret"))
-                    .build();
+    val context = mapOf("fizz" to "buzz")
 
-            Map<String, String> context = new HashMap<>();
-            context.put("fizz", "buzz");
-
-            VariantEvaluationResponse response =
-                    fliptClient.evaluateVariant("flag1", "entity", context);
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            // Important: always close the client to release resources
-            if (fliptClient != null) {
-                fliptClient.close();
-            }
-        }
+    try {
+        val response: VariantEvaluationResponse =
+            fliptClient.evaluateVariant("flag1", "entity", context)
+        println(response)
+    } catch (e: Exception) {
+        e.printStackTrace()
+    } finally {
+        // Important: always close the client to release resources
+        fliptClient.close()
     }
 }
 ```
 
+This client is thread-safe and can be reused across your application.
+
 ### Builder Methods
 
-The `FliptEvaluationClient.builder()` method returns a `FliptEvaluationClient.Builder` object that allows you to configure the client with the following methods:
+The `FliptClient.builder()` method returns a `FliptClientBuilder` object that allows you to configure the client with the following methods:
 
+- `environment`: The environment (Flipt v2) to fetch flag state from. If not provided, the client will default to the `default` environment.
 - `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
 - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
-- `requestTimeout`: The timeout (Duration) for requests to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.
-- `updateInterval`: The interval (Duration) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
+- `requestTimeout`: The timeout (`kotlin.time.Duration`) for requests to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.
+- `updateInterval`: The interval (`kotlin.time.Duration`) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
 - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
 - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
 - `fetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
@@ -125,7 +136,7 @@ The `FliptEvaluationClient.builder()` method returns a `FliptEvaluationClient.Bu
 
 ### Authentication
 
-The `FliptEvaluationClient` supports the following authentication strategies:
+The `FliptClient` supports the following authentication strategies:
 
 - No Authentication (default)
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)

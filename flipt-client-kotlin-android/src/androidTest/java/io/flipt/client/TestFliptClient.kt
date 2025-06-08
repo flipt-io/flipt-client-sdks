@@ -1,5 +1,6 @@
 package io.flipt.client
 
+import io.flipt.client.FliptClient
 import io.flipt.client.models.*
 import org.junit.After
 import org.junit.Assert.*
@@ -9,7 +10,7 @@ import java.io.File
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 
-class TestFliptEvaluationClient {
+class TestFliptClient {
     companion object {
         private val SNAPSHOT: String by lazy {
             Base64.getEncoder().encodeToString(readResourceFile("snapshot.json").toByteArray(StandardCharsets.UTF_8))
@@ -24,7 +25,7 @@ class TestFliptEvaluationClient {
         }
     }
 
-    private var fliptClient: FliptEvaluationClient? = null
+    private var fliptClient: FliptClient? = null
 
     @Before
     @Throws(Exception::class)
@@ -37,7 +38,7 @@ class TestFliptEvaluationClient {
         require(fliptURL == "http://10.0.2.2:8080") { "FLIPT_URL must be http://10.0.2.2:8080" }
 
         fliptClient =
-            FliptEvaluationClient
+            FliptClient
                 .builder()
                 .url(url = fliptURL)
                 .namespace("default")
@@ -140,7 +141,7 @@ class TestFliptEvaluationClient {
     @Test
     fun testSetGetSnapshotWithInvalidFliptURL() {
         val invalidFliptClient =
-            FliptEvaluationClient
+            FliptClient
                 .builder()
                 .url("http://invalid.flipt.com")
                 .errorStrategy(ErrorStrategy.FALLBACK)
