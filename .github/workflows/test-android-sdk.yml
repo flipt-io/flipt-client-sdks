@@ -3,6 +3,12 @@ on:
   workflow_run:
     workflows: ["Package FFI Engine (Android)"]
     types: [requested, completed]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to download prebuilt engine (e.g. flipt-engine-ffi-v0.9.0)"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -136,7 +142,117 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const sha = context.payload.workflow_run.head_sha;
+            const sha = context.payload.workflow_run ? context.payload.workflow_run.head_sha : context.sha;
+            const { owner, repo } = context.repo;
+            await github.rest.repos.createCommitStatus({
+              owner,
+              repo,
+              sha: sha,
+              state: '${{ job.status }}' === 'success' ? 'success' : 'failure',
+              context: 'Android SDK Tests',
+              description: '${{ job.status }}' === 'success' ? 'Tests passed' : 'Tests failed',
+              target_url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+            });
+
+      - name: (Fail-only) Upload the build reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: ./flipt-client-kotlin-android/build/reports
+
+  test-prebuilt:
+    name: Integration Tests (Prebuilt Engine)
+    runs-on: ubuntu-22.04
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != '' }}
+    timeout-minutes: 20
+    steps:
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+          cache-disabled: true
+
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Install Flipt
+        uses: flipt-io/setup-action@v0.3.1
+
+      - name: Download Artifact (Android x86_64)
+        run: |
+          curl -L -o /tmp/flipt-engine-ffi-Android-x86_64.tar.gz \
+            https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-${{ github.event.inputs.release_tag }}/flipt-engine-ffi-Android-x86_64.tar.gz
+
+      - name: Download Artifact (Android arm64)
+        run: |
+          curl -L -o /tmp/flipt-engine-ffi-Android-aarch64.tar.gz \
+            https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-${{ github.event.inputs.release_tag }}/flipt-engine-ffi-Android-aarch64.tar.gz
+
+      - name: Extract Artifacts
+        run: |
+          mkdir -p /tmp/flipt-engine-ffi-Android-x86_64
+          mkdir -p /tmp/flipt-engine-ffi-Android-aarch64
+          tar -xzvf /tmp/flipt-engine-ffi-Android-x86_64.tar.gz -C /tmp/flipt-engine-ffi-Android-x86_64
+          tar -xzvf /tmp/flipt-engine-ffi-Android-aarch64.tar.gz -C /tmp/flipt-engine-ffi-Android-aarch64
+
+      - name: Move Artifacts
+        run: |
+          mkdir -p flipt-client-kotlin-android/src/main/cpp/libs/x86_64
+          mkdir -p flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a
+          mkdir -p flipt-client-kotlin-android/src/main/cpp/include
+          mv /tmp/flipt-engine-ffi-Android-x86_64/target/x86_64-linux-android/release/libfliptengine.a flipt-client-kotlin-android/src/main/cpp/libs/x86_64/
+          mv /tmp/flipt-engine-ffi-Android-aarch64/target/aarch64-linux-android/release/libfliptengine.a flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a/
+          cp flipt-engine-ffi/include/flipt_engine.h flipt-client-kotlin-android/src/main/cpp/include/
+
+      - name: Run Flipt
+        env:
+          FLIPT_STORAGE_TYPE: "local"
+          FLIPT_STORAGE_LOCAL_PATH: "./test/fixtures/testdata"
+          FLIPT_AUTHENTICATION_REQUIRED: true
+          FLIPT_AUTHENTICATION_METHODS_TOKEN_ENABLED: true
+          FLIPT_AUTHENTICATION_METHODS_TOKEN_BOOTSTRAP_TOKEN: "secret"
+        run: flipt&
+
+      - name: Wait for Flipt to be ready
+        run: |
+          while ! curl -s http://0.0.0.0:8080/health | grep -q "SERVING"; do
+            echo "Waiting for Flipt to be ready..."
+            sleep 1
+          done
+
+      - name: Install Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Run Integration Tests
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          FLIPT_URL: "http://10.0.2.2:8080"
+          FLIPT_AUTH_TOKEN: "secret"
+        with:
+          api-level: 33
+          ndk: 25.1.8937393
+          target: default
+          arch: x86_64
+          script: ./gradlew connectedAndroidTest
+          working-directory: ./flipt-client-kotlin-android
+          emulator-options: -no-window -no-snapshot -screen no-touch -noaudio -no-boot-anim -camera-back none
+
+      - name: Update Status Check
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = context.payload.workflow_run ? context.payload.workflow_run.head_sha : context.sha;
             const { owner, repo } = context.repo;
             await github.rest.repos.createCommitStatus({
               owner,
