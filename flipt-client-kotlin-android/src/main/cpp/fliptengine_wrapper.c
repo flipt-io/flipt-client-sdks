@@ -4,16 +4,24 @@
 #include <string.h>
 
 jlong JNICALL Java_io_flipt_client_CLibrary_initializeEngine(
-        JNIEnv *env, jobject obj, jstring namespace_, jstring opts) {
-    const char *namespace_c = (*env)->GetStringUTFChars(env, namespace_, 0);
+        JNIEnv *env, jobject obj, jstring opts) {
     const char *opts_c = (*env)->GetStringUTFChars(env, opts, 0);
 
-    void *engine = initialize_engine(namespace_c, opts_c);
+    void *engine = initialize_engine(opts_c);
 
-    (*env)->ReleaseStringUTFChars(env, namespace_, namespace_c);
     (*env)->ReleaseStringUTFChars(env, opts, opts_c);
 
     return (jlong) engine; // Cast to jlong to safely pass the pointer
+}
+
+jstring JNICALL Java_io_flipt_client_CLibrary_getSnapshot(
+        JNIEnv *env, jobject obj, jlong enginePtr) {
+    const char *result = get_snapshot((void *) enginePtr);
+
+    jstring result_j = (*env)->NewStringUTF(env, result);
+    destroy_string((char *) result); // Free the result string
+
+    return result_j;
 }
 
 jstring JNICALL Java_io_flipt_client_CLibrary_evaluateVariant(
