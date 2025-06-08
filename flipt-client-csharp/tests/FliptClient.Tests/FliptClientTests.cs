@@ -183,17 +183,18 @@ namespace FliptClient.Tests
         public void TestSetGetSnapshotWithInvalidFliptURL()
         {
             // Get a snapshot from a working client
-            string snapshot = _client.GetSnapshot();
+            string? snapshot = _client.GetSnapshot();
             Assert.False(string.IsNullOrEmpty(snapshot));
 
             // Create a client with the previous snapshot and an invalid URL
+            var authToken = Environment.GetEnvironmentVariable("FLIPT_AUTH_TOKEN") ?? throw new ValidationException("FLIPT_AUTH_TOKEN environment variable is not set");
             var options = new ClientOptions
             {
                 Url = "http://invalid.flipt.com",
                 Namespace = "default",
-                Snapshot = snapshot,
+                Snapshot = snapshot!,
                 ErrorStrategy = ErrorStrategy.Fallback,
-                Authentication = new Authentication { ClientToken = Environment.GetEnvironmentVariable("FLIPT_AUTH_TOKEN") }
+                Authentication = new Authentication { ClientToken = authToken }
             };
             using var invalidClient = new FliptClient(options);
 
@@ -202,19 +203,22 @@ namespace FliptClient.Tests
             for (int i = 0; i < 5; i++)
             {
                 var variantResponse = invalidClient.EvaluateVariant("flag1", "someentity", context);
-                Assert.Equal("flag1", variantResponse.FlagKey);
+                Assert.NotNull(variantResponse);
+                Assert.Equal("flag1", variantResponse!.FlagKey);
                 Assert.True(variantResponse.Match);
                 Assert.Equal("MATCH_EVALUATION_REASON", variantResponse.Reason);
                 Assert.Equal("variant1", variantResponse.VariantKey);
                 Assert.Contains("segment1", variantResponse.SegmentKeys);
 
                 var booleanResponse = invalidClient.EvaluateBoolean("flag_boolean", "someentity", context);
-                Assert.Equal("flag_boolean", booleanResponse.FlagKey);
+                Assert.NotNull(booleanResponse);
+                Assert.Equal("flag_boolean", booleanResponse!.FlagKey);
                 Assert.True(booleanResponse.Enabled);
                 Assert.Equal("MATCH_EVALUATION_REASON", booleanResponse.Reason);
 
                 var flags = invalidClient.ListFlags();
-                Assert.Equal(2, flags.Length);
+                Assert.NotNull(flags);
+                Assert.Equal(2, flags!.Length);
 
                 snapshot = invalidClient.GetSnapshot();
                 Assert.False(string.IsNullOrEmpty(snapshot));
