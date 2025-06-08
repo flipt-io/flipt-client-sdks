@@ -65,6 +65,7 @@ This section is for users who are migrating from a previous (pre-1.0.0) version 
 - The main client class is now `FliptClient` (was `EvaluationClient`).
 - The `Namespace` parameter is now part of `ClientOptions`.
 - The `Environment` parameter is now part of `ClientOptions` to support Flipt v2.
+- `UpdateInterval` and `RequestTimeout` are now `TimeSpan` values instead of `int` values.
 - Error handling uses a new hierarchy: `FliptException`, `ValidationException`, `EvaluationException`.
 
 ## Usage
@@ -106,8 +107,8 @@ The `FliptClient` constructor accepts one optional argument:
   - `Environment`: The environment (Flipt v2) to fetch flag state from. If not provided, the client will default to the `default` environment.
   - `Namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
   - `Url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
-  - `RequestTimeout`: The timeout (in seconds) for total request time to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.
-  - `UpdateInterval`: The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
+  - `RequestTimeout`: The timeout for total request time to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.
+  - `UpdateInterval`: The interval in which to fetch new flag state. If not provided, the client will default to 120 seconds.
   - `Authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
   - `Reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
   - `FetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.

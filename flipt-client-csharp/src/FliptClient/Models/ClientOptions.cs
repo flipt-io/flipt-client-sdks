@@ -24,18 +24,20 @@ namespace FliptClient.Models
         public string Url { get; set; } = "http://localhost:8080";
 
         /// <summary>
-        /// Request timeout in milliseconds.
+        /// Request timeout as a duration (serialized as seconds).
         /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("request_timeout")]
-        public int? RequestTimeout { get; set; }
+        [JsonConverter(typeof(TimeSpanSecondsConverter))]
+        public TimeSpan? RequestTimeout { get; set; }
 
         /// <summary>
-        /// Update interval in milliseconds.
+        /// Update interval as a duration (serialized as seconds).
         /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("update_interval")]
-        public int? UpdateInterval { get; set; }
+        [JsonConverter(typeof(TimeSpanSecondsConverter))]
+        public TimeSpan? UpdateInterval { get; set; }
 
         /// <summary>
         /// Authentication options.
@@ -117,6 +119,34 @@ namespace FliptClient.Models
         public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options)
         {
             writer.WriteStringValue(value.ToString().ToLower()); // Convert enum name to lowercase
+        }
+    }
+
+    public class TimeSpanSecondsConverter : JsonConverter<TimeSpan?>
+    {
+        public override TimeSpan? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType == JsonTokenType.Null)
+            {
+                return null;
+            }
+            if (reader.TokenType == JsonTokenType.Number && reader.TryGetInt32(out int seconds))
+            {
+                return TimeSpan.FromSeconds(seconds);
+            }
+            throw new JsonException($"Invalid value for TimeSpan: {reader.GetString()}");
+        }
+
+        public override void Write(Utf8JsonWriter writer, TimeSpan? value, JsonSerializerOptions options)
+        {
+            if (value.HasValue)
+            {
+                writer.WriteNumberValue((int)value.Value.TotalSeconds);
+            }
+            else
+            {
+                writer.WriteNullValue();
+            }
         }
     }
 }
