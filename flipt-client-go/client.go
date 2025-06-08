@@ -11,7 +11,6 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -143,6 +142,8 @@ func WithErrorStrategy(errorStrategy ErrorStrategy) Option {
 }
 
 // WithRequestTimeout sets the request timeout for the client.
+// Note: this is only used for polling mode.
+// Note: setting this will override the HTTP client timeout.
 func WithRequestTimeout(timeout time.Duration) Option {
 	return func(cfg *config) {
 		cfg.RequestTimeout = timeout
@@ -188,6 +189,10 @@ func NewClient(ctx context.Context, opts ...Option) (_ *Client, err error) {
 		opt(&cfg)
 	}
 
+	if err := cfg.validate(); err != nil {
+		return nil, fmt.Errorf("failed to validate configuration: %w", err)
+	}
+
 	runtime := wazero.NewRuntime(ctx)
 
 	defer func() {
@@ -224,47 +229,6 @@ func NewClient(ctx context.Context, opts ...Option) (_ *Client, err error) {
 		snapshotChan: make(chan snapshot, 1),
 	}
 
-	if c.cfg.HTTPClient == nil {
-		c.cfg.HTTPClient = defaultHTTPClient
-	}
-
-	if c.cfg.Namespace == "" {
-		return nil, fmt.Errorf("namespace cannot be empty")
-	}
-
-	if c.cfg.URL == "" {
-		return nil, fmt.Errorf("baseURL cannot be empty")
-	}
-
-	if c.cfg.FetchMode == FetchModePolling {
-		if c.cfg.UpdateInterval < 1*time.Second {
-			return nil, fmt.Errorf("update interval must be greater than 1 second")
-		}
-
-		if c.cfg.RequestTimeout < 1*time.Second {
-			return nil, fmt.Errorf("request timeout must be greater than 1 second")
-		}
-	}
-
-	// Store the base URL without trailing slash
-	c.cfg.URL = strings.TrimRight(c.cfg.URL, "/")
-
-	// Set timeout only for polling mode
-	if c.cfg.FetchMode == FetchModePolling {
-		c.cfg.HTTPClient.Timeout = c.cfg.RequestTimeout
-	}
-
-	// Validate fetch mode
-	if c.cfg.FetchMode != FetchModePolling && c.cfg.FetchMode != FetchModeStreaming {
-		return nil, fmt.Errorf("invalid fetch mode: %s", c.cfg.FetchMode)
-	}
-
-	// Get initial snapshot URL (always uses polling endpoint)
-	initialURL := fmt.Sprintf(c.cfg.URL+snapshotPath, c.cfg.Namespace)
-	if c.cfg.Reference != "" {
-		initialURL += "?reference=" + c.cfg.Reference
-	}
-
 	var (
 		initializeEngine = mod.ExportedFunction(fInitializeEngine)
 		allocFunc        = mod.ExportedFunction(fAllocate)
@@ -288,6 +252,12 @@ func NewClient(ctx context.Context, opts ...Option) (_ *Client, err error) {
 
 	if !mod.Memory().Write(uint32(nsPtr[0]), []byte(c.cfg.Namespace)) {
 		return nil, fmt.Errorf("failed to write namespace to memory")
+	}
+
+	// Get initial snapshot URL (always uses polling endpoint)
+	initialURL := fmt.Sprintf(c.cfg.URL+snapshotPath, c.cfg.Namespace)
+	if c.cfg.Reference != "" {
+		initialURL += "?reference=" + c.cfg.Reference
 	}
 
 	// fetch initial state

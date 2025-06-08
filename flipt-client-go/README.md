@@ -171,12 +171,12 @@ The `flipt-client-go` library includes a benchmarking suite that can be used to 
 To run the benchmarks, use the following command:
 
 ```bash
-go test -benchmem -run='^$' -bench=. go.flipt.io/flipt-client
+go test -tags=benchmarks -benchmem -run='^$' -bench=. go.flipt.io/flipt-client
 ```
 
 You should see output similar to the following:
 
-```
+```text
 goos: darwin
 goarch: arm64
 pkg: go.flipt.io/flipt-client

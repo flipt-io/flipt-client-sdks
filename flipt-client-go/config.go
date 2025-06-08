@@ -1,7 +1,9 @@
 package flipt
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -27,4 +29,44 @@ type config struct {
 	ErrorStrategy ErrorStrategy
 	// HTTPClient to use for requests. If nil, a default client is used.
 	HTTPClient *http.Client
+}
+
+// validate validates the configuration and sets defaults.
+func (c *config) validate() error {
+	if c.HTTPClient == nil {
+		c.HTTPClient = defaultHTTPClient
+	}
+
+	if c.Namespace == "" {
+		return fmt.Errorf("namespace cannot be empty")
+	}
+
+	if c.URL == "" {
+		return fmt.Errorf("baseURL cannot be empty")
+	}
+
+	if c.FetchMode == FetchModePolling {
+		if c.UpdateInterval < 1*time.Second {
+			return fmt.Errorf("update interval must be greater than 0")
+		}
+
+		if c.RequestTimeout != 0 && c.RequestTimeout < 1*time.Second {
+			return fmt.Errorf("request timeout must be greater than or equal to 0")
+		}
+	}
+
+	// Store the base URL without trailing slash
+	c.URL = strings.TrimRight(c.URL, "/")
+
+	// Set timeout only for polling mode
+	if c.FetchMode == FetchModePolling {
+		c.HTTPClient.Timeout = c.RequestTimeout
+	}
+
+	// Validate fetch mode
+	if c.FetchMode != FetchModePolling && c.FetchMode != FetchModeStreaming {
+		return fmt.Errorf("invalid fetch mode: %s", c.FetchMode)
+	}
+
+	return nil
 }

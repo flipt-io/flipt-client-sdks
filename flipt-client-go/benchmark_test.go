@@ -1,3 +1,6 @@
+//go:build benchmarks
+// +build benchmarks
+
 package flipt_test
 
 import (
@@ -18,6 +21,25 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	opts := []flipt.Option{}
+
+	if os.Getenv("FLIPT_URL") != "" {
+		opts = append(opts, flipt.WithURL(os.Getenv("FLIPT_URL")))
+	}
+
+	if os.Getenv("FLIPT_AUTH_TOKEN") != "" {
+		opts = append(opts, flipt.WithClientTokenAuthentication(os.Getenv("FLIPT_AUTH_TOKEN")))
+	}
+
+	var err error
+	benchClient, err = flipt.NewClient(
+		context.TODO(),
+		opts...,
+	)
+	if err != nil {
+		panic(err)
+	}
+
 	flag.Parse()
 
 	// CPU profiling
@@ -50,27 +72,6 @@ func TestMain(m *testing.M) {
 	}
 
 	os.Exit(code)
-}
-
-func init() {
-	opts := []flipt.Option{}
-
-	if os.Getenv("FLIPT_URL") != "" {
-		opts = append(opts, flipt.WithURL(os.Getenv("FLIPT_URL")))
-	}
-
-	if os.Getenv("FLIPT_AUTH_TOKEN") != "" {
-		opts = append(opts, flipt.WithClientTokenAuthentication(os.Getenv("FLIPT_AUTH_TOKEN")))
-	}
-
-	var err error
-	benchClient, err = flipt.NewClient(
-		context.TODO(),
-		opts...,
-	)
-	if err != nil {
-		panic(err)
-	}
 }
 
 func generateLargeContext(size int) map[string]string {
