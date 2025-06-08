@@ -175,7 +175,7 @@ namespace FliptClient.Tests
         {
             var options = new ClientOptions { ErrorStrategy = ErrorStrategy.Fallback };
             string optsJson = JsonSerializer.Serialize(options);
-            string expectedJson = """{"url":"http://localhost:8080","error_strategy":"fallback","environment":"default","namespace":"default"}""";
+            string expectedJson = """{"environment":"default","namespace":"default","url":"http://localhost:8080","error_strategy":"fallback"}""";
             Assert.Equal(expectedJson, optsJson);
         }
 
