@@ -34,9 +34,10 @@ class FliptClient(
 
     init {
         val clientOptionsSerialized = json.encodeToString(options)
-        engine = CLibrary.INSTANCE.initializeEngine(
-            clientOptionsSerialized
-        )
+        engine =
+            CLibrary.INSTANCE.initializeEngine(
+                clientOptionsSerialized,
+            )
     }
 
     class FliptClientBuilder {
@@ -160,18 +161,19 @@ class FliptClient(
         fun build(): FliptClient {
             val requestTimeout = this.requestTimeout?.inWholeSeconds
             val updateInterval = this.updateInterval?.inWholeSeconds
-            val options = ClientOptions(
-                environment = environment,
-                namespace = namespace,
-                url = url,
-                requestTimeout = requestTimeout,
-                updateInterval = updateInterval,
-                authentication = authentication,
-                reference = reference,
-                fetchMode = fetchMode,
-                errorStrategy = errorStrategy,
-                snapshot = snapshot
-            )
+            val options =
+                ClientOptions(
+                    environment = environment,
+                    namespace = namespace,
+                    url = url,
+                    requestTimeout = requestTimeout,
+                    updateInterval = updateInterval,
+                    authentication = authentication,
+                    reference = reference,
+                    fetchMode = fetchMode,
+                    errorStrategy = errorStrategy,
+                    snapshot = snapshot,
+                )
             return FliptClient(options)
         }
     }
@@ -260,9 +262,10 @@ class FliptClient(
      */
     fun evaluateBatch(batchEvaluationRequest: Array<EvaluationRequest>): BatchEvaluationResponse {
         if (batchEvaluationRequest.isEmpty()) throw ValidationException("batchEvaluationRequest must not be empty")
-        val evaluationrequests = batchEvaluationRequest.map {
-            InternalEvaluationRequest(it.flagKey, it.entityId, it.context)
-        }
+        val evaluationrequests =
+            batchEvaluationRequest.map {
+                InternalEvaluationRequest(it.flagKey, it.entityId, it.context)
+            }
         val batchEvaluationRequestSerialized = json.encodeToString(evaluationrequests)
         var value: String? = null
         try {

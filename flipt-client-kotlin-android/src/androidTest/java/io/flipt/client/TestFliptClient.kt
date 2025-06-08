@@ -1,6 +1,5 @@
 package io.flipt.client
 
-import io.flipt.client.FliptClient
 import io.flipt.client.models.*
 import org.junit.After
 import org.junit.Assert.*

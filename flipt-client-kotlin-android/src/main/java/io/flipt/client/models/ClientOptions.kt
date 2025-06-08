@@ -1,8 +1,8 @@
 package io.flipt.client.models
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -17,7 +17,10 @@ import kotlin.time.Duration.Companion.seconds
 object DurationSecondsSerializer : KSerializer<Duration?> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("DurationSeconds", PrimitiveKind.LONG)
 
-    override fun serialize(encoder: Encoder, value: Duration?) {
+    override fun serialize(
+        encoder: Encoder,
+        value: Duration?,
+    ) {
         if (value == null) {
             encoder.encodeNull()
         } else {
