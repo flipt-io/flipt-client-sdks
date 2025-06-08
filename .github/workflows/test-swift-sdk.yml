@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Release tag to download prebuilt xcframework (e.g. flipt-engine-ffi-v0.9.0)'
+        description: "Release tag to download prebuilt xcframework (e.g. flipt-engine-ffi-v0.9.0)"
         required: false
         type: string
 
@@ -35,7 +35,6 @@ jobs:
               description: 'Tests are running...',
               target_url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
             });
-
 
   test:
     name: Integration Tests (Package FFI Engine)

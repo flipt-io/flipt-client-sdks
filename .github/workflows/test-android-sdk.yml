@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Release tag to download prebuilt engine (e.g. flipt-engine-ffi-v0.9.0)'
+        description: "Release tag to download prebuilt engine (e.g. flipt-engine-ffi-v0.9.0)"
         required: false
         type: string
 
