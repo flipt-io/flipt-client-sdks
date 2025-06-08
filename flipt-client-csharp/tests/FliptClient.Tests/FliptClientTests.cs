@@ -178,5 +178,47 @@ namespace FliptClient.Tests
             string expectedJson = """{"url":"http://localhost:8080","error_strategy":"fallback","environment":"default","namespace":"default"}""";
             Assert.Equal(expectedJson, optsJson);
         }
+
+        [Fact]
+        public void TestSetGetSnapshotWithInvalidFliptURL()
+        {
+            // Get a snapshot from a working client
+            string snapshot = _client.GetSnapshot();
+            Assert.False(string.IsNullOrEmpty(snapshot));
+
+            // Create a client with the previous snapshot and an invalid URL
+            var options = new ClientOptions
+            {
+                Url = "http://invalid.flipt.com",
+                Namespace = "default",
+                Snapshot = snapshot,
+                ErrorStrategy = ErrorStrategy.Fallback,
+                Authentication = new Authentication { ClientToken = Environment.GetEnvironmentVariable("FLIPT_AUTH_TOKEN") }
+            };
+            using var invalidClient = new FliptClient(options);
+
+            var context = new Dictionary<string, string> { { "fizz", "buzz" } };
+
+            for (int i = 0; i < 5; i++)
+            {
+                var variantResponse = invalidClient.EvaluateVariant("flag1", "someentity", context);
+                Assert.Equal("flag1", variantResponse.FlagKey);
+                Assert.True(variantResponse.Match);
+                Assert.Equal("MATCH_EVALUATION_REASON", variantResponse.Reason);
+                Assert.Equal("variant1", variantResponse.VariantKey);
+                Assert.Contains("segment1", variantResponse.SegmentKeys);
+
+                var booleanResponse = invalidClient.EvaluateBoolean("flag_boolean", "someentity", context);
+                Assert.Equal("flag_boolean", booleanResponse.FlagKey);
+                Assert.True(booleanResponse.Enabled);
+                Assert.Equal("MATCH_EVALUATION_REASON", booleanResponse.Reason);
+
+                var flags = invalidClient.ListFlags();
+                Assert.Equal(2, flags.Length);
+
+                snapshot = invalidClient.GetSnapshot();
+                Assert.False(string.IsNullOrEmpty(snapshot));
+            }
+        }
     }
 }

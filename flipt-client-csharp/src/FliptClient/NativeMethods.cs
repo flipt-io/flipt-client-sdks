@@ -30,6 +30,9 @@ namespace FliptClient
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void DestroyStringDelegate(IntPtr str);
 
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate IntPtr GetSnapshotDelegate(IntPtr engine);
+
         public static InitializeEngineDelegate InitializeEngine;
         public static EvaluateVariantDelegate EvaluateVariant;
         public static EvaluateBooleanDelegate EvaluateBoolean;
@@ -37,7 +40,7 @@ namespace FliptClient
         public static ListFlagsDelegate ListFlags;
         public static DestroyEngineDelegate DestroyEngine;
         public static DestroyStringDelegate DestroyString;
-
+        public static GetSnapshotDelegate GetSnapshot;
         static NativeMethods()
         {
             string libraryPath = GetLibraryName();
@@ -62,6 +65,7 @@ namespace FliptClient
             ListFlags = GetDelegate<ListFlagsDelegate>("list_flags");
             DestroyEngine = GetDelegate<DestroyEngineDelegate>("destroy_engine");
             DestroyString = GetDelegate<DestroyStringDelegate>("destroy_string");
+            GetSnapshot = GetDelegate<GetSnapshotDelegate>("get_snapshot");
         }
 
         private static string GetLibraryName()

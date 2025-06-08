@@ -52,7 +52,7 @@ namespace FliptClient
             };
             string requestJson = JsonSerializer.Serialize(request);
             IntPtr resultPtr = NativeMethods.EvaluateVariant(_engine, requestJson);
-            string resultJson = Marshal.PtrToStringAnsi(resultPtr) ?? throw new NetworkException("Failed to get result from native code");
+            string resultJson = Marshal.PtrToStringAnsi(resultPtr) ?? throw new FliptException("Failed to get result from native code");
             NativeMethods.DestroyString(resultPtr);
             var result = JsonSerializer.Deserialize<VariantResult>(resultJson) ?? throw new EvaluationException("Failed to deserialize response");
             if (result.Status != "success")
@@ -87,7 +87,7 @@ namespace FliptClient
             };
             string requestJson = JsonSerializer.Serialize(request);
             IntPtr resultPtr = NativeMethods.EvaluateBoolean(_engine, requestJson);
-            string resultJson = Marshal.PtrToStringAnsi(resultPtr) ?? throw new NetworkException("Failed to get result from native code");
+            string resultJson = Marshal.PtrToStringAnsi(resultPtr) ?? throw new FliptException("Failed to get result from native code");
             NativeMethods.DestroyString(resultPtr);
             var result = JsonSerializer.Deserialize<BooleanResult>(resultJson) ?? throw new EvaluationException("Failed to deserialize response");
             if (result.Status != "success")
@@ -108,7 +108,7 @@ namespace FliptClient
             }
             string requestJson = JsonSerializer.Serialize(requests);
             IntPtr resultPtr = NativeMethods.EvaluateBatch(_engine, requestJson);
-            string resultJson = Marshal.PtrToStringAnsi(resultPtr) ?? throw new NetworkException("Failed to get result from native code");
+            string resultJson = Marshal.PtrToStringAnsi(resultPtr) ?? throw new FliptException("Failed to get result from native code");
             NativeMethods.DestroyString(resultPtr);
             var result = JsonSerializer.Deserialize<BatchResult>(resultJson) ?? throw new EvaluationException("Failed to deserialize response");
             if (result.Status != "success")
@@ -124,7 +124,7 @@ namespace FliptClient
         public Flag[]? ListFlags()
         {
             IntPtr resultPtr = NativeMethods.ListFlags(_engine);
-            string resultJson = Marshal.PtrToStringAnsi(resultPtr) ?? throw new NetworkException("Failed to get result from native code");
+            string resultJson = Marshal.PtrToStringAnsi(resultPtr) ?? throw new FliptException("Failed to get result from native code");
             NativeMethods.DestroyString(resultPtr);
             var result = JsonSerializer.Deserialize<ListFlagsResult>(resultJson) ?? throw new EvaluationException("Failed to deserialize response");
             if (result.Status != "success")
@@ -132,6 +132,17 @@ namespace FliptClient
                 throw new EvaluationException(result.ErrorMessage ?? "Unknown error");
             }
             return result.Response;
+        }
+
+        /// <summary>
+        /// Gets the snapshot for the client.
+        /// </summary>
+        public string? GetSnapshot()
+        {
+            IntPtr resultPtr = NativeMethods.GetSnapshot(_engine);
+            string resultStr = Marshal.PtrToStringAnsi(resultPtr) ?? throw new FliptException("Failed to get result from native code");
+            NativeMethods.DestroyString(resultPtr);
+            return resultStr;
         }
 
         /// <summary>

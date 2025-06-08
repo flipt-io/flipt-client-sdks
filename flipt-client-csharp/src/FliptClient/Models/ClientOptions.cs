@@ -64,6 +64,13 @@ namespace FliptClient.Models
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("error_strategy")]
         public ErrorStrategy ErrorStrategy { get; set; } = ErrorStrategy.Fail;
+
+        /// <summary>
+        /// The initial snapshot to use when instantiating the client.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("snapshot")]
+        public string? Snapshot { get; set; }
     }
 
     [JsonConverter(typeof(LowercaseEnumConverter<ErrorStrategy>))]
