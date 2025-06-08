@@ -8,19 +8,19 @@ namespace FliptClient;
 public class EvaluationRequest
 {
     /// <summary>
-    /// The key of the flag to evaluate.
+    /// Gets or sets the key of the flag to evaluate.
     /// </summary>
     [JsonPropertyName("flag_key")]
     public required string FlagKey { get; set; }
 
     /// <summary>
-    /// The entity ID for which the flag is being evaluated.
+    /// Gets or sets the entity ID for which the flag is being evaluated.
     /// </summary>
     [JsonPropertyName("entity_id")]
     public required string EntityId { get; set; }
 
     /// <summary>
-    /// The evaluation context as key-value pairs.
+    /// Gets or sets the evaluation context as key-value pairs.
     /// </summary>
     [JsonPropertyName("context")]
     public required Dictionary<string, string> Context { get; set; }

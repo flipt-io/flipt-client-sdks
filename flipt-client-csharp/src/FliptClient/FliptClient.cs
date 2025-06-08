@@ -23,6 +23,7 @@ namespace FliptClient
             {
                 throw new ValidationException("ClientOptions cannot be null");
             }
+
             string optsJson = JsonSerializer.Serialize(options);
             _engine = NativeMethods.InitializeEngine(optsJson);
         }
@@ -30,20 +31,24 @@ namespace FliptClient
         /// <summary>
         /// Evaluates a variant flag for the given entity and context.
         /// </summary>
+        /// <returns></returns>
         public VariantEvaluationResponse? EvaluateVariant(string flagKey, string entityId, Dictionary<string, string> context)
         {
             if (string.IsNullOrWhiteSpace(flagKey))
             {
                 throw new ValidationException("flagKey cannot be empty or null");
             }
+
             if (string.IsNullOrWhiteSpace(entityId))
             {
                 throw new ValidationException("entityId cannot be empty or null");
             }
+
             if (context == null)
             {
                 context = new Dictionary<string, string>();
             }
+
             var request = new EvaluationRequest
             {
                 FlagKey = flagKey,
@@ -59,26 +64,31 @@ namespace FliptClient
             {
                 throw new EvaluationException(result.ErrorMessage ?? "Unknown error");
             }
+
             return result.Response;
         }
 
         /// <summary>
         /// Evaluates a boolean flag for the given entity and context.
         /// </summary>
+        /// <returns></returns>
         public BooleanEvaluationResponse? EvaluateBoolean(string flagKey, string entityId, Dictionary<string, string> context)
         {
             if (string.IsNullOrWhiteSpace(flagKey))
             {
                 throw new ValidationException("flagKey cannot be empty or null");
             }
+
             if (string.IsNullOrWhiteSpace(entityId))
             {
                 throw new ValidationException("entityId cannot be empty or null");
             }
+
             if (context == null)
             {
                 context = new Dictionary<string, string>();
             }
+
             var request = new EvaluationRequest
             {
                 FlagKey = flagKey,
@@ -94,18 +104,21 @@ namespace FliptClient
             {
                 throw new EvaluationException(result.ErrorMessage ?? "Unknown error");
             }
+
             return result.Response;
         }
 
         /// <summary>
         /// Evaluates a batch of flag requests.
         /// </summary>
+        /// <returns></returns>
         public BatchEvaluationResponse? EvaluateBatch(List<EvaluationRequest> requests)
         {
             if (requests == null || requests.Count == 0)
             {
                 throw new ValidationException("requests cannot be empty or null");
             }
+
             string requestJson = JsonSerializer.Serialize(requests);
             IntPtr resultPtr = NativeMethods.EvaluateBatch(_engine, requestJson);
             string resultJson = Marshal.PtrToStringAnsi(resultPtr) ?? throw new FliptException("Failed to get result from native code");
@@ -115,12 +128,14 @@ namespace FliptClient
             {
                 throw new EvaluationException(result.ErrorMessage ?? "Unknown error");
             }
+
             return result.Response;
         }
 
         /// <summary>
         /// Lists all flags in the current namespace.
         /// </summary>
+        /// <returns></returns>
         public Flag[]? ListFlags()
         {
             IntPtr resultPtr = NativeMethods.ListFlags(_engine);
@@ -131,12 +146,14 @@ namespace FliptClient
             {
                 throw new EvaluationException(result.ErrorMessage ?? "Unknown error");
             }
+
             return result.Response;
         }
 
         /// <summary>
         /// Gets the snapshot for the client.
         /// </summary>
+        /// <returns></returns>
         public string? GetSnapshot()
         {
             IntPtr resultPtr = NativeMethods.GetSnapshot(_engine);
@@ -163,20 +180,31 @@ namespace FliptClient
     /// </summary>
     public class FliptException : Exception
     {
-        public FliptException(string message) : base(message) { }
+        public FliptException(string message)
+            : base(message)
+        {
+        }
     }
+
     /// <summary>
     /// Exception for validation errors.
     /// </summary>
     public class ValidationException : FliptException
     {
-        public ValidationException(string message) : base(message) { }
+        public ValidationException(string message)
+            : base(message)
+        {
+        }
     }
+
     /// <summary>
     /// Exception for evaluation errors.
     /// </summary>
     public class EvaluationException : FliptException
     {
-        public EvaluationException(string message) : base(message) { }
+        public EvaluationException(string message)
+            : base(message)
+        {
+        }
     }
 }
