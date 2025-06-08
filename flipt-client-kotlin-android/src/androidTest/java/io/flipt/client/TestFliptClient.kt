@@ -127,10 +127,10 @@ class TestFliptClient {
         repeat(5) {
             val response = invalidFliptClient.evaluateVariant("flag1", "entity", context)
             assert("flag1" == response.flagKey)
-            assert(response.match)
+            assert(response.match == true)
             assert("MATCH_EVALUATION_REASON" == response.reason)
             assert("variant1" == response.variantKey)
-            assert(response.segmentKeys[0] == "segment1")
+            assert(response.segmentKeys?.get(0) == "segment1")
 
             val booleanResponse = invalidFliptClient.evaluateBoolean("flag_boolean", "entity", context)
             assert("flag_boolean" == booleanResponse.flagKey)
