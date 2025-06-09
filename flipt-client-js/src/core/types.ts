@@ -90,6 +90,12 @@ export interface JWTAuthentication extends AuthenticationStrategy {
 
 export interface ClientOptions {
   /**
+   * The environment to use when evaluating flags (Flipt v2)
+   *
+   * @defaultValue `default`
+   */
+  environment?: string;
+  /**
    * The namespace to use when evaluating flags.
    *
    * @defaultValue `default`
@@ -265,4 +271,24 @@ export enum ErrorStrategy {
   Fail = 'fail',
   /** The client will maintain the last known good state and use that state for evaluation in case of an error. */
   Fallback = 'fallback'
+}
+
+/**
+ * Factory class for creating default client options.
+ */
+export class ClientOptionsFactory {
+  /**
+   * Creates a default client options object.
+   * @returns {ClientOptions} A default client options object.
+   */
+  static default(): ClientOptions {
+    return {
+      environment: 'default',
+      namespace: 'default',
+      url: 'http://localhost:8080',
+      reference: '',
+      updateInterval: 120,
+      errorStrategy: ErrorStrategy.Fail
+    };
+  }
 }
