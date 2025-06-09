@@ -79,7 +79,7 @@ class FliptClientTests: XCTestCase {
                 flagKey: "flag1",
                 entityID: "someentity",
                 evalContext: ["fizz": "buzz"])
-            guard let variantResult = variantResult else {
+            guard let variantResult else {
                 XCTFail("variantResult is nil")
                 return
             }
@@ -98,7 +98,7 @@ class FliptClientTests: XCTestCase {
                 flagKey: "flag_boolean",
                 entityID: "someentity",
                 evalContext: ["fizz": "buzz"])
-            guard let booleanResult = booleanResult else {
+            guard let booleanResult else {
                 XCTFail("booleanResult is nil")
                 return
             }
@@ -119,7 +119,7 @@ class FliptClientTests: XCTestCase {
             ]
 
             let batchResult = try evaluationClient?.evaluateBatch(requests: requests)
-            guard let batchResult = batchResult else {
+            guard let batchResult else {
                 XCTFail("batchResult is nil")
                 return
             }
@@ -163,7 +163,7 @@ class FliptClientTests: XCTestCase {
     func testListFlags() {
         do {
             let flags = try evaluationClient?.listFlags()
-            guard let flags = flags else {
+            guard let flags else {
                 XCTFail("flags is nil")
                 return
             }
