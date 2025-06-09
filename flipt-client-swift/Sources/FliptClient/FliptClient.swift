@@ -104,22 +104,28 @@ public class FliptClient {
         guard let response = variantResponse else {
             throw ClientError.evaluationFailed(message: "No response from engine")
         }
+
         let responseString = String(cString: response)
         destroy_string(UnsafeMutablePointer(mutating: response))
 
-        do {
-            let variantResult = try JSONDecoder().decode(VariantResult.self, from: Data(responseString.utf8))
-            if variantResult.status != "success" {
-                throw ClientError.evaluationFailed(message: variantResult.error_message ?? "Unknown error")
-            }
-            guard let result = variantResult.result else {
-                throw ClientError.evaluationFailed(message: "missing result")
-            }
+        if responseString.isEmpty {
+            throw ClientError.evaluationFailed(message: "Empty response from engine")
+        }
 
-            return result
-        } catch {
+        guard let variantResult = try? JSONDecoder().decode(VariantResult.self, from: Data(responseString.utf8)) else {
+            print("DEBUG: Failed to decode response: \(responseString)")
             throw ClientError.parsingError
         }
+
+        if variantResult.status != "success" {
+            throw ClientError.evaluationFailed(message: variantResult.error_message ?? "Unknown error")
+        }
+
+        guard let result = variantResult.result else {
+            throw ClientError.evaluationFailed(message: "missing result")
+        }
+
+        return result
     }
 
     public func evaluateBoolean(
@@ -151,10 +157,16 @@ public class FliptClient {
         guard let response = booleanResponse else {
             throw ClientError.evaluationFailed(message: "No response from engine")
         }
+
         let responseString = String(cString: response)
         destroy_string(UnsafeMutablePointer(mutating: response))
 
+        if responseString.isEmpty {
+            throw ClientError.evaluationFailed(message: "Empty response from engine")
+        }
+
         guard let booleanResult = try? JSONDecoder().decode(BooleanResult.self, from: Data(responseString.utf8)) else {
+            print("DEBUG: Failed to decode response: \(responseString)")
             throw ClientError.parsingError
         }
 
@@ -178,8 +190,13 @@ public class FliptClient {
         let responseString = String(cString: response)
         destroy_string(UnsafeMutablePointer(mutating: response))
 
+        if responseString.isEmpty {
+            throw ClientError.evaluationFailed(message: "Empty response from engine")
+        }
+
         guard let listFlagsResult = try? JSONDecoder().decode(ListFlagsResult.self, from: Data(responseString.utf8))
         else {
+            print("DEBUG: Failed to decode response: \(responseString)")
             throw ClientError.parsingError
         }
 
@@ -207,10 +224,16 @@ public class FliptClient {
         guard let response = batchResponse else {
             throw ClientError.evaluationFailed(message: "No response from engine")
         }
+
         let responseString = String(cString: response)
         destroy_string(UnsafeMutablePointer(mutating: response))
 
+        if responseString.isEmpty {
+            throw ClientError.evaluationFailed(message: "Empty response from engine")
+        }
+
         guard let batchResult = try? JSONDecoder().decode(BatchResult.self, from: Data(responseString.utf8)) else {
+            print("DEBUG: Failed to decode response: \(responseString)")
             throw ClientError.parsingError
         }
 
