@@ -1,4 +1,0 @@
-module FliptEngineFFI {
-  header "flipt_engine.h"
-  export *
-}
