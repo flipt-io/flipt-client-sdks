@@ -1,3 +1,3 @@
 package flipt
 
-const Version = "0.17.0"
+const Version = "1.0.0"
