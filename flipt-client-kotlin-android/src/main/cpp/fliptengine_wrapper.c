@@ -80,8 +80,3 @@ void JNICALL Java_io_flipt_client_CLibrary_destroyEngine(
         JNIEnv *env, jobject obj, jlong enginePtr) {
     destroy_engine((void *) enginePtr);
 }
-
-void JNICALL Java_io_flipt_client_CLibrary_destroyString(
-        JNIEnv *env, jobject obj, jlong ptr) {
-    destroy_string((char *) ptr);
-}
