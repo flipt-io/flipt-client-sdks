@@ -30,8 +30,8 @@ public class FliptClient {
         self.namespace = namespace ?? "default"
         self.url = url ?? "http://localhost:8080"
         self.authentication = authentication
-        self.requestTimeout = requestTimeout?.components.seconds ?? 0
-        self.updateInterval = updateInterval?.components.seconds ?? 120
+        self.requestTimeout = Int(requestTimeout?.components.seconds ?? 0)
+        self.updateInterval = Int(updateInterval?.components.seconds ?? 120)
         self.reference = reference
         self.fetchMode = fetchMode
         self.errorStrategy = errorStrategy
