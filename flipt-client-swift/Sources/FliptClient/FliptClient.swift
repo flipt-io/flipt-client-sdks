@@ -41,15 +41,17 @@ public class FliptClient {
             environment: self.environment,
             namespace: self.namespace,
             url: self.url,
-            authentication: authentication,
+            authentication: self.authentication,
             requestTimeout: self.requestTimeout,
             updateInterval: self.updateInterval,
             reference: self.reference,
-            fetchMode: fetchMode,
-            errorStrategy: errorStrategy,
+            fetchMode: self.fetchMode,
+            errorStrategy: self.errorStrategy,
             snapshot: self.snapshot)
 
-        guard let jsonData = try? JSONEncoder().encode(clientOptions),
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        guard let jsonData = try? encoder.encode(clientOptions),
               let jsonStr = String(data: jsonData, encoding: .utf8)
         else {
             throw ClientError.invalidOptions
