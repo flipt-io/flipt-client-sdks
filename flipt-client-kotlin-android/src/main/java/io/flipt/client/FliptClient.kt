@@ -202,20 +202,13 @@ class FliptClient(
         if (entityId.isEmpty()) throw ValidationException("entityId is required")
         val evaluationRequest = InternalEvaluationRequest(flagKey, entityId, context)
         val evaluationRequestSerialized = json.encodeToString(evaluationRequest)
-        var value: String? = null
-        try {
-            value = CLibrary.INSTANCE.evaluateVariant(engine, evaluationRequestSerialized)
-            val resp: Result<VariantEvaluationResponse> =
-                json.decodeFromString(Result.serializer(VariantEvaluationResponse.serializer()), value)
-            if (resp.status != "success") {
-                throw EvaluationException(resp.errorMessage ?: "Unknown error")
-            }
-            return resp.result ?: throw EvaluationException(resp.errorMessage ?: "No result returned from engine")
-        } finally {
-            if (value != null) {
-                CLibrary.INSTANCE.destroyString(value)
-            }
+        val value = CLibrary.INSTANCE.evaluateVariant(engine, evaluationRequestSerialized)
+        val resp: Result<VariantEvaluationResponse> =
+            json.decodeFromString(Result.serializer(VariantEvaluationResponse.serializer()), value)
+        if (resp.status != "success") {
+            throw EvaluationException(resp.errorMessage ?: "Unknown error")
         }
+        return resp.result ?: throw EvaluationException(resp.errorMessage ?: "No result returned from engine")
     }
 
     /**
@@ -236,20 +229,13 @@ class FliptClient(
         if (entityId.isEmpty()) throw ValidationException("entityId is required")
         val evaluationRequest = InternalEvaluationRequest(flagKey, entityId, context)
         val evaluationRequestSerialized = json.encodeToString(evaluationRequest)
-        var value: String? = null
-        try {
-            value = CLibrary.INSTANCE.evaluateBoolean(engine, evaluationRequestSerialized)
-            val resp: Result<BooleanEvaluationResponse> =
-                json.decodeFromString(Result.serializer(BooleanEvaluationResponse.serializer()), value)
-            if (resp.status != "success") {
-                throw EvaluationException(resp.errorMessage ?: "Unknown error")
-            }
-            return resp.result ?: throw EvaluationException(resp.errorMessage ?: "No result returned from engine")
-        } finally {
-            if (value != null) {
-                CLibrary.INSTANCE.destroyString(value)
-            }
+        val value = CLibrary.INSTANCE.evaluateBoolean(engine, evaluationRequestSerialized)
+        val resp: Result<BooleanEvaluationResponse> =
+            json.decodeFromString(Result.serializer(BooleanEvaluationResponse.serializer()), value)
+        if (resp.status != "success") {
+            throw EvaluationException(resp.errorMessage ?: "Unknown error")
         }
+        return resp.result ?: throw EvaluationException(resp.errorMessage ?: "No result returned from engine")
     }
 
     /**
@@ -266,20 +252,13 @@ class FliptClient(
                 InternalEvaluationRequest(it.flagKey, it.entityId, it.context)
             }
         val batchEvaluationRequestSerialized = json.encodeToString(evaluationrequests)
-        var value: String? = null
-        try {
-            value = CLibrary.INSTANCE.evaluateBatch(engine, batchEvaluationRequestSerialized)
-            val resp: Result<BatchEvaluationResponse> =
-                json.decodeFromString(Result.serializer(BatchEvaluationResponse.serializer()), value)
-            if (resp.status != "success") {
-                throw EvaluationException(resp.errorMessage ?: "Unknown error")
-            }
-            return resp.result ?: throw EvaluationException(resp.errorMessage ?: "No result returned from engine")
-        } finally {
-            if (value != null) {
-                CLibrary.INSTANCE.destroyString(value)
-            }
+        val value = CLibrary.INSTANCE.evaluateBatch(engine, batchEvaluationRequestSerialized)
+        val resp: Result<BatchEvaluationResponse> =
+            json.decodeFromString(Result.serializer(BatchEvaluationResponse.serializer()), value)
+        if (resp.status != "success") {
+            throw EvaluationException(resp.errorMessage ?: "Unknown error")
         }
+        return resp.result ?: throw EvaluationException(resp.errorMessage ?: "No result returned from engine")
     }
 
     /**
@@ -288,19 +267,12 @@ class FliptClient(
      * @throws EvaluationException if listing fails
      */
     fun listFlags(): List<Flag> {
-        var value: String? = null
-        try {
-            value = CLibrary.INSTANCE.listFlags(engine)
-            val resp = json.decodeFromString<Result<ArrayList<Flag>>>(value)
-            if (resp.status != "success") {
-                throw EvaluationException(resp.errorMessage ?: "Unknown error")
-            }
-            return resp.result ?: throw EvaluationException(resp.errorMessage ?: "No result returned from engine")
-        } finally {
-            if (value != null) {
-                CLibrary.INSTANCE.destroyString(value)
-            }
+        val value = CLibrary.INSTANCE.listFlags(engine)
+        val resp = json.decodeFromString<Result<ArrayList<Flag>>>(value)
+        if (resp.status != "success") {
+            throw EvaluationException(resp.errorMessage ?: "Unknown error")
         }
+        return resp.result ?: throw EvaluationException(resp.errorMessage ?: "No result returned from engine")
     }
 
     /**
@@ -308,15 +280,7 @@ class FliptClient(
      * @return the snapshot
      */
     fun getSnapshot(): String {
-        var value: String? = null
-        try {
-            value = CLibrary.INSTANCE.getSnapshot(engine)
-            return value
-        } finally {
-            if (value != null) {
-                CLibrary.INSTANCE.destroyString(value)
-            }
-        }
+        return CLibrary.INSTANCE.getSnapshot(engine)
     }
 
     /**

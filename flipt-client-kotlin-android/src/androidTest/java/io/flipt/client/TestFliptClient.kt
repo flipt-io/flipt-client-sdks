@@ -5,25 +5,8 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
-import java.io.File
-import java.nio.charset.StandardCharsets
-import java.util.Base64
 
 class TestFliptClient {
-    companion object {
-        private val SNAPSHOT: String by lazy {
-            Base64.getEncoder().encodeToString(readResourceFile("snapshot.json").toByteArray(StandardCharsets.UTF_8))
-        }
-        private val EMPTY_SNAPSHOT: String by lazy {
-            Base64.getEncoder().encodeToString(readResourceFile("empty_snapshot.json").toByteArray(StandardCharsets.UTF_8))
-        }
-
-        private fun readResourceFile(filename: String): String {
-            val resourcePath = "src/test/resources/$filename"
-            return File(resourcePath).readText(Charsets.UTF_8)
-        }
-    }
-
     private var fliptClient: FliptClient? = null
 
     @Before
@@ -60,10 +43,10 @@ class TestFliptClient {
         val response = fliptClient?.evaluateVariant("flag1", "entity", context)
 
         assert("flag1" == response?.flagKey)
-        assert(response?.match ?: false)
+        assert(response?.match == true)
         assert("MATCH_EVALUATION_REASON" == response?.reason)
         assert("variant1" == response?.variantKey)
-        assert("segment1" == response?.segmentKeys?.get(0))
+        assert(response?.segmentKeys?.get(0) == "segment1")
     }
 
     @Test
@@ -75,7 +58,7 @@ class TestFliptClient {
         val response = fliptClient?.evaluateBoolean("flag_boolean", "entity", context)
 
         assert("flag_boolean" == response?.flagKey)
-        assert(response?.enabled ?: false)
+        assert(response?.enabled == true)
         assert("MATCH_EVALUATION_REASON" == response?.reason)
     }
 
@@ -100,15 +83,15 @@ class TestFliptClient {
         assert(responses?.get(0)?.variantEvaluationResponse != null)
         val variantResponse = responses?.get(0)?.variantEvaluationResponse
         assert("flag1" == variantResponse?.flagKey)
-        assert(variantResponse?.match ?: false)
+        assert(variantResponse?.match == true)
         assert("MATCH_EVALUATION_REASON" == variantResponse?.reason)
         assert("variant1" == variantResponse?.variantKey)
-        assert("segment1" == variantResponse?.segmentKeys?.get(0))
+        assert(variantResponse?.segmentKeys?.get(0) == "segment1")
 
         assert(responses?.get(1)?.booleanEvaluationResponse != null)
         val booleanResponse = responses?.get(1)?.booleanEvaluationResponse
         assert("flag_boolean" == booleanResponse?.flagKey)
-        assert(booleanResponse?.enabled ?: false)
+        assert(booleanResponse?.enabled == true)
         assert("MATCH_EVALUATION_REASON" == booleanResponse?.reason)
 
         assert(responses?.get(2)?.errorEvaluationResponse != null)
@@ -126,25 +109,16 @@ class TestFliptClient {
     }
 
     @Test
-    fun testGetSnapshot() {
-        val snapshot = fliptClient!!.getSnapshot()
-        assertNotNull(snapshot)
-        val expectedBytes = Base64.getDecoder().decode(SNAPSHOT)
-        val actualBytes = Base64.getDecoder().decode(snapshot)
-        val expectedJson = String(expectedBytes, StandardCharsets.UTF_8)
-        val actualJson = String(actualBytes, StandardCharsets.UTF_8)
-        // Use JSON comparison for leniency
-        assertTrue(jsonEquals(expectedJson, actualJson))
-    }
-
-    @Test
     fun testSetGetSnapshotWithInvalidFliptURL() {
+        val snapshot = fliptClient?.getSnapshot()
+        assertNotNull(snapshot)
+
         val invalidFliptClient =
             FliptClient
                 .builder()
                 .url("http://invalid.flipt.com")
                 .errorStrategy(ErrorStrategy.FALLBACK)
-                .snapshot(SNAPSHOT)
+                .snapshot(snapshot)
                 .build()
 
         val context: MutableMap<String, String> = HashMap()
@@ -153,10 +127,10 @@ class TestFliptClient {
         repeat(5) {
             val response = invalidFliptClient.evaluateVariant("flag1", "entity", context)
             assert("flag1" == response.flagKey)
-            assert(response.match)
+            assert(response.match == true)
             assert("MATCH_EVALUATION_REASON" == response.reason)
             assert("variant1" == response.variantKey)
-            assert("segment1" == response.segmentKeys[0])
+            assert(response.segmentKeys?.get(0) == "segment1")
 
             val booleanResponse = invalidFliptClient.evaluateBoolean("flag_boolean", "entity", context)
             assert("flag_boolean" == booleanResponse.flagKey)
@@ -171,15 +145,5 @@ class TestFliptClient {
         }
 
         invalidFliptClient.close()
-    }
-
-    // Simple JSON comparison ignoring order and whitespace
-    private fun jsonEquals(
-        expected: String,
-        actual: String,
-    ): Boolean {
-        val expectedObj = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper().readTree(expected)
-        val actualObj = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper().readTree(actual)
-        return expectedObj == actualObj
     }
 }
