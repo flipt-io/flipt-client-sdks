@@ -79,6 +79,10 @@ class FliptClientTests: XCTestCase {
                 flagKey: "flag1",
                 entityID: "someentity",
                 evalContext: ["fizz": "buzz"])
+            guard let variantResult else {
+                XCTFail("variantResult is nil")
+                return
+            }
             XCTAssertTrue(variantResult.match)
             XCTAssertEqual(variantResult.flag_key, "flag1")
             XCTAssertEqual(variantResult.reason, "MATCH_EVALUATION_REASON")
@@ -94,6 +98,10 @@ class FliptClientTests: XCTestCase {
                 flagKey: "flag_boolean",
                 entityID: "someentity",
                 evalContext: ["fizz": "buzz"])
+            guard let booleanResult else {
+                XCTFail("booleanResult is nil")
+                return
+            }
             XCTAssertEqual(booleanResult.flag_key, "flag_boolean")
             XCTAssertTrue(booleanResult.enabled)
             XCTAssertEqual(booleanResult.reason, "MATCH_EVALUATION_REASON")
@@ -111,6 +119,10 @@ class FliptClientTests: XCTestCase {
             ]
 
             let batchResult = try evaluationClient?.evaluateBatch(requests: requests)
+            guard let batchResult else {
+                XCTFail("batchResult is nil")
+                return
+            }
             XCTAssertEqual(batchResult.responses.count, 3)
 
             let variantResult = batchResult.responses[0]
@@ -151,8 +163,12 @@ class FliptClientTests: XCTestCase {
     func testListFlags() {
         do {
             let flags = try evaluationClient?.listFlags()
-            XCTAssertFalse(flags?.isEmpty ?? true)
-            XCTAssertEqual(flags?.count, 2)
+            guard let flags else {
+                XCTFail("flags is nil")
+                return
+            }
+            XCTAssertFalse(flags.isEmpty)
+            XCTAssertEqual(flags.count, 2)
         } catch {
             XCTFail("Unexpected error: \(error)")
         }

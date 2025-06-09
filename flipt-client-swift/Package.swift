@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "FliptClient",
-    platforms: [.iOS(.v13), .macOS(.v10_15)],
+    platforms: [.iOS(.v13), .macOS(.v13)],
     products: [
         .library(
             name: "FliptClient",
@@ -15,8 +15,7 @@ let package = Package(
             name: "FliptClient",
             dependencies: ["FliptEngineFFI"],
             linkerSettings: [
-              .linkedFramework("SystemConfiguration"),
-              .linkedLibrary("fliptengine")
+              .linkedFramework("SystemConfiguration")
             ]
         ),
         .binaryTarget(

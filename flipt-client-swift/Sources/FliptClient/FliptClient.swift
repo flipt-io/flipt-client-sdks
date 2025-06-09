@@ -30,8 +30,8 @@ public class FliptClient {
         self.namespace = namespace ?? "default"
         self.url = url ?? "http://localhost:8080"
         self.authentication = authentication
-        self.requestTimeout = requestTimeout?.components.seconds ?? 0
-        self.updateInterval = updateInterval?.components.seconds ?? 120
+        self.requestTimeout = Int(requestTimeout?.components.seconds ?? 0)
+        self.updateInterval = Int(updateInterval?.components.seconds ?? 120)
         self.reference = reference
         self.fetchMode = fetchMode
         self.errorStrategy = errorStrategy
@@ -41,15 +41,17 @@ public class FliptClient {
             environment: self.environment,
             namespace: self.namespace,
             url: self.url,
-            authentication: authentication,
+            authentication: self.authentication,
             requestTimeout: self.requestTimeout,
             updateInterval: self.updateInterval,
             reference: self.reference,
-            fetchMode: fetchMode,
-            errorStrategy: errorStrategy,
+            fetchMode: self.fetchMode,
+            errorStrategy: self.errorStrategy,
             snapshot: self.snapshot)
 
-        guard let jsonData = try? JSONEncoder().encode(clientOptions),
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        guard let jsonData = try? encoder.encode(clientOptions),
               let jsonStr = String(data: jsonData, encoding: .utf8)
         else {
             throw ClientError.invalidOptions
@@ -104,22 +106,27 @@ public class FliptClient {
         guard let response = variantResponse else {
             throw ClientError.evaluationFailed(message: "No response from engine")
         }
+
         let responseString = String(cString: response)
         destroy_string(UnsafeMutablePointer(mutating: response))
 
-        do {
-            let variantResult = try JSONDecoder().decode(VariantResult.self, from: Data(responseString.utf8))
-            if variantResult.status != "success" {
-                throw ClientError.evaluationFailed(message: variantResult.error_message ?? "Unknown error")
-            }
-            guard let result = variantResult.result else {
-                throw ClientError.evaluationFailed(message: "missing result")
-            }
+        if responseString.isEmpty {
+            throw ClientError.evaluationFailed(message: "Empty response from engine")
+        }
 
-            return result
-        } catch {
+        guard let variantResult = try? JSONDecoder().decode(VariantResult.self, from: Data(responseString.utf8)) else {
             throw ClientError.parsingError
         }
+
+        if variantResult.status != "success" {
+            throw ClientError.evaluationFailed(message: variantResult.error_message ?? "Unknown error")
+        }
+
+        guard let result = variantResult.result else {
+            throw ClientError.evaluationFailed(message: "missing result")
+        }
+
+        return result
     }
 
     public func evaluateBoolean(
@@ -151,8 +158,13 @@ public class FliptClient {
         guard let response = booleanResponse else {
             throw ClientError.evaluationFailed(message: "No response from engine")
         }
+
         let responseString = String(cString: response)
         destroy_string(UnsafeMutablePointer(mutating: response))
+
+        if responseString.isEmpty {
+            throw ClientError.evaluationFailed(message: "Empty response from engine")
+        }
 
         guard let booleanResult = try? JSONDecoder().decode(BooleanResult.self, from: Data(responseString.utf8)) else {
             throw ClientError.parsingError
@@ -177,6 +189,10 @@ public class FliptClient {
         }
         let responseString = String(cString: response)
         destroy_string(UnsafeMutablePointer(mutating: response))
+
+        if responseString.isEmpty {
+            throw ClientError.evaluationFailed(message: "Empty response from engine")
+        }
 
         guard let listFlagsResult = try? JSONDecoder().decode(ListFlagsResult.self, from: Data(responseString.utf8))
         else {
@@ -207,8 +223,13 @@ public class FliptClient {
         guard let response = batchResponse else {
             throw ClientError.evaluationFailed(message: "No response from engine")
         }
+
         let responseString = String(cString: response)
         destroy_string(UnsafeMutablePointer(mutating: response))
+
+        if responseString.isEmpty {
+            throw ClientError.evaluationFailed(message: "Empty response from engine")
+        }
 
         guard let batchResult = try? JSONDecoder().decode(BatchResult.self, from: Data(responseString.utf8)) else {
             throw ClientError.parsingError
