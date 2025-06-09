@@ -14,6 +14,7 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * Serializes a [Duration] as a number of seconds (Long) for JSON.
  */
+@kotlinx.serialization.ExperimentalSerializationApi
 object DurationSecondsSerializer : KSerializer<Duration?> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("DurationSeconds", PrimitiveKind.LONG)
 
