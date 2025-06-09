@@ -162,7 +162,7 @@ jobs:
           path: ./flipt-client-kotlin-android/build/reports
 
   test-prebuilt:
-    name: Integration Tests (Prebuilt Engine)
+    name: Integration Tests (Released Engine)
     runs-on: ubuntu-22.04
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != '' }}
     timeout-minutes: 20
