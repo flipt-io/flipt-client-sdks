@@ -1,6 +1,6 @@
 import init, { Engine } from '../wasm/flipt_engine_wasm_js.js';
 import { BaseFliptClient } from '../core/base';
-import { ClientOptions, ErrorStrategy } from '../core/types';
+import { ClientOptions, ClientOptionsFactory } from '../core/types';
 
 export * from '../core/types';
 export * from '../core/base';
@@ -32,13 +32,7 @@ export class FliptClient extends BaseFliptClient {
    * @returns {Promise<FliptClient>}
    */
   static async init(
-    options: ClientOptions = {
-      namespace: 'default',
-      url: 'http://localhost:8080',
-      reference: '',
-      updateInterval: 120,
-      errorStrategy: ErrorStrategy.Fail
-    },
+    options: ClientOptions = ClientOptionsFactory.default(),
     wasmOptions?: WasmOptions
   ): Promise<FliptClient> {
     if (!wasmOptions || !wasmOptions.wasm) {
@@ -47,6 +41,7 @@ export class FliptClient extends BaseFliptClient {
       );
     }
 
+    const environment = options.environment ?? 'default';
     const namespace = options.namespace ?? 'default';
 
     let url = options.url ?? 'http://localhost:8080';
@@ -59,7 +54,8 @@ export class FliptClient extends BaseFliptClient {
 
     const headers: Record<string, string> = {
       Accept: 'application/json',
-      'x-flipt-accept-server-version': '1.47.0'
+      'x-flipt-accept-server-version': '1.47.0',
+      'x-flipt-environment': environment
     };
 
     if (options.authentication) {
