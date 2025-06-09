@@ -15,8 +15,7 @@ let package = Package(
             name: "FliptClient",
             dependencies: ["FliptEngineFFI"],
             linkerSettings: [
-              .linkedFramework("SystemConfiguration"),
-              .linkedLibrary("fliptengine")
+              .linkedFramework("SystemConfiguration")
             ]
         ),
         .binaryTarget(
