@@ -115,7 +115,6 @@ public class FliptClient {
         }
 
         guard let variantResult = try? JSONDecoder().decode(VariantResult.self, from: Data(responseString.utf8)) else {
-            print("DEBUG: Failed to decode response: \(responseString)")
             throw ClientError.parsingError
         }
 
@@ -168,7 +167,6 @@ public class FliptClient {
         }
 
         guard let booleanResult = try? JSONDecoder().decode(BooleanResult.self, from: Data(responseString.utf8)) else {
-            print("DEBUG: Failed to decode response: \(responseString)")
             throw ClientError.parsingError
         }
 
@@ -198,7 +196,6 @@ public class FliptClient {
 
         guard let listFlagsResult = try? JSONDecoder().decode(ListFlagsResult.self, from: Data(responseString.utf8))
         else {
-            print("DEBUG: Failed to decode response: \(responseString)")
             throw ClientError.parsingError
         }
 
@@ -235,7 +232,6 @@ public class FliptClient {
         }
 
         guard let batchResult = try? JSONDecoder().decode(BatchResult.self, from: Data(responseString.utf8)) else {
-            print("DEBUG: Failed to decode response: \(responseString)")
             throw ClientError.parsingError
         }
 
