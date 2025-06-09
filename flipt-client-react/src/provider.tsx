@@ -4,10 +4,9 @@ import type { ClientOptions } from '@flipt-io/flipt-client-js';
 
 export const FliptProvider: React.FC<{
   children: React.ReactNode;
-  namespace: string;
   options: ClientOptions;
-}> = ({ children, namespace, options }) => {
-  const [store] = useState(useStore(namespace, options));
+}> = ({ children, options }) => {
+  const [store] = useState(useStore(options));
   useEffect(() => {
     store.attach();
     return () => {
