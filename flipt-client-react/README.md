@@ -39,8 +39,9 @@ import { FliptProvider } from '@flipt-io/flipt-client-react';
 function App() {
   return (
     <FliptProvider
-      namespace="default"
       options={{
+        environment: 'default',
+        namespace: 'default',
         url: 'https://your-flipt-instance.com'
         // Add other configuration options as needed
       }}
@@ -141,8 +142,9 @@ function MyComponent() {
 
 The `FliptProvider` component accepts two optional arguments:
 
-- `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
 - `options`: An instance of the `ClientOptions` type that supports several options for the client. The structure is:
+  - `environment`: The environment to use when evaluating flags (Flipt v2). If not provided, the client will default to the `default` environment.
+  - `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
   - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
   - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
   - `updateInterval`: The polling interval (in seconds) for fetching new state from Flipt. Set to `120` seconds by default. A `0` value disables polling completely after the initial fetch.

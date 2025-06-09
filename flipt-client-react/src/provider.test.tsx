@@ -2,7 +2,6 @@ import React from 'react';
 import { render, act, renderHook, waitFor } from '@testing-library/react';
 import {
   FliptProvider,
-  FliptClientHook,
   useFliptVariant,
   useFliptBoolean,
   useFliptSelector
@@ -43,8 +42,11 @@ describe('FliptProvider', () => {
     await act(async () => {
       render(
         <FliptProvider
-          namespace="test"
-          options={{ url: 'http://localhost:8080' }}
+          options={{
+            environment: 'test',
+            namespace: 'foo',
+            url: 'http://localhost:8080'
+          }}
         >
           <TestComponent />
         </FliptProvider>
@@ -62,7 +64,8 @@ describe('FliptProvider', () => {
     }
 
     expect(FliptClient.init).toHaveBeenCalledWith({
-      namespace: 'test',
+      environment: 'test',
+      namespace: 'foo',
       url: 'http://localhost:8080'
     });
     expect(gotClient).toBe(mockClient);
@@ -83,8 +86,11 @@ describe('useFliptContext', () => {
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
       <FliptProvider
-        namespace="test"
-        options={{ url: 'http://localhost:8080' }}
+        options={{
+          environment: 'test',
+          namespace: 'foo',
+          url: 'http://localhost:8080'
+        }}
       >
         {children}
       </FliptProvider>
@@ -121,7 +127,13 @@ it('evaluates a boolean flag', async () => {
   (FliptClient.init as jest.Mock).mockResolvedValue(mockClient);
 
   const wrapper = ({ children }: { children: React.ReactNode }) => (
-    <FliptProvider namespace="test" options={{ url: 'http://localhost:8080' }}>
+    <FliptProvider
+      options={{
+        environment: 'test',
+        namespace: 'foo',
+        url: 'http://localhost:8080'
+      }}
+    >
       {children}
     </FliptProvider>
   );
@@ -168,7 +180,13 @@ it('evaluates multiple flags in batch', async () => {
   (FliptClient.init as jest.Mock).mockResolvedValue(mockClient);
 
   const wrapper = ({ children }: { children: React.ReactNode }) => (
-    <FliptProvider namespace="test" options={{ url: 'http://localhost:8080' }}>
+    <FliptProvider
+      options={{
+        environment: 'test',
+        namespace: 'foo',
+        url: 'http://localhost:8080'
+      }}
+    >
       {children}
     </FliptProvider>
   );
@@ -215,7 +233,13 @@ it('fetches all flags', async () => {
   (FliptClient.init as jest.Mock).mockResolvedValue(mockClient);
 
   const wrapper = ({ children }: { children: React.ReactNode }) => (
-    <FliptProvider namespace="test" options={{ url: 'http://localhost:8080' }}>
+    <FliptProvider
+      options={{
+        environment: 'test',
+        namespace: 'foo',
+        url: 'http://localhost:8080'
+      }}
+    >
       {children}
     </FliptProvider>
   );

@@ -21,10 +21,7 @@ export interface FliptStore extends FliptClientHook {
   detach: () => void;
 }
 
-export const useStore = (
-  namespace: string,
-  options: ClientOptions
-): FliptStore => {
+export const useStore = (options: ClientOptions): FliptStore => {
   const storeRef = useRef<FliptStore>({
     client: null,
     isLoading: true,
@@ -108,7 +105,6 @@ export const useStore = (
       try {
         const { FliptClient } = await import('@flipt-io/flipt-client-js');
         const client = await FliptClient.init({
-          namespace,
           ...options
         });
 
@@ -140,7 +136,7 @@ export const useStore = (
     return () => {
       isMounted = false;
     };
-  }, [namespace, options, notify, setupPolling]);
+  }, [options, notify, setupPolling]);
 
   return storeRef.current;
 };
