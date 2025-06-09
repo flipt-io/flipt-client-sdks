@@ -35,8 +35,11 @@ LibraryConfig getPlatformConfig(Architecture arch) {
   // We only need platform configs for desktop platforms
   // Android and iOS are handled directly in their respective loaders
   if (Platform.isMacOS) {
-    final dir = arch == Architecture.arm64 ? 'darwin_aarch64' : 'darwin_x86_64';
-    return LibraryConfig(dir, 'libfliptengine.dylib');
+    if (arch == Architecture.x86_64) {
+      throw UnsupportedError('x86_64 is no longer supported on macOS');
+    }
+
+    return LibraryConfig('darwin_aarch64', 'libfliptengine.dylib');
   }
 
   if (Platform.isLinux) {

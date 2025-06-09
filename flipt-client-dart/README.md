@@ -57,7 +57,6 @@ This SDK currently supports the following OSes/architectures:
 
 - Linux x86_64
 - Linux arm64
-- MacOS x86_64
 - MacOS arm64
 - Windows x86_64
 - Android arm64
@@ -73,6 +72,7 @@ This section is for users who are migrating from a previous (pre-1.0.0) version 
 - `FliptEvaluationClient` has been renamed to `FliptClient`.
 - `Options` now accept `namespace` and `environment` as optional parameters.
 - `requestTimeout` and `updateInterval` in `Options` are now `Duration` types instead of `int` (seconds). Update your code to use `Duration(seconds: ...)`.
+- MacOS x86_64 is no longer supported as pub.dev enforces a file size limit of published packages so we cannot include every architecture in the SDK.
 
 ## Usage
 
