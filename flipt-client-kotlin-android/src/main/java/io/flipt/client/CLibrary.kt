@@ -28,7 +28,7 @@ class CLibrary {
 
     external fun destroyEngine(enginePtr: Long)
 
-    external fun destroyString(ptr: String)
+    external fun destroyString(ptr: Long)
 
     companion object {
         val INSTANCE = CLibrary()

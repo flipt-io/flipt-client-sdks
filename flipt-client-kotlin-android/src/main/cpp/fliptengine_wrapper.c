@@ -82,8 +82,6 @@ void JNICALL Java_io_flipt_client_CLibrary_destroyEngine(
 }
 
 void JNICALL Java_io_flipt_client_CLibrary_destroyString(
-        JNIEnv *env, jobject obj, jstring ptr) {
-    const char *str = (*env)->GetStringUTFChars(env, ptr, 0);
-    destroy_string((char *) str);
-    (*env)->ReleaseStringUTFChars(env, ptr, str);
+        JNIEnv *env, jobject obj, jlong ptr) {
+    destroy_string((char *) ptr);
 }
