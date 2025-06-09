@@ -19,7 +19,7 @@ path = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.8,<4.0"
 pydantic = ">=1.10,<3.0"
-packaging = "^24.0"
+packaging = ">=24,<26"
 
 [tool.poetry.group.dev.dependencies]
 black = ">=23.11,<26.0"
