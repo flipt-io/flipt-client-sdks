@@ -18,7 +18,6 @@ func (s *DartSDK) SupportedPlatforms() []platform.Platform {
 	return []platform.Platform{
 		platform.LinuxX86_64,
 		platform.LinuxArm64,
-		platform.DarwinX86_64,
 		platform.DarwinArm64,
 		platform.WindowsX86_64,
 		platform.AndroidArm64,

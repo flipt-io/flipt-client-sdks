@@ -21,7 +21,6 @@ environment:
   sdk: '>=2.17.0 <4.0.0'
 files:
 - native/darwin_aarch64/libfliptengine.dylib
-- native/darwin_x86_64/libfliptengine.dylib
 - native/linux_aarch64/libfliptengine.so
 - native/linux_x86_64/libfliptengine.so
 - native/windows_x86_64/fliptengine.dll
@@ -29,7 +28,6 @@ files:
 flutter:
   assets:
   - native/darwin_aarch64/libfliptengine.dylib
-  - native/darwin_x86_64/libfliptengine.dylib
   - native/linux_aarch64/libfliptengine.so
   - native/linux_x86_64/libfliptengine.so
   - native/windows_x86_64/fliptengine.dll
