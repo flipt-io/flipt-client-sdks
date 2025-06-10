@@ -39,26 +39,20 @@ Add the client to the new directory. The client should be a thin wrapper around 
 The structure of the client folder should be as follows:
 
 1. A `README.md` with installation and usage instructions.
-2. A `src` directory with the source code for the client (or follow appropriate for the language).
-3. A `test` directory with the tests for the client (or follow structure appropriate for the language).
+1. A `src` directory with the source code for the client (or follow appropriate for the language).
+1. A `test` directory with the tests for the client (or follow structure appropriate for the language).
 
 The client shape should be as follows:
 
-1. **Constructor**: Should take in an optional namespace and engine options. Engine options should be a map or similar idiomatic data structure with the following keys:
+1. **Constructor**: Should take in optional engine options. Look at the existing clients for examples of these options.
+1. **Evaluate Variant** method: Should take in a flag key, entity ID, and context. Should return a variant result.
+1. **Evaluate Boolean** method: Should take in a flag key, entity ID, and context. Should return a boolean result.
+1. **Evaluate Batch** method: Should take in a list of flag keys, entity ID, and context. Should return a list of evaluation results.
+1. **List Flags** method: Should return a list of all flags in the namespace.
+1. **GetSnapshot** method: Should return a snapshot of the flag state if the underlying engine supports it.
+1. **Close** method (language dependent): Should close the engine and free any memory allocated by the engine.
 
-   1. `url`: The URL of the Flipt server to connect to.
-   2. `update_interval`: The interval in seconds to wait for updated flag state.
-   3. `authentication_strategy`: The authentication strategy to use. Should be one of the following:
-      - `client_token`: Client Token Bearer key authentication.
-      - `jwt`: JWT Bearer key authentication.
-
-   Note: If no namespace is specified, the client should default to the `default` namespace.
-
-2. **Evaluate Variant** method: Should take in a flag key, entity ID, and context. Should return a variant result. Follow language conventions for naming.
-3. **Evaluate Boolean** method: Should take in a flag key, entity ID, and context. Should return a boolean result. Follow language conventions for naming.
-4. **Evaluate Batch** method: Should take in a list of flag keys, entity ID, and context. Should return a list of evaluation results. Follow language conventions for naming.
-5. **List Flags** method: Should return a list of all flags in the namespace. Follow language conventions for naming.
-6. **Close** method (language dependent): Should close the engine and free any memory allocated by the engine. Follow language conventions for naming.
+Follow all language conventions for naming.
 
 ### 3. Interface with the Engine
 
