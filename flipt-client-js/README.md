@@ -44,6 +44,7 @@ console.log(variant);
 The `FliptClient` constructor accepts the following optional arguments:
 
 - `options`: An instance of the `ClientOptions` type that supports several options for the client. The structure is:
+  - `environment`: The environment to use when evaluating flags (Flipt v2). If not provided, the client will default to the `default` environment.
   - `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
   - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
   - `updateInterval`: **Node.js Only** The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
