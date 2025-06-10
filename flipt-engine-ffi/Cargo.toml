@@ -26,7 +26,7 @@ reqwest-retry = "0.7.0"
 reqwest-middleware = "0.4.0"
 base64 = "0.22"
 log = "0.4"
-env_logger = "0.10"
+env_logger = "0.11"
 
 [dependencies.flipt-evaluation]
 path = "../flipt-evaluation"
