@@ -26,7 +26,6 @@ where
 {
     status: Status,
     result: Option<T>,
-    #[serde(rename = "errorMessage")]
     error_message: Option<String>,
 }
 
