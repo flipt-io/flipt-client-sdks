@@ -249,11 +249,11 @@ class ListFlagsResult(BaseModel):
 
 
 # --- Serialization/Deserialization shims ---
-def model_to_json(model):
+def model_to_json(model, *, exclude_none: bool = False):
     """Serialize a Pydantic model to JSON, compatible with v1 and v2."""
     if hasattr(model, "model_dump_json"):
-        return model.model_dump_json()
-    return model.json()
+        return model.model_dump_json(exclude_none=exclude_none)
+    return model.json(exclude_none=exclude_none)
 
 
 def model_from_json(cls, data):
