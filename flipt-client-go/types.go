@@ -90,7 +90,7 @@ type Response struct {
 type Result[R any] struct {
 	Status       string `json:"status"`
 	Result       *R     `json:"result,omitempty"`
-	ErrorMessage string `json:"error_message,omitempty"`
+	ErrorMessage string `json:"errorMessage,omitempty"`
 }
 
 // VariantResult is a result wrapper for VariantEvaluationResponse.
