@@ -3,6 +3,7 @@ import ctypes
 import os
 import platform
 import warnings
+from typing import Optional
 from .errors import FliptError, ValidationError, EvaluationError
 
 from .models import (
@@ -16,6 +17,8 @@ from .models import (
     ListFlagsResult,
     VariantEvaluationResponse,
     VariantResult,
+    model_to_json,
+    model_from_json,
 )
 
 from typing import List
@@ -88,7 +91,7 @@ class FliptClient:
         self.ffi_core.get_snapshot.argtypes = [ctypes.c_void_p]
         self.ffi_core.get_snapshot.restype = ctypes.POINTER(ctypes.c_char_p)
 
-        client_opts_serialized = opts.model_dump_json(exclude_none=True).encode("utf-8")
+        client_opts_serialized = model_to_json(opts, exclude_none=True).encode("utf-8")
 
         self.engine = self.ffi_core.initialize_engine(client_opts_serialized)
 
@@ -98,8 +101,10 @@ class FliptClient:
             self.engine = None
 
     def evaluate_variant(
-        self, flag_key: str, entity_id: str, context: dict = {}
+        self, flag_key: str, entity_id: str, context: Optional[dict] = None
     ) -> VariantEvaluationResponse:
+        if context is None:
+            context = {}
         if not flag_key or not flag_key.strip():
             raise ValidationError("flag_key cannot be empty or null")
         if not entity_id or not entity_id.strip():
@@ -113,7 +118,7 @@ class FliptClient:
         )
 
         bytes_returned = ctypes.cast(response, ctypes.c_char_p).value
-        variant_result = VariantResult.model_validate_json(bytes_returned)
+        variant_result = model_from_json(VariantResult, bytes_returned)
         self.ffi_core.destroy_string(response)
 
         if variant_result.status != "success":
@@ -122,8 +127,10 @@ class FliptClient:
         return variant_result.result
 
     def evaluate_boolean(
-        self, flag_key: str, entity_id: str, context: dict = {}
+        self, flag_key: str, entity_id: str, context: Optional[dict] = None
     ) -> BooleanEvaluationResponse:
+        if context is None:
+            context = {}
         if not flag_key or not flag_key.strip():
             raise ValidationError("flag_key cannot be empty or null")
         if not entity_id or not entity_id.strip():
@@ -137,7 +144,7 @@ class FliptClient:
         )
 
         bytes_returned = ctypes.cast(response, ctypes.c_char_p).value
-        boolean_result = BooleanResult.model_validate_json(bytes_returned)
+        boolean_result = model_from_json(BooleanResult, bytes_returned)
         self.ffi_core.destroy_string(response)
 
         if boolean_result.status != "success":
@@ -166,7 +173,7 @@ class FliptClient:
             )
 
         json_list = [
-            evaluation_request.model_dump_json()
+            model_to_json(evaluation_request)
             for evaluation_request in evaluation_requests
         ]
         json_string = "[" + ", ".join(json_list) + "]"
@@ -176,7 +183,7 @@ class FliptClient:
         )
 
         bytes_returned = ctypes.cast(response, ctypes.c_char_p).value
-        batch_result = BatchResult.model_validate_json(bytes_returned)
+        batch_result = model_from_json(BatchResult, bytes_returned)
         self.ffi_core.destroy_string(response)
 
         if batch_result.status != "success":
@@ -188,7 +195,7 @@ class FliptClient:
         response = self.ffi_core.list_flags(self.engine)
 
         bytes_returned = ctypes.cast(response, ctypes.c_char_p).value
-        result = ListFlagsResult.model_validate_json(bytes_returned)
+        result = model_from_json(ListFlagsResult, bytes_returned)
         self.ffi_core.destroy_string(response)
 
         if result.status != "success":
@@ -225,7 +232,7 @@ def serialize_evaluation_request(
         context=context,
     )
 
-    return evaluation_request.model_dump_json().encode("utf-8")
+    return model_to_json(evaluation_request).encode("utf-8")
 
 
 # Deprecation alias
