@@ -113,6 +113,18 @@ describe('FliptClient', () => {
     );
   });
 
+  test('boolean flag with variant failure', () => {
+    expect(() => {
+      client.evaluateVariant({
+        flagKey: 'flag_boolean',
+        entityId: 'someentity',
+        context: {
+          fizz: 'buzz'
+        }
+      });
+    }).toThrow('invalid request: flag_boolean is not a variant flag');
+  });
+
   test('refresh', async () => {
     const updated = await client.refresh();
     expect(updated).toBeFalsy();
