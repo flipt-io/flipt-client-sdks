@@ -159,7 +159,7 @@ export interface EvaluationRequest {
    * }
    * ```
    */
-  context: object;
+  context: Record<string, string>;
 }
 
 /**

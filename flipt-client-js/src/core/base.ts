@@ -77,7 +77,7 @@ export abstract class BaseFliptClient {
   }: {
     flagKey: string;
     entityId: string;
-    context: Record<string, unknown>;
+    context: Record<string, string>;
   }): VariantEvaluationResponse {
     if (!flagKey || flagKey.trim() === '') {
       throw new Error('flagKey cannot be empty');
@@ -123,7 +123,7 @@ export abstract class BaseFliptClient {
   }: {
     flagKey: string;
     entityId: string;
-    context: Record<string, unknown>;
+    context: Record<string, string>;
   }): BooleanEvaluationResponse {
     if (!flagKey || flagKey.trim() === '') {
       throw new Error('flagKey cannot be empty');
