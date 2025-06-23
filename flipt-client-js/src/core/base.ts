@@ -92,15 +92,13 @@ export abstract class BaseFliptClient {
       context
     };
 
-    const result: VariantResult | null = this.engine.evaluate_variant(
+    const variantResult: VariantResult | null = this.engine.evaluate_variant(
       serialize(evaluationRequest)
     );
 
-    if (result === null) {
+    if (variantResult === null) {
       throw new Error('Failed to evaluate variant');
     }
-
-    const variantResult = deserialize<VariantResult>(result);
 
     if (variantResult.status === 'failure') {
       throw new Error(variantResult.errorMessage);
@@ -138,15 +136,13 @@ export abstract class BaseFliptClient {
       context
     };
 
-    const result: BooleanResult | null = this.engine.evaluate_boolean(
+    const booleanResult: BooleanResult | null = this.engine.evaluate_boolean(
       serialize(evaluationRequest)
     );
 
-    if (result === null) {
+    if (booleanResult === null) {
       throw new Error('Failed to evaluate boolean');
     }
-
-    const booleanResult = deserialize<BooleanResult>(result);
 
     if (booleanResult.status === 'failure') {
       throw new Error(booleanResult.errorMessage);
@@ -230,16 +226,14 @@ export abstract class BaseFliptClient {
       throw new Error('Failed to list flags');
     }
 
-    const flags = deserialize<ListFlagsResult>(listFlagsResult);
-
-    if (flags.status === 'failure') {
-      throw new Error(flags.errorMessage);
+    if (listFlagsResult.status === 'failure') {
+      throw new Error(listFlagsResult.errorMessage);
     }
 
-    if (!flags.result) {
+    if (!listFlagsResult.result) {
       throw new Error('Failed to list flags');
     }
 
-    return flags.result.map(deserialize<Flag>);
+    return listFlagsResult.result.map(deserialize<Flag>);
   }
 }
