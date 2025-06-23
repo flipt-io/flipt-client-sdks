@@ -100,7 +100,7 @@ export abstract class BaseFliptClient {
       throw new Error('Failed to evaluate variant');
     }
 
-    const variantResult = deserialize<VariantResult>(result);
+    const variantResult = result;
 
     if (variantResult.status === 'failure') {
       throw new Error(variantResult.errorMessage);
@@ -146,7 +146,7 @@ export abstract class BaseFliptClient {
       throw new Error('Failed to evaluate boolean');
     }
 
-    const booleanResult = deserialize<BooleanResult>(result);
+    const booleanResult = result;
 
     if (booleanResult.status === 'failure') {
       throw new Error(booleanResult.errorMessage);
@@ -230,7 +230,7 @@ export abstract class BaseFliptClient {
       throw new Error('Failed to list flags');
     }
 
-    const flags = deserialize<ListFlagsResult>(listFlagsResult);
+    const flags = listFlagsResult;
 
     if (flags.status === 'failure') {
       throw new Error(flags.errorMessage);
