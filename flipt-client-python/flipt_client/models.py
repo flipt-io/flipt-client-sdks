@@ -79,12 +79,13 @@ class ClientOptions(BaseModel):
         from pydantic import field_serializer, field_validator
 
         @field_serializer("request_timeout", "update_interval", mode="plain")
-        def serialize_timedelta(cls, value):
+        def serialize_timedelta(value):
             if value is None:
                 return None
             return value.total_seconds()
 
         @field_validator("request_timeout", "update_interval", mode="before")
+        @classmethod
         def parse_timedelta(cls, v):
             if v is None or isinstance(v, timedelta):
                 return v
