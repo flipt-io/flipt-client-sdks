@@ -492,6 +492,12 @@ impl HTTPFetcher {
     }
 }
 
+/// Configure TLS for the HTTP client
+///
+/// This function is used to configure the TLS settings for the HTTP client.
+/// It handles insecure mode, custom CA certificates, and client certificates.
+///
+/// Note: data fields are base64 encoded for JSON and take precedence over file paths.
 fn configure_tls(
     mut builder: reqwest::ClientBuilder,
     tls_config: &TlsConfig,
@@ -527,7 +533,7 @@ fn configure_tls(
         let key_bytes = BASE64_STANDARD
             .decode(key_data)
             .map_err(|e| Error::Internal(format!("Invalid client key data: {e}")))?;
-        let mut combined = cert_bytes.clone();
+        let mut combined = cert_bytes;
         combined.extend_from_slice(&key_bytes);
         let identity = reqwest::Identity::from_pem(&combined)
             .map_err(|e| Error::Internal(format!("Invalid client certificate: {e}")))?;
