@@ -106,6 +106,7 @@ The `FliptClient` constructor accepts a single `opts` argument:
   - `fetch_mode`: Fetch mode (`polling` or `streaming`). Defaults to polling.
   - `error_strategy`: Error strategy (`fail` or `fallback`). Defaults to fail.
   - `snapshot`: A base64 encoded snapshot of the engine state. Defaults to `None`. See [Snapshotting](#snapshotting).
+  - `tls_config`: TLS configuration for connecting to Flipt servers with custom certificates. See [TLS Configuration](#tls-configuration).
 
 ### Authentication
 
@@ -114,6 +115,94 @@ The `FliptClient` supports:
 - No Authentication (default)
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
 - [JWT Authentication](https://docs.flipt.io/authentication/using-jwts)
+
+### TLS Configuration
+
+The `FliptClient` supports TLS configuration for connecting to Flipt servers with custom certificates, self-signed certificates, or mutual TLS authentication.
+
+The `tls_config` option accepts a `TlsConfig` object with the following options:
+
+- `ca_cert_file`: Path to custom CA certificate file (PEM format). Use this to trust self-signed certificates or custom certificate authorities.
+- `ca_cert_data`: Raw CA certificate content (PEM format). Alternative to `ca_cert_file` for providing certificate data directly.
+- `insecure_skip_verify`: Skip certificate verification (development only). Set to `True` to disable TLS certificate and hostname verification. **Warning: Only use this for development/testing.**
+- `client_cert_file`: Client certificate file for mutual TLS (PEM format). Required for mTLS authentication.
+- `client_key_file`: Client key file for mutual TLS (PEM format). Required for mTLS authentication.
+- `client_cert_data`: Raw client certificate content (PEM format). Alternative to `client_cert_file`.
+- `client_key_data`: Raw client key content (PEM format). Alternative to `client_key_file`.
+
+**Note:** Data fields (`*_data`) take precedence over file paths (`*_file`) when both are provided.
+
+#### Examples
+
+**Self-signed certificate with custom CA:**
+
+```python
+from flipt_client import FliptClient
+from flipt_client.models import ClientOptions, TlsConfig
+
+# Using CA certificate file
+tls_config = TlsConfig(
+    ca_cert_file="/path/to/ca.crt"
+)
+
+client = FliptClient(
+    opts=ClientOptions(
+        url="https://flipt.example.com:8443",
+        tls_config=tls_config
+    )
+)
+```
+
+**Skip certificate verification (development only):**
+
+```python
+tls_config = TlsConfig(
+    insecure_skip_verify=True
+)
+
+client = FliptClient(
+    opts=ClientOptions(
+        url="https://localhost:8443",
+        tls_config=tls_config
+    )
+)
+```
+
+**Mutual TLS authentication:**
+
+```python
+tls_config = TlsConfig(
+    ca_cert_file="/path/to/ca.crt",
+    client_cert_file="/path/to/client.crt",
+    client_key_file="/path/to/client.key"
+)
+
+client = FliptClient(
+    opts=ClientOptions(
+        url="https://flipt.example.com:8443",
+        tls_config=tls_config
+    )
+)
+```
+
+**Using certificate data instead of files:**
+
+```python
+# Read certificate contents
+with open("/path/to/ca.crt", "r") as f:
+    ca_cert_data = f.read()
+
+tls_config = TlsConfig(
+    ca_cert_data=ca_cert_data
+)
+
+client = FliptClient(
+    opts=ClientOptions(
+        url="https://flipt.example.com:8443",
+        tls_config=tls_config
+    )
+)
+```
 
 ### Error Handling
 

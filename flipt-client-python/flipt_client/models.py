@@ -58,12 +58,12 @@ class TlsConfig(BaseModel):
     """TLS configuration for connecting to Flipt servers with custom certificates."""
 
     ca_cert_file: Optional[str] = None  #: Path to custom CA certificate file (PEM format).
-    ca_cert_data: Optional[str] = None  #: Raw CA certificate content (PEM format, base64 encoded).
+    ca_cert_data: Optional[str] = None  #: Raw CA certificate content (PEM format).
     insecure_skip_verify: Optional[bool] = None  #: Skip certificate verification (development only).
     client_cert_file: Optional[str] = None  #: Client certificate file for mutual TLS (PEM format).
     client_key_file: Optional[str] = None  #: Client key file for mutual TLS (PEM format).
-    client_cert_data: Optional[str] = None  #: Raw client certificate content (PEM format, base64 encoded).
-    client_key_data: Optional[str] = None  #: Raw client key content (PEM format, base64 encoded).
+    client_cert_data: Optional[str] = None  #: Raw client certificate content (PEM format).
+    client_key_data: Optional[str] = None  #: Raw client key content (PEM format).
 
 
 class FlagType(str, Enum):
