@@ -106,7 +106,7 @@ pub struct EngineOpts {
 pub struct TlsConfig {
     /// Path to custom CA certificate file (PEM format)
     ca_cert_file: Option<String>,
-    /// Raw CA certificate content (PEM format, base64 encoded for JSON)
+    /// Raw CA certificate content (PEM format)
     ca_cert_data: Option<String>,
     /// Skip certificate verification (insecure - for development only)
     insecure_skip_verify: Option<bool>,
@@ -114,9 +114,9 @@ pub struct TlsConfig {
     client_cert_file: Option<String>,
     /// Client key file for mutual TLS (PEM format)
     client_key_file: Option<String>,
-    /// Raw client certificate content (PEM format, base64 encoded for JSON)
+    /// Raw client certificate content (PEM format)
     client_cert_data: Option<String>,
-    /// Raw client key content (PEM format, base64 encoded for JSON)
+    /// Raw client key content (PEM format)
     client_key_data: Option<String>,
 }
 

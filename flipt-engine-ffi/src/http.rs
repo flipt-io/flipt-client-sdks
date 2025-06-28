@@ -17,8 +17,6 @@ use fliptevaluation::error::Error;
 use fliptevaluation::models::source;
 
 use crate::TlsConfig;
-use base64::prelude::BASE64_STANDARD;
-use base64::Engine as Base64Engine;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -497,7 +495,7 @@ impl HTTPFetcher {
 /// This function is used to configure the TLS settings for the HTTP client.
 /// It handles insecure mode, custom CA certificates, and client certificates.
 ///
-/// Note: data fields are base64 encoded for JSON and take precedence over file paths.
+/// Note: data fields take precedence over file paths.
 fn configure_tls(
     mut builder: reqwest::ClientBuilder,
     tls_config: &TlsConfig,
@@ -509,9 +507,7 @@ fn configure_tls(
 
     // Handle custom CA certificates
     if let Some(ca_cert_data) = &tls_config.ca_cert_data {
-        let cert_bytes = BASE64_STANDARD
-            .decode(ca_cert_data)
-            .map_err(|e| Error::Internal(format!("Invalid CA cert data: {e}")))?;
+        let cert_bytes = ca_cert_data.as_bytes();
         let cert = reqwest::Certificate::from_pem(&cert_bytes)
             .map_err(|e| Error::Internal(format!("Invalid CA certificate: {e}")))?;
         builder = builder.add_root_certificate(cert);
@@ -527,14 +523,9 @@ fn configure_tls(
     if let (Some(cert_data), Some(key_data)) =
         (&tls_config.client_cert_data, &tls_config.client_key_data)
     {
-        let cert_bytes = BASE64_STANDARD
-            .decode(cert_data)
-            .map_err(|e| Error::Internal(format!("Invalid client cert data: {e}")))?;
-        let key_bytes = BASE64_STANDARD
-            .decode(key_data)
-            .map_err(|e| Error::Internal(format!("Invalid client key data: {e}")))?;
-        let mut combined = cert_bytes;
-        combined.extend_from_slice(&key_bytes);
+        let cert_bytes = cert_data.as_bytes();
+        let key_bytes = key_data.as_bytes();
+        let combined = [cert_bytes, key_bytes].concat();
         let identity = reqwest::Identity::from_pem(&combined)
             .map_err(|e| Error::Internal(format!("Invalid client certificate: {e}")))?;
         builder = builder.identity(identity);
@@ -565,8 +556,6 @@ mod tests {
     use crate::http::FetchMode;
     use crate::http::HTTPFetcherBuilder;
     use crate::TlsConfig;
-    use base64::prelude::BASE64_STANDARD;
-    use base64::Engine as Base64Engine;
     use tokio::sync::mpsc;
 
     #[tokio::test]
@@ -879,10 +868,9 @@ mod tests {
     fn test_tls_config_custom_ca_cert_data() {
         // Use the existing localhost.crt for testing
         let cert_pem = include_str!("testdata/localhost.crt");
-        let cert_b64 = BASE64_STANDARD.encode(cert_pem);
 
         let tls_config = TlsConfig {
-            ca_cert_data: Some(cert_b64),
+            ca_cert_data: Some(cert_pem.to_string()),
             insecure_skip_verify: None,
             ca_cert_file: None,
             client_cert_file: None,
@@ -917,12 +905,10 @@ mod tests {
     fn test_tls_config_client_certificates_data() {
         let cert_pem = include_str!("testdata/localhost.crt");
         let key_pem = include_str!("testdata/localhost.key");
-        let cert_b64 = BASE64_STANDARD.encode(cert_pem);
-        let key_b64 = BASE64_STANDARD.encode(key_pem);
 
         let tls_config = TlsConfig {
-            client_cert_data: Some(cert_b64),
-            client_key_data: Some(key_b64),
+            client_cert_data: Some(cert_pem.to_string()),
+            client_key_data: Some(key_pem.to_string()),
             insecure_skip_verify: None,
             ca_cert_file: None,
             ca_cert_data: None,
@@ -955,7 +941,7 @@ mod tests {
     #[test]
     fn test_tls_config_invalid_ca_cert_data() {
         let tls_config = TlsConfig {
-            ca_cert_data: Some("invalid_base64".to_string()),
+            ca_cert_data: Some("invalid_pem".to_string()),
             insecure_skip_verify: None,
             ca_cert_file: None,
             client_cert_file: None,
@@ -997,10 +983,9 @@ mod tests {
     #[test]
     fn test_tls_config_combined_options() {
         let cert_pem = include_str!("testdata/localhost.crt");
-        let cert_b64 = BASE64_STANDARD.encode(cert_pem);
 
         let tls_config = TlsConfig {
-            ca_cert_data: Some(cert_b64),
+            ca_cert_data: Some(cert_pem.to_string()),
             insecure_skip_verify: Some(true),
             ca_cert_file: None,
             client_cert_file: None,
