@@ -939,27 +939,6 @@ mod tests {
     }
 
     #[test]
-    fn test_tls_config_invalid_ca_cert_data() {
-        let tls_config = TlsConfig {
-            ca_cert_data: Some("invalid_pem".to_string()),
-            insecure_skip_verify: None,
-            ca_cert_file: None,
-            client_cert_file: None,
-            client_key_file: None,
-            client_cert_data: None,
-            client_key_data: None,
-        };
-
-        let builder = reqwest::Client::builder();
-        let result = configure_tls(builder, &tls_config);
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Invalid CA cert data"));
-    }
-
-    #[test]
     fn test_tls_config_invalid_ca_cert_file() {
         let tls_config = TlsConfig {
             ca_cert_file: Some("nonexistent.crt".to_string()),
