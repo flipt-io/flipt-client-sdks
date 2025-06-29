@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:flipt_client/src/errors.dart';
 
