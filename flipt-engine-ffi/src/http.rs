@@ -128,6 +128,12 @@ struct StreamResult {
 
 static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
+impl Default for HTTPFetcherBuilder {
+    fn default() -> Self {
+        Self::new("http://localhost:8080")
+    }
+}
+
 impl HTTPFetcherBuilder {
     pub fn new(base_url: &str) -> Self {
         Self {
