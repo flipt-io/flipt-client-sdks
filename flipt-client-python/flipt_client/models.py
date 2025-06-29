@@ -1,6 +1,7 @@
 import pydantic
 from packaging import version
 from datetime import timedelta
+import os
 
 PYDANTIC_V2 = version.parse(pydantic.VERSION) >= version.parse("2.0.0")
 
@@ -74,6 +75,37 @@ class TlsConfig(BaseModel):
         None  #: Raw client certificate content (PEM format).
     )
     client_key_data: Optional[str] = None  #: Raw client key content (PEM format).
+
+    if PYDANTIC_V2:
+        from pydantic import field_validator
+
+        @field_validator(
+            "ca_cert_file", "client_cert_file", "client_key_file", mode="before"
+        )
+        @classmethod
+        def validate_cert_files(cls, v, info):
+            if v is not None and v.strip():
+                if not os.path.exists(v):
+                    field_name = (
+                        info.field_name
+                        if hasattr(info, "field_name")
+                        else "certificate file"
+                    )
+                    raise ValueError(f"{field_name} does not exist: {v}")
+            return v
+
+    else:
+        from pydantic import validator
+
+        @validator("ca_cert_file", "client_cert_file", "client_key_file", pre=True)
+        def validate_cert_files(cls, v, field):
+            if v is not None and v.strip():
+                if not os.path.exists(v):
+                    field_name = (
+                        field.name if hasattr(field, "name") else "certificate file"
+                    )
+                    raise ValueError(f"{field_name} does not exist: {v}")
+            return v
 
 
 class FlagType(str, Enum):

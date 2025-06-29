@@ -27,6 +27,12 @@ import lombok.Builder;
  * var client = FliptClient.builder()
  *     .url("http://localhost:8080")
  *     .build();
+ *
+ * // With TLS configuration
+ * var tlsClient = FliptClient.builder()
+ *     .url("https://flipt.example.com")
+ *     .tlsConfig(TlsConfig.withCaCertFile("/path/to/ca.pem"))
+ *     .build();
  * }</pre>
  *
  * @since 1.0.0
@@ -44,6 +50,7 @@ public class FliptClient implements AutoCloseable {
   private FetchMode fetchMode;
   private ErrorStrategy errorStrategy;
   private String snapshot;
+  private TlsConfig tlsConfig;
 
   private final Pointer engine;
   private final ObjectMapper objectMapper;
@@ -79,17 +86,19 @@ public class FliptClient implements AutoCloseable {
       Duration updateInterval,
       FetchMode fetchMode,
       ErrorStrategy errorStrategy,
-      String snapshot) {
+      String snapshot,
+      TlsConfig tlsConfig) {
     this.environment = environment != null ? environment : "default";
     this.namespace = namespace != null ? namespace : "default";
     this.url = url != null ? url : "http://localhost:8080";
     this.authentication = authentication;
     this.reference = reference;
     this.requestTimeout = requestTimeout != null ? requestTimeout : Duration.ZERO;
-    this.updateInterval = updateInterval != null ? updateInterval : Duration.ZERO;
+    this.updateInterval = updateInterval != null ? updateInterval : Duration.ofSeconds(120);
     this.fetchMode = fetchMode != null ? fetchMode : FetchMode.POLLING;
     this.errorStrategy = errorStrategy != null ? errorStrategy : ErrorStrategy.FAIL;
     this.snapshot = snapshot;
+    this.tlsConfig = tlsConfig;
 
     this.objectMapper = new ObjectMapper();
     this.objectMapper.registerModule(new Jdk8Module());
@@ -105,7 +114,8 @@ public class FliptClient implements AutoCloseable {
             Optional.ofNullable(this.reference),
             Optional.ofNullable(this.fetchMode),
             Optional.ofNullable(this.errorStrategy),
-            Optional.ofNullable(this.snapshot));
+            Optional.ofNullable(this.snapshot),
+            Optional.ofNullable(this.tlsConfig));
 
     String clientOptionsSerialized;
 

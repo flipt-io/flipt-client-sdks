@@ -19,10 +19,24 @@ public class TestFliptClient {
 
     assert fliptURL != null && !fliptURL.isEmpty();
     assert clientToken != null && !clientToken.isEmpty();
+
+    // Configure TLS if HTTPS URL is provided
+    TlsConfig tlsConfig = null;
+    if (fliptURL.startsWith("https://")) {
+      String caCertPath = System.getenv("FLIPT_CA_CERT_PATH");
+      if (caCertPath != null && !caCertPath.isEmpty()) {
+        tlsConfig = TlsConfig.withCaCertFile(caCertPath);
+      } else {
+        // Fallback to insecure for local testing
+        tlsConfig = TlsConfig.insecure();
+      }
+    }
+
     fliptClient =
         FliptClient.builder()
             .url(fliptURL)
             .authentication(new ClientTokenAuthentication(clientToken))
+            .tlsConfig(tlsConfig)
             .build();
   }
 

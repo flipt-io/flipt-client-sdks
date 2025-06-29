@@ -730,7 +730,10 @@ unsafe extern "C" fn _initialize_engine(opts: *const c_char) -> *mut c_void {
             fetcher_builder = fetcher_builder.tls_config(tls_config);
         }
 
-        let fetcher = fetcher_builder.build().unwrap();
+        let fetcher = fetcher_builder.build().unwrap_or_else(|e| {
+            error!("Failed to build custom fetcher: {e}");
+            HTTPFetcherBuilder::default().build().unwrap()
+        });
 
         let evaluator = Evaluator::new(&namespace);
 
