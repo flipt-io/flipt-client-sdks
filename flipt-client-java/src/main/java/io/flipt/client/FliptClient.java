@@ -94,7 +94,7 @@ public class FliptClient implements AutoCloseable {
     this.authentication = authentication;
     this.reference = reference;
     this.requestTimeout = requestTimeout != null ? requestTimeout : Duration.ZERO;
-    this.updateInterval = updateInterval != null ? updateInterval : Duration.ZERO;
+    this.updateInterval = updateInterval != null ? updateInterval : Duration.ofSeconds(120);
     this.fetchMode = fetchMode != null ? fetchMode : FetchMode.POLLING;
     this.errorStrategy = errorStrategy != null ? errorStrategy : ErrorStrategy.FAIL;
     this.snapshot = snapshot;
