@@ -65,12 +65,14 @@ module Flipt
     #   Note: Streaming is currently only supported when using the SDK with Flipt Cloud or Flipt v2.
     # @option opts [Symbol] :error_strategy error strategy to use for the client (:fail or :fallback).
     # @option opts [String] :snapshot snapshot to use when initializing the client
+    # @option opts [TlsConfig] :tls_config TLS configuration for connecting to servers with custom certificates
     def initialize(**opts)
       @namespace = opts.fetch(:namespace, 'default')
 
       opts[:authentication] = validate_authentication(opts.fetch(:authentication, NoAuthentication.new))
       opts[:fetch_mode] = validate_fetch_mode(opts.fetch(:fetch_mode, :polling))
       opts[:error_strategy] = validate_error_strategy(opts.fetch(:error_strategy, :fail))
+      opts[:tls_config] = validate_tls_config(opts.fetch(:tls_config, nil))
 
       @engine = self.class.initialize_engine(opts.to_json)
       ObjectSpace.define_finalizer(self, self.class.finalize(@engine))
@@ -222,6 +224,13 @@ module Flipt
       return error_strategy if %i[fail fallback].include?(error_strategy)
 
       raise ValidationError, 'invalid error strategy'
+    end
+
+    def validate_tls_config(tls_config)
+      return nil if tls_config.nil?
+      return tls_config.to_h if tls_config.is_a?(TlsConfig)
+
+      raise ValidationError, 'invalid tls_config: must be TlsConfig instance'
     end
   end
 

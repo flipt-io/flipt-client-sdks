@@ -114,6 +114,7 @@ The `Flipt::Client` constructor accepts the following keyword arguments:
 - `fetch_mode`: The fetch mode to use. Defaults to polling.
 - `error_strategy`: The error strategy to use. Defaults to fail. See [Error Strategies](#error-strategies).
 - `snapshot`: The snapshot to use when initializing the client. Defaults to no snapshot. See [Snapshotting](#snapshotting).
+- `tls_config`: The TLS configuration for connecting to servers with custom certificates. See [TLS Configuration](#tls-configuration).
 
 ### Authentication
 
@@ -122,6 +123,108 @@ The `Flipt::Client` supports the following authentication strategies:
 - No Authentication (default)
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
 - [JWT Authentication](https://docs.flipt.io/authentication/using-jwts)
+
+### TLS Configuration
+
+The `Flipt::Client` supports configuring TLS settings for secure connections to Flipt servers. This is useful when:
+
+- Connecting to Flipt servers with self-signed certificates
+- Using custom Certificate Authorities (CAs)  
+- Implementing mutual TLS authentication
+- Testing with insecure connections (development only)
+
+#### Basic TLS with Custom CA Certificate
+
+```ruby
+# Using a CA certificate file
+tls_config = Flipt::TlsConfig.with_ca_cert_file('/path/to/ca.pem')
+
+client = Flipt::Client.new(
+  url: 'https://flipt.example.com',
+  tls_config: tls_config
+)
+```
+
+```ruby
+# Using CA certificate data directly
+ca_cert_data = File.read('/path/to/ca.pem')
+tls_config = Flipt::TlsConfig.with_ca_cert_data(ca_cert_data)
+
+client = Flipt::Client.new(
+  url: 'https://flipt.example.com',
+  tls_config: tls_config
+)
+```
+
+#### Mutual TLS Authentication
+
+```ruby
+# Using certificate and key files
+tls_config = Flipt::TlsConfig.with_mutual_tls('/path/to/client.pem', '/path/to/client.key')
+
+client = Flipt::Client.new(
+  url: 'https://flipt.example.com',
+  tls_config: tls_config
+)
+```
+
+```ruby
+# Using certificate and key data directly
+client_cert_data = File.read('/path/to/client.pem')
+client_key_data = File.read('/path/to/client.key')
+
+tls_config = Flipt::TlsConfig.with_mutual_tls_data(client_cert_data, client_key_data)
+
+client = Flipt::Client.new(
+  url: 'https://flipt.example.com',
+  tls_config: tls_config
+)
+```
+
+#### Advanced TLS Configuration
+
+```ruby
+# Full TLS configuration with all options
+tls_config = Flipt::TlsConfig.new(
+  ca_cert_file: '/path/to/ca.pem',
+  client_cert_file: '/path/to/client.pem',
+  client_key_file: '/path/to/client.key',
+  insecure_skip_verify: false
+)
+
+client = Flipt::Client.new(
+  url: 'https://flipt.example.com',
+  tls_config: tls_config
+)
+```
+
+#### Development Mode (Insecure)
+
+**⚠️ WARNING: Only use this in development environments!**
+
+```ruby
+# Skip certificate verification (NOT for production)
+tls_config = Flipt::TlsConfig.insecure
+
+client = Flipt::Client.new(
+  url: 'https://localhost:8443',
+  tls_config: tls_config
+)
+```
+
+#### TLS Configuration Options
+
+The `TlsConfig` class supports the following options:
+
+- `ca_cert_file`: Path to custom CA certificate file (PEM format)
+- `ca_cert_data`: Raw CA certificate content (PEM format) - takes precedence over `ca_cert_file`
+- `insecure_skip_verify`: Skip certificate verification (development only)
+- `client_cert_file`: Client certificate file for mutual TLS (PEM format)
+- `client_key_file`: Client private key file for mutual TLS (PEM format)
+- `client_cert_data`: Raw client certificate content (PEM format) - takes precedence over `client_cert_file`
+- `client_key_data`: Raw client private key content (PEM format) - takes precedence over `client_key_file`
+
+> **Note**: When both file paths and data are provided, the data fields take precedence. For example, if both `ca_cert_file` and `ca_cert_data` are set, `ca_cert_data` will be used.
 
 ### Error Strategies
 
