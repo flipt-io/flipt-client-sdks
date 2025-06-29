@@ -56,7 +56,7 @@ module Flipt
     # @param client_cert_data [String, nil] Raw client certificate content (PEM format)
     # @param client_key_data [String, nil] Raw client key content (PEM format)
     def initialize(ca_cert_file: nil, ca_cert_data: nil, insecure_skip_verify: nil,
-                   client_cert_file: nil, client_key_file: nil, 
+                   client_cert_file: nil, client_key_file: nil,
                    client_cert_data: nil, client_key_data: nil)
       @ca_cert_file = ca_cert_file
       @ca_cert_data = ca_cert_data
@@ -135,10 +135,10 @@ module Flipt
 
     def validate_file_exists(file_path, description)
       return if file_path.nil? || file_path.strip.empty?
-      
-      unless File.exist?(file_path)
-        raise ValidationError, "#{description} does not exist: #{file_path}"
-      end
+
+      return if File.exist?(file_path)
+
+      raise ValidationError, "#{description} does not exist: #{file_path}"
     end
   end
 

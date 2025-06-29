@@ -6,21 +6,21 @@ RSpec.describe Flipt::Client do
   before(:all) do
     url = ENV.fetch('FLIPT_URL', 'http://localhost:8080')
     auth_token = ENV.fetch('FLIPT_AUTH_TOKEN', 'secret')
-    
+
     # Configure TLS if HTTPS URL is provided
     tls_config = nil
     if url.start_with?('https://')
       ca_cert_path = ENV['FLIPT_CA_CERT_PATH']
-      if ca_cert_path && !ca_cert_path.empty?
-        tls_config = Flipt::TlsConfig.with_ca_cert_file(ca_cert_path)
-      else
-        # Fallback to insecure for local testing
-        tls_config = Flipt::TlsConfig.insecure
-      end
+      tls_config = if ca_cert_path && !ca_cert_path.empty?
+                     Flipt::TlsConfig.with_ca_cert_file(ca_cert_path)
+                   else
+                     # Fallback to insecure for local testing
+                     Flipt::TlsConfig.insecure
+                   end
     end
 
     @client = Flipt::Client.new(
-      url: url, 
+      url: url,
       authentication: Flipt::ClientTokenAuthentication.new(auth_token),
       tls_config: tls_config
     )
