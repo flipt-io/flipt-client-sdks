@@ -17,6 +17,7 @@ public class ClientOptions {
   private final Optional<FetchMode> fetchMode;
   private final Optional<ErrorStrategy> errorStrategy;
   private final Optional<String> snapshot;
+  private final Optional<TlsConfig> tlsConfig;
 
   public ClientOptions(
       Optional<String> environment,
@@ -28,7 +29,8 @@ public class ClientOptions {
       Optional<String> reference,
       Optional<FetchMode> fetchMode,
       Optional<ErrorStrategy> errorStrategy,
-      Optional<String> snapshot) {
+      Optional<String> snapshot,
+      Optional<TlsConfig> tlsConfig) {
     this.environment = environment;
     this.namespace = namespace;
     this.url = url;
@@ -50,6 +52,7 @@ public class ClientOptions {
     this.fetchMode = fetchMode;
     this.errorStrategy = errorStrategy;
     this.snapshot = snapshot;
+    this.tlsConfig = tlsConfig;
   }
 
   @JsonProperty("environment")
@@ -100,5 +103,10 @@ public class ClientOptions {
   @JsonProperty("snapshot")
   public Optional<String> getSnapshot() {
     return snapshot;
+  }
+
+  @JsonProperty("tls_config")
+  public Optional<TlsConfig> getTlsConfig() {
+    return tlsConfig;
   }
 }

@@ -87,9 +87,9 @@ var (
 	}
 
 	javaVersions = []containerConfig{
-		{base: "gradle:8-jdk17"},
-		{base: "gradle:8-jdk17-focal"},
-		{base: "gradle:8-jdk17-alpine"},
+		{base: "gradle:8-jdk17", useHTTPS: true},
+		{base: "gradle:8-jdk17-focal", useHTTPS: true},
+		{base: "gradle:8-jdk17-alpine", useHTTPS: true},
 	}
 
 	javascriptVersions = []containerConfig{
@@ -470,8 +470,10 @@ func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 			Exclude: []string{"./.idea/", ".gradle/", "build/"},
 		}).
 		WithDirectory(mntLibDir, t.engine.Directory(libDir)).
+		WithDirectory("/src/test/fixtures/tls", t.hostDir.Directory("test/fixtures/tls")).
 		WithServiceBinding("flipt", t.flipt.AsService()).
-		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithEnvVariable("FLIPT_URL", "https://flipt:8443").
+		WithEnvVariable("FLIPT_CA_CERT_PATH", "/src/test/fixtures/tls/ca.crt").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec(args("chown -R gradle:gradle /src")).
 		WithExec(args("gradle clean")).
