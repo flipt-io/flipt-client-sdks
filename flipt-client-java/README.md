@@ -141,6 +141,7 @@ The `FliptClient.builder()` method returns a `FliptClient.Builder` object that a
 - `fetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
 - `errorStrategy`: The error strategy to use when fetching flag state. If not provide, the client will be default to fail. See the [Error Strategies](#error-strategies) section for more information.
 - `snapshot`: The initial snapshot to use when instantiating the client. See the [Snapshotting](#snapshotting) section for more information.
+- `tlsConfig`: The TLS configuration to use when connecting to the upstream Flipt instance. See the [TLS Configuration](#tls-configuration) section for more information.
 
 ### Authentication
 
@@ -149,6 +150,111 @@ The `FliptClient` supports the following authentication strategies:
 - No Authentication (default)
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
 - [JWT Authentication](https://docs.flipt.io/authentication/using-jwts)
+
+### TLS Configuration
+
+The `FliptClient` supports configuring TLS settings for secure connections to Flipt servers. This is useful when:
+
+- Connecting to Flipt servers with self-signed certificates
+- Using custom Certificate Authorities (CAs)
+- Implementing mutual TLS authentication
+- Testing with insecure connections (development only)
+
+#### Basic TLS with Custom CA Certificate
+
+```java
+// Using a CA certificate file
+TlsConfig tlsConfig = TlsConfig.withCaCertFile("/path/to/ca.pem");
+
+FliptClient client = FliptClient.builder()
+    .url("https://flipt.example.com")
+    .tlsConfig(tlsConfig)
+    .build();
+```
+
+```java
+// Using CA certificate data directly
+String caCertData = Files.readString(Paths.get("/path/to/ca.pem"));
+TlsConfig tlsConfig = TlsConfig.withCaCertData(caCertData);
+
+FliptClient client = FliptClient.builder()
+    .url("https://flipt.example.com")
+    .tlsConfig(tlsConfig)
+    .build();
+```
+
+#### Mutual TLS Authentication
+
+```java
+// Using certificate and key files
+TlsConfig tlsConfig = TlsConfig.withMutualTls(
+    "/path/to/client.pem", 
+    "/path/to/client.key"
+);
+
+FliptClient client = FliptClient.builder()
+    .url("https://flipt.example.com")
+    .tlsConfig(tlsConfig)
+    .build();
+```
+
+```java
+// Using certificate and key data directly
+String clientCertData = Files.readString(Paths.get("/path/to/client.pem"));
+String clientKeyData = Files.readString(Paths.get("/path/to/client.key"));
+
+TlsConfig tlsConfig = TlsConfig.withMutualTlsData(clientCertData, clientKeyData);
+
+FliptClient client = FliptClient.builder()
+    .url("https://flipt.example.com")
+    .tlsConfig(tlsConfig)
+    .build();
+```
+
+#### Advanced TLS Configuration
+
+```java
+// Full TLS configuration with all options
+TlsConfig tlsConfig = TlsConfig.builder()
+    .caCertFile(Optional.of("/path/to/ca.pem"))
+    .clientCertFile(Optional.of("/path/to/client.pem"))
+    .clientKeyFile(Optional.of("/path/to/client.key"))
+    .insecureSkipVerify(Optional.of(false))
+    .build();
+
+FliptClient client = FliptClient.builder()
+    .url("https://flipt.example.com")
+    .tlsConfig(tlsConfig)
+    .build();
+```
+
+#### Development Mode (Insecure)
+
+**⚠️ WARNING: Only use this in development environments!**
+
+```java
+// Skip certificate verification (NOT for production)
+TlsConfig tlsConfig = TlsConfig.insecure();
+
+FliptClient client = FliptClient.builder()
+    .url("https://localhost:8443")
+    .tlsConfig(tlsConfig)
+    .build();
+```
+
+#### TLS Configuration Options
+
+The `TlsConfig` class supports the following options:
+
+- `caCertFile`: Path to custom CA certificate file (PEM format)
+- `caCertData`: Raw CA certificate content (PEM format) - takes precedence over `caCertFile`
+- `insecureSkipVerify`: Skip certificate verification (development only)
+- `clientCertFile`: Client certificate file for mutual TLS (PEM format)
+- `clientKeyFile`: Client private key file for mutual TLS (PEM format)
+- `clientCertData`: Raw client certificate content (PEM format) - takes precedence over `clientCertFile`
+- `clientKeyData`: Raw client private key content (PEM format) - takes precedence over `clientKeyFile`
+
+> **Note**: When both file paths and data are provided, the data fields take precedence. For example, if both `caCertFile` and `caCertData` are set, `caCertData` will be used.
 
 ### Error Strategies
 
