@@ -137,7 +137,7 @@ The `Client` supports the following authentication strategies:
 
 ### TLS Configuration
 
-The `Client` supports configuring TLS settings for secure connections to Flipt servers. This is useful when:
+The `Client` supports configuring TLS settings for secure connections to Flipt servers using the standard library `tls.Config`. This provides maximum flexibility for:
 
 - Connecting to Flipt servers with self-signed certificates
 - Using custom Certificate Authorities (CAs)
@@ -151,6 +151,8 @@ package main
 
 import (
   "context"
+  "crypto/tls"
+  "crypto/x509"
   "log"
   "os"
 
@@ -160,16 +162,17 @@ import (
 func main() {
   ctx := context.Background()
 
-  // Using a CA certificate file
-  caCertFile, err := os.Open("/path/to/ca.pem")
+  // Load CA certificate
+  caCert, err := os.ReadFile("/path/to/ca.pem")
   if err != nil {
     log.Fatal(err)
   }
-  defer caCertFile.Close()
 
-  tlsConfig, err := flipt.WithCaCert(caCertFile)
-  if err != nil {
-    log.Fatal(err)
+  caCertPool := x509.NewCertPool()
+  caCertPool.AppendCertsFromPEM(caCert)
+
+  tlsConfig := &tls.Config{
+    RootCAs: caCertPool,
   }
 
   client, err := flipt.NewClient(
@@ -185,66 +188,27 @@ func main() {
 }
 ```
 
-```go
-// Using CA certificate data from memory
-import "bytes"
-
-caCertData := []byte("-----BEGIN CERTIFICATE-----\n...")
-tlsConfig, err := flipt.WithCaCert(bytes.NewReader(caCertData))
-if err != nil {
-  log.Fatal(err)
-}
-
-client, err := flipt.NewClient(
-  ctx,
-  flipt.WithURL("https://flipt.example.com"),
-  flipt.WithTlsConfig(tlsConfig),
-  flipt.WithClientTokenAuthentication("your-token"),
-)
-```
-
 #### Mutual TLS Authentication
 
 ```go
-// Using certificate and key files
-clientCertFile, err := os.Open("/path/to/client.pem")
-if err != nil {
-  log.Fatal(err)
-}
-defer clientCertFile.Close()
-
-clientKeyFile, err := os.Open("/path/to/client.key")
-if err != nil {
-  log.Fatal(err)
-}
-defer clientKeyFile.Close()
-
-tlsConfig, err := flipt.WithMutualTls(clientCertFile, clientKeyFile)
+// Load client certificate and key
+clientCert, err := tls.LoadX509KeyPair("/path/to/client.pem", "/path/to/client.key")
 if err != nil {
   log.Fatal(err)
 }
 
-client, err := flipt.NewClient(
-  ctx,
-  flipt.WithURL("https://flipt.example.com"),
-  flipt.WithTlsConfig(tlsConfig),
-  flipt.WithClientTokenAuthentication("your-token"),
-)
-```
-
-```go
-// Using certificate and key data from memory
-import "bytes"
-
-clientCertData := []byte("-----BEGIN CERTIFICATE-----\n...")
-clientKeyData := []byte("-----BEGIN PRIVATE KEY-----\n...")
-
-tlsConfig, err := flipt.WithMutualTls(
-  bytes.NewReader(clientCertData), 
-  bytes.NewReader(clientKeyData),
-)
+// Load CA certificate
+caCert, err := os.ReadFile("/path/to/ca.pem")
 if err != nil {
   log.Fatal(err)
+}
+
+caCertPool := x509.NewCertPool()
+caCertPool.AppendCertsFromPEM(caCert)
+
+tlsConfig := &tls.Config{
+  Certificates: []tls.Certificate{clientCert},
+  RootCAs:      caCertPool,
 }
 
 client, err := flipt.NewClient(
@@ -261,21 +225,43 @@ client, err := flipt.NewClient(
 
 ```go
 // Skip certificate verification (NOT for production)
+tlsConfig := &tls.Config{
+  InsecureSkipVerify: true,
+}
+
 client, err := flipt.NewClient(
   ctx,
   flipt.WithURL("https://localhost:8443"),
-  flipt.WithTlsConfig(flipt.InsecureTlsConfig()),
+  flipt.WithTlsConfig(tlsConfig),
   flipt.WithClientTokenAuthentication("your-token"),
 )
 ```
 
-#### TLS Configuration Options
+#### Advanced TLS Configuration
 
-The TLS configuration supports the following options through factory functions:
+Since the client accepts a standard `tls.Config`, you have access to all TLS configuration options:
 
-- `WithCaCert(reader io.Reader)`: Configure custom CA certificate from reader (PEM format)
-- `WithMutualTls(certReader, keyReader io.Reader)`: Configure mutual TLS with client certificate and key from readers (PEM format)
-- `InsecureTlsConfig()`: Skip certificate verification (development only)
+```go
+tlsConfig := &tls.Config{
+  // Custom CA certificates
+  RootCAs: caCertPool,
+  
+  // Client certificates for mutual TLS
+  Certificates: []tls.Certificate{clientCert},
+  
+  // Minimum TLS version
+  MinVersion: tls.VersionTLS12,
+  
+  // Custom cipher suites
+  CipherSuites: []uint16{
+    tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+    tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+  },
+  
+  // Server name for SNI
+  ServerName: "flipt.example.com",
+}
+```
 
 ### Error Strategies
 

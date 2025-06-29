@@ -1,8 +1,9 @@
 package flipt_test
 
 import (
-	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"os"
 	"strings"
 	"testing"
@@ -42,12 +43,20 @@ func (s *ClientTestSuite) SetupSuite() {
 		if caCertPath != "" {
 			caCertData, err := os.ReadFile(caCertPath)
 			require.NoError(s.T(), err)
-			tlsConfig, err := flipt.WithCaCert(bytes.NewReader(caCertData))
-			require.NoError(s.T(), err)
+			
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(caCertData)
+			
+			tlsConfig := &tls.Config{
+				RootCAs: caCertPool,
+			}
 			opts = append(opts, flipt.WithTlsConfig(tlsConfig))
 		} else {
 			// Fallback to insecure for local testing
-			opts = append(opts, flipt.WithTlsConfig(flipt.InsecureTlsConfig()))
+			tlsConfig := &tls.Config{
+				InsecureSkipVerify: true,
+			}
+			opts = append(opts, flipt.WithTlsConfig(tlsConfig))
 		}
 	}
 
