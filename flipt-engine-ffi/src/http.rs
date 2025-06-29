@@ -170,12 +170,16 @@ impl HTTPFetcherBuilder {
     }
 
     pub fn request_timeout(mut self, request_timeout: Duration) -> Self {
-        self.request_timeout = Some(request_timeout);
+        if request_timeout.as_secs() > 0 {
+            self.request_timeout = Some(request_timeout);
+        }
         self
     }
 
     pub fn update_interval(mut self, update_interval: Duration) -> Self {
-        self.update_interval = update_interval;
+        if update_interval.as_secs() > 0 {
+            self.update_interval = update_interval;
+        }
         self
     }
 
@@ -205,7 +209,7 @@ impl HTTPFetcherBuilder {
         match self.mode {
             FetchMode::Polling => {
                 if let Some(request_timeout) = self.request_timeout {
-                    if request_timeout.as_nanos() > 0 {
+                    if request_timeout.as_secs() > 0 {
                         client_builder = client_builder.timeout(request_timeout);
                     }
                 }
