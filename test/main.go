@@ -470,6 +470,7 @@ func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 			Exclude: []string{"./.idea/", ".gradle/", "build/"},
 		}).
 		WithDirectory(mntLibDir, t.engine.Directory(libDir)).
+		WithDirectory("/src/test/fixtures/tls", t.hostDir.Directory("test/fixtures/tls")).
 		WithServiceBinding("flipt", t.flipt.AsService()).
 		WithEnvVariable("FLIPT_URL", "https://flipt:8443").
 		WithEnvVariable("FLIPT_CA_CERT_PATH", "/src/test/fixtures/tls/ca.crt").
