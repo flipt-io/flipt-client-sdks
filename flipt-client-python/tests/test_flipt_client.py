@@ -9,6 +9,7 @@ from flipt_client.models import (
     ClientTokenAuthentication,
     EvaluationRequest,
     FlagType,
+    TlsConfig,
 )
 from flipt_client.errors import ValidationError, EvaluationError
 
@@ -23,10 +24,21 @@ class TestFliptClient(unittest.TestCase):
         if auth_token is None:
             raise Exception("FLIPT_AUTH_TOKEN not set")
 
+        # Configure TLS if HTTPS URL is provided
+        tls_config = None
+        if url.startswith("https://"):
+            ca_cert_path = os.environ.get("FLIPT_CA_CERT_PATH")
+            if ca_cert_path:
+                tls_config = TlsConfig(ca_cert_file=ca_cert_path)
+            else:
+                # Fallback to insecure for local testing
+                tls_config = TlsConfig(insecure_skip_verify=True)
+
         self.flipt_client = FliptClient(
             opts=ClientOptions(
                 url=url,
                 authentication=ClientTokenAuthentication(client_token=auth_token),
+                tls_config=tls_config,
             )
         )
 

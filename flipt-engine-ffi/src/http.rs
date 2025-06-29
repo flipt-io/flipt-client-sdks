@@ -508,7 +508,7 @@ fn configure_tls(
     // Handle custom CA certificates
     if let Some(ca_cert_data) = &tls_config.ca_cert_data {
         let cert_bytes = ca_cert_data.as_bytes();
-        let cert = reqwest::Certificate::from_pem(&cert_bytes)
+        let cert = reqwest::Certificate::from_pem(cert_bytes)
             .map_err(|e| Error::Internal(format!("Invalid CA certificate: {e}")))?;
         builder = builder.add_root_certificate(cert);
     } else if let Some(ca_cert_file) = &tls_config.ca_cert_file {
