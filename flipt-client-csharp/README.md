@@ -123,6 +123,136 @@ The `FliptClient` supports the following authentication strategies:
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
 - [JWT Authentication](https://docs.flipt.io/authentication/using-jwts)
 
+### TLS Configuration
+
+The `FliptClient` supports configuring TLS settings for secure connections to Flipt servers. This is useful when:
+
+- Connecting to Flipt servers with self-signed certificates
+- Using custom Certificate Authorities (CAs)
+- Implementing mutual TLS authentication
+- Testing with insecure connections (development only)
+
+#### Basic TLS with Custom CA Certificate
+
+```csharp
+using FliptClient;
+using FliptClient.Models;
+
+// Using a CA certificate file
+var tlsConfig = TlsConfig.WithCaCertFile("/path/to/ca.pem");
+
+var options = new ClientOptions
+{
+    Url = "https://flipt.example.com",
+    TlsConfig = tlsConfig,
+    Authentication = new Authentication { ClientToken = "your-token" }
+};
+
+using var client = new FliptClient(options);
+```
+
+```csharp
+// Using CA certificate data directly
+var caCertData = File.ReadAllText("/path/to/ca.pem");
+var tlsConfig = TlsConfig.WithCaCertData(caCertData);
+
+var options = new ClientOptions
+{
+    Url = "https://flipt.example.com",
+    TlsConfig = tlsConfig,
+    Authentication = new Authentication { ClientToken = "your-token" }
+};
+
+using var client = new FliptClient(options);
+```
+
+#### Mutual TLS Authentication
+
+```csharp
+// Using certificate and key files
+var tlsConfig = TlsConfig.WithMutualTls("/path/to/client.pem", "/path/to/client.key");
+
+var options = new ClientOptions
+{
+    Url = "https://flipt.example.com",
+    TlsConfig = tlsConfig,
+    Authentication = new Authentication { ClientToken = "your-token" }
+};
+
+using var client = new FliptClient(options);
+```
+
+```csharp
+// Using certificate and key data directly
+var clientCertData = File.ReadAllText("/path/to/client.pem");
+var clientKeyData = File.ReadAllText("/path/to/client.key");
+
+var tlsConfig = TlsConfig.WithMutualTlsData(clientCertData, clientKeyData);
+
+var options = new ClientOptions
+{
+    Url = "https://flipt.example.com",
+    TlsConfig = tlsConfig,
+    Authentication = new Authentication { ClientToken = "your-token" }
+};
+
+using var client = new FliptClient(options);
+```
+
+#### Advanced TLS Configuration
+
+```csharp
+// Full TLS configuration with all options
+var tlsConfig = new TlsConfig
+{
+    CaCertFile = "/path/to/ca.pem",
+    ClientCertFile = "/path/to/client.pem",
+    ClientKeyFile = "/path/to/client.key",
+    InsecureSkipVerify = false
+};
+
+var options = new ClientOptions
+{
+    Url = "https://flipt.example.com",
+    TlsConfig = tlsConfig,
+    Authentication = new Authentication { ClientToken = "your-token" }
+};
+
+using var client = new FliptClient(options);
+```
+
+#### Development Mode (Insecure)
+
+**⚠️ WARNING: Only use this in development environments!**
+
+```csharp
+// Skip certificate verification (NOT for production)
+var tlsConfig = TlsConfig.Insecure();
+
+var options = new ClientOptions
+{
+    Url = "https://localhost:8443",
+    TlsConfig = tlsConfig,
+    Authentication = new Authentication { ClientToken = "your-token" }
+};
+
+using var client = new FliptClient(options);
+```
+
+#### TLS Configuration Options
+
+The `TlsConfig` class supports the following properties:
+
+- `CaCertFile`: Path to custom CA certificate file (PEM format)
+- `CaCertData`: Raw CA certificate content (PEM format) - takes precedence over `CaCertFile`
+- `InsecureSkipVerify`: Skip certificate verification (development only)
+- `ClientCertFile`: Client certificate file for mutual TLS (PEM format)
+- `ClientKeyFile`: Client private key file for mutual TLS (PEM format)
+- `ClientCertData`: Raw client certificate content (PEM format) - takes precedence over `ClientCertFile`
+- `ClientKeyData`: Raw client private key content (PEM format) - takes precedence over `ClientKeyFile`
+
+> **Note**: When both file paths and data are provided, the data properties take precedence. For example, if both `CaCertFile` and `CaCertData` are set, `CaCertData` will be used.
+
 ### Error Strategies
 
 The `FliptClient` supports the following error strategies:

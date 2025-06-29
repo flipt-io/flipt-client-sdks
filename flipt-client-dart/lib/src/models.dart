@@ -17,6 +17,120 @@ enum ErrorStrategy {
   fallback,
 }
 
+/// Configuration for TLS connections to Flipt servers.
+/// Provides options for custom CA certificates, client certificates for mutual TLS,
+/// and insecure mode for development.
+@JsonSerializable()
+class TlsConfig {
+  /// Path to the CA certificate file (PEM format).
+  final String? caCertFile;
+
+  /// CA certificate content (PEM format).
+  /// Takes precedence over caCertFile if both are provided.
+  final String? caCertData;
+
+  /// Whether to skip certificate verification.
+  /// WARNING: Only use this in development environments!
+  final bool? insecureSkipVerify;
+
+  /// Path to the client certificate file for mutual TLS (PEM format).
+  final String? clientCertFile;
+
+  /// Path to the client private key file for mutual TLS (PEM format).
+  final String? clientKeyFile;
+
+  /// Client certificate content for mutual TLS (PEM format).
+  /// Takes precedence over clientCertFile if both are provided.
+  final String? clientCertData;
+
+  /// Client private key content for mutual TLS (PEM format).
+  /// Takes precedence over clientKeyFile if both are provided.
+  final String? clientKeyData;
+
+  TlsConfig({
+    this.caCertFile,
+    this.caCertData,
+    this.insecureSkipVerify,
+    this.clientCertFile,
+    this.clientKeyFile,
+    this.clientCertData,
+    this.clientKeyData,
+  }) {
+    _validateFiles();
+  }
+
+  /// Creates a TLS configuration for insecure connections (development only).
+  /// WARNING: Only use this in development environments!
+  static TlsConfig insecure() {
+    return TlsConfig(insecureSkipVerify: true);
+  }
+
+  /// Creates a TLS configuration with a custom CA certificate file.
+  static TlsConfig withCaCertFile(String caCertFile) {
+    if (caCertFile.isEmpty) {
+      throw ValidationError('CA certificate file path cannot be empty');
+    }
+    return TlsConfig(caCertFile: caCertFile);
+  }
+
+  /// Creates a TLS configuration with CA certificate data.
+  static TlsConfig withCaCertData(String caCertData) {
+    if (caCertData.isEmpty) {
+      throw ValidationError('CA certificate data cannot be empty');
+    }
+    return TlsConfig(caCertData: caCertData);
+  }
+
+  /// Creates a TLS configuration for mutual TLS using certificate files.
+  static TlsConfig withMutualTls(String clientCertFile, String clientKeyFile) {
+    if (clientCertFile.isEmpty) {
+      throw ValidationError('Client certificate file path cannot be empty');
+    }
+    if (clientKeyFile.isEmpty) {
+      throw ValidationError('Client key file path cannot be empty');
+    }
+    return TlsConfig(
+      clientCertFile: clientCertFile,
+      clientKeyFile: clientKeyFile,
+    );
+  }
+
+  /// Creates a TLS configuration for mutual TLS using certificate data.
+  static TlsConfig withMutualTlsData(String clientCertData, String clientKeyData) {
+    if (clientCertData.isEmpty) {
+      throw ValidationError('Client certificate data cannot be empty');
+    }
+    if (clientKeyData.isEmpty) {
+      throw ValidationError('Client key data cannot be empty');
+    }
+    return TlsConfig(
+      clientCertData: clientCertData,
+      clientKeyData: clientKeyData,
+    );
+  }
+
+  void _validateFiles() {
+    if (caCertFile != null && caCertFile!.isNotEmpty) {
+      if (!File(caCertFile!).existsSync()) {
+        throw ValidationError('CA certificate file does not exist: $caCertFile');
+      }
+    }
+    if (clientCertFile != null && clientCertFile!.isNotEmpty) {
+      if (!File(clientCertFile!).existsSync()) {
+        throw ValidationError('Client certificate file does not exist: $clientCertFile');
+      }
+    }
+    if (clientKeyFile != null && clientKeyFile!.isNotEmpty) {
+      if (!File(clientKeyFile!).existsSync()) {
+        throw ValidationError('Client key file does not exist: $clientKeyFile');
+      }
+    }
+  }
+
+  factory TlsConfig.fromJson(Map<String, dynamic> json) => _$TlsConfigFromJson(json);
+  Map<String, dynamic> toJson() => _$TlsConfigToJson(this);
+}
+
 /// Options for configuring the Flipt client.
 @JsonSerializable()
 class Options {
@@ -51,6 +165,9 @@ class Options {
   /// The error strategy to use (fail or fallback).
   final ErrorStrategy? errorStrategy;
 
+  /// TLS configuration for connecting to servers with custom certificates.
+  final TlsConfig? tlsConfig;
+
   Options({
     this.url = 'http://localhost:8080',
     this.environment = 'default',
@@ -62,6 +179,7 @@ class Options {
     this.fetchMode = FetchMode.polling,
     this.errorStrategy = ErrorStrategy.fail,
     this.snapshot,
+    this.tlsConfig,
   }) {
     if (url != null && url!.isEmpty) {
       throw ValidationError('url must not be empty');
@@ -99,6 +217,9 @@ class Options {
                 _$ErrorStrategyEnumMap, json['error_strategy']) ??
             ErrorStrategy.fail,
         snapshot: json['snapshot'] as String?,
+        tlsConfig: json['tls_config'] != null
+            ? TlsConfig.fromJson(json['tls_config'] as Map<String, dynamic>)
+            : null,
       );
   Map<String, dynamic> toJson() => {
         'url': url,
@@ -113,6 +234,7 @@ class Options {
             ? _$ErrorStrategyEnumMap[errorStrategy]
             : null,
         'snapshot': snapshot,
+        'tls_config': tlsConfig?.toJson(),
       };
 
   static Options withClientToken(
@@ -125,6 +247,7 @@ class Options {
     Duration? updateInterval,
     FetchMode? fetchMode,
     ErrorStrategy? errorStrategy,
+    TlsConfig? tlsConfig,
   }) {
     return Options(
       url: url,
@@ -138,6 +261,7 @@ class Options {
       },
       fetchMode: fetchMode,
       errorStrategy: errorStrategy,
+      tlsConfig: tlsConfig,
     );
   }
 
@@ -151,6 +275,7 @@ class Options {
     Duration? updateInterval,
     FetchMode? fetchMode,
     ErrorStrategy? errorStrategy,
+    TlsConfig? tlsConfig,
   }) {
     return Options(
       url: url,
@@ -164,6 +289,7 @@ class Options {
       },
       fetchMode: fetchMode,
       errorStrategy: errorStrategy,
+      tlsConfig: tlsConfig,
     );
   }
 }
