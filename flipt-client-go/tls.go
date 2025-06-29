@@ -21,9 +21,11 @@ func WithTlsConfig(tlsConfig *tls.Config) Option {
 			timeout   time.Duration   = defaultHTTPClient.Timeout
 		)
 
-		if cfg.HTTPClient.Transport != nil {
-			transport = cfg.HTTPClient.Transport.(*http.Transport).Clone()
+		if cfg.HTTPClient != nil {
 			timeout = cfg.HTTPClient.Timeout
+			if cfg.HTTPClient.Transport != nil {
+				transport = cfg.HTTPClient.Transport.(*http.Transport).Clone()
+			}
 		}
 
 		// Apply the provided TLS config
