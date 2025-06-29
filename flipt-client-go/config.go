@@ -110,7 +110,12 @@ func WithTlsConfig(tlsConfig *tls.Config) Option {
 		if cfg.HTTPClient != nil {
 			timeout = cfg.HTTPClient.Timeout
 			if cfg.HTTPClient.Transport != nil {
-				transport = cfg.HTTPClient.Transport.(*http.Transport).Clone()
+				if t, ok := cfg.HTTPClient.Transport.(*http.Transport); ok {
+					transport = t.Clone()
+				} else {
+					fmt.Println("Warning: HTTPClient.Transport is not of type *http.Transport. Falling back to default transport.")
+					transport = defaultHTTPClient.Transport.(*http.Transport).Clone()
+				}
 			}
 		}
 
