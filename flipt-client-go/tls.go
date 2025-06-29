@@ -93,11 +93,7 @@ func (tc *TlsConfig) buildTLSConfig() (*tls.Config, error) {
 
 // configureCA configures the CA certificate for the TLS connection.
 func (tc *TlsConfig) configureCA(tlsConfig *tls.Config) error {
-	var caCertPEM []byte
-
-	if len(tc.caCertData) > 0 {
-		caCertPEM = tc.caCertData
-	}
+	caCertPEM := tc.caCertData
 
 	if len(caCertPEM) > 0 {
 		caCertPool := x509.NewCertPool()
@@ -112,12 +108,7 @@ func (tc *TlsConfig) configureCA(tlsConfig *tls.Config) error {
 
 // configureClientCert configures the client certificate for mutual TLS.
 func (tc *TlsConfig) configureClientCert(tlsConfig *tls.Config) error {
-	var clientCertPEM, clientKeyPEM []byte
-
-	if len(tc.clientCertData) > 0 && len(tc.clientKeyData) > 0 {
-		clientCertPEM = tc.clientCertData
-		clientKeyPEM = tc.clientKeyData
-	}
+	clientCertPEM, clientKeyPEM := tc.clientCertData, tc.clientKeyData
 
 	if len(clientCertPEM) > 0 && len(clientKeyPEM) > 0 {
 		clientCert, err := tls.X509KeyPair(clientCertPEM, clientKeyPEM)
@@ -138,7 +129,7 @@ func WithTlsConfig(tlsConfig *TlsConfig) Option {
 			return
 		}
 
-		// Create a new HTTP client based on the one provided
+		// Create a new HTTP client based on the one provided or the default one
 		var (
 			transport *http.Transport = defaultHTTPClient.Transport.(*http.Transport).Clone()
 			timeout   time.Duration   = defaultHTTPClient.Timeout
