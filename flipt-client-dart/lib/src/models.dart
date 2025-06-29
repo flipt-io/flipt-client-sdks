@@ -96,7 +96,8 @@ class TlsConfig {
   }
 
   /// Creates a TLS configuration for mutual TLS using certificate data.
-  static TlsConfig withMutualTlsData(String clientCertData, String clientKeyData) {
+  static TlsConfig withMutualTlsData(
+      String clientCertData, String clientKeyData) {
     if (clientCertData.isEmpty) {
       throw ValidationError('Client certificate data cannot be empty');
     }
@@ -112,12 +113,14 @@ class TlsConfig {
   void _validateFiles() {
     if (caCertFile != null && caCertFile!.isNotEmpty) {
       if (!File(caCertFile!).existsSync()) {
-        throw ValidationError('CA certificate file does not exist: $caCertFile');
+        throw ValidationError(
+            'CA certificate file does not exist: $caCertFile');
       }
     }
     if (clientCertFile != null && clientCertFile!.isNotEmpty) {
       if (!File(clientCertFile!).existsSync()) {
-        throw ValidationError('Client certificate file does not exist: $clientCertFile');
+        throw ValidationError(
+            'Client certificate file does not exist: $clientCertFile');
       }
     }
     if (clientKeyFile != null && clientKeyFile!.isNotEmpty) {
@@ -127,7 +130,8 @@ class TlsConfig {
     }
   }
 
-  factory TlsConfig.fromJson(Map<String, dynamic> json) => _$TlsConfigFromJson(json);
+  factory TlsConfig.fromJson(Map<String, dynamic> json) =>
+      _$TlsConfigFromJson(json);
   Map<String, dynamic> toJson() => _$TlsConfigToJson(this);
 }
 
