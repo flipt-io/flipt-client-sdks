@@ -222,10 +222,10 @@ func run() error {
 		lang, t := lang, t
 		for _, c := range t.containers {
 			c := c
-			wg.Add(1) // Increment WaitGroup for each test
+			wg.Add(1)
 
 			g.Go(take(func() error {
-				defer wg.Done() // Decrement WaitGroup when test is done
+				defer wg.Done()
 
 				flipt, err := setupFliptContainer(client, hostDir, c.useHTTPS)
 				if err != nil {
