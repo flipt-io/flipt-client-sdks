@@ -1,8 +1,10 @@
 package flipt_test
 
 import (
+	"bytes"
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -32,6 +34,21 @@ func (s *ClientTestSuite) SetupSuite() {
 	if os.Getenv("FLIPT_AUTH_TOKEN") != "" {
 		s.authToken = os.Getenv("FLIPT_AUTH_TOKEN")
 		opts = append(opts, flipt.WithClientTokenAuthentication(s.authToken))
+	}
+
+	// Configure TLS if HTTPS URL is provided
+	if s.fliptURL != "" && strings.HasPrefix(s.fliptURL, "https://") {
+		caCertPath := os.Getenv("FLIPT_CA_CERT_PATH")
+		if caCertPath != "" {
+			caCertData, err := os.ReadFile(caCertPath)
+			require.NoError(s.T(), err)
+			tlsConfig, err := flipt.WithCaCert(bytes.NewReader(caCertData))
+			require.NoError(s.T(), err)
+			opts = append(opts, flipt.WithTlsConfig(tlsConfig))
+		} else {
+			// Fallback to insecure for local testing
+			opts = append(opts, flipt.WithTlsConfig(flipt.InsecureTlsConfig()))
+		}
 	}
 
 	var err error

@@ -75,9 +75,9 @@ var (
 	}
 
 	goVersions = []containerConfig{
-		{base: "golang:1.23-bookworm", setup: []string{"apt-get update", "apt-get install -y build-essential"}},
-		{base: "golang:1.23-bullseye", setup: []string{"apt-get update", "apt-get install -y build-essential"}},
-		{base: "golang:1.23-alpine", setup: []string{"apk update", "apk add --no-cache build-base"}},
+		{base: "golang:1.23-bookworm", setup: []string{"apt-get update", "apt-get install -y build-essential"}, useHTTPS: true},
+		{base: "golang:1.23-bullseye", setup: []string{"apt-get update", "apt-get install -y build-essential"}, useHTTPS: true},
+		{base: "golang:1.23-alpine", setup: []string{"apk update", "apk add --no-cache build-base"}, useHTTPS: true},
 	}
 
 	rubyVersions = []containerConfig{
@@ -431,8 +431,10 @@ func goTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithWorkdir("/src").
 		WithDirectory("/src", t.hostDir.Directory("flipt-client-go")).
 		WithFile("/src/ext/flipt_engine_wasm.wasm", t.engine.File(wasmFile)).
+		WithDirectory("/src/test/fixtures/tls", t.hostDir.Directory("test/fixtures/tls")).
 		WithServiceBinding("flipt", t.flipt.AsService()).
-		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithEnvVariable("FLIPT_URL", "https://flipt:8443").
+		WithEnvVariable("FLIPT_CA_CERT_PATH", "/src/test/fixtures/tls/ca.crt").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec(args("go mod download")).
 		WithExec(args("go test -v -timeout 30s ./...")).

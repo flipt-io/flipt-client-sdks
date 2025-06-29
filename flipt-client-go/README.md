@@ -125,6 +125,7 @@ The `NewClient` constructor accepts a variadic number of `Option` functions that
 - `WithReference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
 - `WithFetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
 - `WithErrorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to `Fail`. See the [Error Strategies](#error-strategies) section for more information.
+- `WithTlsConfig`: The TLS configuration for connecting to servers with custom certificates. See [TLS Configuration](#tls-configuration).
 
 ### Authentication
 
@@ -133,6 +134,148 @@ The `Client` supports the following authentication strategies:
 - No Authentication (default)
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
 - [JWT Authentication](https://docs.flipt.io/authentication/using-jwts)
+
+### TLS Configuration
+
+The `Client` supports configuring TLS settings for secure connections to Flipt servers. This is useful when:
+
+- Connecting to Flipt servers with self-signed certificates
+- Using custom Certificate Authorities (CAs)
+- Implementing mutual TLS authentication
+- Testing with insecure connections (development only)
+
+#### Basic TLS with Custom CA Certificate
+
+```go
+package main
+
+import (
+  "context"
+  "log"
+  "os"
+
+  flipt "go.flipt.io/flipt-client"
+)
+
+func main() {
+  ctx := context.Background()
+
+  // Using a CA certificate file
+  caCertFile, err := os.Open("/path/to/ca.pem")
+  if err != nil {
+    log.Fatal(err)
+  }
+  defer caCertFile.Close()
+
+  tlsConfig, err := flipt.WithCaCert(caCertFile)
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  client, err := flipt.NewClient(
+    ctx,
+    flipt.WithURL("https://flipt.example.com"),
+    flipt.WithTlsConfig(tlsConfig),
+    flipt.WithClientTokenAuthentication("your-token"),
+  )
+  if err != nil {
+    log.Fatal(err)
+  }
+  defer client.Close(ctx)
+}
+```
+
+```go
+// Using CA certificate data from memory
+import "bytes"
+
+caCertData := []byte("-----BEGIN CERTIFICATE-----\n...")
+tlsConfig, err := flipt.WithCaCert(bytes.NewReader(caCertData))
+if err != nil {
+  log.Fatal(err)
+}
+
+client, err := flipt.NewClient(
+  ctx,
+  flipt.WithURL("https://flipt.example.com"),
+  flipt.WithTlsConfig(tlsConfig),
+  flipt.WithClientTokenAuthentication("your-token"),
+)
+```
+
+#### Mutual TLS Authentication
+
+```go
+// Using certificate and key files
+clientCertFile, err := os.Open("/path/to/client.pem")
+if err != nil {
+  log.Fatal(err)
+}
+defer clientCertFile.Close()
+
+clientKeyFile, err := os.Open("/path/to/client.key")
+if err != nil {
+  log.Fatal(err)
+}
+defer clientKeyFile.Close()
+
+tlsConfig, err := flipt.WithMutualTls(clientCertFile, clientKeyFile)
+if err != nil {
+  log.Fatal(err)
+}
+
+client, err := flipt.NewClient(
+  ctx,
+  flipt.WithURL("https://flipt.example.com"),
+  flipt.WithTlsConfig(tlsConfig),
+  flipt.WithClientTokenAuthentication("your-token"),
+)
+```
+
+```go
+// Using certificate and key data from memory
+import "bytes"
+
+clientCertData := []byte("-----BEGIN CERTIFICATE-----\n...")
+clientKeyData := []byte("-----BEGIN PRIVATE KEY-----\n...")
+
+tlsConfig, err := flipt.WithMutualTls(
+  bytes.NewReader(clientCertData), 
+  bytes.NewReader(clientKeyData),
+)
+if err != nil {
+  log.Fatal(err)
+}
+
+client, err := flipt.NewClient(
+  ctx,
+  flipt.WithURL("https://flipt.example.com"),
+  flipt.WithTlsConfig(tlsConfig),
+  flipt.WithClientTokenAuthentication("your-token"),
+)
+```
+
+#### Development Mode (Insecure)
+
+**⚠️ WARNING: Only use this in development environments!**
+
+```go
+// Skip certificate verification (NOT for production)
+client, err := flipt.NewClient(
+  ctx,
+  flipt.WithURL("https://localhost:8443"),
+  flipt.WithTlsConfig(flipt.InsecureTlsConfig()),
+  flipt.WithClientTokenAuthentication("your-token"),
+)
+```
+
+#### TLS Configuration Options
+
+The TLS configuration supports the following options through factory functions:
+
+- `WithCaCert(reader io.Reader)`: Configure custom CA certificate from reader (PEM format)
+- `WithMutualTls(certReader, keyReader io.Reader)`: Configure mutual TLS with client certificate and key from readers (PEM format)
+- `InsecureTlsConfig()`: Skip certificate verification (development only)
 
 ### Error Strategies
 
