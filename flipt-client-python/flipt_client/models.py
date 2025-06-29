@@ -79,12 +79,18 @@ class TlsConfig(BaseModel):
     if PYDANTIC_V2:
         from pydantic import field_validator
 
-        @field_validator("ca_cert_file", "client_cert_file", "client_key_file", mode="before")
+        @field_validator(
+            "ca_cert_file", "client_cert_file", "client_key_file", mode="before"
+        )
         @classmethod
         def validate_cert_files(cls, v, info):
             if v is not None and v.strip():
                 if not os.path.exists(v):
-                    field_name = info.field_name if hasattr(info, 'field_name') else 'certificate file'
+                    field_name = (
+                        info.field_name
+                        if hasattr(info, "field_name")
+                        else "certificate file"
+                    )
                     raise ValueError(f"{field_name} does not exist: {v}")
             return v
 
@@ -95,7 +101,9 @@ class TlsConfig(BaseModel):
         def validate_cert_files(cls, v, field):
             if v is not None and v.strip():
                 if not os.path.exists(v):
-                    field_name = field.name if hasattr(field, 'name') else 'certificate file'
+                    field_name = (
+                        field.name if hasattr(field, "name") else "certificate file"
+                    )
                     raise ValueError(f"{field_name} does not exist: {v}")
             return v
 
