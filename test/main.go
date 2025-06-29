@@ -474,6 +474,8 @@ func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithEnvVariable("FLIPT_URL", "https://flipt:8443").
 		WithEnvVariable("FLIPT_CA_CERT_PATH", "/src/test/fixtures/tls/ca.crt").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
+		WithEnvVariable("FLIPT_ENGINE_LOG", "debug").
+		WithEnvVariable("RUST_BACKTRACE", "1").
 		WithExec(args("chown -R gradle:gradle /src")).
 		WithExec(args("gradle clean")).
 		WithExec(args("gradle test --warning-mode all --info")).
