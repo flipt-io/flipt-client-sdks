@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Optional;
 import lombok.Builder;
-import lombok.Value;
 
 /**
  * TLS configuration for connecting to Flipt servers with custom certificates.
@@ -171,38 +170,5 @@ public class TlsConfig {
         .clientCertData(Optional.of(clientCertData))
         .clientKeyData(Optional.of(clientKeyData))
         .build();
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    TlsConfig tlsConfig = (TlsConfig) o;
-    return java.util.Objects.equals(caCertFile, tlsConfig.caCertFile) &&
-        java.util.Objects.equals(caCertData, tlsConfig.caCertData) &&
-        java.util.Objects.equals(insecureSkipVerify, tlsConfig.insecureSkipVerify) &&
-        java.util.Objects.equals(clientCertFile, tlsConfig.clientCertFile) &&
-        java.util.Objects.equals(clientKeyFile, tlsConfig.clientKeyFile) &&
-        java.util.Objects.equals(clientCertData, tlsConfig.clientCertData) &&
-        java.util.Objects.equals(clientKeyData, tlsConfig.clientKeyData);
-  }
-
-  @Override
-  public int hashCode() {
-    return java.util.Objects.hash(caCertFile, caCertData, insecureSkipVerify, 
-        clientCertFile, clientKeyFile, clientCertData, clientKeyData);
-  }
-
-  @Override
-  public String toString() {
-    return "TlsConfig{" +
-        "caCertFile=" + caCertFile +
-        ", caCertData=" + (caCertData.isPresent() ? "***" : "empty") +
-        ", insecureSkipVerify=" + insecureSkipVerify +
-        ", clientCertFile=" + clientCertFile +
-        ", clientKeyFile=" + clientKeyFile +
-        ", clientCertData=" + (clientCertData.isPresent() ? "***" : "empty") +
-        ", clientKeyData=" + (clientKeyData.isPresent() ? "***" : "empty") +
-        '}';
   }
 }
