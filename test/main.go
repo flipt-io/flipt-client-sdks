@@ -471,7 +471,8 @@ func javaTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		}).
 		WithDirectory(mntLibDir, t.engine.Directory(libDir)).
 		WithServiceBinding("flipt", t.flipt.AsService()).
-		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithEnvVariable("FLIPT_URL", "https://flipt:8443").
+		WithEnvVariable("FLIPT_CA_CERT_PATH", "/src/test/fixtures/tls/ca.crt").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec(args("chown -R gradle:gradle /src")).
 		WithExec(args("gradle clean")).
