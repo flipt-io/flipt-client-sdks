@@ -16,6 +16,8 @@ use tokio_util::io::StreamReader;
 use fliptevaluation::error::Error;
 use fliptevaluation::models::source;
 
+use crate::TlsConfig;
+
 #[derive(Debug, Clone, Default, Deserialize)]
 #[cfg_attr(test, derive(PartialEq))]
 #[serde(rename_all = "snake_case")]
@@ -111,6 +113,7 @@ pub struct HTTPFetcherBuilder {
     request_timeout: Option<Duration>,
     update_interval: Duration,
     mode: FetchMode,
+    tls_config: Option<TlsConfig>,
 }
 
 #[derive(Deserialize)]
@@ -136,6 +139,7 @@ impl HTTPFetcherBuilder {
             request_timeout: None,
             update_interval: Duration::from_secs(120),
             mode: FetchMode::default(),
+            tls_config: None,
         }
     }
 
@@ -174,6 +178,11 @@ impl HTTPFetcherBuilder {
         self
     }
 
+    pub fn tls_config(mut self, tls_config: TlsConfig) -> Self {
+        self.tls_config = Some(tls_config);
+        self
+    }
+
     pub fn build(self) -> Result<HTTPFetcher, Error> {
         let retry_policy = ExponentialBackoff::builder()
             .retry_bounds(Duration::from_secs(1), Duration::from_secs(30))
@@ -203,6 +212,11 @@ impl HTTPFetcherBuilder {
                     .http2_initial_connection_window_size(32 * 1024)
                     .http2_keep_alive_while_idle(true);
             }
+        }
+
+        // Apply TLS configuration if provided
+        if let Some(tls_config) = &self.tls_config {
+            client_builder = configure_tls(client_builder, tls_config)?;
         }
 
         let client = client_builder
@@ -476,14 +490,72 @@ impl HTTPFetcher {
     }
 }
 
+/// Configure TLS for the HTTP client
+///
+/// This function is used to configure the TLS settings for the HTTP client.
+/// It handles insecure mode, custom CA certificates, and client certificates.
+///
+/// Note: data fields take precedence over file paths.
+fn configure_tls(
+    mut builder: reqwest::ClientBuilder,
+    tls_config: &TlsConfig,
+) -> Result<reqwest::ClientBuilder, Error> {
+    // Handle insecure mode
+    if tls_config.insecure_skip_verify.unwrap_or(false) {
+        builder = builder.danger_accept_invalid_certs(true);
+    }
+
+    // Handle custom CA certificates
+    if let Some(ca_cert_data) = &tls_config.ca_cert_data {
+        let cert_bytes = ca_cert_data.as_bytes();
+        let cert = reqwest::Certificate::from_pem(&cert_bytes)
+            .map_err(|e| Error::Internal(format!("Invalid CA certificate: {e}")))?;
+        builder = builder.add_root_certificate(cert);
+    } else if let Some(ca_cert_file) = &tls_config.ca_cert_file {
+        let cert_bytes = std::fs::read(ca_cert_file)
+            .map_err(|e| Error::Internal(format!("Failed to read CA cert file: {e}")))?;
+        let cert = reqwest::Certificate::from_pem(&cert_bytes)
+            .map_err(|e| Error::Internal(format!("Invalid CA certificate file: {e}")))?;
+        builder = builder.add_root_certificate(cert);
+    }
+
+    // Handle client certificates for mutual TLS
+    if let (Some(cert_data), Some(key_data)) =
+        (&tls_config.client_cert_data, &tls_config.client_key_data)
+    {
+        let cert_bytes = cert_data.as_bytes();
+        let key_bytes = key_data.as_bytes();
+        let combined = [cert_bytes, key_bytes].concat();
+        let identity = reqwest::Identity::from_pem(&combined)
+            .map_err(|e| Error::Internal(format!("Invalid client certificate: {e}")))?;
+        builder = builder.identity(identity);
+    } else if let (Some(cert_file), Some(key_file)) =
+        (&tls_config.client_cert_file, &tls_config.client_key_file)
+    {
+        let cert_bytes = std::fs::read(cert_file)
+            .map_err(|e| Error::Internal(format!("Failed to read client cert file: {e}")))?;
+        let key_bytes = std::fs::read(key_file)
+            .map_err(|e| Error::Internal(format!("Failed to read client key file: {e}")))?;
+        let mut combined = cert_bytes.clone();
+        combined.extend_from_slice(&key_bytes);
+        let identity = reqwest::Identity::from_pem(&combined)
+            .map_err(|e| Error::Internal(format!("Invalid client certificate files: {e}")))?;
+        builder = builder.identity(identity);
+    }
+
+    Ok(builder)
+}
+
 #[cfg(test)]
 mod tests {
     use futures::FutureExt;
     use mockito::Server;
 
+    use crate::http::configure_tls;
     use crate::http::Authentication;
     use crate::http::FetchMode;
     use crate::http::HTTPFetcherBuilder;
+    use crate::TlsConfig;
     use tokio::sync::mpsc;
 
     #[tokio::test]
@@ -773,5 +845,153 @@ mod tests {
         let unwrapped_string: Authentication = serde_json::from_str(json).unwrap_or_default();
 
         assert_eq!(unwrapped_string, Authentication::JwtToken("secret".into()));
+    }
+
+    #[test]
+    fn test_tls_config_insecure_skip_verify() {
+        let tls_config = TlsConfig {
+            insecure_skip_verify: Some(true),
+            ca_cert_file: None,
+            ca_cert_data: None,
+            client_cert_file: None,
+            client_key_file: None,
+            client_cert_data: None,
+            client_key_data: None,
+        };
+
+        let builder = reqwest::Client::builder();
+        let result = configure_tls(builder, &tls_config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_tls_config_custom_ca_cert_data() {
+        // Use the existing localhost.crt for testing
+        let cert_pem = include_str!("testdata/localhost.crt");
+
+        let tls_config = TlsConfig {
+            ca_cert_data: Some(cert_pem.to_string()),
+            insecure_skip_verify: None,
+            ca_cert_file: None,
+            client_cert_file: None,
+            client_key_file: None,
+            client_cert_data: None,
+            client_key_data: None,
+        };
+
+        let builder = reqwest::Client::builder();
+        let result = configure_tls(builder, &tls_config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_tls_config_custom_ca_cert_file() {
+        let tls_config = TlsConfig {
+            ca_cert_file: Some("src/testdata/localhost.crt".to_string()),
+            insecure_skip_verify: None,
+            ca_cert_data: None,
+            client_cert_file: None,
+            client_key_file: None,
+            client_cert_data: None,
+            client_key_data: None,
+        };
+
+        let builder = reqwest::Client::builder();
+        let result = configure_tls(builder, &tls_config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_tls_config_client_certificates_data() {
+        let cert_pem = include_str!("testdata/localhost.crt");
+        let key_pem = include_str!("testdata/localhost.key");
+
+        let tls_config = TlsConfig {
+            client_cert_data: Some(cert_pem.to_string()),
+            client_key_data: Some(key_pem.to_string()),
+            insecure_skip_verify: None,
+            ca_cert_file: None,
+            ca_cert_data: None,
+            client_cert_file: None,
+            client_key_file: None,
+        };
+
+        let builder = reqwest::Client::builder();
+        let result = configure_tls(builder, &tls_config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_tls_config_client_certificates_files() {
+        let tls_config = TlsConfig {
+            client_cert_file: Some("src/testdata/localhost.crt".to_string()),
+            client_key_file: Some("src/testdata/localhost.key".to_string()),
+            insecure_skip_verify: None,
+            ca_cert_file: None,
+            ca_cert_data: None,
+            client_cert_data: None,
+            client_key_data: None,
+        };
+
+        let builder = reqwest::Client::builder();
+        let result = configure_tls(builder, &tls_config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_tls_config_invalid_ca_cert_file() {
+        let tls_config = TlsConfig {
+            ca_cert_file: Some("nonexistent.crt".to_string()),
+            insecure_skip_verify: None,
+            ca_cert_data: None,
+            client_cert_file: None,
+            client_key_file: None,
+            client_cert_data: None,
+            client_key_data: None,
+        };
+
+        let builder = reqwest::Client::builder();
+        let result = configure_tls(builder, &tls_config);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to read CA cert file"));
+    }
+
+    #[test]
+    fn test_tls_config_combined_options() {
+        let cert_pem = include_str!("testdata/localhost.crt");
+
+        let tls_config = TlsConfig {
+            ca_cert_data: Some(cert_pem.to_string()),
+            insecure_skip_verify: Some(true),
+            ca_cert_file: None,
+            client_cert_file: None,
+            client_key_file: None,
+            client_cert_data: None,
+            client_key_data: None,
+        };
+
+        let builder = reqwest::Client::builder();
+        let result = configure_tls(builder, &tls_config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_tls_config_empty() {
+        let tls_config = TlsConfig {
+            insecure_skip_verify: None,
+            ca_cert_file: None,
+            ca_cert_data: None,
+            client_cert_file: None,
+            client_key_file: None,
+            client_cert_data: None,
+            client_key_data: None,
+        };
+
+        let builder = reqwest::Client::builder();
+        let result = configure_tls(builder, &tls_config);
+        assert!(result.is_ok());
     }
 }

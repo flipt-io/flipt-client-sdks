@@ -99,6 +99,25 @@ pub struct EngineOpts {
     reference: Option<String>,
     error_strategy: Option<ErrorStrategy>,
     snapshot: Option<String>,
+    tls_config: Option<TlsConfig>,
+}
+
+#[derive(Deserialize, Debug, PartialEq)]
+pub struct TlsConfig {
+    /// Path to custom CA certificate file (PEM format)
+    ca_cert_file: Option<String>,
+    /// Raw CA certificate content (PEM format)
+    ca_cert_data: Option<String>,
+    /// Skip certificate verification (insecure - for development only)
+    insecure_skip_verify: Option<bool>,
+    /// Client certificate file for mutual TLS (PEM format)
+    client_cert_file: Option<String>,
+    /// Client key file for mutual TLS (PEM format)
+    client_key_file: Option<String>,
+    /// Raw client certificate content (PEM format)
+    client_cert_data: Option<String>,
+    /// Raw client key content (PEM format)
+    client_key_data: Option<String>,
 }
 
 impl Default for EngineOpts {
@@ -114,6 +133,7 @@ impl Default for EngineOpts {
             fetch_mode: Some(FetchMode::default()),
             error_strategy: Some(ErrorStrategy::Fail),
             snapshot: None,
+            tls_config: None,
         }
     }
 }
@@ -294,7 +314,7 @@ pub unsafe extern "C" fn initialize_engine_ffi(opts: *const c_char) -> *mut c_vo
     }) {
         Ok(ptr) => ptr,
         Err(e) => {
-            error!("[FFI] PANIC in initialize_engine_ffi: {:?}", e);
+            error!("[FFI] PANIC in initialize_engine_ffi: {e:?}");
             std::ptr::null_mut()
         }
     }
@@ -321,7 +341,7 @@ pub unsafe extern "C" fn initialize_engine(opts: *const c_char) -> *mut c_void {
     }) {
         Ok(ptr) => ptr,
         Err(e) => {
-            error!("[FFI] PANIC in initialize_engine: {:?}", e);
+            error!("[FFI] PANIC in initialize_engine: {e:?}");
             std::ptr::null_mut()
         }
     }
@@ -342,7 +362,7 @@ pub unsafe extern "C" fn get_snapshot_ffi(engine_ptr: *mut c_void) -> *const c_c
     }) {
         Ok(ptr) => ptr,
         Err(e) => {
-            error!("[FFI] PANIC in get_snapshot_ffi: {:?}", e);
+            error!("[FFI] PANIC in get_snapshot_ffi: {e:?}");
             result_to_json_ptr::<(), _>(Err(Error::Internal(
                 "panic in get_snapshot_ffi".to_string(),
             )))
@@ -365,7 +385,7 @@ pub unsafe extern "C" fn get_snapshot(engine_ptr: *mut c_void) -> *const c_char 
     }) {
         Ok(ptr) => ptr,
         Err(e) => {
-            error!("[FFI] PANIC in get_snapshot: {:?}", e);
+            error!("[FFI] PANIC in get_snapshot: {e:?}");
             result_to_json_ptr::<(), _>(Err(Error::Internal("panic in get_snapshot".to_string())))
         }
     }
@@ -390,7 +410,7 @@ pub unsafe extern "C" fn evaluate_variant_ffi(
     }) {
         Ok(ptr) => ptr,
         Err(e) => {
-            error!("[FFI] PANIC in evaluate_variant_ffi: {:?}", e);
+            error!("[FFI] PANIC in evaluate_variant_ffi: {e:?}");
             result_to_json_ptr::<(), _>(Err(Error::Internal(
                 "panic in evaluate_variant_ffi".to_string(),
             )))
@@ -417,7 +437,7 @@ pub unsafe extern "C" fn evaluate_variant(
     }) {
         Ok(ptr) => ptr,
         Err(e) => {
-            error!("[FFI] PANIC in evaluate_variant: {:?}", e);
+            error!("[FFI] PANIC in evaluate_variant: {e:?}");
             result_to_json_ptr::<(), _>(Err(Error::Internal(
                 "panic in evaluate_variant".to_string(),
             )))
@@ -444,7 +464,7 @@ pub unsafe extern "C" fn evaluate_boolean_ffi(
     }) {
         Ok(ptr) => ptr,
         Err(e) => {
-            error!("[FFI] PANIC in evaluate_boolean_ffi: {:?}", e);
+            error!("[FFI] PANIC in evaluate_boolean_ffi: {e:?}");
             result_to_json_ptr::<(), _>(Err(Error::Internal(
                 "panic in evaluate_boolean_ffi".to_string(),
             )))
@@ -471,7 +491,7 @@ pub unsafe extern "C" fn evaluate_boolean(
     }) {
         Ok(ptr) => ptr,
         Err(e) => {
-            error!("[FFI] PANIC in evaluate_boolean: {:?}", e);
+            error!("[FFI] PANIC in evaluate_boolean: {e:?}");
             result_to_json_ptr::<(), _>(Err(Error::Internal(
                 "panic in evaluate_boolean".to_string(),
             )))
@@ -498,7 +518,7 @@ pub unsafe extern "C" fn evaluate_batch_ffi(
     }) {
         Ok(ptr) => ptr,
         Err(e) => {
-            error!("[FFI] PANIC in evaluate_batch_ffi: {:?}", e);
+            error!("[FFI] PANIC in evaluate_batch_ffi: {e:?}");
             result_to_json_ptr::<(), _>(Err(Error::Internal(
                 "panic in evaluate_batch_ffi".to_string(),
             )))
@@ -525,7 +545,7 @@ pub unsafe extern "C" fn evaluate_batch(
     }) {
         Ok(ptr) => ptr,
         Err(e) => {
-            error!("[FFI] PANIC in evaluate_batch: {:?}", e);
+            error!("[FFI] PANIC in evaluate_batch: {e:?}");
             result_to_json_ptr::<(), _>(Err(Error::Internal("panic in evaluate_batch".to_string())))
         }
     }
@@ -546,7 +566,7 @@ pub unsafe extern "C" fn list_flags_ffi(engine_ptr: *mut c_void) -> *const c_cha
     }) {
         Ok(ptr) => ptr,
         Err(e) => {
-            error!("[FFI] PANIC in list_flags_ffi: {:?}", e);
+            error!("[FFI] PANIC in list_flags_ffi: {e:?}");
             result_to_json_ptr::<(), _>(Err(Error::Internal("panic in list_flags_ffi".to_string())))
         }
     }
@@ -567,7 +587,7 @@ pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> *const c_char {
     }) {
         Ok(ptr) => ptr,
         Err(e) => {
-            error!("[FFI] PANIC in list_flags: {:?}", e);
+            error!("[FFI] PANIC in list_flags: {e:?}");
             result_to_json_ptr::<(), _>(Err(Error::Internal("panic in list_flags".to_string())))
         }
     }
@@ -589,7 +609,7 @@ pub unsafe extern "C" fn destroy_engine_ffi(engine_ptr: *mut c_void) {
     }) {
         Ok(_) => (),
         Err(e) => {
-            error!("[FFI] PANIC in destroy_engine_ffi: {:?}", e);
+            error!("[FFI] PANIC in destroy_engine_ffi: {e:?}");
         }
     }
 }
@@ -610,7 +630,7 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
     }) {
         Ok(_) => (),
         Err(e) => {
-            error!("[FFI] PANIC in destroy_engine: {:?}", e);
+            error!("[FFI] PANIC in destroy_engine: {e:?}");
         }
     }
 }
@@ -627,7 +647,7 @@ pub unsafe extern "C" fn destroy_string_ffi(ptr: *mut c_char) {
     }) {
         Ok(_) => (),
         Err(e) => {
-            error!("[FFI] PANIC in destroy_string_ffi: {:?}", e);
+            error!("[FFI] PANIC in destroy_string_ffi: {e:?}");
         }
     }
 }
@@ -644,7 +664,7 @@ pub unsafe extern "C" fn destroy_string(ptr: *mut c_char) {
     }) {
         Ok(_) => (),
         Err(e) => {
-            error!("[FFI] PANIC in destroy_string: {:?}", e);
+            error!("[FFI] PANIC in destroy_string: {e:?}");
         }
     }
 }
@@ -704,6 +724,10 @@ unsafe extern "C" fn _initialize_engine(opts: *const c_char) -> *mut c_void {
 
         if let Some(reference) = &engine_opts.reference {
             fetcher_builder = fetcher_builder.reference(reference);
+        }
+
+        if let Some(tls_config) = engine_opts.tls_config {
+            fetcher_builder = fetcher_builder.tls_config(tls_config);
         }
 
         let fetcher = fetcher_builder.build().unwrap();
@@ -1037,5 +1061,55 @@ mod tests {
         assert_eq!(opts.fetch_mode, Some(FetchMode::default()));
         assert_eq!(opts.error_strategy, Some(ErrorStrategy::Fail));
         assert_eq!(opts.snapshot, None);
+        assert_eq!(opts.tls_config, None);
+    }
+
+    #[test]
+    fn test_engine_opts_with_tls_config() {
+        let json = r#"{
+            "url": "https://localhost:8443",
+            "tls_config": {
+                "ca_cert_file": "/path/to/ca.crt",
+                "insecure_skip_verify": true
+            }
+        }"#;
+
+        let opts: EngineOpts = serde_json::from_str(json).unwrap();
+        assert_eq!(opts.url, Some("https://localhost:8443".to_string()));
+
+        let tls_config = opts.tls_config.unwrap();
+        assert_eq!(tls_config.ca_cert_file, Some("/path/to/ca.crt".to_string()));
+        assert_eq!(tls_config.insecure_skip_verify, Some(true));
+        assert_eq!(tls_config.ca_cert_data, None);
+        assert_eq!(tls_config.client_cert_file, None);
+        assert_eq!(tls_config.client_key_file, None);
+        assert_eq!(tls_config.client_cert_data, None);
+        assert_eq!(tls_config.client_key_data, None);
+    }
+
+    #[test]
+    fn test_engine_opts_with_client_certificates() {
+        let json = r#"{
+            "url": "https://localhost:8443",
+            "tls_config": {
+                "client_cert_data": "Y2VydGRhdGE=",
+                "client_key_data": "a2V5ZGF0YQ=="
+            }
+        }"#;
+
+        let opts: EngineOpts = serde_json::from_str(json).unwrap();
+        assert_eq!(opts.url, Some("https://localhost:8443".to_string()));
+
+        let tls_config = opts.tls_config.unwrap();
+        assert_eq!(
+            tls_config.client_cert_data,
+            Some("Y2VydGRhdGE=".to_string())
+        );
+        assert_eq!(tls_config.client_key_data, Some("a2V5ZGF0YQ==".to_string()));
+        assert_eq!(tls_config.insecure_skip_verify, None);
+        assert_eq!(tls_config.ca_cert_file, None);
+        assert_eq!(tls_config.ca_cert_data, None);
+        assert_eq!(tls_config.client_cert_file, None);
+        assert_eq!(tls_config.client_key_file, None);
     }
 }

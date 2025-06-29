@@ -46,7 +46,6 @@ python release.py
 2. **Version Bump Selection**: The user selects the type of version bump (patch, minor, or major).
 
 3. **Version Update**: For each selected SDK, the script:
-
    - Reads the current version
    - Calculates the new version based on the bump type
    - Updates the version in the SDK-specific file (e.g., package.json, build.gradle)

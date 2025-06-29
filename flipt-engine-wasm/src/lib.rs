@@ -158,7 +158,7 @@ pub unsafe extern "C" fn initialize_engine(
             match std::str::from_utf8(std::slice::from_raw_parts(namespace_ptr, namespace_len)) {
                 Ok(s) => s,
                 Err(e) => {
-                    eprintln!("Invalid UTF-8 in namespace: {}", e);
+                    eprintln!("Invalid UTF-8 in namespace: {e}");
                     return std::ptr::null_mut();
                 }
             };
@@ -166,7 +166,7 @@ pub unsafe extern "C" fn initialize_engine(
             match std::str::from_utf8(std::slice::from_raw_parts(payload_ptr, payload_len)) {
                 Ok(s) => s,
                 Err(e) => {
-                    eprintln!("Invalid UTF-8 in payload: {}", e);
+                    eprintln!("Invalid UTF-8 in payload: {e}");
                     return std::ptr::null_mut();
                 }
             };
@@ -174,7 +174,7 @@ pub unsafe extern "C" fn initialize_engine(
         match Engine::new(namespace, payload) {
             Ok(engine) => Box::into_raw(Box::new(engine)) as *mut c_void,
             Err(e) => {
-                eprintln!("Error initializing engine: {}", e);
+                eprintln!("Error initializing engine: {e}");
                 std::ptr::null_mut()
             }
         }
