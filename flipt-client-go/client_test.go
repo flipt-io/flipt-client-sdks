@@ -2,7 +2,10 @@ package flipt_test
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -34,6 +37,27 @@ func (s *ClientTestSuite) SetupSuite() {
 		opts = append(opts, flipt.WithClientTokenAuthentication(s.authToken))
 	}
 
+	// Configure TLS if HTTPS URL is provided
+	if s.fliptURL != "" && strings.HasPrefix(s.fliptURL, "https://") {
+		caCertPath := os.Getenv("FLIPT_CA_CERT_PATH")
+		if caCertPath != "" {
+			caCertData, err := os.ReadFile(caCertPath)
+			require.NoError(s.T(), err)
+
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(caCertData)
+
+			opts = append(opts, flipt.WithTLSConfig(&tls.Config{
+				RootCAs: caCertPool,
+			}))
+		} else {
+			// Fallback to insecure for local testing
+			opts = append(opts, flipt.WithTLSConfig(&tls.Config{
+				InsecureSkipVerify: true,
+			}))
+		}
+	}
+
 	var err error
 	s.client, err = flipt.NewClient(context.TODO(), opts...)
 	require.NoError(s.T(), err)
@@ -46,7 +70,9 @@ func (s *ClientTestSuite) TearDownSuite() {
 func (s *ClientTestSuite) TestInvalidAuthentication() {
 	_, err := flipt.NewClient(context.TODO(),
 		flipt.WithURL(s.fliptURL),
-		flipt.WithClientTokenAuthentication("invalid"))
+		flipt.WithClientTokenAuthentication("invalid"),
+		flipt.WithTLSConfig(&tls.Config{InsecureSkipVerify: true}),
+	)
 	s.EqualError(err, "failed to fetch initial state: unexpected status code: 401")
 }
 
