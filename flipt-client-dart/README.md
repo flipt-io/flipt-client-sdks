@@ -136,6 +136,128 @@ The `FliptClient` supports the following authentication strategies:
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
 - [JWT Authentication](https://docs.flipt.io/authentication/using-jwts)
 
+### TLS Configuration
+
+The `FliptClient` supports configuring TLS settings for secure connections to Flipt servers. This is useful when:
+
+- Connecting to Flipt servers with self-signed certificates
+- Using custom Certificate Authorities (CAs)
+- Implementing mutual TLS authentication
+- Testing with insecure connections (development only)
+
+#### Basic TLS with Custom CA Certificate
+
+```dart
+import 'package:flipt_client/flipt_client.dart';
+
+// Using a CA certificate file
+final tlsConfig = TlsConfig.withCaCertFile('/path/to/ca.pem');
+
+final client = FliptClient(
+  options: Options.withClientToken(
+    'your-token',
+    url: 'https://flipt.example.com',
+    tlsConfig: tlsConfig,
+  ),
+);
+```
+
+```dart
+// Using CA certificate data directly
+final caCertData = File('/path/to/ca.pem').readAsStringSync();
+final tlsConfig = TlsConfig.withCaCertData(caCertData);
+
+final client = FliptClient(
+  options: Options.withClientToken(
+    'your-token',
+    url: 'https://flipt.example.com',
+    tlsConfig: tlsConfig,
+  ),
+);
+```
+
+#### Mutual TLS Authentication
+
+```dart
+// Using certificate and key files
+final tlsConfig = TlsConfig.withMutualTls('/path/to/client.pem', '/path/to/client.key');
+
+final client = FliptClient(
+  options: Options.withClientToken(
+    'your-token',
+    url: 'https://flipt.example.com',
+    tlsConfig: tlsConfig,
+  ),
+);
+```
+
+```dart
+// Using certificate and key data directly
+final clientCertData = File('/path/to/client.pem').readAsStringSync();
+final clientKeyData = File('/path/to/client.key').readAsStringSync();
+
+final tlsConfig = TlsConfig.withMutualTlsData(clientCertData, clientKeyData);
+
+final client = FliptClient(
+  options: Options.withClientToken(
+    'your-token',
+    url: 'https://flipt.example.com',
+    tlsConfig: tlsConfig,
+  ),
+);
+```
+
+#### Advanced TLS Configuration
+
+```dart
+// Full TLS configuration with all options
+final tlsConfig = TlsConfig(
+  caCertFile: '/path/to/ca.pem',
+  clientCertFile: '/path/to/client.pem',
+  clientKeyFile: '/path/to/client.key',
+  insecureSkipVerify: false,
+);
+
+final client = FliptClient(
+  options: Options.withClientToken(
+    'your-token',
+    url: 'https://flipt.example.com',
+    tlsConfig: tlsConfig,
+  ),
+);
+```
+
+#### Development Mode (Insecure)
+
+**⚠️ WARNING: Only use this in development environments!**
+
+```dart
+// Skip certificate verification (NOT for production)
+final tlsConfig = TlsConfig.insecure();
+
+final client = FliptClient(
+  options: Options.withClientToken(
+    'your-token',
+    url: 'https://localhost:8443',
+    tlsConfig: tlsConfig,
+  ),
+);
+```
+
+#### TLS Configuration Options
+
+The `TlsConfig` class supports the following options:
+
+- `caCertFile`: Path to custom CA certificate file (PEM format)
+- `caCertData`: Raw CA certificate content (PEM format) - takes precedence over `caCertFile`
+- `insecureSkipVerify`: Skip certificate verification (development only)
+- `clientCertFile`: Client certificate file for mutual TLS (PEM format)
+- `clientKeyFile`: Client private key file for mutual TLS (PEM format)
+- `clientCertData`: Raw client certificate content (PEM format) - takes precedence over `clientCertFile`
+- `clientKeyData`: Raw client private key content (PEM format) - takes precedence over `clientKeyFile`
+
+> **Note**: When both file paths and data are provided, the data fields take precedence. For example, if both `caCertFile` and `caCertData` are set, `caCertData` will be used.
+
 ### Error Strategies
 
 The client supports the following error strategies:

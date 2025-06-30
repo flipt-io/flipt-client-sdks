@@ -73,6 +73,13 @@ namespace FliptClient.Models
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("snapshot")]
         public string? Snapshot { get; set; }
+
+        /// <summary>
+        /// Gets or sets TLS configuration for connecting to servers with custom certificates.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("tls_config")]
+        public TlsConfig? TlsConfig { get; set; }
     }
 
     [JsonConverter(typeof(LowercaseEnumConverter<ErrorStrategy>))]

@@ -12,8 +12,20 @@ void main() {
       String url = envVars['FLIPT_URL'] ?? 'http://localhost:8080';
       String token = envVars['FLIPT_AUTH_TOKEN'] ?? 'secret';
 
+      TlsConfig? tlsConfig;
+      // Configure TLS if HTTPS URL is provided
+      if (url.startsWith('https://')) {
+        String? caCertPath = envVars['FLIPT_CA_CERT_PATH'];
+        if (caCertPath != null && caCertPath.isNotEmpty) {
+          tlsConfig = TlsConfig.withCaCertFile(caCertPath);
+        } else {
+          // Fallback to insecure for local testing
+          tlsConfig = TlsConfig.insecure();
+        }
+      }
+
       client = FliptClient(
-        options: Options.withClientToken(token, url: url),
+        options: Options.withClientToken(token, url: url, tlsConfig: tlsConfig),
       );
     });
 
