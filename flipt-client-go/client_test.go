@@ -47,12 +47,12 @@ func (s *ClientTestSuite) SetupSuite() {
 			caCertPool := x509.NewCertPool()
 			caCertPool.AppendCertsFromPEM(caCertData)
 
-			opts = append(opts, flipt.WithTlsConfig(&tls.Config{
+			opts = append(opts, flipt.WithTLSConfig(&tls.Config{
 				RootCAs: caCertPool,
 			}))
 		} else {
 			// Fallback to insecure for local testing
-			opts = append(opts, flipt.WithTlsConfig(&tls.Config{
+			opts = append(opts, flipt.WithTLSConfig(&tls.Config{
 				InsecureSkipVerify: true,
 			}))
 		}
@@ -71,7 +71,7 @@ func (s *ClientTestSuite) TestInvalidAuthentication() {
 	_, err := flipt.NewClient(context.TODO(),
 		flipt.WithURL(s.fliptURL),
 		flipt.WithClientTokenAuthentication("invalid"),
-		flipt.WithTlsConfig(&tls.Config{InsecureSkipVerify: true}),
+		flipt.WithTLSConfig(&tls.Config{InsecureSkipVerify: true}),
 	)
 	s.EqualError(err, "failed to fetch initial state: unexpected status code: 401")
 }
