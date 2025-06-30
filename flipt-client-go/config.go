@@ -112,9 +112,6 @@ func WithTLSConfig(tlsConfig *tls.Config) Option {
 			if cfg.HTTPClient.Transport != nil {
 				if t, ok := cfg.HTTPClient.Transport.(*http.Transport); ok {
 					transport = t.Clone()
-				} else {
-					fmt.Println("Warning: HTTPClient.Transport is not of type *http.Transport. Falling back to default transport.")
-					transport = defaultHTTPClient.Transport.(*http.Transport).Clone()
 				}
 			}
 		}
