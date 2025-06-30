@@ -6,6 +6,26 @@ part of 'models.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
+TlsConfig _$TlsConfigFromJson(Map<String, dynamic> json) => TlsConfig(
+      caCertFile: json['ca_cert_file'] as String?,
+      caCertData: json['ca_cert_data'] as String?,
+      insecureSkipVerify: json['insecure_skip_verify'] as bool?,
+      clientCertFile: json['client_cert_file'] as String?,
+      clientKeyFile: json['client_key_file'] as String?,
+      clientCertData: json['client_cert_data'] as String?,
+      clientKeyData: json['client_key_data'] as String?,
+    );
+
+Map<String, dynamic> _$TlsConfigToJson(TlsConfig instance) => <String, dynamic>{
+      'ca_cert_file': instance.caCertFile,
+      'ca_cert_data': instance.caCertData,
+      'insecure_skip_verify': instance.insecureSkipVerify,
+      'client_cert_file': instance.clientCertFile,
+      'client_key_file': instance.clientKeyFile,
+      'client_cert_data': instance.clientCertData,
+      'client_key_data': instance.clientKeyData,
+    };
+
 Options _$OptionsFromJson(Map<String, dynamic> json) => Options(
       url: json['url'] as String? ?? 'http://localhost:8080',
       environment: json['environment'] as String? ?? 'default',
@@ -24,6 +44,9 @@ Options _$OptionsFromJson(Map<String, dynamic> json) => Options(
           $enumDecodeNullable(_$ErrorStrategyEnumMap, json['error_strategy']) ??
               ErrorStrategy.fail,
       snapshot: json['snapshot'] as String?,
+      tlsConfig: json['tls_config'] == null
+          ? null
+          : TlsConfig.fromJson(json['tls_config'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$OptionsToJson(Options instance) => <String, dynamic>{
@@ -37,6 +60,7 @@ Map<String, dynamic> _$OptionsToJson(Options instance) => <String, dynamic>{
       'snapshot': instance.snapshot,
       'fetch_mode': _$FetchModeEnumMap[instance.fetchMode],
       'error_strategy': _$ErrorStrategyEnumMap[instance.errorStrategy],
+      'tls_config': instance.tlsConfig?.toJson(),
     };
 
 const _$FetchModeEnumMap = {

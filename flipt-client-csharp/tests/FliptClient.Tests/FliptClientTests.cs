@@ -35,6 +35,21 @@ namespace FliptClient.Tests
                 Authentication = new Authentication { ClientToken = authToken }
             };
 
+            // Configure TLS if HTTPS URL is provided
+            if (fliptUrl.StartsWith("https://"))
+            {
+                string? caCertPath = Environment.GetEnvironmentVariable("FLIPT_CA_CERT_PATH");
+                if (!string.IsNullOrEmpty(caCertPath))
+                {
+                    options.TlsConfig = TlsConfig.WithCaCertFile(caCertPath);
+                }
+                else
+                {
+                    // Fallback to insecure for local testing
+                    options.TlsConfig = TlsConfig.Insecure();
+                }
+            }
+
             _client = new FliptClient(options);
         }
 

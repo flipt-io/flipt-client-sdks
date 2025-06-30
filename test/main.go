@@ -99,7 +99,7 @@ var (
 	}
 
 	dartVersions = []containerConfig{
-		{base: "ghcr.io/cirruslabs/flutter:stable"},
+		{base: "ghcr.io/cirruslabs/flutter:stable", useHTTPS: true},
 	}
 
 	reactVersions = []containerConfig{
@@ -107,8 +107,8 @@ var (
 	}
 
 	csharpVersions = []containerConfig{
-		{base: "mcr.microsoft.com/dotnet/sdk:8.0"},
-		{base: "mcr.microsoft.com/dotnet/sdk:8.0-alpine"},
+		{base: "mcr.microsoft.com/dotnet/sdk:8.0", useHTTPS: true},
+		{base: "mcr.microsoft.com/dotnet/sdk:8.0-alpine", useHTTPS: true},
 	}
 )
 
@@ -530,8 +530,10 @@ func dartTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 			Exclude: []string{".gitignore", ".dart_tool/"},
 		}).
 		WithDirectory("/src/native/linux_"+string(t.arch), t.engine.Directory(libDir)).
+		WithDirectory("/src/test/fixtures/tls", t.hostDir.Directory("test/fixtures/tls")).
 		WithServiceBinding("flipt", t.flipt.AsService()).
-		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithEnvVariable("FLIPT_URL", "https://flipt:8443").
+		WithEnvVariable("FLIPT_CA_CERT_PATH", "/src/test/fixtures/tls/ca.crt").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec(args("flutter pub get")).
 		WithExec(args("dart test")).
@@ -548,8 +550,10 @@ func csharpTests(ctx context.Context, root *dagger.Container, t *testCase) error
 			Exclude: []string{".gitignore", "obj/", "bin/"},
 		}).
 		WithDirectory("/src/src/FliptClient/ext/ffi/linux_"+string(t.arch), t.engine.Directory(libDir)).
+		WithDirectory("/src/test/fixtures/tls", t.hostDir.Directory("test/fixtures/tls")).
 		WithServiceBinding("flipt", t.flipt.AsService()).
-		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithEnvVariable("FLIPT_URL", "https://flipt:8443").
+		WithEnvVariable("FLIPT_CA_CERT_PATH", "/src/test/fixtures/tls/ca.crt").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec(args("dotnet clean")).
 		WithExec(args("dotnet restore")).
