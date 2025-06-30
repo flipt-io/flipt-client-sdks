@@ -125,7 +125,7 @@ The `NewClient` constructor accepts a variadic number of `Option` functions that
 - `WithReference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
 - `WithFetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
 - `WithErrorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to `Fail`. See the [Error Strategies](#error-strategies) section for more information.
-- `WithTlsConfig`: The TLS configuration for connecting to servers with custom certificates. See [TLS Configuration](#tls-configuration).
+- `WithTLSConfig`: The TLS configuration for connecting to servers with custom certificates. See [TLS Configuration](#tls-configuration).
 
 ### Authentication
 
@@ -178,7 +178,7 @@ func main() {
   client, err := flipt.NewClient(
     ctx,
     flipt.WithURL("https://flipt.example.com"),
-    flipt.WithTlsConfig(tlsConfig),
+    flipt.WithTLSConfig(tlsConfig),
     flipt.WithClientTokenAuthentication("your-token"),
   )
   if err != nil {
@@ -214,7 +214,7 @@ tlsConfig := &tls.Config{
 client, err := flipt.NewClient(
   ctx,
   flipt.WithURL("https://flipt.example.com"),
-  flipt.WithTlsConfig(tlsConfig),
+  flipt.WithTLSConfig(tlsConfig),
   flipt.WithClientTokenAuthentication("your-token"),
 )
 ```
@@ -232,7 +232,7 @@ tlsConfig := &tls.Config{
 client, err := flipt.NewClient(
   ctx,
   flipt.WithURL("https://localhost:8443"),
-  flipt.WithTlsConfig(tlsConfig),
+  flipt.WithTLSConfig(tlsConfig),
   flipt.WithClientTokenAuthentication("your-token"),
 )
 ```

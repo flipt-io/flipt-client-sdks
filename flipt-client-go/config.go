@@ -92,10 +92,10 @@ func WithRequestTimeout(timeout time.Duration) Option {
 	}
 }
 
-// WithTlsConfig sets the TLS configuration for the client using the standard library tls.Config.
+// WithTLSConfig sets the TLS configuration for the client using the standard library tls.Config.
 // This provides maximum flexibility for configuring TLS settings including custom CAs,
 // mutual TLS authentication, and certificate verification options.
-func WithTlsConfig(tlsConfig *tls.Config) Option {
+func WithTLSConfig(tlsConfig *tls.Config) Option {
 	return func(cfg *config) {
 		if tlsConfig == nil {
 			return
