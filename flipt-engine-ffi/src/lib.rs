@@ -165,12 +165,21 @@ fn get_or_create_runtime() -> &'static Handle {
 }
 
 fn init_logging() {
-    let _ = env_logger::Builder::from_env(
-        env_logger::Env::new()
-            .filter("FLIPT_ENGINE_LOG")
-            .default_filter_or("error"),
-    )
-    .try_init();
+    use std::sync::Once;
+    static INIT: Once = Once::new();
+
+    INIT.call_once(|| {
+        // Check if FLIPT_ENGINE_LOG is set, otherwise fall back to standard RUST_LOG behavior
+        if std::env::var("FLIPT_ENGINE_LOG").is_ok() {
+            let env = env_logger::Env::default()
+                .filter("FLIPT_ENGINE_LOG")
+                .default_filter_or("error");
+            let _ = env_logger::Builder::from_env(env).try_init();
+        } else {
+            // Use standard RUST_LOG behavior
+            let _ = env_logger::try_init();
+        }
+    });
 }
 
 impl Engine {
@@ -207,7 +216,7 @@ impl Engine {
                     }
                 }
                 Err(err) => {
-                    warn!("[FFI] initial fetch failed: {:?}", err.clone());
+                    warn!("[FFI] initial fetch failed: {err:?}");
                     if error_strategy == ErrorStrategy::Fail {
                         if let Ok(mut lock) = evaluator.write() {
                             lock.replace_snapshot(Err(err));
@@ -230,7 +239,7 @@ impl Engine {
                         }
                     }
                     Err(err) => {
-                        warn!("[FFI] fetch failed: {:?}", err.clone());
+                        warn!("[FFI] fetch failed: {err:?}");
                         if error_strategy == ErrorStrategy::Fail {
                             if let Ok(mut lock) = evaluator_clone.write() {
                                 lock.replace_snapshot(Err(err));

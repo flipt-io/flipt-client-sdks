@@ -269,7 +269,8 @@ impl HTTPFetcher {
             while !stop_signal.load(Ordering::Relaxed) {
                 match fetcher.mode {
                     FetchMode::Polling => {
-                        if fetcher.handle_polling(&tx).await.is_err() {
+                        if let Err(e) = fetcher.handle_polling(&tx).await {
+                            log::warn!("error fetching polling: {e}");
                             break;
                         }
                         let mut elapsed = Duration::ZERO;
@@ -293,8 +294,8 @@ impl HTTPFetcher {
                         }
                     }
                     FetchMode::Streaming => {
-                        if fetcher.handle_streaming(&tx).await.is_err() {
-                            // TODO: log error
+                        if let Err(e) = fetcher.handle_streaming(&tx).await {
+                            log::warn!("error fetching streaming: {e}");
                             break;
                         }
                     }
@@ -369,6 +370,7 @@ impl HTTPFetcher {
             }
         };
 
+        let url_for_logging = url.clone();
         match self
             .http_client
             .get(url)
@@ -401,6 +403,18 @@ impl HTTPFetcher {
             },
             Err(e) => {
                 self.etag = None;
+
+                // Log the specific error type for TLS debugging
+                if e.is_connect() {
+                    log::warn!("connection error for {url_for_logging}: {e}");
+                } else if e.is_timeout() {
+                    log::warn!("timeout error for {url_for_logging}: {e}");
+                } else if e.is_request() {
+                    log::warn!("request error for {url_for_logging}: {e}");
+                } else {
+                    log::warn!("http error for {url_for_logging}: {e}");
+                }
+
                 Err(Error::Server(format!("failed to make request: {e}")))
             }
         }
@@ -412,15 +426,30 @@ impl HTTPFetcher {
             self.base_url, self.namespace
         );
 
-        self.http_client
+        let url_for_logging = url.clone();
+        match self
+            .http_client
             .get(url)
             .headers(self.build_headers())
             .send()
             .await
-            .map_err(|e| Error::Server(format!("failed to make request: {e}")))?
-            .error_for_status()
-            .map_err(|e| Error::Server(format!("response: {e}")))
-            .map(Some)
+        {
+            Ok(response) => response
+                .error_for_status()
+                .map_err(|e| Error::Server(format!("response: {e}")))
+                .map(Some),
+            Err(e) => {
+                // Log streaming fetch errors with more detail
+                if e.is_connect() {
+                    log::warn!("streaming connection error for {url_for_logging}: {e}");
+                } else if e.is_timeout() {
+                    log::warn!("streaming timeout error for {url_for_logging}: {e}");
+                } else {
+                    log::warn!("streaming http error for {url_for_logging}: {e}");
+                }
+                Err(Error::Server(format!("failed to make request: {e}")))
+            }
+        }
     }
 
     async fn handle_polling(
@@ -517,40 +546,62 @@ fn configure_tls(
 
     // Handle custom CA certificates
     if let Some(ca_cert_data) = &tls_config.ca_cert_data {
+        log::debug!("loading CA certificate from provided data");
         let cert_bytes = ca_cert_data.as_bytes();
-        let cert = reqwest::Certificate::from_pem(cert_bytes)
-            .map_err(|e| Error::Internal(format!("Invalid CA certificate: {e}")))?;
+        let cert = reqwest::Certificate::from_pem(cert_bytes).map_err(|e| {
+            log::warn!("failed to parse CA certificate from data: {e}");
+            Error::Internal(format!("invalid CA certificate: {e}"))
+        })?;
         builder = builder.add_root_certificate(cert);
+        log::debug!("successfully added CA certificate from data");
     } else if let Some(ca_cert_file) = &tls_config.ca_cert_file {
-        let cert_bytes = std::fs::read(ca_cert_file)
-            .map_err(|e| Error::Internal(format!("Failed to read CA cert file: {e}")))?;
-        let cert = reqwest::Certificate::from_pem(&cert_bytes)
-            .map_err(|e| Error::Internal(format!("Invalid CA certificate file: {e}")))?;
+        log::debug!("loading CA certificate from file: {ca_cert_file}");
+        let cert_bytes = std::fs::read(ca_cert_file).map_err(|e| {
+            log::warn!("failed to read CA cert file {ca_cert_file}: {e}");
+            Error::Internal(format!("failed to read CA cert file: {e}"))
+        })?;
+        let cert = reqwest::Certificate::from_pem(&cert_bytes).map_err(|e| {
+            log::warn!("failed to parse CA certificate from file {ca_cert_file}: {e}");
+            Error::Internal(format!("invalid CA certificate file: {e}"))
+        })?;
         builder = builder.add_root_certificate(cert);
+        log::debug!("successfully added CA certificate from file: {ca_cert_file}");
     }
 
     // Handle client certificates for mutual TLS
     if let (Some(cert_data), Some(key_data)) =
         (&tls_config.client_cert_data, &tls_config.client_key_data)
     {
+        log::debug!("loading client certificate and key from provided data");
         let cert_bytes = cert_data.as_bytes();
         let key_bytes = key_data.as_bytes();
         let combined = [cert_bytes, key_bytes].concat();
-        let identity = reqwest::Identity::from_pem(&combined)
-            .map_err(|e| Error::Internal(format!("Invalid client certificate: {e}")))?;
+        let identity = reqwest::Identity::from_pem(&combined).map_err(|e| {
+            log::warn!("failed to create client identity from data: {e}");
+            Error::Internal(format!("invalid client certificate: {e}"))
+        })?;
         builder = builder.identity(identity);
+        log::debug!("successfully configured client certificate from data");
     } else if let (Some(cert_file), Some(key_file)) =
         (&tls_config.client_cert_file, &tls_config.client_key_file)
     {
-        let cert_bytes = std::fs::read(cert_file)
-            .map_err(|e| Error::Internal(format!("Failed to read client cert file: {e}")))?;
-        let key_bytes = std::fs::read(key_file)
-            .map_err(|e| Error::Internal(format!("Failed to read client key file: {e}")))?;
+        log::debug!("loading client certificate from files: cert={cert_file}, key={key_file}");
+        let cert_bytes = std::fs::read(cert_file).map_err(|e| {
+            log::warn!("failed to read client cert file {cert_file}: {e}");
+            Error::Internal(format!("failed to read client cert file: {e}"))
+        })?;
+        let key_bytes = std::fs::read(key_file).map_err(|e| {
+            log::warn!("failed to read client key file {key_file}: {e}");
+            Error::Internal(format!("failed to read client key file: {e}"))
+        })?;
         let mut combined = cert_bytes.clone();
         combined.extend_from_slice(&key_bytes);
-        let identity = reqwest::Identity::from_pem(&combined)
-            .map_err(|e| Error::Internal(format!("Invalid client certificate files: {e}")))?;
+        let identity = reqwest::Identity::from_pem(&combined).map_err(|e| {
+            log::warn!("failed to create client identity from files: {e}");
+            Error::Internal(format!("invalid client certificate files: {e}"))
+        })?;
         builder = builder.identity(identity);
+        log::debug!("successfully configured client certificate from files");
     }
 
     Ok(builder)
