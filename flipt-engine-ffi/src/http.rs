@@ -1017,7 +1017,7 @@ mod tests {
         assert!(result
             .unwrap_err()
             .to_string()
-            .contains("Failed to read CA cert file"));
+            .contains("failed to read CA cert file"));
     }
 
     #[test]
