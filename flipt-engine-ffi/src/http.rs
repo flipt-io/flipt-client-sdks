@@ -6,7 +6,6 @@ use std::time::Duration;
 use async_trait::async_trait;
 use futures::TryStreamExt;
 use futures_util::stream::StreamExt;
-use http;
 use reqwest::header::{self, HeaderMap};
 use reqwest::Response;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Middleware, Next};
@@ -422,7 +421,6 @@ impl HTTPFetcher {
             }
         };
 
-        let url_for_logging = url.clone();
         match self
             .http_client
             .get(url)
@@ -455,16 +453,6 @@ impl HTTPFetcher {
             },
             Err(e) => {
                 self.etag = None;
-
-                // Log the specific error type for TLS debugging
-                if e.is_connect() {
-                    log::warn!("connection error for {url_for_logging}: {e}");
-                } else if e.is_timeout() {
-                    log::warn!("timeout error for {url_for_logging}: {e}");
-                } else if e.is_request() {
-                    log::warn!("request error for {url_for_logging}: {e}");
-                }
-
                 Err(Error::Server(format!("failed to make request: {e}")))
             }
         }
@@ -476,7 +464,6 @@ impl HTTPFetcher {
             self.base_url, self.namespace
         );
 
-        let url_for_logging = url.clone();
         match self
             .http_client
             .get(url)
@@ -488,17 +475,7 @@ impl HTTPFetcher {
                 .error_for_status()
                 .map_err(|e| Error::Server(format!("response: {e}")))
                 .map(Some),
-            Err(e) => {
-                // Log streaming fetch errors with more detail
-                if e.is_connect() {
-                    log::warn!("streaming connection error for {url_for_logging}: {e}");
-                } else if e.is_timeout() {
-                    log::warn!("streaming timeout error for {url_for_logging}: {e}");
-                } else {
-                    log::warn!("streaming http error for {url_for_logging}: {e}");
-                }
-                Err(Error::Server(format!("failed to make request: {e}")))
-            }
+            Err(e) => Err(Error::Server(format!("failed to make request: {e}"))),
         }
     }
 
