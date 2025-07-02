@@ -1,12 +1,15 @@
+use std::error::Error as StdError;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use async_trait::async_trait;
 use futures::TryStreamExt;
 use futures_util::stream::StreamExt;
+use http;
 use reqwest::header::{self, HeaderMap};
 use reqwest::Response;
-use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Middleware, Next};
 use reqwest_retry::policies::ExponentialBackoff;
 use reqwest_retry::{Jitter, RetryTransientMiddleware};
 use serde::Deserialize;
@@ -128,6 +131,54 @@ struct StreamResult {
 
 static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
+/// Custom logging middleware that logs each request attempt, including retries
+#[derive(Debug, Clone, Default)]
+pub struct LoggingMiddleware {}
+
+#[async_trait]
+impl Middleware for LoggingMiddleware {
+    async fn handle(
+        &self,
+        req: reqwest::Request,
+        extensions: &mut http::Extensions,
+        next: Next<'_>,
+    ) -> reqwest_middleware::Result<reqwest::Response> {
+        let method = req.method().clone();
+        let url = req.url().clone();
+
+        // Log the request attempt with more details
+        log::debug!("request {} {}", method, url);
+
+        // Execute the request
+        let result = next.run(req, extensions).await;
+
+        // Log the response with more detailed error information
+        match &result {
+            Ok(response) => {
+                log::debug!(
+                    "response {} {} -> {} {}",
+                    method,
+                    url,
+                    response.status(),
+                    response.status().canonical_reason().unwrap_or("Unknown"),
+                );
+            }
+            Err(error) => {
+                // Extract source error details for better debugging
+                let error_details = if let Some(source) = StdError::source(error) {
+                    format!("{error} (source: {source})")
+                } else {
+                    error.to_string()
+                };
+
+                log::warn!("error {} {} -> {}", method, url, error_details);
+            }
+        }
+
+        result
+    }
+}
+
 impl Default for HTTPFetcherBuilder {
     fn default() -> Self {
         Self::new("http://localhost:8080")
@@ -239,6 +290,7 @@ impl HTTPFetcherBuilder {
             namespace: self.namespace.unwrap_or("default".to_string()),
             http_client: ClientBuilder::new(client)
                 .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+                .with(LoggingMiddleware::default())
                 .build(),
             authentication: self.authentication,
             etag: None,
@@ -411,8 +463,6 @@ impl HTTPFetcher {
                     log::warn!("timeout error for {url_for_logging}: {e}");
                 } else if e.is_request() {
                     log::warn!("request error for {url_for_logging}: {e}");
-                } else {
-                    log::warn!("http error for {url_for_logging}: {e}");
                 }
 
                 Err(Error::Server(format!("failed to make request: {e}")))
