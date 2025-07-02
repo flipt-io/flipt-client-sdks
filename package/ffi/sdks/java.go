@@ -128,7 +128,7 @@ func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, container *d
 		WithSecretVariable("SONATYPE_PORTAL_PASSWORD", sonatypePortalPassword).
 		WithSecretVariable("PGP_PRIVATE_KEY", pgpPrivateKey).
 		WithSecretVariable("PGP_PASSPHRASE", pgpPassphrase).
-		WithExec(args("gradle publish")).
+		WithExec(args("gradle publishToSonatype closeAndReleaseSonatypeStagingRepository")).
 		Sync(ctx)
 
 	return err
