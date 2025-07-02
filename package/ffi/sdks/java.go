@@ -104,14 +104,11 @@ func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, container *d
 		return nil
 	}
 
-	if os.Getenv("MAVEN_USERNAME") == "" {
-		return fmt.Errorf("MAVEN_USERNAME is not set")
+	if os.Getenv("SONATYPE_PORTAL_USERNAME") == "" {
+		return fmt.Errorf("SONATYPE_PORTAL_USERNAME is not set")
 	}
-	if os.Getenv("MAVEN_PASSWORD") == "" {
-		return fmt.Errorf("MAVEN_PASSWORD is not set")
-	}
-	if os.Getenv("MAVEN_PUBLISH_REGISTRY_URL") == "" {
-		return fmt.Errorf("MAVEN_PUBLISH_REGISTRY_URL is not set")
+	if os.Getenv("SONATYPE_PORTAL_PASSWORD") == "" {
+		return fmt.Errorf("SONATYPE_PORTAL_PASSWORD is not set")
 	}
 	if os.Getenv("PGP_PRIVATE_KEY") == "" {
 		return fmt.Errorf("PGP_PRIVATE_KEY is not set")
@@ -121,19 +118,17 @@ func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, container *d
 	}
 
 	var (
-		mavenUsername    = client.SetSecret("maven-username", os.Getenv("MAVEN_USERNAME"))
-		mavenPassword    = client.SetSecret("maven-password", os.Getenv("MAVEN_PASSWORD"))
-		mavenRegistryUrl = client.SetSecret("maven-registry-url", os.Getenv("MAVEN_PUBLISH_REGISTRY_URL"))
-		pgpPrivateKey    = client.SetSecret("pgp-private-key", os.Getenv("PGP_PRIVATE_KEY"))
-		pgpPassphrase    = client.SetSecret("pgp-passphrase", os.Getenv("PGP_PASSPHRASE"))
+		sonatypePortalUsername = client.SetSecret("sonatype-portal-username", os.Getenv("SONATYPE_PORTAL_USERNAME"))
+		sonatypePortalPassword = client.SetSecret("sonatype-portal-password", os.Getenv("SONATYPE_PORTAL_PASSWORD"))
+		pgpPrivateKey          = client.SetSecret("pgp-private-key", os.Getenv("PGP_PRIVATE_KEY"))
+		pgpPassphrase          = client.SetSecret("pgp-passphrase", os.Getenv("PGP_PASSPHRASE"))
 	)
 
-	_, err = container.WithSecretVariable("MAVEN_USERNAME", mavenUsername).
-		WithSecretVariable("MAVEN_PASSWORD", mavenPassword).
-		WithSecretVariable("MAVEN_PUBLISH_REGISTRY_URL", mavenRegistryUrl).
+	_, err = container.WithSecretVariable("SONATYPE_PORTAL_USERNAME", sonatypePortalUsername).
+		WithSecretVariable("SONATYPE_PORTAL_PASSWORD", sonatypePortalPassword).
 		WithSecretVariable("PGP_PRIVATE_KEY", pgpPrivateKey).
 		WithSecretVariable("PGP_PASSPHRASE", pgpPassphrase).
-		WithExec(args("gradle publishToSonatype closeAndReleaseSonatypeStagingRepository")).
+		WithExec(args("gradle publish")).
 		Sync(ctx)
 
 	return err
