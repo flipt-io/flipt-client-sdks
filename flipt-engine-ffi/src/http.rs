@@ -9,6 +9,8 @@ use futures_util::stream::StreamExt;
 use reqwest::header::{self, HeaderMap};
 use reqwest::Response;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Middleware, Next};
+use reqwest_retry::policies::ExponentialBackoff;
+use reqwest_retry::{Jitter, RetryTransientMiddleware};
 use serde::Deserialize;
 use tokio::sync::{mpsc, Notify};
 use tokio_util::io::StreamReader;
@@ -235,10 +237,10 @@ impl HTTPFetcherBuilder {
     }
 
     pub fn build(self) -> Result<HTTPFetcher, Error> {
-        // let retry_policy = ExponentialBackoff::builder()
-        //     .retry_bounds(Duration::from_secs(1), Duration::from_secs(30))
-        //     .jitter(Jitter::Full)
-        //     .build_with_max_retries(3);
+        let retry_policy = ExponentialBackoff::builder()
+            .retry_bounds(Duration::from_secs(1), Duration::from_secs(30))
+            .jitter(Jitter::Full)
+            .build_with_max_retries(3);
 
         let mut client_builder = reqwest::Client::builder()
             .user_agent(USER_AGENT)
@@ -279,7 +281,7 @@ impl HTTPFetcherBuilder {
             environment: self.environment.unwrap_or("default".to_string()),
             namespace: self.namespace.unwrap_or("default".to_string()),
             http_client: ClientBuilder::new(client)
-                //.with(RetryTransientMiddleware::new_with_policy(retry_policy))
+                .with(RetryTransientMiddleware::new_with_policy(retry_policy))
                 .with(LoggingMiddleware::default())
                 .build(),
             authentication: self.authentication,
@@ -579,12 +581,14 @@ fn configure_tls(
     };
 
     // Check if we have client certificates
-    let client_cert_data = if let (Some(cert_data), Some(key_data)) = 
-        (&tls_config.client_cert_data, &tls_config.client_key_data) {
+    let client_cert_data = if let (Some(cert_data), Some(key_data)) =
+        (&tls_config.client_cert_data, &tls_config.client_key_data)
+    {
         log::debug!("loading client certificate and key from provided data");
         Some((cert_data.as_bytes().to_vec(), key_data.as_bytes().to_vec()))
-    } else if let (Some(cert_file), Some(key_file)) = 
-        (&tls_config.client_cert_file, &tls_config.client_key_file) {
+    } else if let (Some(cert_file), Some(key_file)) =
+        (&tls_config.client_cert_file, &tls_config.client_key_file)
+    {
         log::debug!("loading client certificate from files: cert={cert_file}, key={key_file}");
         let cert_bytes = std::fs::read(cert_file).map_err(|e| {
             log::warn!("failed to read client cert file {cert_file}: {e}");
@@ -601,12 +605,12 @@ fn configure_tls(
 
     // If we have custom CA or client certificates, create custom TLS config
     if custom_ca_cert.is_some() || client_cert_data.is_some() {
-        use std::io::Cursor;
         use rustls_pemfile::{certs, private_key};
-        
+        use std::io::Cursor;
+
         // Ensure crypto provider is installed for rustls
         let _ = rustls::crypto::ring::default_provider().install_default();
-        
+
         // Handle CA certificates
         let root_store = if let Some(cert_bytes) = custom_ca_cert {
             let mut cert_reader = Cursor::new(&cert_bytes);
@@ -643,14 +647,14 @@ fn configure_tls(
         let tls_config = if let Some((cert_bytes, key_bytes)) = client_cert_data {
             let mut cert_reader = Cursor::new(&cert_bytes);
             let mut key_reader = Cursor::new(&key_bytes);
-            
+
             let client_certs: Vec<rustls::pki_types::CertificateDer> = certs(&mut cert_reader)
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| {
                     log::warn!("failed to parse client certificate: {e}");
                     Error::Internal(format!("invalid client certificate: {e}"))
                 })?;
-            
+
             let client_key = private_key(&mut key_reader)
                 .map_err(|e| {
                     log::warn!("failed to parse client key: {e}");
@@ -1006,7 +1010,7 @@ mod tests {
     fn test_tls_config_custom_ca_cert_data() {
         // Install crypto provider for rustls
         let _ = rustls::crypto::ring::default_provider().install_default();
-        
+
         // Use the existing localhost.crt for testing
         let cert_pem = include_str!("testdata/localhost.crt");
 
@@ -1029,7 +1033,7 @@ mod tests {
     fn test_tls_config_custom_ca_cert_file() {
         // Install crypto provider for rustls
         let _ = rustls::crypto::ring::default_provider().install_default();
-        
+
         let tls_config = TlsConfig {
             ca_cert_file: Some("src/testdata/localhost.crt".to_string()),
             insecure_skip_verify: None,
@@ -1049,7 +1053,7 @@ mod tests {
     fn test_tls_config_client_certificates_data() {
         // Install crypto provider for rustls
         let _ = rustls::crypto::ring::default_provider().install_default();
-        
+
         let cert_pem = include_str!("testdata/localhost.crt");
         let key_pem = include_str!("testdata/localhost.key");
 
@@ -1072,7 +1076,7 @@ mod tests {
     fn test_tls_config_client_certificates_files() {
         // Install crypto provider for rustls
         let _ = rustls::crypto::ring::default_provider().install_default();
-        
+
         let tls_config = TlsConfig {
             client_cert_file: Some("src/testdata/localhost.crt".to_string()),
             client_key_file: Some("src/testdata/localhost.key".to_string()),
@@ -1147,44 +1151,46 @@ mod tests {
 
     #[tokio::test]
     async fn test_tls_self_signed_certificate_integration() {
-        use std::sync::Arc;
-        use tokio::net::TcpListener;
-        use tokio_rustls::{TlsAcceptor, rustls};
         use rustls_pemfile::{certs, private_key};
-        use std::io::BufReader;
         use std::fs::File;
+        use std::io::BufReader;
+        use std::sync::Arc;
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
-        
+        use tokio::net::TcpListener;
+        use tokio_rustls::{rustls, TlsAcceptor};
+
         // Install crypto provider for rustls
         let _ = rustls::crypto::ring::default_provider().install_default();
-        
+
         // Load self-signed certificate and key
         let cert_file = File::open("src/testdata/localhost.crt").expect("Failed to open cert file");
         let key_file = File::open("src/testdata/localhost.key").expect("Failed to open key file");
-        
+
         let mut cert_reader = BufReader::new(cert_file);
         let mut key_reader = BufReader::new(key_file);
-        
+
         let cert_chain = certs(&mut cert_reader)
             .collect::<Result<Vec<_>, _>>()
             .expect("Failed to parse certificate");
         let private_key = private_key(&mut key_reader)
             .expect("Failed to parse private key")
             .expect("No private key found");
-        
+
         // Create TLS server config
         let server_config = rustls::ServerConfig::builder()
             .with_no_client_auth()
             .with_single_cert(cert_chain, private_key)
             .expect("Failed to create server config");
-        
+
         let acceptor = TlsAcceptor::from(Arc::new(server_config));
-        
+
         // Start HTTPS server
-        let listener = TcpListener::bind("127.0.0.1:0").await.expect("Failed to bind");
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("Failed to bind");
         let server_addr = listener.local_addr().expect("Failed to get local addr");
         let server_port = server_addr.port();
-        
+
         // Mock server task
         let server_task = tokio::spawn(async move {
             while let Ok((stream, _)) = listener.accept().await {
@@ -1196,15 +1202,18 @@ mod tests {
                             let mut buffer = vec![0; 4096];
                             if let Ok(n) = tls_stream.read(&mut buffer).await {
                                 let request = String::from_utf8_lossy(&buffer[..n]);
-                                
+
                                 // Check if it's the expected Flipt API call
-                                if request.contains("GET /internal/v1/evaluation/snapshot/namespace/default") {
+                                if request.contains(
+                                    "GET /internal/v1/evaluation/snapshot/namespace/default",
+                                ) {
                                     // Send HTTP response
                                     let response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 45\r\n\r\n{\"namespace\": {\"key\": \"default\"}, \"flags\":[]}";
                                     let _ = tls_stream.write_all(response.as_bytes()).await;
                                 } else {
                                     // Send 404 for other requests
-                                    let response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
+                                    let response =
+                                        "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
                                     let _ = tls_stream.write_all(response.as_bytes()).await;
                                 }
                             }
@@ -1216,27 +1225,36 @@ mod tests {
                 });
             }
         });
-        
+
         // Give server time to start
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        
+
         let server_url = format!("https://localhost:{}", server_port);
-        
+
         // Test 1: Without TLS config (should fail with certificate error)
         println!("Testing without TLS config - expecting certificate error...");
         let mut fetcher_no_tls = HTTPFetcherBuilder::new(&server_url)
             .build()
             .expect("Failed to build fetcher");
-        
+
         let result_no_tls = fetcher_no_tls.fetch().await;
-        assert!(result_no_tls.is_err(), "Expected certificate error without TLS config");
+        assert!(
+            result_no_tls.is_err(),
+            "Expected certificate error without TLS config"
+        );
         let error_msg = result_no_tls.unwrap_err().to_string();
         println!("Error without TLS config: {}", error_msg);
         // The error should be related to TLS, certificate, or connection issues
-        assert!(error_msg.contains("certificate") || error_msg.contains("tls") || error_msg.contains("ssl") || 
-                error_msg.contains("sending request") || error_msg.contains("connection"), 
-                "Expected TLS/certificate/connection related error, got: {}", error_msg);
-        
+        assert!(
+            error_msg.contains("certificate")
+                || error_msg.contains("tls")
+                || error_msg.contains("ssl")
+                || error_msg.contains("sending request")
+                || error_msg.contains("connection"),
+            "Expected TLS/certificate/connection related error, got: {}",
+            error_msg
+        );
+
         // Test 2: With insecure_skip_verify (should succeed)
         println!("Testing with insecure_skip_verify...");
         let tls_config_insecure = TlsConfig {
@@ -1248,16 +1266,19 @@ mod tests {
             client_cert_data: None,
             client_key_data: None,
         };
-        
+
         let mut fetcher_insecure = HTTPFetcherBuilder::new(&server_url)
             .tls_config(tls_config_insecure)
             .build()
             .expect("Failed to build fetcher with insecure TLS");
-        
+
         let result_insecure = fetcher_insecure.fetch().await;
-        assert!(result_insecure.is_ok(), "Expected success with insecure_skip_verify");
+        assert!(
+            result_insecure.is_ok(),
+            "Expected success with insecure_skip_verify"
+        );
         println!("Success with insecure_skip_verify");
-        
+
         // Test 3: With CA certificate file (should succeed)
         println!("Testing with CA certificate file...");
         let tls_config_ca_file = TlsConfig {
@@ -1269,22 +1290,24 @@ mod tests {
             client_cert_data: None,
             client_key_data: None,
         };
-        
+
         let mut fetcher_ca_file = HTTPFetcherBuilder::new(&server_url)
             .tls_config(tls_config_ca_file)
             .build()
             .expect("Failed to build fetcher with CA file");
-        
+
         let result_ca_file = fetcher_ca_file.fetch().await;
         match result_ca_file {
             Ok(_) => println!("Success with CA certificate file"),
             Err(e) => {
                 println!("Error with CA certificate file: {}", e);
                 // This might fail due to hostname mismatch, which is expected
-                assert!(e.to_string().contains("certificate") || e.to_string().contains("hostname"));
+                assert!(
+                    e.to_string().contains("certificate") || e.to_string().contains("hostname")
+                );
             }
         }
-        
+
         // Test 4: With CA certificate data (should succeed)
         println!("Testing with CA certificate data...");
         let cert_data = include_str!("testdata/localhost.crt");
@@ -1297,25 +1320,27 @@ mod tests {
             client_cert_data: None,
             client_key_data: None,
         };
-        
+
         let mut fetcher_ca_data = HTTPFetcherBuilder::new(&server_url)
             .tls_config(tls_config_ca_data)
             .build()
             .expect("Failed to build fetcher with CA data");
-        
+
         let result_ca_data = fetcher_ca_data.fetch().await;
         match result_ca_data {
             Ok(_) => println!("Success with CA certificate data"),
             Err(e) => {
                 println!("Error with CA certificate data: {}", e);
                 // This might fail due to hostname mismatch, which is expected
-                assert!(e.to_string().contains("certificate") || e.to_string().contains("hostname"));
+                assert!(
+                    e.to_string().contains("certificate") || e.to_string().contains("hostname")
+                );
             }
         }
-        
+
         // Clean up server
         server_task.abort();
-        
+
         println!("TLS self-signed certificate integration test completed");
     }
 }
