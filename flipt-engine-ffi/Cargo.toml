@@ -16,7 +16,7 @@ crate-type = ["rlib", "dylib", "staticlib"]
 libc = { version = "0.2.150", features = ["std"] }
 serde = { version = "1.0.147", features = ["derive"] }
 serde_json = { version = "1.0.89", features = ["raw_value"] }
-reqwest = { version = "0.12.9", features = ["json", "stream", "rustls-tls", "http2"], default-features = false }
+reqwest = { version = "0.12.9", features = ["json", "stream", "rustls-tls-native-roots", "http2"], default-features = false }
 http = "1.0"
 tokio = { version = "1.36.0", features = ["rt-multi-thread", "macros", "io-util", "net", "time"], default-features = false }
 tokio-util = { version = "0.7", features = ["io"], default-features = false }

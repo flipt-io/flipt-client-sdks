@@ -559,6 +559,8 @@ fn configure_tls(
     mut builder: reqwest::ClientBuilder,
     tls_config: &TlsConfig,
 ) -> Result<reqwest::ClientBuilder, Error> {
+    builder = builder.use_rustls_tls();
+
     // Handle insecure mode
     if tls_config.insecure_skip_verify.unwrap_or(false) {
         builder = builder.danger_accept_invalid_certs(true);
