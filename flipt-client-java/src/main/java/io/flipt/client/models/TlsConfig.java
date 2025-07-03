@@ -2,8 +2,6 @@ package io.flipt.client.models;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Optional;
 import lombok.Builder;
 
@@ -22,33 +20,26 @@ import lombok.Builder;
  * <p>Certificate data fields take precedence over file path fields when both are provided.
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
+@Builder
 public class TlsConfig {
 
-  private final Optional<String> caCertFile;
-  private final Optional<String> caCertData;
-  private final Optional<Boolean> insecureSkipVerify;
-  private final Optional<String> clientCertFile;
-  private final Optional<String> clientKeyFile;
-  private final Optional<String> clientCertData;
-  private final Optional<String> clientKeyData;
+  @Builder.Default
+  private final String caCertFile = null;
+  @Builder.Default
+  private final String caCertData = null;
+  @Builder.Default
+  private final Boolean insecureSkipVerify = null;
+  @Builder.Default
+  private final Boolean insecureSkipHostnameVerify = null;
+  @Builder.Default
+  private final String clientCertFile = null;
+  @Builder.Default
+  private final String clientKeyFile = null;
+  @Builder.Default
+  private final String clientCertData = null;
+  @Builder.Default
+  private final String clientKeyData = null;
 
-  @Builder
-  public TlsConfig(
-      Optional<String> caCertFile,
-      Optional<String> caCertData,
-      Optional<Boolean> insecureSkipVerify,
-      Optional<String> clientCertFile,
-      Optional<String> clientKeyFile,
-      Optional<String> clientCertData,
-      Optional<String> clientKeyData) {
-    this.caCertFile = caCertFile != null ? caCertFile : Optional.empty();
-    this.caCertData = caCertData != null ? caCertData : Optional.empty();
-    this.insecureSkipVerify = insecureSkipVerify != null ? insecureSkipVerify : Optional.empty();
-    this.clientCertFile = clientCertFile != null ? clientCertFile : Optional.empty();
-    this.clientKeyFile = clientKeyFile != null ? clientKeyFile : Optional.empty();
-    this.clientCertData = clientCertData != null ? clientCertData : Optional.empty();
-    this.clientKeyData = clientKeyData != null ? clientKeyData : Optional.empty();
-  }
 
   /**
    * Path to custom CA certificate file in PEM format. Used to verify server certificates signed by
@@ -56,7 +47,7 @@ public class TlsConfig {
    */
   @JsonProperty("ca_cert_file")
   public Optional<String> getCaCertFile() {
-    return caCertFile;
+    return Optional.ofNullable(caCertFile);
   }
 
   /**
@@ -65,7 +56,7 @@ public class TlsConfig {
    */
   @JsonProperty("ca_cert_data")
   public Optional<String> getCaCertData() {
-    return caCertData;
+    return Optional.ofNullable(caCertData);
   }
 
   /**
@@ -75,7 +66,17 @@ public class TlsConfig {
    */
   @JsonProperty("insecure_skip_verify")
   public Optional<Boolean> getInsecureSkipVerify() {
-    return insecureSkipVerify;
+    return Optional.ofNullable(insecureSkipVerify);
+  }
+
+  /**
+   * Skip hostname verification while maintaining certificate validation. <strong>WARNING:</strong>
+   * This should only be used when you know what you are doing. This still validates the certificate
+   * chain.
+   */
+  @JsonProperty("insecure_skip_hostname_verify")
+  public Optional<Boolean> getInsecureSkipHostnameVerify() {
+    return Optional.ofNullable(insecureSkipHostnameVerify);
   }
 
   /**
@@ -84,7 +85,7 @@ public class TlsConfig {
    */
   @JsonProperty("client_cert_file")
   public Optional<String> getClientCertFile() {
-    return clientCertFile;
+    return Optional.ofNullable(clientCertFile);
   }
 
   /**
@@ -93,7 +94,7 @@ public class TlsConfig {
    */
   @JsonProperty("client_key_file")
   public Optional<String> getClientKeyFile() {
-    return clientKeyFile;
+    return Optional.ofNullable(clientKeyFile);
   }
 
   /**
@@ -103,7 +104,7 @@ public class TlsConfig {
    */
   @JsonProperty("client_cert_data")
   public Optional<String> getClientCertData() {
-    return clientCertData;
+    return Optional.ofNullable(clientCertData);
   }
 
   /**
@@ -113,91 +114,31 @@ public class TlsConfig {
    */
   @JsonProperty("client_key_data")
   public Optional<String> getClientKeyData() {
-    return clientKeyData;
+    return Optional.ofNullable(clientKeyData);
   }
 
   /**
-   * Creates a TlsConfig for development with insecure certificate verification disabled.
-   * <strong>WARNING:</strong> Only use this in development environments.
-   *
-   * @return TlsConfig with insecure skip verify enabled
+   * Create a TLS configuration that skips certificate verification entirely.
+   * <strong>WARNING:</strong> This should only be used in development environments.
+   * 
+   * @return TLS configuration with insecure mode enabled
    */
   public static TlsConfig insecure() {
-    return TlsConfig.builder().insecureSkipVerify(Optional.of(true)).build();
+    return TlsConfig.builder()
+        .insecureSkipVerify(true)
+        .build();
   }
 
   /**
-   * Creates a TlsConfig with a custom CA certificate from a file.
-   *
-   * @param caCertFile path to the CA certificate file in PEM format
-   * @return TlsConfig with custom CA certificate
-   * @throws IllegalArgumentException if the certificate file does not exist
+   * Create a TLS configuration with custom CA certificate file.
+   * 
+   * @param caCertFile path to CA certificate file
+   * @return TLS configuration with custom CA certificate
    */
   public static TlsConfig withCaCertFile(String caCertFile) {
-    if (caCertFile == null || caCertFile.trim().isEmpty()) {
-      throw new IllegalArgumentException("CA certificate file path cannot be null or empty");
-    }
-
-    if (!Files.exists(Paths.get(caCertFile))) {
-      throw new IllegalArgumentException("CA certificate file does not exist: " + caCertFile);
-    }
-
-    return TlsConfig.builder().caCertFile(Optional.of(caCertFile)).build();
-  }
-
-  /**
-   * Creates a TlsConfig with a custom CA certificate from string data.
-   *
-   * @param caCertData CA certificate content in PEM format
-   * @return TlsConfig with custom CA certificate
-   */
-  public static TlsConfig withCaCertData(String caCertData) {
-    return TlsConfig.builder().caCertData(Optional.of(caCertData)).build();
-  }
-
-  /**
-   * Creates a TlsConfig for mutual TLS with client certificate and key files.
-   *
-   * @param clientCertFile path to client certificate file in PEM format
-   * @param clientKeyFile path to client private key file in PEM format
-   * @return TlsConfig with mutual TLS configuration
-   * @throws IllegalArgumentException if either certificate file or key file does not exist
-   */
-  public static TlsConfig withMutualTls(String clientCertFile, String clientKeyFile) {
-    if (clientCertFile == null || clientCertFile.trim().isEmpty()) {
-      throw new IllegalArgumentException("Client certificate file path cannot be null or empty");
-    }
-
-    if (clientKeyFile == null || clientKeyFile.trim().isEmpty()) {
-      throw new IllegalArgumentException("Client key file path cannot be null or empty");
-    }
-
-    if (!Files.exists(Paths.get(clientCertFile))) {
-      throw new IllegalArgumentException(
-          "Client certificate file does not exist: " + clientCertFile);
-    }
-
-    if (!Files.exists(Paths.get(clientKeyFile))) {
-      throw new IllegalArgumentException("Client key file does not exist: " + clientKeyFile);
-    }
-
     return TlsConfig.builder()
-        .clientCertFile(Optional.of(clientCertFile))
-        .clientKeyFile(Optional.of(clientKeyFile))
+        .caCertFile(caCertFile)
         .build();
   }
 
-  /**
-   * Creates a TlsConfig for mutual TLS with client certificate and key data.
-   *
-   * @param clientCertData client certificate content in PEM format
-   * @param clientKeyData client private key content in PEM format
-   * @return TlsConfig with mutual TLS configuration
-   */
-  public static TlsConfig withMutualTlsData(String clientCertData, String clientKeyData) {
-    return TlsConfig.builder()
-        .clientCertData(Optional.of(clientCertData))
-        .clientKeyData(Optional.of(clientKeyData))
-        .build();
-  }
 }

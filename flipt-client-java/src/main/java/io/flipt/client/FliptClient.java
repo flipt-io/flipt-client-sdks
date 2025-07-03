@@ -31,7 +31,7 @@ import lombok.Builder;
  * // With TLS configuration
  * var tlsClient = FliptClient.builder()
  *     .url("https://flipt.example.com")
- *     .tlsConfig(TlsConfig.withCaCertFile("/path/to/ca.pem"))
+ *     .tlsConfig(TlsConfig.builder().caCertFile("/path/to/ca.pem").build())
  *     .build();
  * }</pre>
  *

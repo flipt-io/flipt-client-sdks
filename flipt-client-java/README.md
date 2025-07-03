@@ -164,7 +164,9 @@ The `FliptClient` supports configuring TLS settings for secure connections to Fl
 
 ```java
 // Using a CA certificate file
-TlsConfig tlsConfig = TlsConfig.withCaCertFile("/path/to/ca.pem");
+TlsConfig tlsConfig = TlsConfig.builder()
+    .caCertFile("/path/to/ca.pem")
+    .build();
 
 FliptClient client = FliptClient.builder()
     .url("https://flipt.example.com")
@@ -175,7 +177,9 @@ FliptClient client = FliptClient.builder()
 ```java
 // Using CA certificate data directly
 String caCertData = Files.readString(Paths.get("/path/to/ca.pem"));
-TlsConfig tlsConfig = TlsConfig.withCaCertData(caCertData);
+TlsConfig tlsConfig = TlsConfig.builder()
+    .caCertData(caCertData)
+    .build();
 
 FliptClient client = FliptClient.builder()
     .url("https://flipt.example.com")
@@ -187,10 +191,10 @@ FliptClient client = FliptClient.builder()
 
 ```java
 // Using certificate and key files
-TlsConfig tlsConfig = TlsConfig.withMutualTls(
-    "/path/to/client.pem", 
-    "/path/to/client.key"
-);
+TlsConfig tlsConfig = TlsConfig.builder()
+    .clientCertFile("/path/to/client.pem")
+    .clientKeyFile("/path/to/client.key")
+    .build();
 
 FliptClient client = FliptClient.builder()
     .url("https://flipt.example.com")
@@ -203,7 +207,10 @@ FliptClient client = FliptClient.builder()
 String clientCertData = Files.readString(Paths.get("/path/to/client.pem"));
 String clientKeyData = Files.readString(Paths.get("/path/to/client.key"));
 
-TlsConfig tlsConfig = TlsConfig.withMutualTlsData(clientCertData, clientKeyData);
+TlsConfig tlsConfig = TlsConfig.builder()
+    .clientCertData(clientCertData)
+    .clientKeyData(clientKeyData)
+    .build();
 
 FliptClient client = FliptClient.builder()
     .url("https://flipt.example.com")
@@ -216,14 +223,26 @@ FliptClient client = FliptClient.builder()
 ```java
 // Full TLS configuration with all options
 TlsConfig tlsConfig = TlsConfig.builder()
-    .caCertFile(Optional.of("/path/to/ca.pem"))
-    .clientCertFile(Optional.of("/path/to/client.pem"))
-    .clientKeyFile(Optional.of("/path/to/client.key"))
-    .insecureSkipVerify(Optional.of(false))
+    .caCertFile("/path/to/ca.pem")
+    .clientCertFile("/path/to/client.pem")
+    .clientKeyFile("/path/to/client.key")
     .build();
 
 FliptClient client = FliptClient.builder()
     .url("https://flipt.example.com")
+    .tlsConfig(tlsConfig)
+    .build();
+```
+
+```java
+// Configuration for self-signed certificates with hostname mismatch
+TlsConfig tlsConfig = TlsConfig.builder()
+    .caCertFile("/path/to/ca.pem")
+    .insecureSkipHostnameVerify(true)  // Skip hostname verification only
+    .build();
+
+FliptClient client = FliptClient.builder()
+    .url("https://localhost:8443")  // hostname doesn't match certificate
     .tlsConfig(tlsConfig)
     .build();
 ```
@@ -233,8 +252,10 @@ FliptClient client = FliptClient.builder()
 **⚠️ WARNING: Only use this in development environments!**
 
 ```java
-// Skip certificate verification (NOT for production)
-TlsConfig tlsConfig = TlsConfig.insecure();
+// Skip certificate verification entirely (NOT for production)
+TlsConfig tlsConfig = TlsConfig.builder()
+    .insecureSkipVerify(true)
+    .build();
 
 FliptClient client = FliptClient.builder()
     .url("https://localhost:8443")
@@ -242,17 +263,56 @@ FliptClient client = FliptClient.builder()
     .build();
 ```
 
+#### Self-Signed Certificates with Hostname Mismatch
+
+**⚠️ WARNING: Only use this when you trust the server's certificate but have hostname mismatches!**
+
+This is useful when connecting to `localhost` or internal hostnames that don't match the certificate's Common Name (CN) or Subject Alternative Names (SAN).
+
+```java
+// Skip hostname verification while still validating the certificate
+TlsConfig tlsConfig = TlsConfig.builder()
+    .insecureSkipHostnameVerify(true)
+    .build();
+
+FliptClient client = FliptClient.builder()
+    .url("https://localhost:8443")  // hostname doesn't match certificate
+    .tlsConfig(tlsConfig)
+    .build();
+```
+
+```java
+// Combine custom CA with hostname verification skip (recommended for self-signed certs)
+TlsConfig tlsConfig = TlsConfig.builder()
+    .caCertFile("/path/to/ca.pem")
+    .insecureSkipHostnameVerify(true)
+    .build();
+
+FliptClient client = FliptClient.builder()
+    .url("https://localhost:8443")
+    .tlsConfig(tlsConfig)
+    .build();
+```
+
+**Use Case**: You have a self-signed certificate for `example.com` but need to connect via `localhost:8443`. The certificate is valid and trusted (via custom CA), but the hostname doesn't match.
+
 #### TLS Configuration Options
 
 The `TlsConfig` class supports the following options:
 
 - `caCertFile`: Path to custom CA certificate file (PEM format)
 - `caCertData`: Raw CA certificate content (PEM format) - takes precedence over `caCertFile`
-- `insecureSkipVerify`: Skip certificate verification (development only)
+- `insecureSkipVerify`: Skip certificate verification entirely (development only)
+- `insecureSkipHostnameVerify`: Skip hostname verification while maintaining certificate validation (development only)
 - `clientCertFile`: Client certificate file for mutual TLS (PEM format)
 - `clientKeyFile`: Client private key file for mutual TLS (PEM format)
 - `clientCertData`: Raw client certificate content (PEM format) - takes precedence over `clientCertFile`
 - `clientKeyData`: Raw client private key content (PEM format) - takes precedence over `clientKeyFile`
+
+#### Security Considerations
+
+- **`insecureSkipVerify`**: Disables all certificate validation. This makes connections vulnerable to man-in-the-middle attacks. Only use in development.
+- **`insecureSkipHostnameVerify`**: Validates the certificate chain but skips hostname verification. Use this when connecting to servers with valid certificates but hostname mismatches (e.g., `localhost` vs certificate's CN/SAN).
 
 > **Note**: When both file paths and data are provided, the data fields take precedence. For example, if both `caCertFile` and `caCertData` are set, `caCertData` will be used.
 
