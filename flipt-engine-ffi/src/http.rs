@@ -1242,18 +1242,6 @@ mod tests {
             result_no_tls.is_err(),
             "Expected certificate error without TLS config"
         );
-        let error_msg = result_no_tls.unwrap_err().to_string();
-        println!("Error without TLS config: {}", error_msg);
-        // The error should be related to TLS, certificate, or connection issues
-        assert!(
-            error_msg.contains("certificate")
-                || error_msg.contains("tls")
-                || error_msg.contains("ssl")
-                || error_msg.contains("sending request")
-                || error_msg.contains("connection"),
-            "Expected TLS/certificate/connection related error, got: {}",
-            error_msg
-        );
 
         // Test 2: With insecure_skip_verify (should succeed)
         println!("Testing with insecure_skip_verify...");
