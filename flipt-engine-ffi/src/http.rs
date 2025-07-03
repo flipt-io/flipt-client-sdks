@@ -605,7 +605,7 @@ fn configure_tls(
         use rustls_pemfile::{certs, private_key};
         
         // Ensure crypto provider is installed for rustls
-        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        let _ = rustls::crypto::ring::default_provider().install_default();
         
         // Handle CA certificates
         let root_store = if let Some(cert_bytes) = custom_ca_cert {
@@ -1005,7 +1005,7 @@ mod tests {
     #[test]
     fn test_tls_config_custom_ca_cert_data() {
         // Install crypto provider for rustls
-        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        let _ = rustls::crypto::ring::default_provider().install_default();
         
         // Use the existing localhost.crt for testing
         let cert_pem = include_str!("testdata/localhost.crt");
@@ -1028,7 +1028,7 @@ mod tests {
     #[test]
     fn test_tls_config_custom_ca_cert_file() {
         // Install crypto provider for rustls
-        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        let _ = rustls::crypto::ring::default_provider().install_default();
         
         let tls_config = TlsConfig {
             ca_cert_file: Some("src/testdata/localhost.crt".to_string()),
@@ -1048,7 +1048,7 @@ mod tests {
     #[test]
     fn test_tls_config_client_certificates_data() {
         // Install crypto provider for rustls
-        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        let _ = rustls::crypto::ring::default_provider().install_default();
         
         let cert_pem = include_str!("testdata/localhost.crt");
         let key_pem = include_str!("testdata/localhost.key");
@@ -1071,7 +1071,7 @@ mod tests {
     #[test]
     fn test_tls_config_client_certificates_files() {
         // Install crypto provider for rustls
-        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        let _ = rustls::crypto::ring::default_provider().install_default();
         
         let tls_config = TlsConfig {
             client_cert_file: Some("src/testdata/localhost.crt".to_string()),
@@ -1156,7 +1156,7 @@ mod tests {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         
         // Install crypto provider for rustls
-        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        let _ = rustls::crypto::ring::default_provider().install_default();
         
         // Load self-signed certificate and key
         let cert_file = File::open("src/testdata/localhost.crt").expect("Failed to open cert file");
