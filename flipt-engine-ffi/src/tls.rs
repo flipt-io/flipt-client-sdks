@@ -26,24 +26,6 @@ pub fn configure_tls(
         return Ok(builder);
     }
 
-    // Handle hostname verification skip (keep certificate validation)
-    if tls_config.insecure_skip_hostname_verify.unwrap_or(false) {
-        builder = builder
-            .use_rustls_tls()
-            .danger_accept_invalid_hostnames(true);
-        log::debug!("TLS configured with insecure_skip_hostname_verify");
-
-        // Still need to handle custom CA certificates if provided
-        if let Some(ca_cert_data) = load_ca_certificate_data(tls_config)? {
-            let root_store = create_root_store(Some(ca_cert_data))?;
-            let rustls_config =
-                create_rustls_config(root_store, load_client_certificate_data(tls_config)?)?;
-            builder = builder.use_preconfigured_tls(rustls_config);
-            log::debug!("TLS configured with custom CA and hostname verification disabled");
-        }
-        return Ok(builder);
-    }
-
     // Handle custom certificates (CA and/or client certificates)
     let ca_cert_data = load_ca_certificate_data(tls_config)?;
     let client_cert_data = load_client_certificate_data(tls_config)?;
@@ -60,6 +42,12 @@ pub fn configure_tls(
     } else {
         // Use default rustls configuration
         builder = builder.use_rustls_tls();
+    }
+
+    // Apply hostname verification skip AFTER setting up TLS configuration
+    if tls_config.insecure_skip_hostname_verify.unwrap_or(false) {
+        builder = builder.danger_accept_invalid_hostnames(true);
+        log::debug!("hostname verification disabled");
     }
 
     Ok(builder)
@@ -363,6 +351,107 @@ mod tests {
         assert!(result.is_ok());
     }
 
+    #[test]
+    fn test_tls_config_hostname_skip_order_of_operations() {
+        // Test that hostname verification skip works in both scenarios:
+        // 1. Only hostname skip (no custom certificates)
+        // 2. Hostname skip + custom CA certificates
+
+        // Scenario 1: Only hostname verification skip
+        let tls_config_hostname_only = TlsConfig {
+            insecure_skip_hostname_verify: Some(true),
+            ..Default::default()
+        };
+
+        let builder1 = reqwest::ClientBuilder::new();
+        let result1 = configure_tls(builder1, &tls_config_hostname_only);
+        assert!(
+            result1.is_ok(),
+            "Should configure hostname skip without custom CA"
+        );
+
+        // Scenario 2: Hostname skip + custom CA data (the problematic combination)
+        let cert_pem = include_str!("testdata/localhost.crt");
+        let tls_config_combined = TlsConfig {
+            ca_cert_data: Some(cert_pem.to_string()),
+            insecure_skip_hostname_verify: Some(true),
+            ..Default::default()
+        };
+
+        let builder2 = reqwest::ClientBuilder::new();
+        let result2 = configure_tls(builder2, &tls_config_combined);
+        assert!(
+            result2.is_ok(),
+            "Should configure hostname skip WITH custom CA"
+        );
+
+        // Scenario 3: Hostname skip + custom CA file path
+        let tls_config_file = TlsConfig {
+            ca_cert_file: Some("src/testdata/localhost.crt".to_string()),
+            insecure_skip_hostname_verify: Some(true),
+            ..Default::default()
+        };
+
+        let builder3 = reqwest::ClientBuilder::new();
+        let result3 = configure_tls(builder3, &tls_config_file);
+        assert!(
+            result3.is_ok(),
+            "Should configure hostname skip WITH custom CA file"
+        );
+    }
+
+    #[test]
+    fn test_load_ca_certificate_data_functions() {
+        // Test the individual helper functions
+
+        // Test with data
+        let tls_config_data = TlsConfig::with_ca_data("test-cert-data");
+        let result = load_ca_certificate_data(&tls_config_data);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_some());
+
+        // Test with file (nonexistent)
+        let tls_config_file = TlsConfig::with_ca_file("nonexistent.crt");
+        let result = load_ca_certificate_data(&tls_config_file);
+        assert!(result.is_err());
+
+        // Test with neither
+        let tls_config_empty = TlsConfig::default();
+        let result = load_ca_certificate_data(&tls_config_empty);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+
+    #[test]
+    fn test_load_client_certificate_data_functions() {
+        // Test the client certificate helper functions
+
+        // Test with data
+        let tls_config = TlsConfig {
+            client_cert_data: Some("cert-data".to_string()),
+            client_key_data: Some("key-data".to_string()),
+            ..Default::default()
+        };
+        let result = load_client_certificate_data(&tls_config);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_some());
+
+        // Test with missing key data
+        let tls_config_incomplete = TlsConfig {
+            client_cert_data: Some("cert-data".to_string()),
+            ..Default::default()
+        };
+        let result = load_client_certificate_data(&tls_config_incomplete);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+
+        // Test with neither
+        let tls_config_empty = TlsConfig::default();
+        let result = load_client_certificate_data(&tls_config_empty);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+
     #[tokio::test]
     async fn test_tls_self_signed_certificate_integration() {
         use crate::http::HTTPFetcherBuilder;
@@ -443,57 +532,5 @@ mod tests {
         );
 
         println!("All TLS configuration integration tests passed!");
-    }
-
-    #[test]
-    fn test_load_ca_certificate_data_functions() {
-        // Test the individual helper functions
-
-        // Test with data
-        let tls_config_data = TlsConfig::with_ca_data("test-cert-data");
-        let result = load_ca_certificate_data(&tls_config_data);
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_some());
-
-        // Test with file (nonexistent)
-        let tls_config_file = TlsConfig::with_ca_file("nonexistent.crt");
-        let result = load_ca_certificate_data(&tls_config_file);
-        assert!(result.is_err());
-
-        // Test with neither
-        let tls_config_empty = TlsConfig::default();
-        let result = load_ca_certificate_data(&tls_config_empty);
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_none());
-    }
-
-    #[test]
-    fn test_load_client_certificate_data_functions() {
-        // Test the client certificate helper functions
-
-        // Test with data
-        let tls_config = TlsConfig {
-            client_cert_data: Some("cert-data".to_string()),
-            client_key_data: Some("key-data".to_string()),
-            ..Default::default()
-        };
-        let result = load_client_certificate_data(&tls_config);
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_some());
-
-        // Test with missing key data
-        let tls_config_incomplete = TlsConfig {
-            client_cert_data: Some("cert-data".to_string()),
-            ..Default::default()
-        };
-        let result = load_client_certificate_data(&tls_config_incomplete);
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_none());
-
-        // Test with neither
-        let tls_config_empty = TlsConfig::default();
-        let result = load_client_certificate_data(&tls_config_empty);
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_none());
     }
 }
