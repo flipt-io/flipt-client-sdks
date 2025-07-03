@@ -40,6 +40,8 @@ path = "../flipt-evaluation"
 mockall = "0.13.0"
 mockito = "1.4.0"
 tokio-rustls = "0.26"
+rustls-pemfile = "2.0"
+rustls = { version = "0.23", features = ["ring"] }
 
 [build-dependencies]
 cbindgen = "0.29.0"
