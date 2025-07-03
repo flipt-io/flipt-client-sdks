@@ -1,12 +1,14 @@
+use std::error::Error as StdError;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use async_trait::async_trait;
 use futures::TryStreamExt;
 use futures_util::stream::StreamExt;
 use reqwest::header::{self, HeaderMap};
 use reqwest::Response;
-use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Middleware, Next};
 use reqwest_retry::policies::ExponentialBackoff;
 use reqwest_retry::{Jitter, RetryTransientMiddleware};
 use serde::Deserialize;
@@ -128,6 +130,47 @@ struct StreamResult {
 
 static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
+/// Logging middleware that logs each request attempt
+#[derive(Debug, Clone, Default)]
+pub struct LoggingMiddleware {}
+
+#[async_trait]
+impl Middleware for LoggingMiddleware {
+    async fn handle(
+        &self,
+        req: reqwest::Request,
+        extensions: &mut http::Extensions,
+        next: Next<'_>,
+    ) -> reqwest_middleware::Result<reqwest::Response> {
+        let method = req.method().clone();
+        let url = req.url().clone();
+
+        log::debug!("request {method} {url}");
+
+        let result = next.run(req, extensions).await;
+
+        match &result {
+            Ok(response) => {
+                log::debug!(
+                    "response {method} {url} -> {response_status}",
+                    response_status = response.status()
+                );
+            }
+            Err(error) => {
+                let error_details = if let Some(source) = StdError::source(error) {
+                    format!("{error} (source: {source})")
+                } else {
+                    error.to_string()
+                };
+
+                log::warn!("error {method} {url} -> {error_details}");
+            }
+        }
+
+        result
+    }
+}
+
 impl Default for HTTPFetcherBuilder {
     fn default() -> Self {
         Self::new("http://localhost:8080")
@@ -239,6 +282,7 @@ impl HTTPFetcherBuilder {
             namespace: self.namespace.unwrap_or("default".to_string()),
             http_client: ClientBuilder::new(client)
                 .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+                .with(LoggingMiddleware::default())
                 .build(),
             authentication: self.authentication,
             etag: None,
@@ -370,7 +414,6 @@ impl HTTPFetcher {
             }
         };
 
-        let url_for_logging = url.clone();
         match self
             .http_client
             .get(url)
@@ -403,18 +446,6 @@ impl HTTPFetcher {
             },
             Err(e) => {
                 self.etag = None;
-
-                // Log the specific error type for TLS debugging
-                if e.is_connect() {
-                    log::warn!("connection error for {url_for_logging}: {e}");
-                } else if e.is_timeout() {
-                    log::warn!("timeout error for {url_for_logging}: {e}");
-                } else if e.is_request() {
-                    log::warn!("request error for {url_for_logging}: {e}");
-                } else {
-                    log::warn!("http error for {url_for_logging}: {e}");
-                }
-
                 Err(Error::Server(format!("failed to make request: {e}")))
             }
         }
@@ -426,7 +457,6 @@ impl HTTPFetcher {
             self.base_url, self.namespace
         );
 
-        let url_for_logging = url.clone();
         match self
             .http_client
             .get(url)
@@ -438,17 +468,7 @@ impl HTTPFetcher {
                 .error_for_status()
                 .map_err(|e| Error::Server(format!("response: {e}")))
                 .map(Some),
-            Err(e) => {
-                // Log streaming fetch errors with more detail
-                if e.is_connect() {
-                    log::warn!("streaming connection error for {url_for_logging}: {e}");
-                } else if e.is_timeout() {
-                    log::warn!("streaming timeout error for {url_for_logging}: {e}");
-                } else {
-                    log::warn!("streaming http error for {url_for_logging}: {e}");
-                }
-                Err(Error::Server(format!("failed to make request: {e}")))
-            }
+            Err(e) => Err(Error::Server(format!("failed to make request: {e}"))),
         }
     }
 
@@ -539,6 +559,8 @@ fn configure_tls(
     mut builder: reqwest::ClientBuilder,
     tls_config: &TlsConfig,
 ) -> Result<reqwest::ClientBuilder, Error> {
+    builder = builder.use_rustls_tls();
+
     // Handle insecure mode
     if tls_config.insecure_skip_verify.unwrap_or(false) {
         builder = builder.danger_accept_invalid_certs(true);
