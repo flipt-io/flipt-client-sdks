@@ -429,7 +429,8 @@ mod tests {
 
         // Test 5: Combined CA certificate with hostname skip
         println!("Testing with CA cert and hostname verification skip...");
-        let tls_config_combined = TlsConfig::with_ca_file_skip_hostname("src/testdata/localhost.crt");
+        let tls_config_combined =
+            TlsConfig::with_ca_file_skip_hostname("src/testdata/localhost.crt");
 
         let fetcher_combined_result = HTTPFetcherBuilder::new("https://localhost:8443")
             .tls_config(tls_config_combined)
