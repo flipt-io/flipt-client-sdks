@@ -9,8 +9,6 @@ use futures_util::stream::StreamExt;
 use reqwest::header::{self, HeaderMap};
 use reqwest::Response;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Middleware, Next};
-use reqwest_retry::policies::ExponentialBackoff;
-use reqwest_retry::{Jitter, RetryTransientMiddleware};
 use serde::Deserialize;
 use tokio::sync::{mpsc, Notify};
 use tokio_util::io::StreamReader;
@@ -237,10 +235,10 @@ impl HTTPFetcherBuilder {
     }
 
     pub fn build(self) -> Result<HTTPFetcher, Error> {
-        let retry_policy = ExponentialBackoff::builder()
-            .retry_bounds(Duration::from_secs(1), Duration::from_secs(30))
-            .jitter(Jitter::Full)
-            .build_with_max_retries(3);
+        // let retry_policy = ExponentialBackoff::builder()
+        //     .retry_bounds(Duration::from_secs(1), Duration::from_secs(30))
+        //     .jitter(Jitter::Full)
+        //     .build_with_max_retries(3);
 
         let mut client_builder = reqwest::Client::builder()
             .user_agent(USER_AGENT)
@@ -281,7 +279,7 @@ impl HTTPFetcherBuilder {
             environment: self.environment.unwrap_or("default".to_string()),
             namespace: self.namespace.unwrap_or("default".to_string()),
             http_client: ClientBuilder::new(client)
-                .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+                //.with(RetryTransientMiddleware::new_with_policy(retry_policy))
                 .with(LoggingMiddleware::default())
                 .build(),
             authentication: self.authentication,
