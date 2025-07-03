@@ -639,7 +639,7 @@ fn configure_tls(
         } else {
             // Use default root certificates
             rustls::RootCertStore {
-                roots: webpki_roots::TLS_SERVER_ROOTS.iter().cloned().collect(),
+                roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
             }
         };
 
