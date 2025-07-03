@@ -16,7 +16,7 @@ crate-type = ["rlib", "dylib", "staticlib"]
 libc = { version = "0.2.150", features = ["std"] }
 serde = { version = "1.0.147", features = ["derive"] }
 serde_json = { version = "1.0.89", features = ["raw_value"] }
-reqwest = { version = "0.12.9", features = ["json", "stream", "rustls-tls", "http2"], default-features = false }
+reqwest = { version = "0.12.9", features = ["json", "stream", "rustls-tls-manual-roots", "http2"], default-features = false }
 http = "1.0"
 tokio = { version = "1.36.0", features = ["rt-multi-thread", "macros", "io-util", "net", "time"], default-features = false }
 tokio-util = { version = "0.7", features = ["io"], default-features = false }
@@ -31,7 +31,7 @@ log = "0.4"
 env_logger = "0.11"
 webpki-roots = "0.26"
 rustls-pemfile = "2.0"
-rustls = { version = "0.23", features = ["ring"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 
 [dependencies.flipt-evaluation]
 path = "../flipt-evaluation"
@@ -39,9 +39,9 @@ path = "../flipt-evaluation"
 [dev-dependencies]
 mockall = "0.13.0"
 mockito = "1.4.0"
-tokio-rustls = "0.26"
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring"] }
 rustls-pemfile = "2.0"
-rustls = { version = "0.23", features = ["ring"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 
 [build-dependencies]
 cbindgen = "0.29.0"
