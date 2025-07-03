@@ -9,7 +9,7 @@ plugins {
 }
 
 group = 'io.flipt'
-version = '1.1.1-rc.4'
+version = '1.1.1-rc.5'
 description = 'Flipt Client SDK'
 
 java {
