@@ -130,7 +130,7 @@ struct StreamResult {
 
 static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
-/// Custom logging middleware that logs each request attempt, including retries
+/// Logging middleware that logs each request attempt
 #[derive(Debug, Clone, Default)]
 pub struct LoggingMiddleware {}
 
@@ -145,32 +145,25 @@ impl Middleware for LoggingMiddleware {
         let method = req.method().clone();
         let url = req.url().clone();
 
-        // Log the request attempt with more details
-        log::debug!("request {} {}", method, url);
+        log::debug!("request {method} {url}");
 
-        // Execute the request
         let result = next.run(req, extensions).await;
 
-        // Log the response with more detailed error information
         match &result {
             Ok(response) => {
                 log::debug!(
-                    "response {} {} -> {} {}",
-                    method,
-                    url,
-                    response.status(),
-                    response.status().canonical_reason().unwrap_or("Unknown"),
+                    "response {method} {url} -> {response_status}",
+                    response_status = response.status()
                 );
             }
             Err(error) => {
-                // Extract source error details for better debugging
                 let error_details = if let Some(source) = StdError::source(error) {
                     format!("{error} (source: {source})")
                 } else {
                     error.to_string()
                 };
 
-                log::warn!("error {} {} -> {}", method, url, error_details);
+                log::warn!("error {method} {url} -> {error_details}");
             }
         }
 
