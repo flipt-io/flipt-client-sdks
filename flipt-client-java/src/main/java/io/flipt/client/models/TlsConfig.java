@@ -23,23 +23,14 @@ import lombok.Builder;
 @Builder
 public class TlsConfig {
 
-  @Builder.Default
-  private final String caCertFile = null;
-  @Builder.Default
-  private final String caCertData = null;
-  @Builder.Default
-  private final Boolean insecureSkipVerify = null;
-  @Builder.Default
-  private final Boolean insecureSkipHostnameVerify = null;
-  @Builder.Default
-  private final String clientCertFile = null;
-  @Builder.Default
-  private final String clientKeyFile = null;
-  @Builder.Default
-  private final String clientCertData = null;
-  @Builder.Default
-  private final String clientKeyData = null;
-
+  @Builder.Default private final String caCertFile = null;
+  @Builder.Default private final String caCertData = null;
+  @Builder.Default private final Boolean insecureSkipVerify = null;
+  @Builder.Default private final Boolean insecureSkipHostnameVerify = null;
+  @Builder.Default private final String clientCertFile = null;
+  @Builder.Default private final String clientKeyFile = null;
+  @Builder.Default private final String clientCertData = null;
+  @Builder.Default private final String clientKeyData = null;
 
   /**
    * Path to custom CA certificate file in PEM format. Used to verify server certificates signed by
@@ -116,29 +107,4 @@ public class TlsConfig {
   public Optional<String> getClientKeyData() {
     return Optional.ofNullable(clientKeyData);
   }
-
-  /**
-   * Create a TLS configuration that skips certificate verification entirely.
-   * <strong>WARNING:</strong> This should only be used in development environments.
-   * 
-   * @return TLS configuration with insecure mode enabled
-   */
-  public static TlsConfig insecure() {
-    return TlsConfig.builder()
-        .insecureSkipVerify(true)
-        .build();
-  }
-
-  /**
-   * Create a TLS configuration with custom CA certificate file.
-   * 
-   * @param caCertFile path to CA certificate file
-   * @return TLS configuration with custom CA certificate
-   */
-  public static TlsConfig withCaCertFile(String caCertFile) {
-    return TlsConfig.builder()
-        .caCertFile(caCertFile)
-        .build();
-  }
-
 }
