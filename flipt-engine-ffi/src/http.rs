@@ -604,6 +604,9 @@ fn configure_tls(
         use std::io::Cursor;
         use rustls_pemfile::{certs, private_key};
         
+        // Ensure crypto provider is installed for rustls
+        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        
         // Handle CA certificates
         let root_store = if let Some(cert_bytes) = custom_ca_cert {
             let mut cert_reader = Cursor::new(&cert_bytes);
