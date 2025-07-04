@@ -62,6 +62,7 @@ pub fn configure_tls(
 /// * `Ok(Some(Vec<u8>))` - Certificate data if provided
 /// * `Ok(None)` - No CA certificate configured
 /// * `Err(Error)` - File read error
+#[allow(clippy::type_complexity)]
 fn load_ca_certificate_data(tls_config: &TlsConfig) -> Result<Option<Vec<u8>>, Error> {
     if let Some(ca_cert_data) = &tls_config.ca_cert_data {
         log::debug!("loading CA certificate from provided data");
@@ -88,6 +89,7 @@ fn load_ca_certificate_data(tls_config: &TlsConfig) -> Result<Option<Vec<u8>>, E
 /// * `Ok(Some((cert_bytes, key_bytes)))` - Certificate and key data if provided
 /// * `Ok(None)` - No client certificates configured
 /// * `Err(Error)` - File read error
+#[allow(clippy::type_complexity)]
 fn load_client_certificate_data(
     tls_config: &TlsConfig,
 ) -> Result<Option<(Vec<u8>, Vec<u8>)>, Error> {
@@ -125,6 +127,7 @@ fn load_client_certificate_data(
 /// # Returns
 /// * `Ok(RootCertStore)` - Configured certificate store
 /// * `Err(Error)` - Certificate parsing error
+#[allow(clippy::type_complexity)]
 fn create_root_store(ca_cert_data: Option<Vec<u8>>) -> Result<rustls::RootCertStore, Error> {
     use rustls_pemfile::certs;
     use std::io::Cursor;
@@ -170,6 +173,7 @@ fn create_root_store(ca_cert_data: Option<Vec<u8>>) -> Result<rustls::RootCertSt
 /// # Returns
 /// * `Ok(ClientConfig)` - Configured rustls client config
 /// * `Err(Error)` - Configuration error
+#[allow(clippy::type_complexity)]
 fn create_rustls_config(
     root_store: rustls::RootCertStore,
     client_cert_data: Option<(Vec<u8>, Vec<u8>)>,

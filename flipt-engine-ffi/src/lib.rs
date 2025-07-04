@@ -102,7 +102,7 @@ pub struct EngineOpts {
     tls_config: Option<TlsConfig>,
 }
 
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Deserialize, Debug, PartialEq, Default)]
 pub struct TlsConfig {
     /// Path to custom CA certificate file (PEM format)
     ca_cert_file: Option<String>,
@@ -120,21 +120,6 @@ pub struct TlsConfig {
     client_cert_data: Option<String>,
     /// Raw client key content (PEM format)
     client_key_data: Option<String>,
-}
-
-impl Default for TlsConfig {
-    fn default() -> Self {
-        Self {
-            ca_cert_file: None,
-            ca_cert_data: None,
-            insecure_skip_verify: None,
-            insecure_skip_hostname_verify: None,
-            client_cert_file: None,
-            client_key_file: None,
-            client_cert_data: None,
-            client_key_data: None,
-        }
-    }
 }
 
 impl TlsConfig {
