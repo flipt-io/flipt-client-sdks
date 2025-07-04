@@ -25,10 +25,10 @@ public class TestFliptClient {
     if (fliptURL.startsWith("https://")) {
       String caCertPath = System.getenv("FLIPT_CA_CERT_PATH");
       if (caCertPath != null && !caCertPath.isEmpty()) {
-        tlsConfig = TlsConfig.withCaCertFile(caCertPath);
+        tlsConfig = TlsConfig.builder().caCertFile(caCertPath).build();
       } else {
         // Fallback to insecure for local testing
-        tlsConfig = TlsConfig.insecure();
+        tlsConfig = TlsConfig.builder().insecureSkipVerify(true).build();
       }
     }
 
