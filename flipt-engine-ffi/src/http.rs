@@ -405,7 +405,7 @@ impl HTTPFetcher {
             }
         };
 
-        log::debug!("making HTTP request to: {}", url);
+        log::debug!("making HTTP request to: {url}");
         match self
             .http_client
             .get(url.clone())
