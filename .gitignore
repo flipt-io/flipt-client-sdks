@@ -18,5 +18,7 @@ tmp
 .envrc
 .vscode
 staging
-test/flutter
 .tool-versions
+.claude
+.cursor
+CLAUDE.local.md
