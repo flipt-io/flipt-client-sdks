@@ -146,26 +146,16 @@ impl Middleware for LoggingMiddleware {
         let method = req.method().clone();
         let url = req.url().clone();
 
-        log::debug!("request {method} {url}");
-
         let result = next.run(req, extensions).await;
 
-        match &result {
-            Ok(response) => {
-                log::debug!(
-                    "response {method} {url} -> {response_status}",
-                    response_status = response.status()
-                );
-            }
-            Err(error) => {
-                let error_details = if let Some(source) = StdError::source(error) {
-                    format!("{error} (source: {source})")
-                } else {
-                    error.to_string()
-                };
+        if let Err(error) = &result {
+            let error_details = if let Some(source) = StdError::source(error) {
+                format!("{error} (source: {source})")
+            } else {
+                error.to_string()
+            };
 
-                log::warn!("error {method} {url} -> {error_details}");
-            }
+            log::warn!("error {method} {url} -> {error_details}");
         }
 
         result
@@ -415,9 +405,10 @@ impl HTTPFetcher {
             }
         };
 
+        log::debug!("making HTTP request to: {url}");
         match self
             .http_client
-            .get(url)
+            .get(&url)
             .headers(self.build_headers())
             .send()
             .await
@@ -434,10 +425,8 @@ impl HTTPFetcher {
                     }
                     _ => {
                         self.etag = None;
-                        Err(Error::Server(format!(
-                            "unexpected http response: {}",
-                            response.status()
-                        )))
+                        let status = response.status();
+                        Err(Error::Server(format!("unexpected http response: {status}")))
                     }
                 },
                 Err(e) => {
