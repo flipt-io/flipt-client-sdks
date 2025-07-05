@@ -1,7 +1,7 @@
 pub mod evaluator;
 pub mod http;
 pub mod tls;
-
+use crate::tls::TlsConfig;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine as Base64Engine;
 use evaluator::Evaluator;
@@ -100,69 +100,6 @@ pub struct EngineOpts {
     error_strategy: Option<ErrorStrategy>,
     snapshot: Option<String>,
     tls_config: Option<TlsConfig>,
-}
-
-#[derive(Deserialize, Debug, PartialEq, Default)]
-pub struct TlsConfig {
-    /// Path to custom CA certificate file (PEM format)
-    ca_cert_file: Option<String>,
-    /// Raw CA certificate content (PEM format)
-    ca_cert_data: Option<String>,
-    /// Skip certificate verification (insecure - for development only)
-    insecure_skip_verify: Option<bool>,
-    /// Skip hostname verification while maintaining certificate validation (insecure - for development only)
-    insecure_skip_hostname_verify: Option<bool>,
-    /// Client certificate file for mutual TLS (PEM format)
-    client_cert_file: Option<String>,
-    /// Client key file for mutual TLS (PEM format)
-    client_key_file: Option<String>,
-    /// Raw client certificate content (PEM format)
-    client_cert_data: Option<String>,
-    /// Raw client key content (PEM format)
-    client_key_data: Option<String>,
-}
-
-impl TlsConfig {
-    /// Create a TLS config that skips all certificate verification (insecure)
-    pub fn insecure() -> Self {
-        Self {
-            insecure_skip_verify: Some(true),
-            ..Default::default()
-        }
-    }
-
-    /// Create a TLS config that skips hostname verification only
-    pub fn skip_hostname_verify() -> Self {
-        Self {
-            insecure_skip_hostname_verify: Some(true),
-            ..Default::default()
-        }
-    }
-
-    /// Create a TLS config with a custom CA certificate file
-    pub fn with_ca_file(ca_cert_file: impl Into<String>) -> Self {
-        Self {
-            ca_cert_file: Some(ca_cert_file.into()),
-            ..Default::default()
-        }
-    }
-
-    /// Create a TLS config with custom CA certificate data
-    pub fn with_ca_data(ca_cert_data: impl Into<String>) -> Self {
-        Self {
-            ca_cert_data: Some(ca_cert_data.into()),
-            ..Default::default()
-        }
-    }
-
-    /// Create a TLS config with a custom CA and skip hostname verification
-    pub fn with_ca_file_skip_hostname(ca_cert_file: impl Into<String>) -> Self {
-        Self {
-            ca_cert_file: Some(ca_cert_file.into()),
-            insecure_skip_hostname_verify: Some(true),
-            ..Default::default()
-        }
-    }
 }
 
 impl Default for EngineOpts {
@@ -1104,54 +1041,5 @@ mod tests {
         assert_eq!(opts.error_strategy, Some(ErrorStrategy::Fail));
         assert_eq!(opts.snapshot, None);
         assert_eq!(opts.tls_config, None);
-    }
-
-    #[test]
-    fn test_engine_opts_with_tls_config() {
-        let json = r#"{
-            "url": "https://localhost:8443",
-            "tls_config": {
-                "ca_cert_file": "/path/to/ca.crt",
-                "insecure_skip_verify": true
-            }
-        }"#;
-
-        let opts: EngineOpts = serde_json::from_str(json).unwrap();
-        assert_eq!(opts.url, Some("https://localhost:8443".to_string()));
-
-        let tls_config = opts.tls_config.unwrap();
-        assert_eq!(tls_config.ca_cert_file, Some("/path/to/ca.crt".to_string()));
-        assert_eq!(tls_config.insecure_skip_verify, Some(true));
-        assert_eq!(tls_config.ca_cert_data, None);
-        assert_eq!(tls_config.client_cert_file, None);
-        assert_eq!(tls_config.client_key_file, None);
-        assert_eq!(tls_config.client_cert_data, None);
-        assert_eq!(tls_config.client_key_data, None);
-    }
-
-    #[test]
-    fn test_engine_opts_with_client_certificates() {
-        let json = r#"{
-            "url": "https://localhost:8443",
-            "tls_config": {
-                "client_cert_data": "Y2VydGRhdGE=",
-                "client_key_data": "a2V5ZGF0YQ=="
-            }
-        }"#;
-
-        let opts: EngineOpts = serde_json::from_str(json).unwrap();
-        assert_eq!(opts.url, Some("https://localhost:8443".to_string()));
-
-        let tls_config = opts.tls_config.unwrap();
-        assert_eq!(
-            tls_config.client_cert_data,
-            Some("Y2VydGRhdGE=".to_string())
-        );
-        assert_eq!(tls_config.client_key_data, Some("a2V5ZGF0YQ==".to_string()));
-        assert_eq!(tls_config.insecure_skip_verify, None);
-        assert_eq!(tls_config.ca_cert_file, None);
-        assert_eq!(tls_config.ca_cert_data, None);
-        assert_eq!(tls_config.client_cert_file, None);
-        assert_eq!(tls_config.client_key_file, None);
     }
 }

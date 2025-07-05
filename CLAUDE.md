@@ -65,14 +65,16 @@ cd flipt-engine-wasm-js && wasm-pack test --node
 
 ```bash
 # Run all integration tests
-dagger run go run ./test
+dagger --progress=plain run go run ./test
 
 # Run specific SDK tests
-dagger run go run ./test -sdks python,ruby
+dagger --progress=plain run go run ./test -sdks python,ruby
 
 # Run by implementation group
-dagger run go run ./test -groups ffi,wasm,js
+dagger --progress=plain run go run ./test -groups ffi,wasm,js
 ```
+
+Note: Use `progress=plain` to see the output of the tests.
 
 ## Test Groups
 
