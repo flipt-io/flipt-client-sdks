@@ -408,7 +408,7 @@ impl HTTPFetcher {
         log::debug!("making HTTP request to: {url}");
         match self
             .http_client
-            .get(url.clone())
+            .get(&url)
             .headers(self.build_headers())
             .send()
             .await
