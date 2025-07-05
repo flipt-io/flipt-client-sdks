@@ -1,5 +1,6 @@
 pub mod evaluator;
 pub mod http;
+pub mod tls;
 
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine as Base64Engine;
@@ -101,7 +102,7 @@ pub struct EngineOpts {
     tls_config: Option<TlsConfig>,
 }
 
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Deserialize, Debug, PartialEq, Default)]
 pub struct TlsConfig {
     /// Path to custom CA certificate file (PEM format)
     ca_cert_file: Option<String>,
@@ -109,6 +110,8 @@ pub struct TlsConfig {
     ca_cert_data: Option<String>,
     /// Skip certificate verification (insecure - for development only)
     insecure_skip_verify: Option<bool>,
+    /// Skip hostname verification while maintaining certificate validation (insecure - for development only)
+    insecure_skip_hostname_verify: Option<bool>,
     /// Client certificate file for mutual TLS (PEM format)
     client_cert_file: Option<String>,
     /// Client key file for mutual TLS (PEM format)
@@ -117,6 +120,49 @@ pub struct TlsConfig {
     client_cert_data: Option<String>,
     /// Raw client key content (PEM format)
     client_key_data: Option<String>,
+}
+
+impl TlsConfig {
+    /// Create a TLS config that skips all certificate verification (insecure)
+    pub fn insecure() -> Self {
+        Self {
+            insecure_skip_verify: Some(true),
+            ..Default::default()
+        }
+    }
+
+    /// Create a TLS config that skips hostname verification only
+    pub fn skip_hostname_verify() -> Self {
+        Self {
+            insecure_skip_hostname_verify: Some(true),
+            ..Default::default()
+        }
+    }
+
+    /// Create a TLS config with a custom CA certificate file
+    pub fn with_ca_file(ca_cert_file: impl Into<String>) -> Self {
+        Self {
+            ca_cert_file: Some(ca_cert_file.into()),
+            ..Default::default()
+        }
+    }
+
+    /// Create a TLS config with custom CA certificate data
+    pub fn with_ca_data(ca_cert_data: impl Into<String>) -> Self {
+        Self {
+            ca_cert_data: Some(ca_cert_data.into()),
+            ..Default::default()
+        }
+    }
+
+    /// Create a TLS config with a custom CA and skip hostname verification
+    pub fn with_ca_file_skip_hostname(ca_cert_file: impl Into<String>) -> Self {
+        Self {
+            ca_cert_file: Some(ca_cert_file.into()),
+            insecure_skip_hostname_verify: Some(true),
+            ..Default::default()
+        }
+    }
 }
 
 impl Default for EngineOpts {
