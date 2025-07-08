@@ -58,22 +58,22 @@ class ErrorStrategy(Enum):
 class TlsConfig(BaseModel):
     """TLS configuration for connecting to Flipt servers with custom certificates."""
 
-    ca_cert_file: Optional[
-        str
-    ] = None  #: Path to custom CA certificate file (PEM format).
+    ca_cert_file: Optional[str] = (
+        None  #: Path to custom CA certificate file (PEM format).
+    )
     ca_cert_data: Optional[str] = None  #: Raw CA certificate content (PEM format).
-    insecure_skip_verify: Optional[
-        bool
-    ] = None  #: Skip certificate verification (development only).
-    client_cert_file: Optional[
-        str
-    ] = None  #: Client certificate file for mutual TLS (PEM format).
-    client_key_file: Optional[
-        str
-    ] = None  #: Client key file for mutual TLS (PEM format).
-    client_cert_data: Optional[
-        str
-    ] = None  #: Raw client certificate content (PEM format).
+    insecure_skip_verify: Optional[bool] = (
+        None  #: Skip certificate verification (development only).
+    )
+    client_cert_file: Optional[str] = (
+        None  #: Client certificate file for mutual TLS (PEM format).
+    )
+    client_key_file: Optional[str] = (
+        None  #: Client key file for mutual TLS (PEM format).
+    )
+    client_cert_data: Optional[str] = (
+        None  #: Raw client certificate content (PEM format).
+    )
     client_key_data: Optional[str] = None  #: Raw client key content (PEM format).
 
     if PYDANTIC_V2:
@@ -128,9 +128,9 @@ class ClientOptions(BaseModel):
     fetch_mode: Optional[FetchMode] = None  #: Fetch mode.
     error_strategy: Optional[ErrorStrategy] = None  #: Error handling strategy.
     snapshot: Optional[str] = None  #: Snapshot to use to initialize the client.
-    tls_config: Optional[
-        TlsConfig
-    ] = None  #: TLS configuration for connecting to servers with custom certificates.
+    tls_config: Optional[TlsConfig] = (
+        None  #: TLS configuration for connecting to servers with custom certificates.
+    )
 
     if PYDANTIC_V2:
         from pydantic import field_serializer, field_validator
@@ -229,9 +229,9 @@ class VariantResult(BaseModel):
     """Result wrapper for variant evaluation."""
 
     status: str  #: Status of the evaluation (e.g., 'success', 'error').
-    result: Optional[
-        VariantEvaluationResponse
-    ] = None  #: The evaluation response if successful.
+    result: Optional[VariantEvaluationResponse] = (
+        None  #: The evaluation response if successful.
+    )
     error_message: Optional[str] = None  #: Error message if failed.
 
 
@@ -239,9 +239,9 @@ class BooleanResult(BaseModel):
     """Result wrapper for boolean evaluation."""
 
     status: str  #: Status of the evaluation (e.g., 'success', 'error').
-    result: Optional[
-        BooleanEvaluationResponse
-    ] = None  #: The evaluation response if successful.
+    result: Optional[BooleanEvaluationResponse] = (
+        None  #: The evaluation response if successful.
+    )
     error_message: Optional[str] = None  #: Error message if failed.
 
 
@@ -249,9 +249,9 @@ class BatchResult(BaseModel):
     """Result wrapper for batch evaluation."""
 
     status: str  #: Status of the evaluation (e.g., 'success', 'error').
-    result: Optional[
-        BatchEvaluationResponse
-    ] = None  #: The batch evaluation response if successful.
+    result: Optional[BatchEvaluationResponse] = (
+        None  #: The batch evaluation response if successful.
+    )
     error_message: Optional[str] = None  #: Error message if failed.
 
 
