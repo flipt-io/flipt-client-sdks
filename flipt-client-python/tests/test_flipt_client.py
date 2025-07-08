@@ -238,51 +238,51 @@ class TestFliptClient(unittest.TestCase):
             url="http://localhost:8080",
             update_interval=timedelta(seconds=10),
         )
-        
+
         # Serialize to JSON
         json_str = model_to_json(opts, exclude_none=True)
         json_obj = json.loads(json_str)
-        
+
         # Should serialize timedelta to seconds as int
         self.assertEqual(json_obj["update_interval"], 10)
-        
+
     def test_client_options_serialization_update_interval_int(self):
         """Test that ClientOptions serializes update_interval int correctly"""
         opts = ClientOptions(
             url="http://localhost:8080",
             update_interval=10,  # This gets converted to timedelta internally
         )
-        
+
         # Serialize to JSON
         json_str = model_to_json(opts, exclude_none=True)
         json_obj = json.loads(json_str)
-        
+
         # Should serialize to seconds as int
         self.assertEqual(json_obj["update_interval"], 10)
-        
+
     def test_client_options_serialization_update_interval_none(self):
         """Test that ClientOptions excludes None update_interval"""
         opts = ClientOptions(
             url="http://localhost:8080",
             update_interval=None,
         )
-        
+
         # Serialize to JSON excluding None values
         json_str = model_to_json(opts, exclude_none=True)
         json_obj = json.loads(json_str)
-        
+
         # update_interval should not be present in the JSON
         self.assertNotIn("update_interval", json_obj)
-        
+
     def test_client_options_serialization_update_interval_default(self):
         """Test that ClientOptions with no update_interval excludes it"""
         opts = ClientOptions(
             url="http://localhost:8080",
         )
-        
+
         # Serialize to JSON excluding None values
         json_str = model_to_json(opts, exclude_none=True)
         json_obj = json.loads(json_str)
-        
+
         # update_interval should not be present in the JSON
         self.assertNotIn("update_interval", json_obj)
