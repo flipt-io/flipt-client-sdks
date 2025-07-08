@@ -139,7 +139,7 @@ class ClientOptions(BaseModel):
         def serialize_timedelta(value):
             if value is None:
                 return None
-            return value.total_seconds()
+            return int(value.total_seconds())
 
         @field_validator("request_timeout", "update_interval", mode="before")
         @classmethod
@@ -171,7 +171,7 @@ class ClientOptions(BaseModel):
             for k in ["request_timeout", "update_interval"]:
                 v = d.get(k)
                 if isinstance(v, timedelta):
-                    d[k] = v.total_seconds()
+                    d[k] = int(v.total_seconds())
             return d
 
         def json(self, *args, **kwargs):
