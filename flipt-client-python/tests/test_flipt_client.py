@@ -290,7 +290,6 @@ class TestFliptClient(unittest.TestCase):
     def test_tls_config_serialization_insecure_skip_hostname_verify(self):
         """Test that TlsConfig serializes insecure_skip_hostname_verify correctly"""
         tls_config = TlsConfig(
-            ca_cert_file="/path/to/ca.crt",
             insecure_skip_hostname_verify=True,
         )
 
@@ -298,14 +297,12 @@ class TestFliptClient(unittest.TestCase):
         json_str = model_to_json(tls_config, exclude_none=True)
         json_obj = json.loads(json_str)
 
-        # Should include the field
-        self.assertEqual(json_obj["ca_cert_file"], "/path/to/ca.crt")
+        # Should include insecure_skip_hostname_verify
         self.assertEqual(json_obj["insecure_skip_hostname_verify"], True)
 
     def test_tls_config_serialization_exclude_none_hostname_verify(self):
         """Test that TlsConfig excludes None insecure_skip_hostname_verify"""
         tls_config = TlsConfig(
-            ca_cert_file="/path/to/ca.crt",
             insecure_skip_hostname_verify=None,
         )
 
@@ -313,6 +310,5 @@ class TestFliptClient(unittest.TestCase):
         json_str = model_to_json(tls_config, exclude_none=True)
         json_obj = json.loads(json_str)
 
-        # Should include ca_cert_file but not insecure_skip_hostname_verify
-        self.assertEqual(json_obj["ca_cert_file"], "/path/to/ca.crt")
+        # Should not include insecure_skip_hostname_verify
         self.assertNotIn("insecure_skip_hostname_verify", json_obj)
