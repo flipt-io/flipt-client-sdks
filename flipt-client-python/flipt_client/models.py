@@ -65,6 +65,9 @@ class TlsConfig(BaseModel):
     insecure_skip_verify: Optional[bool] = (
         None  #: Skip certificate verification (development only).
     )
+    insecure_skip_hostname_verify: Optional[bool] = (
+        None  #: Skip hostname verification while maintaining certificate validation (development only).
+    )
     client_cert_file: Optional[str] = (
         None  #: Client certificate file for mutual TLS (PEM format).
     )

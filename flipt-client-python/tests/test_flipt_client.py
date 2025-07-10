@@ -286,3 +286,29 @@ class TestFliptClient(unittest.TestCase):
 
         # update_interval should not be present in the JSON
         self.assertNotIn("update_interval", json_obj)
+
+    def test_tls_config_serialization_insecure_skip_hostname_verify(self):
+        """Test that TlsConfig serializes insecure_skip_hostname_verify correctly"""
+        tls_config = TlsConfig(
+            insecure_skip_hostname_verify=True,
+        )
+
+        # Serialize to JSON
+        json_str = model_to_json(tls_config, exclude_none=True)
+        json_obj = json.loads(json_str)
+
+        # Should include insecure_skip_hostname_verify
+        self.assertEqual(json_obj["insecure_skip_hostname_verify"], True)
+
+    def test_tls_config_serialization_exclude_none_hostname_verify(self):
+        """Test that TlsConfig excludes None insecure_skip_hostname_verify"""
+        tls_config = TlsConfig(
+            insecure_skip_hostname_verify=None,
+        )
+
+        # Serialize to JSON excluding None values
+        json_str = model_to_json(tls_config, exclude_none=True)
+        json_obj = json.loads(json_str)
+
+        # Should not include insecure_skip_hostname_verify
+        self.assertNotIn("insecure_skip_hostname_verify", json_obj)

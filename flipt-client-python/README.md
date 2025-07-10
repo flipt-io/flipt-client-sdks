@@ -125,6 +125,7 @@ The `tls_config` option accepts a `TlsConfig` object with the following options:
 - `ca_cert_file`: Path to custom CA certificate file (PEM format). Use this to trust self-signed certificates or custom certificate authorities.
 - `ca_cert_data`: Raw CA certificate content (PEM format). Alternative to `ca_cert_file` for providing certificate data directly.
 - `insecure_skip_verify`: Skip certificate verification (development only). Set to `True` to disable TLS certificate and hostname verification. **Warning: Only use this for development/testing.**
+- `insecure_skip_hostname_verify`: Skip hostname verification while maintaining certificate validation (development only). Set to `True` to disable hostname verification but still validate the certificate chain. **Warning: Only use this for development/testing.**
 - `client_cert_file`: Client certificate file for mutual TLS (PEM format). Required for mTLS authentication.
 - `client_key_file`: Client key file for mutual TLS (PEM format). Required for mTLS authentication.
 - `client_cert_data`: Raw client certificate content (PEM format). Alternative to `client_cert_file`.
@@ -158,6 +159,23 @@ client = FliptClient(
 ```python
 tls_config = TlsConfig(
     insecure_skip_verify=True
+)
+
+client = FliptClient(
+    opts=ClientOptions(
+        url="https://localhost:8443",
+        tls_config=tls_config
+    )
+)
+```
+
+**Self-signed certificate with hostname mismatch:**
+
+```python
+# For self-signed certificates with hostname mismatch
+tls_config = TlsConfig(
+    ca_cert_file="/path/to/ca.crt",
+    insecure_skip_hostname_verify=True
 )
 
 client = FliptClient(
