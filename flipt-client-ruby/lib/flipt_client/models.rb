@@ -51,7 +51,7 @@ module Flipt
     # @param ca_cert_file [String, nil] Path to CA certificate file (PEM format)
     # @param ca_cert_data [String, nil] Raw CA certificate content (PEM format)
     # @param insecure_skip_verify [Boolean, nil] Skip certificate verification (development only)
-    # @param insecure_skip_hostname_verify [Boolean, nil] Skip hostname verification 
+    # @param insecure_skip_hostname_verify [Boolean, nil] Skip hostname verification
     #                                                   while maintaining certificate validation (development only)
     # @param client_cert_file [String, nil] Path to client certificate file (PEM format)
     # @param client_key_file [String, nil] Path to client key file (PEM format)

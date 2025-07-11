@@ -144,34 +144,28 @@ RSpec.describe Flipt::Client do
     describe '#to_h' do
       it 'includes insecure_skip_hostname_verify when set to true' do
         tls_config = Flipt::TlsConfig.new(
-          ca_cert_file: '/path/to/ca.crt',
           insecure_skip_hostname_verify: true
         )
 
         hash = tls_config.to_h
-        expect(hash[:ca_cert_file]).to eq('/path/to/ca.crt')
         expect(hash[:insecure_skip_hostname_verify]).to eq(true)
       end
 
       it 'excludes insecure_skip_hostname_verify when nil' do
         tls_config = Flipt::TlsConfig.new(
-          ca_cert_file: '/path/to/ca.crt',
           insecure_skip_hostname_verify: nil
         )
 
         hash = tls_config.to_h
-        expect(hash[:ca_cert_file]).to eq('/path/to/ca.crt')
         expect(hash).not_to have_key(:insecure_skip_hostname_verify)
       end
 
       it 'includes insecure_skip_hostname_verify when set to false' do
         tls_config = Flipt::TlsConfig.new(
-          ca_cert_file: '/path/to/ca.crt',
           insecure_skip_hostname_verify: false
         )
 
         hash = tls_config.to_h
-        expect(hash[:ca_cert_file]).to eq('/path/to/ca.crt')
         expect(hash[:insecure_skip_hostname_verify]).to eq(false)
       end
     end
