@@ -43,7 +43,7 @@ module Flipt
 
   # TlsConfig provides configuration for TLS connections to Flipt servers
   class TlsConfig
-    attr_reader :ca_cert_file, :ca_cert_data, :insecure_skip_verify,
+    attr_reader :ca_cert_file, :ca_cert_data, :insecure_skip_verify, :insecure_skip_hostname_verify,
                 :client_cert_file, :client_key_file, :client_cert_data, :client_key_data
 
     # Initialize TLS configuration
@@ -51,16 +51,19 @@ module Flipt
     # @param ca_cert_file [String, nil] Path to CA certificate file (PEM format)
     # @param ca_cert_data [String, nil] Raw CA certificate content (PEM format)
     # @param insecure_skip_verify [Boolean, nil] Skip certificate verification (development only)
+    # @param insecure_skip_hostname_verify [Boolean, nil] Skip hostname verification
+    #                                                   while maintaining certificate validation (development only)
     # @param client_cert_file [String, nil] Path to client certificate file (PEM format)
     # @param client_key_file [String, nil] Path to client key file (PEM format)
     # @param client_cert_data [String, nil] Raw client certificate content (PEM format)
     # @param client_key_data [String, nil] Raw client key content (PEM format)
     def initialize(ca_cert_file: nil, ca_cert_data: nil, insecure_skip_verify: nil,
-                   client_cert_file: nil, client_key_file: nil,
+                   insecure_skip_hostname_verify: nil, client_cert_file: nil, client_key_file: nil,
                    client_cert_data: nil, client_key_data: nil)
       @ca_cert_file = ca_cert_file
       @ca_cert_data = ca_cert_data
       @insecure_skip_verify = insecure_skip_verify
+      @insecure_skip_hostname_verify = insecure_skip_hostname_verify
       @client_cert_file = client_cert_file
       @client_key_file = client_key_file
       @client_cert_data = client_cert_data
@@ -73,6 +76,7 @@ module Flipt
     # WARNING: Only use this in development environments
     #
     # @return [TlsConfig] TLS config with certificate verification disabled
+    # @deprecated Use TlsConfig constructor instead
     def self.insecure
       new(insecure_skip_verify: true)
     end
@@ -118,6 +122,7 @@ module Flipt
       hash[:ca_cert_file] = @ca_cert_file if @ca_cert_file
       hash[:ca_cert_data] = @ca_cert_data if @ca_cert_data
       hash[:insecure_skip_verify] = @insecure_skip_verify unless @insecure_skip_verify.nil?
+      hash[:insecure_skip_hostname_verify] = @insecure_skip_hostname_verify unless @insecure_skip_hostname_verify.nil?
       hash[:client_cert_file] = @client_cert_file if @client_cert_file
       hash[:client_key_file] = @client_key_file if @client_key_file
       hash[:client_cert_data] = @client_cert_data if @client_cert_data

@@ -212,6 +212,23 @@ client = Flipt::Client.new(
 )
 ```
 
+#### Self-Signed Certificates
+
+For self-signed certificates where you need to skip hostname verification while still validating the certificate chain:
+
+```ruby
+# Skip hostname verification for self-signed certificates
+tls_config = Flipt::TlsConfig.new(
+  ca_cert_file: '/path/to/ca.pem',
+  insecure_skip_hostname_verify: true
+)
+
+client = Flipt::Client.new(
+  url: 'https://flipt.example.com',
+  tls_config: tls_config
+)
+```
+
 #### TLS Configuration Options
 
 The `TlsConfig` class supports the following options:
@@ -219,6 +236,7 @@ The `TlsConfig` class supports the following options:
 - `ca_cert_file`: Path to custom CA certificate file (PEM format)
 - `ca_cert_data`: Raw CA certificate content (PEM format) - takes precedence over `ca_cert_file`
 - `insecure_skip_verify`: Skip certificate verification (development only)
+- `insecure_skip_hostname_verify`: Skip hostname verification while maintaining certificate validation (development only)
 - `client_cert_file`: Client certificate file for mutual TLS (PEM format)
 - `client_key_file`: Client private key file for mutual TLS (PEM format)
 - `client_cert_data`: Raw client certificate content (PEM format) - takes precedence over `client_cert_file`
