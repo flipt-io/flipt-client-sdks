@@ -18,9 +18,9 @@ class FliptClientTests: XCTestCase {
 
         do {
             var tlsConfig: TlsConfig? = nil
-            
+
             let caCertPath = ProcessInfo.processInfo.environment["FLIPT_CA_CERT_PATH"]
-            if let caCertPath = caCertPath, !caCertPath.isEmpty {
+            if let caCertPath, !caCertPath.isEmpty {
                 tlsConfig = try TlsConfig.builder()
                     .caCertFile(caCertPath)
                     .insecureSkipHostnameVerify(true)
@@ -31,7 +31,7 @@ class FliptClientTests: XCTestCase {
                     .insecureSkipVerify(true)
                     .build()
             }
-            
+
             evaluationClient = try FliptClient(
                 namespace: "default",
                 url: fliptUrl,
@@ -252,7 +252,7 @@ class FliptClientTests: XCTestCase {
             XCTFail("Unexpected error: \(error)")
         }
     }
-    
+
     func testTlsConfigSerialization() {
         let tlsConfig = try! TlsConfig.builder()
             .caCertData("-----BEGIN CERTIFICATE-----")
@@ -261,26 +261,26 @@ class FliptClientTests: XCTestCase {
             .clientCertData("-----BEGIN CERTIFICATE-----")
             .clientKeyData("-----BEGIN PRIVATE KEY-----")
             .build()
-        
+
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
-        
+
         do {
             let jsonData = try encoder.encode(tlsConfig)
             let jsonString = String(data: jsonData, encoding: .utf8)!
-            
+
             // Verify snake_case field names in JSON
             XCTAssertTrue(jsonString.contains("\"ca_cert_data\""))
             XCTAssertTrue(jsonString.contains("\"insecure_skip_verify\""))
             XCTAssertTrue(jsonString.contains("\"insecure_skip_hostname_verify\""))
             XCTAssertTrue(jsonString.contains("\"client_cert_data\""))
             XCTAssertTrue(jsonString.contains("\"client_key_data\""))
-            
+
             // Verify values are correctly encoded
             XCTAssertTrue(jsonString.contains("\"-----BEGIN CERTIFICATE-----\""))
             XCTAssertTrue(jsonString.contains("true"))
             XCTAssertTrue(jsonString.contains("\"-----BEGIN PRIVATE KEY-----\""))
-            
+
             // Verify file fields are not present (since we only used data fields)
             XCTAssertFalse(jsonString.contains("ca_cert_file"))
             XCTAssertFalse(jsonString.contains("client_cert_file"))
@@ -289,22 +289,22 @@ class FliptClientTests: XCTestCase {
             XCTFail("Failed to encode TlsConfig: \(error)")
         }
     }
-    
+
     func testTlsConfigSerializationWithNilFields() {
         let tlsConfig = try! TlsConfig.builder()
             .insecureSkipHostnameVerify(true)
             .build()
-        
+
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
-        
+
         do {
             let jsonData = try encoder.encode(tlsConfig)
             let jsonString = String(data: jsonData, encoding: .utf8)!
-            
+
             // Should only contain the field that was set
             XCTAssertTrue(jsonString.contains("\"insecure_skip_hostname_verify\":true"))
-            
+
             // Should not contain null/nil fields
             XCTAssertFalse(jsonString.contains("ca_cert_file"))
             XCTAssertFalse(jsonString.contains("ca_cert_data"))

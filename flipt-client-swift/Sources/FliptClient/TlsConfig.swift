@@ -9,7 +9,7 @@ public struct TlsConfig: Codable {
     public let clientKeyFile: String?
     public let clientCertData: String?
     public let clientKeyData: String?
-    
+
     public init(
         caCertFile: String? = nil,
         caCertData: String? = nil,
@@ -18,8 +18,8 @@ public struct TlsConfig: Codable {
         clientCertFile: String? = nil,
         clientKeyFile: String? = nil,
         clientCertData: String? = nil,
-        clientKeyData: String? = nil
-    ) {
+        clientKeyData: String? = nil)
+    {
         self.caCertFile = caCertFile
         self.caCertData = caCertData
         self.insecureSkipVerify = insecureSkipVerify
@@ -29,7 +29,7 @@ public struct TlsConfig: Codable {
         self.clientCertData = clientCertData
         self.clientKeyData = clientKeyData
     }
-    
+
     public class Builder {
         private var caCertFile: String?
         private var caCertData: String?
@@ -39,69 +39,69 @@ public struct TlsConfig: Codable {
         private var clientKeyFile: String?
         private var clientCertData: String?
         private var clientKeyData: String?
-        
+
         public init() {}
-        
+
         public func caCertFile(_ value: String) -> Builder {
-            self.caCertFile = value
+            caCertFile = value
             return self
         }
-        
+
         public func caCertData(_ value: String) -> Builder {
-            self.caCertData = value
+            caCertData = value
             return self
         }
-        
+
         public func insecureSkipVerify(_ value: Bool) -> Builder {
-            self.insecureSkipVerify = value
+            insecureSkipVerify = value
             return self
         }
-        
+
         public func insecureSkipHostnameVerify(_ value: Bool) -> Builder {
-            self.insecureSkipHostnameVerify = value
+            insecureSkipHostnameVerify = value
             return self
         }
-        
+
         public func clientCertFile(_ value: String) -> Builder {
-            self.clientCertFile = value
+            clientCertFile = value
             return self
         }
-        
+
         public func clientKeyFile(_ value: String) -> Builder {
-            self.clientKeyFile = value
+            clientKeyFile = value
             return self
         }
-        
+
         public func clientCertData(_ value: String) -> Builder {
-            self.clientCertData = value
+            clientCertData = value
             return self
         }
-        
+
         public func clientKeyData(_ value: String) -> Builder {
-            self.clientKeyData = value
+            clientKeyData = value
             return self
         }
-        
+
         public func build() throws -> TlsConfig {
             // Validate certificate files exist if specified
-            if let caCertFile = caCertFile, !caCertFile.isEmpty {
+            if let caCertFile, !caCertFile.isEmpty {
                 if !FileManager.default.fileExists(atPath: caCertFile) {
                     throw TlsConfigError.fileNotFound("CA certificate file does not exist: \(caCertFile)")
                 }
             }
-            
-            if let clientCertFile = clientCertFile, !clientCertFile.isEmpty {
+
+            if let clientCertFile, !clientCertFile.isEmpty {
                 if !FileManager.default.fileExists(atPath: clientCertFile) {
                     throw TlsConfigError.fileNotFound("Client certificate file does not exist: \(clientCertFile)")
                 }
             }
-            
-            if let clientKeyFile = clientKeyFile, !clientKeyFile.isEmpty {
+
+            if let clientKeyFile, !clientKeyFile.isEmpty {
                 if !FileManager.default.fileExists(atPath: clientKeyFile) {
                     throw TlsConfigError.fileNotFound("Client key file does not exist: \(clientKeyFile)")
                 }
             }
-            
+
             return TlsConfig(
                 caCertFile: caCertFile,
                 caCertData: caCertData,
@@ -110,13 +110,12 @@ public struct TlsConfig: Codable {
                 clientCertFile: clientCertFile,
                 clientKeyFile: clientKeyFile,
                 clientCertData: clientCertData,
-                clientKeyData: clientKeyData
-            )
+                clientKeyData: clientKeyData)
         }
     }
-    
+
     public static func builder() -> Builder {
-        return Builder()
+        Builder()
     }
 }
 
