@@ -61,6 +61,19 @@ cargo clippy --all -- -D warnings
 cd flipt-engine-wasm-js && wasm-pack test --node
 ```
 
+### Linting / Formatting
+
+Before committing, run the following commands to ensure the code is formatted and linted from within the language-specific directory:
+
+- C#: `dotnet format style`
+- Kotlin: `./gradlew ktlintFormat`
+- Python: `poetry run black .`
+- Ruby: `bundle exec rubocop`
+- JavaScript: `npm run fmt`
+- Go: `go fmt ./...`
+- Swift: `swift format .`
+- Java: `./gradlew spotlessApply`
+
 ### Integration Tests
 
 ```bash
