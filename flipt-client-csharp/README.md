@@ -221,6 +221,26 @@ var options = new ClientOptions
 using var client = new FliptClient(options);
 ```
 
+#### Self-Signed Certificates with Hostname Mismatch
+
+```csharp
+// For self-signed certificates with hostname mismatch
+var tlsConfig = new TlsConfig
+{
+    CaCertFile = "/path/to/ca.pem",
+    InsecureSkipHostnameVerify = true  // Skip hostname verification only
+};
+
+var options = new ClientOptions
+{
+    Url = "https://localhost:8443",
+    TlsConfig = tlsConfig,
+    Authentication = new Authentication { ClientToken = "your-token" }
+};
+
+using var client = new FliptClient(options);
+```
+
 #### Development Mode (Insecure)
 
 **⚠️ WARNING: Only use this in development environments!**
@@ -246,6 +266,7 @@ The `TlsConfig` class supports the following properties:
 - `CaCertFile`: Path to custom CA certificate file (PEM format)
 - `CaCertData`: Raw CA certificate content (PEM format) - takes precedence over `CaCertFile`
 - `InsecureSkipVerify`: Skip certificate verification (development only)
+- `InsecureSkipHostnameVerify`: Skip TLS hostname verification (useful for self-signed certificates with hostname mismatches)
 - `ClientCertFile`: Client certificate file for mutual TLS (PEM format)
 - `ClientKeyFile`: Client private key file for mutual TLS (PEM format)
 - `ClientCertData`: Raw client certificate content (PEM format) - takes precedence over `ClientCertFile`

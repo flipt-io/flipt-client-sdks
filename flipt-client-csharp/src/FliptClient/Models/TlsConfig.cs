@@ -33,6 +33,15 @@ namespace FliptClient.Models
         public bool? InsecureSkipVerify { get; set; }
 
         /// <summary>
+        /// Gets or sets whether to skip TLS hostname verification.
+        /// Allows connections to servers with hostname mismatches (e.g., self-signed certificates).
+        /// The certificate chain is still validated.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("insecure_skip_hostname_verify")]
+        public bool? InsecureSkipHostnameVerify { get; set; }
+
+        /// <summary>
         /// Gets or sets the path to the client certificate file for mutual TLS (PEM format).
         /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
