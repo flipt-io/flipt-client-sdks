@@ -17,7 +17,7 @@ class FliptClientTests: XCTestCase {
         }
 
         do {
-            var tlsConfig: TlsConfig? = nil
+            var tlsConfig: TlsConfig?
 
             let caCertPath = ProcessInfo.processInfo.environment["FLIPT_CA_CERT_PATH"]
             if let caCertPath, !caCertPath.isEmpty {
@@ -254,20 +254,24 @@ class FliptClientTests: XCTestCase {
     }
 
     func testTlsConfigSerialization() {
-        let tlsConfig = try! TlsConfig.builder()
-            .caCertData("-----BEGIN CERTIFICATE-----")
-            .insecureSkipVerify(true)
-            .insecureSkipHostnameVerify(true)
-            .clientCertData("-----BEGIN CERTIFICATE-----")
-            .clientKeyData("-----BEGIN PRIVATE KEY-----")
-            .build()
+        do {
+            let tlsConfig = try TlsConfig.builder()
+                .caCertData("-----BEGIN CERTIFICATE-----")
+                .insecureSkipVerify(true)
+                .insecureSkipHostnameVerify(true)
+                .clientCertData("-----BEGIN CERTIFICATE-----")
+                .clientKeyData("-----BEGIN PRIVATE KEY-----")
+                .build()
 
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
 
         do {
             let jsonData = try encoder.encode(tlsConfig)
-            let jsonString = String(data: jsonData, encoding: .utf8)!
+            guard let jsonString = String(data: jsonData, encoding: .utf8) else {
+                XCTFail("Failed to convert data to string")
+                return
+            }
 
             // Verify snake_case field names in JSON
             XCTAssertTrue(jsonString.contains("\"ca_cert_data\""))
@@ -288,19 +292,26 @@ class FliptClientTests: XCTestCase {
         } catch {
             XCTFail("Failed to encode TlsConfig: \(error)")
         }
+        } catch {
+            XCTFail("Failed to create TlsConfig: \(error)")
+        }
     }
 
     func testTlsConfigSerializationWithNilFields() {
-        let tlsConfig = try! TlsConfig.builder()
-            .insecureSkipHostnameVerify(true)
-            .build()
+        do {
+            let tlsConfig = try TlsConfig.builder()
+                .insecureSkipHostnameVerify(true)
+                .build()
 
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
 
         do {
             let jsonData = try encoder.encode(tlsConfig)
-            let jsonString = String(data: jsonData, encoding: .utf8)!
+            guard let jsonString = String(data: jsonData, encoding: .utf8) else {
+                XCTFail("Failed to convert data to string")
+                return
+            }
 
             // Should only contain the field that was set
             XCTAssertTrue(jsonString.contains("\"insecure_skip_hostname_verify\":true"))
@@ -315,6 +326,9 @@ class FliptClientTests: XCTestCase {
             XCTAssertFalse(jsonString.contains("client_key_data"))
         } catch {
             XCTFail("Failed to encode TlsConfig: \(error)")
+        }
+        } catch {
+            XCTFail("Failed to create TlsConfig: \(error)")
         }
     }
 }
