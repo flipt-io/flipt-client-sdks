@@ -124,6 +124,7 @@ The `FliptClient` initializer accepts several options that can be used to config
 - `fetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
 - `errorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to `fail`. See the [Error Strategies](#error-strategies) section for more information.
 - `snapshot`: The snapshot to use when fetching flag state. If not provided, the client will default to no snapshot. See the [Snapshot](#snapshotting) section for more information.
+- `tlsConfig`: The TLS configuration to use when communicating with the upstream Flipt instance. If not provided, the client will default to standard TLS configuration. See the [TLS Configuration](#tls-configuration) section for more information.
 
 ### Authentication
 
@@ -132,6 +133,102 @@ The `FliptClient` supports the following authentication strategies:
 - No Authentication (default)
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
 - [JWT Authentication](https://docs.flipt.io/authentication/using-jwts)
+
+### TLS Configuration
+
+The `FliptClient` supports custom TLS configuration for connecting to Flipt servers with self-signed certificates, custom certificate authorities, or mutual TLS authentication.
+
+#### Configuration Options
+
+The `TlsConfig` can be configured with the following options:
+
+- `caCertFile`: Path to custom CA certificate file (PEM format). Use this to trust self-signed certificates or custom certificate authorities.
+- `caCertData`: Raw CA certificate content (PEM format). Alternative to `caCertFile` for providing certificate data directly.
+- `insecureSkipVerify`: Skip certificate verification (development only). Set to `true` to disable TLS certificate and hostname verification. **Warning: Only use this for development/testing.**
+- `insecureSkipHostnameVerify`: Skip hostname verification while maintaining certificate validation (development only). Set to `true` to disable hostname verification but still validate the certificate chain. **Warning: Only use this for development/testing.**
+- `clientCertFile`: Client certificate file for mutual TLS (PEM format). Required for mTLS authentication.
+- `clientKeyFile`: Client key file for mutual TLS (PEM format). Required for mTLS authentication.
+- `clientCertData`: Raw client certificate content (PEM format). Alternative to `clientCertFile`.
+- `clientKeyData`: Raw client key content (PEM format). Alternative to `clientKeyFile`.
+
+**Note:** Data fields (`*Data`) take precedence over file paths (`*File`) when both are provided.
+
+#### Examples
+
+**Self-signed certificate with custom CA:**
+
+```swift
+import FliptClient
+
+// Using CA certificate file
+let tlsConfig = try TlsConfig.builder()
+    .caCertFile("/path/to/ca.crt")
+    .build()
+
+let client = try FliptClient(
+    url: "https://flipt.example.com:8443",
+    tlsConfig: tlsConfig
+)
+```
+
+**Skip certificate verification (development only):**
+
+```swift
+let tlsConfig = try TlsConfig.builder()
+    .insecureSkipVerify(true)
+    .build()
+
+let client = try FliptClient(
+    url: "https://localhost:8443",
+    tlsConfig: tlsConfig
+)
+```
+
+**Self-signed certificate with hostname mismatch:**
+
+```swift
+// For self-signed certificates with hostname mismatch
+let tlsConfig = try TlsConfig.builder()
+    .caCertFile("/path/to/ca.crt")
+    .insecureSkipHostnameVerify(true)
+    .build()
+
+let client = try FliptClient(
+    url: "https://localhost:8443",
+    tlsConfig: tlsConfig
+)
+```
+
+**Mutual TLS authentication:**
+
+```swift
+let tlsConfig = try TlsConfig.builder()
+    .caCertFile("/path/to/ca.crt")
+    .clientCertFile("/path/to/client.crt")
+    .clientKeyFile("/path/to/client.key")
+    .build()
+
+let client = try FliptClient(
+    url: "https://flipt.example.com:8443",
+    tlsConfig: tlsConfig
+)
+```
+
+**Using certificate data instead of files:**
+
+```swift
+// Read certificate contents
+let caCertData = try String(contentsOfFile: "/path/to/ca.crt")
+
+let tlsConfig = try TlsConfig.builder()
+    .caCertData(caCertData)
+    .build()
+
+let client = try FliptClient(
+    url: "https://flipt.example.com:8443",
+    tlsConfig: tlsConfig
+)
+```
 
 ### Error Strategies
 

@@ -13,6 +13,7 @@ public class FliptClient {
     private var fetchMode: FetchMode = .polling
     private var errorStrategy: ErrorStrategy = .fail
     private var snapshot: String?
+    private var tlsConfig: TlsConfig?
 
     public init(
         environment: String? = nil,
@@ -24,7 +25,8 @@ public class FliptClient {
         updateInterval: Duration? = nil,
         fetchMode: FetchMode = .polling,
         errorStrategy: ErrorStrategy = .fail,
-        snapshot: String? = nil) throws
+        snapshot: String? = nil,
+        tlsConfig: TlsConfig? = nil) throws
     {
         self.environment = environment ?? "default"
         self.namespace = namespace ?? "default"
@@ -36,6 +38,7 @@ public class FliptClient {
         self.fetchMode = fetchMode
         self.errorStrategy = errorStrategy
         self.snapshot = snapshot
+        self.tlsConfig = tlsConfig
 
         let clientOptions = ClientOptions(
             environment: self.environment,
@@ -47,7 +50,8 @@ public class FliptClient {
             reference: self.reference,
             fetchMode: self.fetchMode,
             errorStrategy: self.errorStrategy,
-            snapshot: self.snapshot)
+            snapshot: self.snapshot,
+            tlsConfig: self.tlsConfig)
 
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
@@ -333,6 +337,7 @@ public struct ClientOptions<T: Encodable>: Encodable {
     public let fetchMode: FetchMode
     public let errorStrategy: ErrorStrategy
     public let snapshot: String?
+    public let tlsConfig: TlsConfig?
 }
 
 public struct Flag: Codable {
