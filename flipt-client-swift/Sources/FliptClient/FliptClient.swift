@@ -264,7 +264,6 @@ public class FliptClient {
         case invalidRequest
         case evaluationFailed(message: String)
         case parsingError
-        case tlsConfigError(message: String)
     }
 }
 

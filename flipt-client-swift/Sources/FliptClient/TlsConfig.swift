@@ -10,6 +10,30 @@ public struct TlsConfig: Codable {
     public let clientCertData: String?
     public let clientKeyData: String?
 
+    // Custom Codable implementation to skip nil fields
+    private enum CodingKeys: String, CodingKey {
+        case caCertFile = "ca_cert_file"
+        case caCertData = "ca_cert_data"
+        case insecureSkipVerify = "insecure_skip_verify"
+        case insecureSkipHostnameVerify = "insecure_skip_hostname_verify"
+        case clientCertFile = "client_cert_file"
+        case clientKeyFile = "client_key_file"
+        case clientCertData = "client_cert_data"
+        case clientKeyData = "client_key_data"
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(caCertFile, forKey: .caCertFile)
+        try container.encodeIfPresent(caCertData, forKey: .caCertData)
+        try container.encodeIfPresent(insecureSkipVerify, forKey: .insecureSkipVerify)
+        try container.encodeIfPresent(insecureSkipHostnameVerify, forKey: .insecureSkipHostnameVerify)
+        try container.encodeIfPresent(clientCertFile, forKey: .clientCertFile)
+        try container.encodeIfPresent(clientKeyFile, forKey: .clientKeyFile)
+        try container.encodeIfPresent(clientCertData, forKey: .clientCertData)
+        try container.encodeIfPresent(clientKeyData, forKey: .clientKeyData)
+    }
+
     public init(
         caCertFile: String? = nil,
         caCertData: String? = nil,

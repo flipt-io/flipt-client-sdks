@@ -71,7 +71,7 @@ Before committing, run the following commands to ensure the code is formatted an
 - Ruby: `bundle exec rubocop`
 - JavaScript: `npm run fmt`
 - Go: `go fmt ./...`
-- Swift: `swift format .`
+- Swift: `swift-format .`
 - Java: `./gradlew spotlessApply`
 
 ### Integration Tests
