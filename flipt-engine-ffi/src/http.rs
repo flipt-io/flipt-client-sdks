@@ -149,10 +149,26 @@ impl Middleware for LoggingMiddleware {
         let result = next.run(req, extensions).await;
 
         if let Err(error) = &result {
-            let error_details = if let Some(source) = StdError::source(error) {
-                format!("{error} (source: {source})")
+            // Build complete error chain
+            let mut error_chain = Vec::new();
+            error_chain.push(error.to_string());
+
+            let mut current_error: Option<&dyn StdError> = error.source();
+            while let Some(source) = current_error {
+                // Use Debug format for complete error information
+                // This ensures we capture all error details, even for types with poor Display implementations
+                error_chain.push(format!("{source:?}"));
+                current_error = source.source();
+            }
+
+            let error_details = if error_chain.len() > 1 {
+                format!(
+                    "{} (caused by: {})",
+                    error_chain[0],
+                    error_chain[1..].join(" -> ")
+                )
             } else {
-                error.to_string()
+                error_chain[0].clone()
             };
 
             log::warn!("error {method} {url} -> {error_details}");
