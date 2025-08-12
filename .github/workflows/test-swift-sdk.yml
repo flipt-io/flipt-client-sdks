@@ -43,7 +43,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Flipt
         uses: flipt-io/setup-action@v0.4.0
@@ -190,7 +190,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Flipt
         uses: flipt-io/setup-action@v0.4.0
