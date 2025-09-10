@@ -121,12 +121,7 @@ pub struct HTTPFetcherBuilder {
 
 #[derive(Deserialize)]
 struct StreamChunk {
-    result: StreamResult,
-}
-
-#[derive(Deserialize)]
-struct StreamResult {
-    namespaces: std::collections::HashMap<String, source::Document>,
+    result: source::Document,
 }
 
 static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
@@ -459,8 +454,8 @@ impl HTTPFetcher {
 
     async fn fetch_stream(&mut self) -> Result<Option<Response>, Error> {
         let url = format!(
-            "{}/internal/v1/evaluation/snapshots?[]namespaces={}",
-            self.base_url, self.namespace
+            "{}/client/v2/environments/{}/namespaces/{}/stream",
+            self.base_url, self.environment, self.namespace
         );
 
         match self
@@ -523,13 +518,7 @@ impl HTTPFetcher {
                         Err(e) => Err(Error::Server(format!("failed to read stream chunk: {e}"))),
                     })
                     .map(|result| match result {
-                        Ok(result) => match result.result.namespaces.into_iter().next() {
-                            Some((_, doc)) => Ok(doc),
-                            None => {
-                                let err = Error::Server("no data received from server".into());
-                                Err(err)
-                            }
-                        },
+                        Ok(result) => Ok(result.result),
                         Err(err) => Err(err),
                     });
 
@@ -752,7 +741,7 @@ mod tests {
     async fn test_http_fetch_stream() {
         let mut server = Server::new_async().await;
         let mock = server
-            .mock("GET", "/internal/v1/evaluation/snapshots?[]namespaces=default")
+            .mock("GET", "/client/v2/environments/default/namespaces/default/stream")
             .match_header("x-flipt-environment", "default")
             .with_status(200)
             .with_header(
@@ -760,9 +749,9 @@ mod tests {
                 "application/json",
             )
             .with_chunked_body(|w| {
-                w.write_all(b"{\"result\":{ \"namespaces\":{\"default\":{\"namespace\": {\"key\": \"default\"}, \"flags\":[]}}}}\n")?;
+                w.write_all(b"{\"result\":{\"namespace\": {\"key\": \"default\"}, \"flags\":[]}}\n")?;
                 w.write_all(
-                    b"{\"result\":{ \"namespaces\":{\"default\":{\"namespace\": {\"key\": \"default\"}, \"flags\":[{\"key\": \"new_flag\", \"name\": \"new flag\", \"enabled\": false}]}}}}\n",
+                    b"{\"result\":{\"namespace\": {\"key\": \"default\"}, \"flags\":[{\"key\": \"new_flag\", \"name\": \"new flag\", \"enabled\": false}]}}\n",
                 )?;
                 w.write_all(b"{\n")?;
                 Ok(())
