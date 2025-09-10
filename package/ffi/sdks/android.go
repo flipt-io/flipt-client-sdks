@@ -79,7 +79,7 @@ func (s *AndroidSDK) Build(ctx context.Context, client *dagger.Client, container
 		}
 	}
 
-	container = container.From("gradle:8.11-jdk17").
+	container = container.From("gradle:8-jdk17").
 		WithExec(args("mkdir -p /android-sdk/cmdline-tools")).
 		WithEnvVariable("ANDROID_HOME", "/android-sdk").
 		WithWorkdir("/android-sdk/cmdline-tools").
