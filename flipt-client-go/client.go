@@ -42,7 +42,7 @@ const (
 
 	// API paths
 	snapshotPath  = "/internal/v1/evaluation/snapshot/namespace/%s"
-	streamingPath = "/internal/v1/evaluation/snapshots?[]namespaces=%s"
+	streamingPath = "/client/v2/environments/%s/namespaces/%s/stream"
 )
 
 // Client wraps the functionality of evaluating Flipt feature flags.
@@ -620,11 +620,7 @@ func (c *Client) fetch(ctx context.Context, url, etag string) (snapshot, error) 
 }
 
 type streamChunk struct {
-	Result streamResult
-}
-
-type streamResult struct {
-	Namespaces map[string]json.RawMessage
+	Result json.RawMessage `json:"result"`
 }
 
 // startStreaming starts the background streaming.
@@ -717,14 +713,11 @@ func (c *Client) handleStream(ctx context.Context, r io.ReadCloser) error {
 						return fmt.Errorf("failed to unmarshal stream chunk: %w", err)
 					}
 
-					for ns, payload := range chunk.Result.Namespaces {
-						if ns == c.cfg.Namespace {
-							select {
-							case <-ctx.Done():
-								return ctx.Err()
-							case c.snapshotChan <- snapshot{payload: payload}:
-							}
-						}
+					// Send the result directly as the payload
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case c.snapshotChan <- snapshot{payload: chunk.Result}:
 					}
 					buffer.Reset()
 				}
@@ -877,8 +870,8 @@ func isTransientError(err error) bool {
 func (c *Client) getSnapshotURL() string {
 	switch c.cfg.FetchMode {
 	case FetchModeStreaming:
-		// Streaming uses a different endpoint that accepts multiple namespaces
-		return fmt.Sprintf(c.cfg.URL+streamingPath, c.cfg.Namespace)
+		// Streaming uses a different endpoint for v2 API
+		return fmt.Sprintf(c.cfg.URL+streamingPath, c.cfg.Environment, c.cfg.Namespace)
 	case FetchModePolling:
 		// Polling uses the single namespace snapshot endpoint
 		url := fmt.Sprintf(c.cfg.URL+snapshotPath, c.cfg.Namespace)
