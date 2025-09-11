@@ -19,8 +19,8 @@ buildscript {
     }
     dependencies {
         classpath "com.android.tools.build:gradle:8.13.0" // AGP compatible with Kotlin 1.7.1
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.0" // Correct plugin for Kotlin 1.7.1
-        classpath "org.jetbrains.kotlin:kotlin-serialization:2.2.0" // Serialization plugin
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.10" // Correct plugin for Kotlin 1.7.1
+        classpath "org.jetbrains.kotlin:kotlin-serialization:2.2.10" // Serialization plugin
     }
 }
 
