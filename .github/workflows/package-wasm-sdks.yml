@@ -16,8 +16,8 @@ permissions:
 
 env:
   NPM_API_KEY: ${{ secrets.NPM_API_KEY }}
-  GO_VERSION: "1.23"
-  DAGGER_VERSION: "0.17.1"
+  GO_VERSION: "1.25"
+  DAGGER_VERSION: "0.18.17"
 
 jobs:
   build:
