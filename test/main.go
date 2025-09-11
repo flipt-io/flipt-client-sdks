@@ -302,17 +302,24 @@ func setupFliptContainer(client *dagger.Client, hostDir *dagger.Directory, enabl
 		port = 8443
 	}
 
-	container := client.Container().From("flipt/flipt:latest").
+	container := client.Container().From("flipt/flipt:v2").
 		WithUser("root").
+		WithExec(args("apk update")).
+		WithExec(args("apk add --no-cache git")).
 		WithExec(args("mkdir -p /var/data/flipt")).
 		WithDirectory("/var/data/flipt", hostDir.Directory("test/fixtures/testdata")).
 		WithExec(args("chown -R flipt:flipt /var/data/flipt")).
+		WithExec(args("git -C /var/data/flipt init")).
+		WithExec(args("git -C /var/data/flipt config user.email \"test@example.com\"")).
+		WithExec(args("git -C /var/data/flipt config user.name \"Test User\"")).
+		WithExec(args("git -C /var/data/flipt add .")).
+		WithExec(args("git -C /var/data/flipt commit -m \"Initial commit\"")).
 		WithUser("flipt").
-		WithEnvVariable("FLIPT_STORAGE_TYPE", "local").
-		WithEnvVariable("FLIPT_STORAGE_LOCAL_PATH", "/var/data/flipt").
+		WithEnvVariable("FLIPT_STORAGE_DEFAULT_BACKEND_TYPE", "local").
+		WithEnvVariable("FLIPT_STORAGE_DEFAULT_BACKEND_PATH", "/var/data/flipt").
+		WithEnvVariable("FLIPT_AUTHENTICATION_REQUIRED", "true").
 		WithEnvVariable("FLIPT_AUTHENTICATION_METHODS_TOKEN_ENABLED", "true").
-		WithEnvVariable("FLIPT_AUTHENTICATION_METHODS_TOKEN_BOOTSTRAP_TOKEN", "secret").
-		WithEnvVariable("FLIPT_AUTHENTICATION_REQUIRED", "true")
+		WithEnvVariable("FLIPT_AUTHENTICATION_METHODS_TOKEN_TOKENS_SECRET_CREDENTIAL", "secret")
 
 	if enableHTTPS {
 		// Configure HTTPS with self-signed certificates
