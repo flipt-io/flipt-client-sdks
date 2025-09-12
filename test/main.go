@@ -309,17 +309,18 @@ func setupFliptContainer(client *dagger.Client, hostDir *dagger.Directory, enabl
 		WithExec(args("mkdir -p /var/data/flipt")).
 		WithDirectory("/var/data/flipt", hostDir.Directory("test/fixtures/testdata")).
 		WithExec(args("chown -R flipt:flipt /var/data/flipt")).
-		WithExec(args("git -C /var/data/flipt init")).
-		WithExec(args("git -C /var/data/flipt config user.email \"test@example.com\"")).
-		WithExec(args("git -C /var/data/flipt config user.name \"Test User\"")).
-		WithExec(args("git -C /var/data/flipt add .")).
-		WithExec(args("git -C /var/data/flipt commit -m \"Initial commit\"")).
 		WithUser("flipt").
-		WithEnvVariable("FLIPT_STORAGE_DEFAULT_BACKEND_TYPE", "local").
-		WithEnvVariable("FLIPT_STORAGE_DEFAULT_BACKEND_PATH", "/var/data/flipt").
+		WithExec([]string{"sh", "-c", "cd /var/data/flipt && git init --initial-branch=main && git config user.email 'test@example.com' && git config user.name 'Test User' && git add . && git commit -m 'Initial commit' && git log --oneline"}).
+		WithEnvVariable("FLIPT_LOG_LEVEL", "debug").
+		WithEnvVariable("FLIPT_STORAGE_LOCAL_NAME", "local").
+		WithEnvVariable("FLIPT_STORAGE_LOCAL_BACKEND_TYPE", "local").
+		WithEnvVariable("FLIPT_STORAGE_LOCAL_BACKEND_PATH", "/var/data/flipt").
+		WithEnvVariable("FLIPT_STORAGE_LOCAL_BRANCH", "main").
+		WithEnvVariable("FLIPT_ENVIRONMENTS_DEFAULT_NAME", "default").
+		WithEnvVariable("FLIPT_ENVIRONMENTS_DEFAULT_STORAGE", "local").
 		WithEnvVariable("FLIPT_AUTHENTICATION_REQUIRED", "true").
 		WithEnvVariable("FLIPT_AUTHENTICATION_METHODS_TOKEN_ENABLED", "true").
-		WithEnvVariable("FLIPT_AUTHENTICATION_METHODS_TOKEN_TOKENS_SECRET_CREDENTIAL", "secret")
+		WithEnvVariable("FLIPT_AUTHENTICATION_METHODS_TOKEN_STORAGE_TOKENS_SECRET_CREDENTIAL", "secret")
 
 	if enableHTTPS {
 		// Configure HTTPS with self-signed certificates
@@ -629,7 +630,7 @@ func printResults(results []testResult) {
 		}
 
 		// Write to GITHUB_STEP_SUMMARY file
-		if err := os.WriteFile(summaryFile, []byte(summary.String()), 0644); err != nil {
+		if err := os.WriteFile(summaryFile, []byte(summary.String()), 0o644); err != nil {
 			fmt.Printf("Failed to write GitHub summary: %v\n", err)
 		}
 	}
