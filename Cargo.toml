@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = ["./flipt-engine-ffi", "./flipt-engine-wasm", "./flipt-engine-wasm-js", "./flipt-evaluation"]
+
+[profile.release]
+strip = true
+rpath = true
+codegen-units = 1
+
+[profile.release.package.flipt-engine-wasm]
+opt-level = "s"
+
+[profile.release.package.flipt-engine-wasm-js]
+opt-level = "s"
+
+[profile.release.package.flipt-engine-ffi]
+opt-level = "s"

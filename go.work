@@ -1,0 +1,10 @@
+go 1.23.0
+
+toolchain go1.24.2
+
+use (
+	./flipt-client-go
+	./package/ffi
+	./package/wasm
+	./test
+)
