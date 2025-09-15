@@ -21,7 +21,7 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == null }}
     steps:
       - name: Create Pending Status
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const sha = context.payload.workflow_run ? context.payload.workflow_run.head_sha : context.sha;
@@ -139,7 +139,7 @@ jobs:
 
       - name: Update Status Check
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const sha = context.payload.workflow_run ? context.payload.workflow_run.head_sha : context.sha;
@@ -251,7 +251,7 @@ jobs:
 
       - name: Update Status Check
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const sha = context.payload.workflow_run ? context.payload.workflow_run.head_sha : context.sha;
