@@ -2,10 +2,12 @@ dependencies:
   ffi: ^2.0.1
   json_annotation: ^4.9.0
   path: ^1.9.0
-description: 'Flipt Client Evaluation SDK for Dart
+description: 'Flipt Client Evaluation SDK for Dart (Desktop and Server platforms)
 
 
-  **Note:** As of 1.0.0, `FliptEvaluationClient` has been renamed to `FliptClient`
+  **Note:** For Android use flipt_client_android. For iOS use flipt_client_ios.
+
+  As of 1.0.0, `FliptEvaluationClient` has been renamed to `FliptClient`
   for consistency with other SDKs and Dart idioms. Update your code accordingly. 0.x
   versions are now deprecated.
 
@@ -24,22 +26,6 @@ files:
 - native/linux_aarch64/libfliptengine.so
 - native/linux_x86_64/libfliptengine.so
 - native/windows_x86_64/fliptengine.dll
-- ios/FliptEngineFFI.xcframework
-flutter:
-  assets:
-  - native/darwin_aarch64/libfliptengine.dylib
-  - native/linux_aarch64/libfliptengine.so
-  - native/linux_x86_64/libfliptengine.so
-  - native/windows_x86_64/fliptengine.dll
-  plugin:
-    platforms:
-      android:
-        ffiPlugin: true
-        package: io.flipt.client
-        pluginClass: none
-      ios:
-        ffiPlugin: true
-        pluginClass: FliptClient
 homepage: https://flipt.io
 name: flipt_client
 version: 1.1.0
