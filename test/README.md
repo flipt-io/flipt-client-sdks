@@ -6,10 +6,7 @@ In the `test/` directory we will use [Dagger](https://dagger.io/) to orchestrate
 
 ## Requirements
 
-Make sure you have `dagger` installed. This module is pinned to `v0.14.0` currently in CI.
-
-> [!IMPORTANT]
-> We recommend installing the same version of Dagger as is used in CI. Follow the [Dagger Installation Instructions](https://docs.dagger.io/install/#stable-release) to install the correct version (v0.14.0).
+Make sure you have [dagger](https://dagger.io/) installed.
 
 ## Running Tests
 
