@@ -371,7 +371,7 @@ func getFFIBuildContainer(_ context.Context, client *dagger.Client, hostDirector
 func getWasmBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
 	const target = "wasm32-wasip1"
 
-	return client.Container().From("rust:1.83.0-bullseye").
+	return client.Container().From("rust:1.89.0-bullseye").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
@@ -391,7 +391,7 @@ func getWasmBuildContainer(_ context.Context, client *dagger.Client, hostDirecto
 // getWasmJSBuildContainer builds the wasm module for the Rust core for the client libraries to run
 // their tests against.
 func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
-	return client.Container().From("rust:1.83.0-bullseye").
+	return client.Container().From("rust:1.89.0-bullseye").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{

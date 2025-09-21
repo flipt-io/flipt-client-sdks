@@ -34,7 +34,7 @@ jobs:
 
       - name: Install Rust
         run: |
-          rustup update nightly
+          rustup update stable
 
       - name: Install musl-gcc
         run: |

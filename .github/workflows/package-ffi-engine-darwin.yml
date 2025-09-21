@@ -38,7 +38,7 @@ jobs:
 
       - name: Install Rust
         run: |
-          rustup update nightly
+          rustup update stable
           rustup default nightly
           rustup target add ${{ matrix.platform.target }}
 
