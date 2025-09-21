@@ -21,7 +21,7 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, container *dag
 		wasmFile = "/src/target/wasm32-wasip1/release/flipt_engine_wasm.wasm"
 	)
 
-	rust := container.From("rust:1.83.0-bookworm").
+	rust := container.From("rust:1.89.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{

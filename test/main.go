@@ -302,17 +302,19 @@ func setupFliptContainer(client *dagger.Client, hostDir *dagger.Directory, enabl
 		port = 8443
 	}
 
-	container := client.Container().From("flipt/flipt:latest").
+	container := client.Container().From("flipt/flipt:v2").
 		WithUser("root").
-		WithExec(args("mkdir -p /var/data/flipt")).
-		WithDirectory("/var/data/flipt", hostDir.Directory("test/fixtures/testdata")).
-		WithExec(args("chown -R flipt:flipt /var/data/flipt")).
+		WithExec(args("apk update")).
+		WithExec(args("apk add --no-cache git")).
 		WithUser("flipt").
-		WithEnvVariable("FLIPT_STORAGE_TYPE", "local").
-		WithEnvVariable("FLIPT_STORAGE_LOCAL_PATH", "/var/data/flipt").
+		WithEnvVariable("FLIPT_LOG_LEVEL", "debug").
+		WithEnvVariable("FLIPT_STORAGE_DEFAULT_NAME", "default").
+		WithEnvVariable("FLIPT_STORAGE_DEFAULT_REMOTE", "https://github.com/flipt-io/flipt-test-corpus.git").
+		WithEnvVariable("FLIPT_ENVIRONMENTS_DEFAULT_NAME", "default").
+		WithEnvVariable("FLIPT_ENVIRONMENTS_DEFAULT_STORAGE", "default").
+		WithEnvVariable("FLIPT_AUTHENTICATION_REQUIRED", "true").
 		WithEnvVariable("FLIPT_AUTHENTICATION_METHODS_TOKEN_ENABLED", "true").
-		WithEnvVariable("FLIPT_AUTHENTICATION_METHODS_TOKEN_BOOTSTRAP_TOKEN", "secret").
-		WithEnvVariable("FLIPT_AUTHENTICATION_REQUIRED", "true")
+		WithEnvVariable("FLIPT_AUTHENTICATION_METHODS_TOKEN_STORAGE_TOKENS_SECRET_CREDENTIAL", "secret")
 
 	if enableHTTPS {
 		// Configure HTTPS with self-signed certificates
@@ -369,7 +371,7 @@ func getFFIBuildContainer(_ context.Context, client *dagger.Client, hostDirector
 func getWasmBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
 	const target = "wasm32-wasip1"
 
-	return client.Container().From("rust:1.83.0-bullseye").
+	return client.Container().From("rust:1.89.0-bullseye").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
@@ -389,7 +391,7 @@ func getWasmBuildContainer(_ context.Context, client *dagger.Client, hostDirecto
 // getWasmJSBuildContainer builds the wasm module for the Rust core for the client libraries to run
 // their tests against.
 func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
-	return client.Container().From("rust:1.83.0-bullseye").
+	return client.Container().From("rust:1.89.0-bullseye").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
@@ -400,7 +402,7 @@ func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirec
 		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
-		WithExec(args("cargo install wasm-pack")).
+		WithExec(args("cargo install wasm-pack --force")).
 		WithWorkdir("/src/flipt-engine-wasm-js").
 		WithExec(args("wasm-pack build --target web"))
 }
@@ -622,7 +624,7 @@ func printResults(results []testResult) {
 		}
 
 		// Write to GITHUB_STEP_SUMMARY file
-		if err := os.WriteFile(summaryFile, []byte(summary.String()), 0644); err != nil {
+		if err := os.WriteFile(summaryFile, []byte(summary.String()), 0o644); err != nil {
 			fmt.Printf("Failed to write GitHub summary: %v\n", err)
 		}
 	}

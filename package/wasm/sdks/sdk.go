@@ -21,7 +21,7 @@ type SDK interface {
 type BaseSDK struct{}
 
 func buildWasmJS(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts, target string, clientDir string) error {
-	rust := container.From("rust:1.83.0-bookworm").
+	rust := container.From("rust:1.89.0-bookworm").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
