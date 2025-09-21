@@ -312,12 +312,10 @@ func setupFliptContainer(client *dagger.Client, hostDir *dagger.Directory, enabl
 		WithUser("flipt").
 		WithExec([]string{"sh", "-c", "cd /var/data/flipt && git init --initial-branch=main && git config user.email 'test@example.com' && git config user.name 'Test User' && git add . && git commit -m 'Initial commit' && git log --oneline"}).
 		WithEnvVariable("FLIPT_LOG_LEVEL", "debug").
-		WithEnvVariable("FLIPT_STORAGE_LOCAL_NAME", "local").
-		WithEnvVariable("FLIPT_STORAGE_LOCAL_BACKEND_TYPE", "local").
-		WithEnvVariable("FLIPT_STORAGE_LOCAL_BACKEND_PATH", "/var/data/flipt").
-		WithEnvVariable("FLIPT_STORAGE_LOCAL_BRANCH", "main").
+		WithEnvVariable("FLIPT_STORAGE_DEFAULT_NAME", "default").
+		WithEnvVariable("FLIPT_STORAGE_DEFAULT_REMOTE", "https://github.com/flipt-io/flipt-test-corpus.git").
 		WithEnvVariable("FLIPT_ENVIRONMENTS_DEFAULT_NAME", "default").
-		WithEnvVariable("FLIPT_ENVIRONMENTS_DEFAULT_STORAGE", "local").
+		WithEnvVariable("FLIPT_ENVIRONMENTS_DEFAULT_STORAGE", "default").
 		WithEnvVariable("FLIPT_AUTHENTICATION_REQUIRED", "true").
 		WithEnvVariable("FLIPT_AUTHENTICATION_METHODS_TOKEN_ENABLED", "true").
 		WithEnvVariable("FLIPT_AUTHENTICATION_METHODS_TOKEN_STORAGE_TOKENS_SECRET_CREDENTIAL", "secret")
