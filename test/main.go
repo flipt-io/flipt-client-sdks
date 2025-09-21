@@ -402,7 +402,7 @@ func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirec
 		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
-		WithExec(args("cargo install wasm-pack")).
+		WithExec(args("cargo install wasm-pack --force")).
 		WithWorkdir("/src/flipt-engine-wasm-js").
 		WithExec(args("wasm-pack build --target web"))
 }
