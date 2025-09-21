@@ -306,11 +306,7 @@ func setupFliptContainer(client *dagger.Client, hostDir *dagger.Directory, enabl
 		WithUser("root").
 		WithExec(args("apk update")).
 		WithExec(args("apk add --no-cache git")).
-		WithExec(args("mkdir -p /var/data/flipt")).
-		WithDirectory("/var/data/flipt", hostDir.Directory("test/fixtures/testdata")).
-		WithExec(args("chown -R flipt:flipt /var/data/flipt")).
 		WithUser("flipt").
-		WithExec([]string{"sh", "-c", "cd /var/data/flipt && git init --initial-branch=main && git config user.email 'test@example.com' && git config user.name 'Test User' && git add . && git commit -m 'Initial commit' && git log --oneline"}).
 		WithEnvVariable("FLIPT_LOG_LEVEL", "debug").
 		WithEnvVariable("FLIPT_STORAGE_DEFAULT_NAME", "default").
 		WithEnvVariable("FLIPT_STORAGE_DEFAULT_REMOTE", "https://github.com/flipt-io/flipt-test-corpus.git").
