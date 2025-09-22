@@ -716,6 +716,9 @@ func (c *Client) handleStream(ctx context.Context, r io.ReadCloser) error {
 					// Send the result directly as the payload
 					select {
 					case <-ctx.Done():
+						if ctx.Err() == context.Canceled {
+							return nil
+						}
 						return ctx.Err()
 					case c.snapshotChan <- snapshot{payload: chunk.Result}:
 					}

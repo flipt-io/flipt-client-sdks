@@ -204,11 +204,14 @@ func (s *ClientTestSuite) TestStreaming() {
 		}
 	}
 
-	streamingClient, err := flipt.NewClient(context.TODO(), opts...)
+	ctx, cancel := context.WithCancel(context.Background())
+	s.T().Cleanup(cancel)
+
+	streamingClient, err := flipt.NewClient(ctx, opts...)
 	s.Require().NoError(err)
-	defer func() {
-		s.Require().NoError(streamingClient.Close(context.TODO()))
-	}()
+	s.T().Cleanup(func() {
+		s.Require().NoError(streamingClient.Close(ctx))
+	})
 
 	// Wait 1 second as requested before performing evaluation calls
 	require.Eventually(s.T(), func() bool {
@@ -216,7 +219,7 @@ func (s *ClientTestSuite) TestStreaming() {
 	}, 2*time.Second, 100*time.Millisecond, "streaming client should be ready")
 
 	// Test variant evaluation with streaming
-	variant, err := streamingClient.EvaluateVariant(context.TODO(), &flipt.EvaluationRequest{
+	variant, err := streamingClient.EvaluateVariant(ctx, &flipt.EvaluationRequest{
 		FlagKey:  "flag1",
 		EntityID: "someentity",
 		Context: map[string]string{
@@ -230,7 +233,7 @@ func (s *ClientTestSuite) TestStreaming() {
 	s.Contains(variant.SegmentKeys, "segment1")
 
 	// Test boolean evaluation with streaming
-	boolean, err := streamingClient.EvaluateBoolean(context.TODO(), &flipt.EvaluationRequest{
+	boolean, err := streamingClient.EvaluateBoolean(ctx, &flipt.EvaluationRequest{
 		FlagKey:  "flag_boolean",
 		EntityID: "someentity",
 		Context: map[string]string{
@@ -243,7 +246,7 @@ func (s *ClientTestSuite) TestStreaming() {
 	s.Equal("MATCH_EVALUATION_REASON", boolean.Reason)
 
 	// Test list flags with streaming
-	flags, err := streamingClient.ListFlags(context.TODO())
+	flags, err := streamingClient.ListFlags(ctx)
 	s.Require().NoError(err)
 	s.NotEmpty(flags)
 	s.Equal(2, len(flags))
