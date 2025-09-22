@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -167,4 +168,86 @@ func (s *ClientTestSuite) TestBooleanFailure() {
 		"fizz": "buzz",
 	}})
 	s.EqualError(err, "invalid request: failed to get flag information default/nonexistent")
+}
+
+func (s *ClientTestSuite) TestStreaming() {
+	opts := []flipt.Option{
+		flipt.WithFetchMode(flipt.FetchModeStreaming),
+	}
+
+	if s.fliptURL != "" {
+		opts = append(opts, flipt.WithURL(s.fliptURL))
+	}
+
+	if s.authToken != "" {
+		opts = append(opts, flipt.WithClientTokenAuthentication(s.authToken))
+	}
+
+	// Configure TLS if HTTPS URL is provided
+	if s.fliptURL != "" && strings.HasPrefix(s.fliptURL, "https://") {
+		caCertPath := os.Getenv("FLIPT_CA_CERT_PATH")
+		if caCertPath != "" {
+			caCertData, err := os.ReadFile(caCertPath)
+			require.NoError(s.T(), err)
+
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(caCertData)
+
+			opts = append(opts, flipt.WithTLSConfig(&tls.Config{
+				RootCAs: caCertPool,
+			}))
+		} else {
+			// Fallback to insecure for local testing
+			opts = append(opts, flipt.WithTLSConfig(&tls.Config{
+				InsecureSkipVerify: true,
+			}))
+		}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	s.T().Cleanup(cancel)
+
+	streamingClient, err := flipt.NewClient(ctx, opts...)
+	s.Require().NoError(err)
+	s.T().Cleanup(func() {
+		s.Require().NoError(streamingClient.Close(ctx))
+	})
+
+	// Wait 1 second as requested before performing evaluation calls
+	require.Eventually(s.T(), func() bool {
+		return streamingClient.Err() == nil
+	}, 2*time.Second, 100*time.Millisecond, "streaming client should be ready")
+
+	// Test variant evaluation with streaming
+	variant, err := streamingClient.EvaluateVariant(ctx, &flipt.EvaluationRequest{
+		FlagKey:  "flag1",
+		EntityID: "someentity",
+		Context: map[string]string{
+			"fizz": "buzz",
+		},
+	})
+	s.Require().NoError(err)
+	s.True(variant.Match)
+	s.Equal("flag1", variant.FlagKey)
+	s.Equal("MATCH_EVALUATION_REASON", variant.Reason)
+	s.Contains(variant.SegmentKeys, "segment1")
+
+	// Test boolean evaluation with streaming
+	boolean, err := streamingClient.EvaluateBoolean(ctx, &flipt.EvaluationRequest{
+		FlagKey:  "flag_boolean",
+		EntityID: "someentity",
+		Context: map[string]string{
+			"fizz": "buzz",
+		},
+	})
+	s.Require().NoError(err)
+	s.Equal("flag_boolean", boolean.FlagKey)
+	s.True(boolean.Enabled)
+	s.Equal("MATCH_EVALUATION_REASON", boolean.Reason)
+
+	// Test list flags with streaming
+	flags, err := streamingClient.ListFlags(ctx)
+	s.Require().NoError(err)
+	s.NotEmpty(flags)
+	s.Equal(2, len(flags))
 }
