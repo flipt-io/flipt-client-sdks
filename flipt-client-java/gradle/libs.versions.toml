@@ -1,6 +1,6 @@
 [versions]
 jackson = "2.20.0"
-jna = "5.17.0"
+jna = "5.18.0"
 junit = "5.11.4"
 lombok = "1.18.40"
 
