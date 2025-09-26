@@ -4,16 +4,37 @@
 
 The `flipt-client-dart` library contains the Dart source code for the Flipt [client-side evaluation](https://www.flipt.io/docs/integration/client) client.
 
+## Platform-Specific Packages
+
+For optimal package size and platform-specific optimizations, use the appropriate package for your target platform:
+
+- **Android**: Use [`flipt_client_android`](https://pub.dev/packages/flipt_client_android) (~12MB)
+- **iOS**: Use [`flipt_client_ios`](https://pub.dev/packages/flipt_client_ios) (~40MB)
+- **Desktop/Server** (Linux, macOS, Windows): Use [`flipt_client`](https://pub.dev/packages/flipt_client) (~48MB)
+
 ## Installation
 
-Add this to your package's `pubspec.yaml` file:
+Choose the appropriate package for your platform:
 
+### For Android
 ```yaml
 dependencies:
-  flipt_client: ^1.0.0
+  flipt_client_android: ^0.1.0
 ```
 
-Then run `dart pub get` to install the package.
+### For iOS
+```yaml
+dependencies:
+  flipt_client_ios: ^0.1.0
+```
+
+### For Desktop/Server (Linux, macOS, Windows)
+```yaml
+dependencies:
+  flipt_client: ^1.1.0
+```
+
+Then run `dart pub get` or `flutter pub get` to install the package.
 
 ## How Does It Work?
 
