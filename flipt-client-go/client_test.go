@@ -98,6 +98,7 @@ func (s *ClientTestSuite) TestBoolean() {
 	s.Equal("flag_boolean", boolean.FlagKey)
 	s.True(boolean.Enabled)
 	s.Equal("MATCH_EVALUATION_REASON", boolean.Reason)
+	s.Contains(boolean.SegmentKeys, "segment1")
 }
 
 func (s *ClientTestSuite) TestBatch() {
