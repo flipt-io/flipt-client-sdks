@@ -134,6 +134,11 @@ export interface ClientOptions {
    * The strategy to use for errors during refresh snapshot calls. {@link ErrorStrategy}
    */
   errorStrategy?: ErrorStrategy;
+
+  /**
+   * The hook to use for before and after evaluation calls.
+   */
+  hook?: Hook;
 }
 
 /**
@@ -222,6 +227,8 @@ export interface BooleanEvaluationResponse {
   requestDurationMillis: number;
   /** Timestamp when the response was generated. */
   timestamp: string;
+  /** Segments that impacted evaluation. */
+  segmentKeys: string[];
 }
 
 /**
@@ -291,4 +298,24 @@ export class ClientOptionsFactory {
       errorStrategy: ErrorStrategy.Fail
     };
   }
+}
+
+/**
+ * Hook interface for before and after evaluation calls.
+ */
+export interface Hook {
+  /**
+   * before is called before evaluation.
+   */
+  before(data: { flagKey: string }): void;
+  /**
+   * after is called after successful evaluation.
+   */
+  after(data: {
+    flagKey: string;
+    flagType: string;
+    value: string;
+    reason: string;
+    segmentKeys: string[];
+  }): void;
 }
