@@ -2,7 +2,7 @@ import argparse
 from semver import VersionInfo
 from prompt_toolkit.shortcuts import radiolist_dialog, yes_no_dialog, input_dialog
 from colorama import init, Fore, Style
-from sdks import AndroidSDK, GoSDK, JavaSDK, JavaScriptSDK, RubySDK, PythonSDK, DartSDK, SwiftSDK, CSharpSDK
+from sdks import AndroidSDK, GoSDK, JavaSDK, JavaScriptSDK, RubySDK, PythonSDK, DartSDK, DartAndroidSDK, DartiOSSDK, SwiftSDK, CSharpSDK
 from sdks.base import SDK, TagBasedSDK
 
 # Initialize colorama
@@ -13,6 +13,8 @@ def get_sdk(name: str) -> SDK:
         "flipt-client-js": JavaScriptSDK,
         "flipt-client-csharp": CSharpSDK,
         "flipt-client-dart": DartSDK,
+        "flipt-client-dart-android": DartAndroidSDK,
+        "flipt-client-dart-ios": DartiOSSDK,
         "flipt-client-go": GoSDK,
         "flipt-client-java": JavaSDK,
         "flipt-client-kotlin-android": AndroidSDK,
@@ -69,6 +71,8 @@ def get_sdk_selection() -> str | None:
         "flipt-client-js": "JavaScript",
         "flipt-client-csharp": "C#",
         "flipt-client-dart": "Dart",
+        "flipt-client-dart-android": "Dart Android",
+        "flipt-client-dart-ios": "Dart iOS",
         "flipt-client-go": "Go",
         "flipt-client-java": "Java",
         "flipt-client-python": "Python",
