@@ -12,7 +12,8 @@ import {
   VariantResult,
   BooleanResult,
   BatchResult,
-  ListFlagsResult
+  ListFlagsResult,
+  Hook
 } from './types';
 
 import { deserialize, serialize } from './utils';
@@ -24,6 +25,7 @@ export abstract class BaseFliptClient {
   protected fetcher: IFetcher;
   protected etag?: string;
   protected errorStrategy?: ErrorStrategy;
+  protected hook?: Hook;
 
   constructor(engine: any, fetcher: IFetcher) {
     this.engine = engine;
@@ -85,13 +87,13 @@ export abstract class BaseFliptClient {
     if (!entityId || entityId.trim() === '') {
       throw new Error('entityId cannot be empty');
     }
-
     const evaluationRequest: EvaluationRequest = {
       flagKey,
       entityId,
       context
     };
 
+    this.hook?.before({ flagKey });
     const variantResult: VariantResult | null = this.engine.evaluate_variant(
       serialize(evaluationRequest)
     );
@@ -108,7 +110,15 @@ export abstract class BaseFliptClient {
       throw new Error('Failed to evaluate variant');
     }
 
-    return deserialize<VariantEvaluationResponse>(variantResult.result);
+    const result = deserialize<VariantEvaluationResponse>(variantResult.result);
+    this.hook?.after({
+      flagKey,
+      flagType: 'variant',
+      value: result.variantKey,
+      reason: result.reason,
+      segmentKeys: result.segmentKeys
+    });
+    return result;
   }
 
   /**
@@ -136,6 +146,7 @@ export abstract class BaseFliptClient {
       context
     };
 
+    this.hook?.before({ flagKey });
     const booleanResult: BooleanResult | null = this.engine.evaluate_boolean(
       serialize(evaluationRequest)
     );
@@ -152,13 +163,24 @@ export abstract class BaseFliptClient {
       throw new Error('Failed to evaluate boolean');
     }
 
-    return deserialize<BooleanEvaluationResponse>(booleanResult.result);
+    const result = deserialize<BooleanEvaluationResponse>(booleanResult.result);
+    this.hook?.after({
+      flagKey,
+      flagType: 'boolean',
+      value: result.enabled.toString(),
+      reason: result.reason,
+      segmentKeys: result.segmentKeys
+    });
+    return result;
   }
 
   /**
    * Evaluate a batch of flag requests
    */
   public evaluateBatch(requests: EvaluationRequest[]): BatchEvaluationResponse {
+    if (this.hook) {
+      requests.forEach((req) => this.hook?.before({ flagKey: req.flagKey }));
+    }
     const serializedRequests = requests.map(serialize);
     const batchResult: BatchResult | null =
       this.engine.evaluate_batch(serializedRequests);
@@ -182,6 +204,13 @@ export abstract class BaseFliptClient {
             // @ts-ignore
             response.boolean_evaluation_response
           );
+          this.hook?.after({
+            flagKey: booleanResponse.flagKey,
+            flagType: 'boolean',
+            value: booleanResponse.enabled.toString(),
+            reason: booleanResponse.reason,
+            segmentKeys: booleanResponse.segmentKeys
+          });
           return {
             booleanEvaluationResponse: booleanResponse,
             type: 'BOOLEAN_EVALUATION_RESPONSE_TYPE'
@@ -192,6 +221,13 @@ export abstract class BaseFliptClient {
             // @ts-ignore
             response.variant_evaluation_response
           );
+          this.hook?.after({
+            flagKey: variantResponse.flagKey,
+            flagType: 'variant',
+            value: variantResponse.variantKey,
+            reason: variantResponse.reason,
+            segmentKeys: variantResponse.segmentKeys
+          });
           return {
             variantEvaluationResponse: variantResponse,
             type: 'VARIANT_EVALUATION_RESPONSE_TYPE'
