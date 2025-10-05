@@ -90,6 +90,7 @@ export class FliptClient extends BaseFliptClient {
     const client = new FliptClient(engine, fetcher);
     client.storeEtag(resp);
     client.errorStrategy = options.errorStrategy;
+    client.hook = options.hook;
 
     // Setup auto-refresh if interval is provided
     if (options.updateInterval && options.updateInterval > 0) {
