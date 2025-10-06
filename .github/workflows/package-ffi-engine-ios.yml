@@ -134,7 +134,7 @@ jobs:
           tar -czvf /tmp/Sources/FliptEngineFFI.xcframework.tar.gz -C /tmp/Sources FliptEngineFFI.xcframework
 
       - name: Upload Release Assets (Tag)
-        uses: softprops/action-gh-release@v2.3.3
+        uses: softprops/action-gh-release@v2.3.4
         if: startsWith(inputs.release_tag, 'flipt-engine-ffi-v')
         with:
           tag_name: ${{ inputs.release_tag }}
