@@ -21,7 +21,7 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == null }}
     steps:
       - name: Create Pending Status
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const sha = context.payload.workflow_run ? context.payload.workflow_run.head_sha : context.sha;
@@ -49,7 +49,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
         with:
           gradle-version: "8.11.1"
           cache-disabled: true
@@ -139,7 +139,7 @@ jobs:
 
       - name: Update Status Check
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const sha = context.payload.workflow_run ? context.payload.workflow_run.head_sha : context.sha;
@@ -174,7 +174,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
         with:
           gradle-version: "8.11.1"
           cache-disabled: true
@@ -251,7 +251,7 @@ jobs:
 
       - name: Update Status Check
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const sha = context.payload.workflow_run ? context.payload.workflow_run.head_sha : context.sha;

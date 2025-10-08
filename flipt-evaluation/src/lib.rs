@@ -43,6 +43,7 @@ pub struct BooleanEvaluationResponse {
     pub reason: flipt::EvaluationReason,
     pub request_duration_millis: f64,
     pub timestamp: DateTime<Utc>,
+    pub segment_keys: Vec<String>,
 }
 
 #[derive(Serialize, Debug)]
@@ -89,6 +90,7 @@ impl Default for BooleanEvaluationResponse {
             reason: flipt::EvaluationReason::Unknown,
             request_duration_millis: 0.0,
             timestamp: chrono::offset::Utc::now(),
+            segment_keys: vec![],
         }
     }
 }
@@ -325,10 +327,12 @@ pub fn boolean_evaluation(
                     reason: flipt::EvaluationReason::Match,
                     request_duration_millis: start.elapsed().as_millis() as f64,
                     timestamp: chrono::offset::Utc::now(),
+                    segment_keys: vec![],
                 });
             }
         } else if let Some(segment) = rollout.segment {
             let mut segment_matches = 0;
+            let mut segments = vec![];
 
             for segment_data in segment.segments.values() {
                 let matched = matches_constraints(
@@ -339,6 +343,7 @@ pub fn boolean_evaluation(
                 )?;
 
                 if matched {
+                    segments.push(segment_data.segment_key.clone());
                     segment_matches += 1;
                 }
             }
@@ -359,6 +364,7 @@ pub fn boolean_evaluation(
                 reason: flipt::EvaluationReason::Match,
                 request_duration_millis: start.elapsed().as_millis() as f64,
                 timestamp: chrono::offset::Utc::now(),
+                segment_keys: segments,
             });
         }
     }
@@ -369,6 +375,7 @@ pub fn boolean_evaluation(
         reason: flipt::EvaluationReason::Default,
         request_duration_millis: start.elapsed().as_millis() as f64,
         timestamp: chrono::offset::Utc::now(),
+        segment_keys: vec![],
     })
 }
 
@@ -3093,6 +3100,7 @@ mod tests {
         assert_eq!(b.flag_key, String::from("foo"));
         assert!(b.enabled);
         assert_eq!(b.reason, flipt::EvaluationReason::Match);
+        assert_eq!(b.segment_keys, vec![String::from("segment1")]);
     }
 
     #[test]

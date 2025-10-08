@@ -109,6 +109,7 @@ export class FliptClient extends BaseFliptClient {
     const client = new FliptClient(engine, fetcher);
     client.storeEtag(resp);
     client.errorStrategy = options.errorStrategy;
+    client.hook = options.hook;
 
     return client;
   }

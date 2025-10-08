@@ -1,8 +1,8 @@
 [versions]
 jackson = "2.20.0"
-jna = "5.17.0"
+jna = "5.18.1"
 junit = "5.11.4"
-lombok = "1.18.40"
+lombok = "1.18.42"
 
 [libraries]
 jackson-dataformat-xml = { group = "com.fasterxml.jackson.dataformat", name = "jackson-dataformat-xml", version.ref = "jackson" }

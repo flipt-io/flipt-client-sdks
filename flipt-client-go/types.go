@@ -58,11 +58,12 @@ type VariantEvaluationResponse struct {
 
 // BooleanEvaluationResponse is the response for a boolean flag evaluation.
 type BooleanEvaluationResponse struct {
-	Enabled               bool    `json:"enabled"`
-	FlagKey               string  `json:"flag_key"`
-	Reason                string  `json:"reason"`
-	RequestDurationMillis float64 `json:"request_duration_millis"`
-	Timestamp             string  `json:"timestamp"`
+	Enabled               bool     `json:"enabled"`
+	FlagKey               string   `json:"flag_key"`
+	Reason                string   `json:"reason"`
+	RequestDurationMillis float64  `json:"request_duration_millis"`
+	Timestamp             string   `json:"timestamp"`
+	SegmentKeys           []string `json:"segment_keys"`
 }
 
 // ErrorEvaluationResponse is the response for an error during flag evaluation.
