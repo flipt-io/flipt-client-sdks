@@ -52,6 +52,7 @@ The `FliptClient` constructor accepts the following optional arguments:
   - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
   - `fetcher`: An implementation of a [fetcher](https://github.com/flipt-io/flipt-client-sdks/blob/d0869dc9f6b3a65052712926b88fa0f9b18defaa/flipt-client-js/src/core/types.ts#L60-L62) interface to use when requesting flag state. If not provided, a default fetcher using the browser's [`fetch` API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) will be used.
   - `errorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to fail. See the [Error Strategies](#error-strategies) section for more information.
+  - `hook`: A hook implementation for before and after evaluation callbacks. See the [Hooks](#hooks) section for more information.
 
 ### Authentication
 
@@ -86,6 +87,60 @@ const client = await FliptClient.init({
 ```
 
 The fetcher is a function that takes an optional [`IFetcherOpts`](https://github.com/flipt-io/flipt-client-sdks/blob/d0869dc9f6b3a65052712926b88fa0f9b18defaa/flipt-client-js/src/core/types.ts#L50-L55) argument and returns a `Promise` that resolves to a `Response` object.
+
+### Hooks
+
+The `FliptClient` supports hooks that allow you to execute custom code before and after flag evaluation. This is useful for logging, metrics collection, or other observability patterns.
+
+#### Hook Interface
+
+To use hooks, implement the `Hook` interface.
+
+#### Example: Logging Hook
+
+```typescript
+import { FliptClient } from '@flipt-io/flipt-client-js';
+
+class LoggingHook {
+  before(data: { flagKey: string }) {
+    console.log(`Evaluating flag: ${data.flagKey}`);
+  }
+
+  after(data: {
+    flagKey: string;
+    flagType: string;
+    value: string;
+    reason: string;
+    segmentKeys: string[];
+  }) {
+    console.log(
+      `Flag ${data.flagKey} evaluated: type=${data.flagType}, value=${data.value}, reason=${data.reason}`
+    );
+  }
+}
+
+const client = await FliptClient.init({
+  namespace: 'default',
+  url: 'http://localhost:8080',
+  hook: new LoggingHook()
+});
+
+const result = client.evaluateVariant({
+  flagKey: 'my-flag',
+  entityId: 'user-123',
+  context: { environment: 'production' }
+});
+
+console.log(result);
+```
+
+The hooks are called for all evaluation methods:
+
+- `evaluateVariant`: Called once per evaluation
+- `evaluateBoolean`: Called once per evaluation
+- `evaluateBatch`: Called once before for each request, and once after for each successful response
+
+**Note:** Hooks are optional. If no hook is provided, evaluations proceed normally without any callbacks.
 
 ## State Management
 
