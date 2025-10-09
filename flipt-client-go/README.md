@@ -126,6 +126,7 @@ The `NewClient` constructor accepts a variadic number of `Option` functions that
 - `WithFetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
 - `WithErrorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to `Fail`. See the [Error Strategies](#error-strategies) section for more information.
 - `WithTLSConfig`: The TLS configuration for connecting to servers with custom certificates. See [TLS Configuration](#tls-configuration). Note: if used with `WithHTTPClient`, this should be called after setting the HTTP client.
+- `WithHook`: A hook implementation for before and after evaluation callbacks. See the [Hooks](#hooks) section for more information.
 
 ### Authentication
 
@@ -245,19 +246,19 @@ Since the client accepts a standard `tls.Config`, you have access to all TLS con
 tlsConfig := &tls.Config{
   // Custom CA certificates
   RootCAs: caCertPool,
-  
+
   // Client certificates for mutual TLS
   Certificates: []tls.Certificate{clientCert},
-  
+
   // Minimum TLS version
   MinVersion: tls.VersionTLS12,
-  
+
   // Custom cipher suites
   CipherSuites: []uint16{
     tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
     tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
   },
-  
+
   // Server name for SNI
   ServerName: "flipt.example.com",
 }
@@ -282,6 +283,71 @@ if err != nil {
 ```
 
 In the case of non-fetch related errors, the client will stop polling or streaming for flag state changes and return the error for all subsequent method calls.
+
+### Hooks
+
+The `Client` supports hooks that allow you to execute custom code before and after flag evaluation. This is useful for logging, metrics collection, or other observability patterns.
+
+#### Hook Interface
+
+To use hooks, implement the `Hook` interface.
+
+#### Example: Logging Hook
+
+```go
+package main
+
+import (
+  "context"
+  "log"
+
+  flipt "go.flipt.io/flipt-client"
+)
+
+type LoggingHook struct{}
+
+func (h *LoggingHook) Before(ctx context.Context, data flipt.BeforeHookData) {
+  log.Printf("Evaluating flag: %s", data.FlagKey)
+}
+
+func (h *LoggingHook) After(ctx context.Context, data flipt.AfterHookData) {
+  log.Printf("Flag %s evaluated: type=%s, value=%s, reason=%s",
+    data.FlagKey, data.FlagType, data.Value, data.Reason)
+}
+
+func main() {
+  ctx := context.Background()
+
+  client, err := flipt.NewClient(
+    ctx,
+    flipt.WithURL("http://localhost:8080"),
+    flipt.WithHook(&LoggingHook{}),
+  )
+  if err != nil {
+    log.Fatal(err)
+  }
+  defer client.Close(ctx)
+
+  result, err := client.EvaluateVariant(ctx, &flipt.EvaluationRequest{
+    FlagKey:  "my-flag",
+    EntityID: "user-123",
+    Context:  map[string]string{"environment": "production"},
+  })
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  log.Printf("Result: %+v", result)
+}
+```
+
+The hooks are called for all evaluation methods:
+
+- `EvaluateVariant`: Called once per evaluation
+- `EvaluateBoolean`: Called once per evaluation
+- `EvaluateBatch`: The "before" hook is called once for each request in the batch, and the "after" hook is called once for each successful response.
+
+**Note:** Hooks are optional. If no hook is provided, evaluations proceed normally without any callbacks.
 
 ## Memory Management
 

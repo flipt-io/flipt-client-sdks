@@ -92,6 +92,13 @@ func WithRequestTimeout(timeout time.Duration) Option {
 	}
 }
 
+// WithHook sets the hook for the client.
+func WithHook(hook Hook) Option {
+	return func(cfg *config) {
+		cfg.Hook = hook
+	}
+}
+
 // WithTLSConfig sets the TLS configuration for the client using the standard library tls.Config.
 // This provides maximum flexibility for configuring TLS settings including custom CAs,
 // mutual TLS authentication, and certificate verification options.
@@ -174,6 +181,8 @@ type config struct {
 	ErrorStrategy ErrorStrategy
 	// HTTPClient to use for requests. If nil, a default client is used.
 	HTTPClient *http.Client
+	// Hook for before and after evaluation callbacks. Optional.
+	Hook Hook
 }
 
 // validate validates the configuration and sets defaults.

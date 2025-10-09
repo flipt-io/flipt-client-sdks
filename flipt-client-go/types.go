@@ -1,5 +1,7 @@
 package flipt
 
+import "context"
+
 // EvaluationRequest represents the request structure for evaluating a flag.
 type EvaluationRequest struct {
 	FlagKey  string            `json:"flag_key"`
@@ -105,3 +107,25 @@ type BatchResult Result[BatchEvaluationResponse]
 
 // ListFlagsResult is a result wrapper for a list of Flag.
 type ListFlagsResult Result[[]Flag]
+
+// Hook is an interface for before and after evaluation callbacks.
+type Hook interface {
+	// Before is called before evaluation with the flag key.
+	Before(ctx context.Context, data BeforeHookData)
+	// After is called after successful evaluation with evaluation results.
+	After(ctx context.Context, data AfterHookData)
+}
+
+// BeforeHookData contains the data passed to the Before hook.
+type BeforeHookData struct {
+	FlagKey string
+}
+
+// AfterHookData contains the data passed to the After hook.
+type AfterHookData struct {
+	FlagKey     string
+	FlagType    string
+	Value       string
+	Reason      string
+	SegmentKeys []string
+}

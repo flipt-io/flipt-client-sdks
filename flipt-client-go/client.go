@@ -11,6 +11,8 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -246,6 +248,10 @@ func (c *Client) Err() error {
 
 // EvaluateVariant performs evaluation for a variant flag.
 func (c *Client) EvaluateVariant(ctx context.Context, req *EvaluationRequest) (*VariantEvaluationResponse, error) {
+	if c.cfg.Hook != nil {
+		c.cfg.Hook.Before(ctx, BeforeHookData{FlagKey: req.FlagKey})
+	}
+
 	result, err := c.evaluateWASM(ctx, fEvaluateVariant, req)
 	if err != nil {
 		return nil, err
@@ -264,11 +270,25 @@ func (c *Client) EvaluateVariant(ctx context.Context, req *EvaluationRequest) (*
 		return nil, errors.New(variantResult.ErrorMessage)
 	}
 
+	if c.cfg.Hook != nil {
+		c.cfg.Hook.After(ctx, AfterHookData{
+			FlagKey:     variantResult.Result.FlagKey,
+			FlagType:    "variant",
+			Value:       variantResult.Result.VariantKey,
+			Reason:      variantResult.Result.Reason,
+			SegmentKeys: slices.Clone(variantResult.Result.SegmentKeys),
+		})
+	}
+
 	return variantResult.Result, nil
 }
 
 // EvaluateBoolean performs evaluation for a boolean flag.
 func (c *Client) EvaluateBoolean(ctx context.Context, req *EvaluationRequest) (*BooleanEvaluationResponse, error) {
+	if c.cfg.Hook != nil {
+		c.cfg.Hook.Before(ctx, BeforeHookData{FlagKey: req.FlagKey})
+	}
+
 	result, err := c.evaluateWASM(ctx, fEvaluateBoolean, req)
 	if err != nil {
 		return nil, err
@@ -287,11 +307,27 @@ func (c *Client) EvaluateBoolean(ctx context.Context, req *EvaluationRequest) (*
 		return nil, errors.New(booleanResult.ErrorMessage)
 	}
 
+	if c.cfg.Hook != nil {
+		c.cfg.Hook.After(ctx, AfterHookData{
+			FlagKey:     booleanResult.Result.FlagKey,
+			FlagType:    "boolean",
+			Value:       strconv.FormatBool(booleanResult.Result.Enabled),
+			Reason:      booleanResult.Result.Reason,
+			SegmentKeys: slices.Clone(booleanResult.Result.SegmentKeys),
+		})
+	}
+
 	return booleanResult.Result, nil
 }
 
 // EvaluateBatch performs evaluation for a batch of flags.
 func (c *Client) EvaluateBatch(ctx context.Context, requests []*EvaluationRequest) (*BatchEvaluationResponse, error) {
+	if c.cfg.Hook != nil {
+		for _, req := range requests {
+			c.cfg.Hook.Before(ctx, BeforeHookData{FlagKey: req.FlagKey})
+		}
+	}
+
 	result, err := c.evaluateWASM(ctx, fEvaluateBatch, requests)
 	if err != nil {
 		return nil, err
@@ -308,6 +344,33 @@ func (c *Client) EvaluateBatch(ctx context.Context, requests []*EvaluationReques
 
 	if batchResult.Status != statusSuccess {
 		return nil, errors.New(batchResult.ErrorMessage)
+	}
+
+	if c.cfg.Hook != nil {
+		for _, resp := range batchResult.Result.Responses {
+			switch resp.Type {
+			case "VARIANT_EVALUATION_RESPONSE_TYPE":
+				if resp.VariantEvaluationResponse != nil {
+					c.cfg.Hook.After(ctx, AfterHookData{
+						FlagKey:     resp.VariantEvaluationResponse.FlagKey,
+						FlagType:    "variant",
+						Value:       resp.VariantEvaluationResponse.VariantKey,
+						Reason:      resp.VariantEvaluationResponse.Reason,
+						SegmentKeys: slices.Clone(resp.VariantEvaluationResponse.SegmentKeys),
+					})
+				}
+			case "BOOLEAN_EVALUATION_RESPONSE_TYPE":
+				if resp.BooleanEvaluationResponse != nil {
+					c.cfg.Hook.After(ctx, AfterHookData{
+						FlagKey:     resp.BooleanEvaluationResponse.FlagKey,
+						FlagType:    "boolean",
+						Value:       strconv.FormatBool(resp.BooleanEvaluationResponse.Enabled),
+						Reason:      resp.BooleanEvaluationResponse.Reason,
+						SegmentKeys: slices.Clone(resp.BooleanEvaluationResponse.SegmentKeys),
+					})
+				}
+			}
+		}
 	}
 
 	return batchResult.Result, nil
