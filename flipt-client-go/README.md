@@ -345,7 +345,7 @@ The hooks are called for all evaluation methods:
 
 - `EvaluateVariant`: Called once per evaluation
 - `EvaluateBoolean`: Called once per evaluation
-- `EvaluateBatch`: Called once before the batch, and once after for each successful response
+- `EvaluateBatch`: The "before" hook is called once for each request in the batch, and the "after" hook is called once for each successful response.
 
 **Note:** Hooks are optional. If no hook is provided, evaluations proceed normally without any callbacks.
 
