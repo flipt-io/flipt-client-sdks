@@ -436,12 +436,16 @@ class BooleanEvaluationResponse {
   /// The timestamp of the evaluation.
   final String timestamp;
 
+  /// The segment keys involved in the evaluation.
+  final List<String> segmentKeys;
+
   BooleanEvaluationResponse({
     required this.enabled,
     required this.flagKey,
     required this.reason,
     required this.requestDurationMillis,
     required this.timestamp,
+    required this.segmentKeys,
   });
 
   factory BooleanEvaluationResponse.fromJson(Map<String, dynamic> json) =>

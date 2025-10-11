@@ -114,6 +114,12 @@ public class BooleanEvaluationResponse
     /// </summary>
     [JsonPropertyName("timestamp")]
     public string? Timestamp { get; set; }
+
+    /// <summary>
+    /// Gets or sets the segment keys that matched.
+    /// </summary>
+    [JsonPropertyName("segment_keys")]
+    public required List<string> SegmentKeys { get; set; }
 }
 
 /// <summary>

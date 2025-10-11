@@ -363,6 +363,7 @@ public struct BooleanEvaluationResponse: Codable {
     public let reason: String
     public let request_duration_millis: Double
     public let timestamp: String
+    public let segment_keys: [String]
 }
 
 public struct ErrorEvaluationResponse: Codable {

@@ -202,6 +202,7 @@ class BooleanEvaluationResponse(BaseModel):
     reason: str  #: Reason for the evaluation result.
     request_duration_millis: float  #: Duration of the request in milliseconds.
     timestamp: str  #: Timestamp of the evaluation.
+    segment_keys: List[str]  #: List of matched segment keys.
 
 
 class ErrorEvaluationResponse(BaseModel):
