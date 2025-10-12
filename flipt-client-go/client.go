@@ -160,7 +160,14 @@ func NewClient(ctx context.Context, opts ...Option) (_ *Client, err error) {
 	// fetch initial state
 	snapshot, err := c.fetch(ctx, initialURL, "")
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch initial state: %w", err)
+		if cfg.ErrorStrategy == ErrorStrategyFallback {
+			c.mu.Lock()
+			c.err = err
+			c.mu.Unlock()
+			snapshot = c.emptyPayload(c.cfg.Namespace)
+		} else {
+			return nil, fmt.Errorf("failed to fetch initial state: %w", err)
+		}
 	}
 
 	// set initial etag
@@ -172,7 +179,7 @@ func NewClient(ctx context.Context, opts ...Option) (_ *Client, err error) {
 		return nil, fmt.Errorf("failed to allocate memory for payload: %w", err)
 	}
 
-	if !mod.Memory().Write(uint32(pmPtr[0]), []byte(snapshot.payload)) {
+	if !mod.Memory().Write(uint32(pmPtr[0]), snapshot.payload) {
 		return nil, fmt.Errorf("failed to write payload to memory")
 	}
 
@@ -457,7 +464,7 @@ func (c *Client) Close(ctx context.Context) (err error) {
 		err = c.runtime.Close(ctx)
 	})
 
-	return
+	return err
 }
 
 // unexported
@@ -949,4 +956,9 @@ func (c *Client) getSnapshotURL() string {
 		// This should never happen as we validate fetch mode during initialization
 		return ""
 	}
+}
+
+func (c *Client) emptyPayload(namespace string) snapshot {
+	emptyPayload := fmt.Sprintf(`{"namespace":{"key":"%s"},"flags":[]}`, namespace)
+	return snapshot{payload: []byte(emptyPayload), etag: ""}
 }

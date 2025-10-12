@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	flipt "go.flipt.io/flipt-client"
@@ -251,4 +252,79 @@ func (s *ClientTestSuite) TestStreaming() {
 	s.Require().NoError(err)
 	s.NotEmpty(flags)
 	s.Equal(2, len(flags))
+}
+
+func TestErrorStrategyFallback_InitializationWithInvalidURL(t *testing.T) {
+	ctx := context.Background()
+
+	client, err := flipt.NewClient(ctx,
+		flipt.WithURL("http://localhost:19999"), // non-existent server
+		flipt.WithNamespace("test"),
+		flipt.WithErrorStrategy(flipt.ErrorStrategyFallback),
+	)
+
+	require.NoError(t, err, "client should initialize with ErrorStrategyFallback even when server is unreachable")
+	require.NotNil(t, client, "client should not be nil")
+
+	t.Cleanup(func() {
+		_ = client.Close(ctx)
+	})
+
+	// The client should have an error stored
+	clientErr := client.Err()
+	assert.Error(t, clientErr, "client should have stored the fetch error")
+
+	flags, err := client.ListFlags(ctx)
+	require.NoError(t, err, "ListFlags should not error with fallback strategy")
+	assert.Empty(t, flags, "flags should be empty with empty initial state")
+}
+
+func TestErrorStrategyFail_InitializationWithInvalidURL(t *testing.T) {
+	ctx := context.Background()
+
+	client, err := flipt.NewClient(ctx,
+		flipt.WithURL("http://localhost:19999"), // non-existent server
+		flipt.WithNamespace("test"),
+		flipt.WithErrorStrategy(flipt.ErrorStrategyFail),
+	)
+
+	assert.Error(t, err, "client initialization should fail with ErrorStrategyFail when server is unreachable")
+	assert.Nil(t, client, "client should be nil when initialization fails")
+}
+
+func TestErrorStrategyDefault_InitializationWithInvalidURL(t *testing.T) {
+	ctx := context.Background()
+
+	client, err := flipt.NewClient(ctx,
+		flipt.WithURL("http://localhost:19999"), // non-existent server
+		flipt.WithNamespace("test"),
+	)
+
+	assert.Error(t, err, "client initialization should fail by default when server is unreachable")
+	assert.Nil(t, client, "client should be nil when initialization fails")
+}
+
+func TestErrorStrategyFallback_EvaluationReturnsError(t *testing.T) {
+	ctx := context.Background()
+
+	client, err := flipt.NewClient(ctx,
+		flipt.WithURL("http://localhost:19999"), // non-existent server
+		flipt.WithNamespace("test"),
+		flipt.WithErrorStrategy(flipt.ErrorStrategyFallback),
+	)
+
+	require.NoError(t, err, "client should initialize with ErrorStrategyFallback")
+	require.NotNil(t, client)
+
+	t.Cleanup(func() {
+		_ = client.Close(ctx)
+	})
+
+	_, err = client.EvaluateVariant(ctx, &flipt.EvaluationRequest{
+		FlagKey:  "test-flag",
+		EntityID: "test-entity",
+		Context:  map[string]string{},
+	})
+	assert.Error(t, err, "evaluation should fail when flag doesn't exist in empty state")
+	assert.Contains(t, err.Error(), "failed to get flag information", "error should indicate flag not found")
 }
