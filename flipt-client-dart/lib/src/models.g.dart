@@ -174,6 +174,9 @@ BooleanEvaluationResponse _$BooleanEvaluationResponseFromJson(
       requestDurationMillis:
           (json['request_duration_millis'] as num).toDouble(),
       timestamp: json['timestamp'] as String,
+      segmentKeys: (json['segment_keys'] as List<dynamic>)
+          .map((e) => e as String)
+          .toList(),
     );
 
 Map<String, dynamic> _$BooleanEvaluationResponseToJson(
@@ -184,6 +187,7 @@ Map<String, dynamic> _$BooleanEvaluationResponseToJson(
       'reason': instance.reason,
       'request_duration_millis': instance.requestDurationMillis,
       'timestamp': instance.timestamp,
+      'segment_keys': instance.segmentKeys,
     };
 
 ErrorEvaluationResponse _$ErrorEvaluationResponseFromJson(

@@ -10,4 +10,5 @@ data class BooleanEvaluationResponse(
     @SerialName("reason") val reason: String,
     @SerialName("request_duration_millis") val requestDurationMillis: Float,
     @SerialName("timestamp") val timestamp: String,
+    @SerialName("segment_keys") val segmentKeys: List<String>,
 )
