@@ -13,29 +13,6 @@ class FliptClient {
   late FliptEngine _bindings;
 
   FliptClient({Options? options}) {
-    // Check for mobile platforms and provide helpful error messages
-    if (Platform.isAndroid) {
-      throw UnsupportedError(
-        'flipt_client does not support Android. '
-        'Please use flipt_client_android instead:\n\n'
-        'dependencies:\n'
-        '  flipt_client_android: ^0.1.0\n\n'
-        'Then import:\n'
-        'import \'package:flipt_client_android/flipt_client_android.dart\';'
-      );
-    }
-    
-    if (Platform.isIOS) {
-      throw UnsupportedError(
-        'flipt_client does not support iOS. '
-        'Please use flipt_client_ios instead:\n\n'
-        'dependencies:\n'
-        '  flipt_client_ios: ^0.1.0\n\n'
-        'Then import:\n'
-        'import \'package:flipt_client_ios/flipt_client_ios.dart\';'
-      );
-    }
-    
     final lib = loadFliptEngine();
     _bindings = FliptEngine(lib);
     _initializeEngine(options);
