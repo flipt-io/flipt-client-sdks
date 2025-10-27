@@ -62,7 +62,7 @@ jobs:
           tar -czvf flipt-engine-wasm-js-${{ matrix.target }}.tar.gz flipt-engine-wasm-js/pkg/* || true
 
       - name: Upload Artifact (Pull Request)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: github.event_name == 'pull_request'
         with:
           name: flipt-engine-wasm-js-${{ matrix.target }}.tar.gz
