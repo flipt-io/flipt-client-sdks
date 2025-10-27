@@ -156,7 +156,7 @@ jobs:
 
       - name: (Fail-only) Upload the build reports
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: build-reports
           path: ./flipt-client-kotlin-android/build/reports
@@ -268,7 +268,7 @@ jobs:
 
       - name: (Fail-only) Upload the build reports
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: build-reports
           path: ./flipt-client-kotlin-android/build/reports
