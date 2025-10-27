@@ -70,7 +70,7 @@ jobs:
           private-key: ${{ secrets.FLIPT_RELEASE_BOT_APP_PEM }}
 
       - name: Download Artifact (Android x86_64)
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           name: flipt-engine-ffi-Android-x86_64.tar.gz
@@ -78,7 +78,7 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
 
       - name: Download Artifact (Android arm64)
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           name: flipt-engine-ffi-Android-aarch64.tar.gz
