@@ -158,10 +158,9 @@ class ClientOptions(BaseModel):
 
     else:
         from pydantic import validator
+
         class Config:
-            json_encoders = {
-                timedelta: lambda v: int(v.total_seconds()) if v else None
-            }
+            json_encoders = {timedelta: lambda v: int(v.total_seconds()) if v else None}
 
         @validator("request_timeout", "update_interval", pre=True)
         def parse_timedelta(cls, v):
