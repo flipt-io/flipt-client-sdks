@@ -76,10 +76,6 @@ func run() error {
 
 	defer client.Close()
 
-	dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
-		Exclude: []string{".github/", "package/", "test/", ".git/"},
-	})
-
 	var g errgroup.Group
 
 	for _, s := range builds {
@@ -88,6 +84,11 @@ func run() error {
 			if err := downloadFFI(ctx, client, s); err != nil {
 				return err
 			}
+
+			// Read directory AFTER downloading FFI files so tmp/ is included
+			dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
+				Exclude: []string{".github/", "package/", "test/", ".git/"},
+			})
 
 			container := client.Container(dagger.ContainerOpts{
 				Platform: dagger.Platform("linux/amd64"),
