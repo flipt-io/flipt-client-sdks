@@ -72,5 +72,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
-          mkdir -p /tmp
+          mkdir -p tmp
           dagger run go run ./package/ffi --sdks=${{ inputs.sdks }} --push=true --tag=${{ inputs.tag }} --engine-tag=${{ inputs.engine-tag }}
