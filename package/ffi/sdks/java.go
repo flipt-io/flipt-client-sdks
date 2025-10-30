@@ -13,7 +13,7 @@ type JavaSDK struct {
 	BaseSDK
 }
 
-func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts) error {
+func (s *JavaSDK) Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, tmpDirectory *dagger.Directory, opts BuildOpts) error {
 	// the directory structure of the tmp directory is as follows:
 	// tmp/linux_x86_64/
 	// tmp/linux_aarch64/

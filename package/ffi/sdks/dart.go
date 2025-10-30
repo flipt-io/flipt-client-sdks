@@ -24,7 +24,7 @@ func (s *DartSDK) SupportedPlatforms() []platform.Platform {
 	}
 }
 
-func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts) error {
+func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, tmpDirectory *dagger.Directory, opts BuildOpts) error {
 	// we need to download the FliptEngineFFI.xcframework.tar.gz file from the release and extract it into the tmp directory to support the iOS SDK
 	var (
 		url = fmt.Sprintf("https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-%s/%s.%s", opts.EngineTag, "FliptEngineFFI.xcframework", "tar.gz")

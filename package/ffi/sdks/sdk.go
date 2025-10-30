@@ -24,7 +24,7 @@ type BuildOpts struct {
 
 type SDK interface {
 	SupportedPlatforms() []platform.Platform
-	Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts) error
+	Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, tmpDirectory *dagger.Directory, opts BuildOpts) error
 }
 
 type BaseSDK struct{}
