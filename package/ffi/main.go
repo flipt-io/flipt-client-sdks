@@ -81,12 +81,16 @@ func run() error {
 	})
 
 	// Get absolute path for tmp directory to work with Dagger 0.18.17+
+	// NoGitAutoIgnore is required because tmp/ is in .gitignore and Dagger 0.18.17
+	// automatically applies gitignore patterns when loading directories
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current working directory: %w", err)
 	}
 	tmpPath := fmt.Sprintf("%s/tmp", cwd)
-	tmpDir := client.Host().Directory(tmpPath)
+	tmpDir := client.Host().Directory(tmpPath, dagger.HostDirectoryOpts{
+		NoGitAutoIgnore: true,
+	})
 
 	var g errgroup.Group
 
