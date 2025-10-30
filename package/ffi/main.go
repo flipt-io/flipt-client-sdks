@@ -80,6 +80,14 @@ func run() error {
 		Exclude: []string{".github/", "package/", "test/", ".git/"},
 	})
 
+	// Get absolute path for tmp directory to work with Dagger 0.18.17+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current working directory: %w", err)
+	}
+	tmpPath := fmt.Sprintf("%s/tmp", cwd)
+	tmpDir := client.Host().Directory(tmpPath)
+
 	var g errgroup.Group
 
 	for _, s := range builds {
@@ -92,7 +100,7 @@ func run() error {
 				Platform: dagger.Platform("linux/amd64"),
 			})
 
-			return s.Build(ctx, client, container, dir, sdks.BuildOpts{
+			return s.Build(ctx, client, container, dir, tmpDir, sdks.BuildOpts{
 				Tag:       tag,
 				EngineTag: engineTag,
 				Push:      push,

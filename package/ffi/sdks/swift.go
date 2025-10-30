@@ -24,7 +24,7 @@ func (s *SwiftSDK) SupportedPlatforms() []platform.Platform {
 	}
 }
 
-func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, opts BuildOpts) error {
+func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, container *dagger.Container, hostDirectory *dagger.Directory, tmpDirectory *dagger.Directory, opts BuildOpts) error {
 	pat := os.Getenv("GITHUB_TOKEN")
 	if pat == "" && opts.Push {
 		return errors.New("GITHUB_TOKEN environment variable must be set")
@@ -58,7 +58,7 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, container *
 	repository := git.
 		WithExec(args("git clone https://github.com/flipt-io/flipt-client-sdks.git /src")).
 		WithWorkdir("/src").
-		WithDirectory("/tmp/ext", hostDirectory.Directory("tmp")).
+		WithDirectory("/tmp/ext", tmpDirectory).
 		WithFile("/tmp/ext/flipt_engine.h", hostDirectory.File("flipt-engine-ffi/include/flipt_engine.h"))
 
 	filtered := repository.
