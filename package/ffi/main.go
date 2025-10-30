@@ -76,6 +76,10 @@ func run() error {
 
 	defer client.Close()
 
+	dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
+		Exclude: []string{".github/", "package/", "test/", ".git/"},
+	})
+
 	var g errgroup.Group
 
 	for _, s := range builds {
@@ -83,11 +87,6 @@ func run() error {
 			if err := downloadFFI(ctx, client, s); err != nil {
 				return err
 			}
-
-			// Read directory AFTER downloading FFI files so tmp/ is included
-			dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
-				Exclude: []string{".github/", "package/", "test/", ".git/"},
-			})
 
 			container := client.Container(dagger.ContainerOpts{
 				Platform: dagger.Platform("linux/amd64"),
@@ -173,10 +172,6 @@ func downloadFFI(ctx context.Context, client *dagger.Client, sdk sdks.SDK) error
 
 	if err := os.RemoveAll("tmp"); err != nil {
 		return fmt.Errorf("failed to remove tmp directory: %w", err)
-	}
-
-	if err := os.Mkdir("tmp", 0o777); err != nil {
-		return fmt.Errorf("failed to create tmp directory: %w", err)
 	}
 
 	for _, pkg := range packages {
