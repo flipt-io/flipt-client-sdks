@@ -49,7 +49,7 @@ func main() {
 }
 
 func run() error {
-	var builds = make(map[string]sdks.SDK, len(sdksToFn))
+	builds := make(map[string]sdks.SDK, len(sdksToFn))
 
 	maps.Copy(builds, sdksToFn)
 
@@ -79,7 +79,6 @@ func run() error {
 	var g errgroup.Group
 
 	for _, s := range builds {
-		s := s
 		g.Go(take(func() error {
 			if err := downloadFFI(ctx, client, s); err != nil {
 				return err
@@ -176,9 +175,11 @@ func downloadFFI(ctx context.Context, client *dagger.Client, sdk sdks.SDK) error
 		return fmt.Errorf("failed to remove tmp directory: %w", err)
 	}
 
-	for _, pkg := range packages {
-		pkg := pkg
+	if err := os.Mkdir("tmp", 0o777); err != nil {
+		return fmt.Errorf("failed to create tmp directory: %w", err)
+	}
 
+	for _, pkg := range packages {
 		ext := platform.TarGz
 		if pkg.Ext != "" {
 			ext = pkg.Ext
