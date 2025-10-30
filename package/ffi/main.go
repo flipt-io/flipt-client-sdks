@@ -170,7 +170,14 @@ func downloadFFI(ctx context.Context, client *dagger.Client, sdk sdks.SDK) error
 
 	packages := sdk.SupportedPlatforms()
 
-	if err := os.RemoveAll("tmp"); err != nil {
+	// Get absolute path for tmp directory to work with Dagger 0.18.17+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current working directory: %w", err)
+	}
+	tmpDir := fmt.Sprintf("%s/tmp", cwd)
+
+	if err := os.RemoveAll(tmpDir); err != nil {
 		return fmt.Errorf("failed to remove tmp directory: %w", err)
 	}
 
@@ -206,7 +213,7 @@ func downloadFFI(ctx context.Context, client *dagger.Client, sdk sdks.SDK) error
 		if _, err := container.
 			WithExec(cmd).
 			Directory("/out").
-			Export(ctx, "tmp"); err != nil {
+			Export(ctx, tmpDir); err != nil {
 			return err
 		}
 	}
