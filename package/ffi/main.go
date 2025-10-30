@@ -76,6 +76,10 @@ func run() error {
 
 	defer client.Close()
 
+	dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
+		Exclude: []string{".github/", "package/", "test/", ".git/"},
+	})
+
 	var g errgroup.Group
 
 	for _, s := range builds {
@@ -83,11 +87,6 @@ func run() error {
 			if err := downloadFFI(ctx, client, s); err != nil {
 				return err
 			}
-
-			// Read directory AFTER downloading FFI files so tmp/ is included
-			dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
-				Exclude: []string{".github/", "package/", "test/", ".git/"},
-			})
 
 			container := client.Container(dagger.ContainerOpts{
 				Platform: dagger.Platform("linux/amd64"),
@@ -171,12 +170,15 @@ func downloadFFI(ctx context.Context, client *dagger.Client, sdk sdks.SDK) error
 
 	packages := sdk.SupportedPlatforms()
 
-	if err := os.RemoveAll("tmp"); err != nil {
-		return fmt.Errorf("failed to remove tmp directory: %w", err)
+	// Get absolute path for tmp directory to work with Dagger 0.18.17+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current working directory: %w", err)
 	}
+	tmpDir := fmt.Sprintf("%s/tmp", cwd)
 
-	if err := os.Mkdir("tmp", 0o777); err != nil {
-		return fmt.Errorf("failed to create tmp directory: %w", err)
+	if err := os.RemoveAll(tmpDir); err != nil {
+		return fmt.Errorf("failed to remove tmp directory: %w", err)
 	}
 
 	for _, pkg := range packages {
@@ -211,7 +213,7 @@ func downloadFFI(ctx context.Context, client *dagger.Client, sdk sdks.SDK) error
 		if _, err := container.
 			WithExec(cmd).
 			Directory("/out").
-			Export(ctx, "tmp"); err != nil {
+			Export(ctx, tmpDir); err != nil {
 			return err
 		}
 	}
