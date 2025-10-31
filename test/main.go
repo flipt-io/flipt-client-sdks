@@ -202,7 +202,8 @@ func run() error {
 	defer client.Close()
 
 	hostDir := client.Host().Directory(".", dagger.HostDirectoryOpts{
-		Exclude: []string{".github/", "build/", "tmp/", ".git/"},
+		Exclude:   []string{".github/", "build/", "tmp/", ".git/"},
+		Gitignore: false,
 	})
 
 	var (

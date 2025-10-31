@@ -77,7 +77,8 @@ func run() error {
 	defer client.Close()
 
 	dir := client.Host().Directory(".", dagger.HostDirectoryOpts{
-		Exclude: []string{".github/", "package/", "test/", ".git/"},
+		Exclude:   []string{".github/", "package/", "test/", ".git/"},
+		Gitignore: false,
 	})
 
 	// Get absolute path for tmp directory to work with Dagger 0.18.17+
@@ -89,7 +90,7 @@ func run() error {
 	}
 	tmpPath := fmt.Sprintf("%s/tmp", cwd)
 	tmpDir := client.Host().Directory(tmpPath, dagger.HostDirectoryOpts{
-		NoGitAutoIgnore: true,
+		Gitignore: false,
 	})
 
 	var g errgroup.Group
