@@ -29,7 +29,7 @@ env:
   PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
   NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
   GO_VERSION: "1.25"
-  DAGGER_VERSION: "0.18.17"
+  DAGGER_VERSION: "0.18.19"
 
 jobs:
   build:
