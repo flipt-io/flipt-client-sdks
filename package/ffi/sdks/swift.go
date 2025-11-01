@@ -35,17 +35,17 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, container *
 		secretEncodedPAT = client.SetSecret("gh-token-encoded", base64.URLEncoding.EncodeToString([]byte("pat:"+pat)))
 	)
 
-	var gitUserName = os.Getenv("GIT_USER_NAME")
+	gitUserName := os.Getenv("GIT_USER_NAME")
 	if gitUserName == "" {
 		gitUserName = "flipt-bot"
 	}
 
-	var gitUserEmail = os.Getenv("GIT_USER_EMAIL")
+	gitUserEmail := os.Getenv("GIT_USER_EMAIL")
 	if gitUserEmail == "" {
 		gitUserEmail = "dev@flipt.io"
 	}
 
-	git := container.From("golang:1.21.3-bookworm").
+	git := container.From("golang:1.24-bookworm").
 		WithSecretVariable("GITHUB_TOKEN", secretEncodedPAT).
 		WithExec(args("git config --global user.email %s", gitUserEmail)).
 		WithExec(args("git config --global user.name %s", gitUserName))
@@ -63,7 +63,8 @@ func (s *SwiftSDK) Build(ctx context.Context, client *dagger.Client, container *
 
 	filtered := repository.
 		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").
-		WithExec([]string{"git", "filter-branch", "-f", "--prune-empty",
+		WithExec([]string{
+			"git", "filter-branch", "-f", "--prune-empty",
 			"--subdirectory-filter", "flipt-client-swift",
 			"--tree-filter", `
 				[ -d Sources/FliptEngineFFI.xcframework/ios-arm64/Headers ] || mkdir -p Sources/FliptEngineFFI.xcframework/ios-arm64/Headers;
@@ -158,7 +159,8 @@ module FliptEngineFFI {
   export *
 }
 MODULEMAP
-			`, "--", opts.Tag})
+			`, "--", opts.Tag,
+		})
 
 	_, err := filtered.Sync(ctx)
 	if !opts.Push {
@@ -187,7 +189,8 @@ MODULEMAP
 		"push",
 		"-f",
 		targetRepo,
-		fmt.Sprintf("%s:%s", opts.Tag, targetTag)}).
+		fmt.Sprintf("%s:%s", opts.Tag, targetTag),
+	}).
 		Sync(ctx); err != nil {
 		return err
 	}

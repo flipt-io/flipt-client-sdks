@@ -75,9 +75,9 @@ var (
 	}
 
 	goVersions = []containerConfig{
-		{base: "golang:1.23-bookworm", setup: []string{"apt-get update", "apt-get install -y build-essential"}, useHTTPS: true},
-		{base: "golang:1.23-bullseye", setup: []string{"apt-get update", "apt-get install -y build-essential"}, useHTTPS: true},
-		{base: "golang:1.23-alpine", setup: []string{"apk update", "apk add --no-cache build-base"}, useHTTPS: true},
+		{base: "golang:1.24-bookworm", setup: []string{"apt-get update", "apt-get install -y build-essential"}, useHTTPS: true},
+		{base: "golang:1.24-bullseye", setup: []string{"apt-get update", "apt-get install -y build-essential"}, useHTTPS: true},
+		{base: "golang:1.24-alpine", setup: []string{"apk update", "apk add --no-cache build-base"}, useHTTPS: true},
 	}
 
 	rubyVersions = []containerConfig{

@@ -47,17 +47,17 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, container *dag
 		secretEncodedPAT = client.SetSecret("gh-token-encoded", base64.URLEncoding.EncodeToString([]byte("pat:"+pat)))
 	)
 
-	var gitUserName = os.Getenv("GIT_USER_NAME")
+	gitUserName := os.Getenv("GIT_USER_NAME")
 	if gitUserName == "" {
 		gitUserName = "flipt-bot"
 	}
 
-	var gitUserEmail = os.Getenv("GIT_USER_EMAIL")
+	gitUserEmail := os.Getenv("GIT_USER_EMAIL")
 	if gitUserEmail == "" {
 		gitUserEmail = "dev@flipt.io"
 	}
 
-	git := container.From("golang:1.21.3-bookworm").
+	git := container.From("golang:1.24-bookworm").
 		WithSecretVariable("GITHUB_TOKEN", secretEncodedPAT).
 		WithExec(args("git config --global user.email %s", gitUserEmail)).
 		WithExec(args("git config --global user.name %s", gitUserName))
@@ -87,10 +87,12 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, container *dag
 
 	filtered := container.
 		WithEnvVariable("FILTER_BRANCH_SQUELCH_WARNING", "1").
-		WithExec([]string{"git", "filter-branch", "-f", "--prune-empty",
+		WithExec([]string{
+			"git", "filter-branch", "-f", "--prune-empty",
 			"--subdirectory-filter", "flipt-client-go",
 			"--tree-filter", "cp -r /ext .",
-			"--", opts.Tag})
+			"--", opts.Tag,
+		})
 
 	if _, err := filtered.Sync(ctx); err != nil {
 		return err
@@ -118,7 +120,8 @@ func (s *GoSDK) Build(ctx context.Context, client *dagger.Client, container *dag
 		"push",
 		"-f",
 		targetRepo,
-		fmt.Sprintf("%s:%s", opts.Tag, targetTag)}).
+		fmt.Sprintf("%s:%s", opts.Tag, targetTag),
+	}).
 		Sync(ctx); err != nil {
 		return err
 	}
