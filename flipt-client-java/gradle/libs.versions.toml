@@ -1,5 +1,5 @@
 [versions]
-jackson = "2.20.0"
+jackson = "2.20.1"
 jna = "5.18.1"
 junit = "5.11.4"
 lombok = "1.18.42"
