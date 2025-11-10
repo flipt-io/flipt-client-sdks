@@ -261,7 +261,6 @@ impl HTTPFetcherBuilder {
             }
             FetchMode::Streaming => {
                 client_builder = client_builder
-                    .http2_prior_knowledge()
                     .http2_keep_alive_interval(Duration::from_secs(5))
                     .http2_initial_stream_window_size(32 * 1024)
                     .http2_initial_connection_window_size(32 * 1024)
