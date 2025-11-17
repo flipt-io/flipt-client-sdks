@@ -26,6 +26,11 @@
         "require": "./dist/slim/index.cjs"
       }
     },
+    "./types": {
+      "types": "./dist/types/types.d.ts",
+      "import": "./dist/types/types.d.ts",
+      "require": "./dist/types/types.d.ts"
+    },
     "./node": {
       "types": "./dist/types/index.d.ts",
       "import": "./dist/node/index.mjs",
@@ -50,6 +55,9 @@
     "*": {
       "*": [
         "./dist/types/index.d.ts"
+      ],
+      "types": [
+        "./dist/types/types.d.ts"
       ],
       "node": [
         "./dist/types/index.d.ts"
