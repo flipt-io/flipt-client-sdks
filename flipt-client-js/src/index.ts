@@ -21,7 +21,8 @@ export type {
   AuthenticationStrategy,
   IFetcher,
   IFetcherOptions,
-  Hook
+  Hook,
+  Response
 } from './core/types';
 
 export { ErrorStrategy, ClientOptionsFactory } from './core/types';
