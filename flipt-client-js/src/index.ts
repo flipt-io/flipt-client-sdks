@@ -1,4 +1,31 @@
+// Re-export all types from core/types
 export * from './core/types';
+
+// Explicit exports for commonly used types (for better IDE autocomplete and documentation)
+export type {
+  Flag,
+  ClientOptions,
+  EvaluationRequest,
+  VariantEvaluationResponse,
+  BooleanEvaluationResponse,
+  BatchEvaluationResponse,
+  ErrorEvaluationResponse,
+  EvaluationResponse,
+  VariantResult,
+  BooleanResult,
+  BatchResult,
+  ListFlagsResult,
+  Result,
+  ClientTokenAuthentication,
+  JWTAuthentication,
+  AuthenticationStrategy,
+  IFetcher,
+  IFetcherOptions,
+  Hook,
+  Response
+} from './core/types';
+
+export { ErrorStrategy, ClientOptionsFactory } from './core/types';
 
 // Re-export the base class
 export { BaseFliptClient } from './core/base';

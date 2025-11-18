@@ -39,6 +39,20 @@ const variant = client.evaluateVariant({
 console.log(variant);
 ```
 
+### Importing Types
+
+All types are available from the main package export:
+
+```typescript
+import type { Flag, ClientOptions, EvaluationRequest } from '@flipt-io/flipt-client-js';
+```
+
+Alternatively, you can import types from the dedicated `/types` subpath:
+
+```typescript
+import type { Flag, ClientOptions, EvaluationRequest } from '@flipt-io/flipt-client-js/types';
+```
+
 ### Initialization Arguments
 
 The `FliptClient` constructor accepts the following optional arguments:
