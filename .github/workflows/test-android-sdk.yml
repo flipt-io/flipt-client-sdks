@@ -55,7 +55,7 @@ jobs:
           cache-disabled: true
 
       - name: Checkout Sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install Flipt
         uses: flipt-io/setup-action@v0.5.0
@@ -180,7 +180,7 @@ jobs:
           cache-disabled: true
 
       - name: Checkout Sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install Flipt
         uses: flipt-io/setup-action@v0.5.0
