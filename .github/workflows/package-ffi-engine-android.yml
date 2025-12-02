@@ -5,6 +5,7 @@ on:
     paths:
       - "flipt-engine-ffi/**"
       - "flipt-evaluation/**"
+      - ".github/workflows/package-ffi-engine-android.yml"
   push:
     tags: ["flipt-engine-ffi-v**"]
 
@@ -55,7 +56,7 @@ jobs:
       - name: Build
         run: cargo ndk --platform 30 --target ${{ matrix.platform.arch }} build --release
         env:
-          RUSTFLAGS: "-Zlocation-detail=none -Zfmt-debug=none"
+          RUSTFLAGS: "-Zlocation-detail=none -Zfmt-debug=none -C link-arg=-Wl,-z,max-page-size=0x4000"
 
       - name: Package
         run: |
