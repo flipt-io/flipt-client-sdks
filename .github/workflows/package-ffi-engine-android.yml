@@ -5,6 +5,7 @@ on:
     paths:
       - "flipt-engine-ffi/**"
       - "flipt-evaluation/**"
+      - ".github/workflows/package-ffi-engine-android.yml"
   push:
     tags: ["flipt-engine-ffi-v**"]
 
