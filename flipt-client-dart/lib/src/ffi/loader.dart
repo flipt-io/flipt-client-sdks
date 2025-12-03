@@ -1,11 +1,7 @@
 import 'dart:ffi';
 import 'dart:io';
 import 'package:path/path.dart' as path;
-
-// Use conditional imports to handle Flutter vs pure Dart
-import 'loader_io.dart'
-    if (dart.library.html) 'loader_web.dart'
-    if (dart.library.flutter) 'loader_flutter.dart';
+import 'loader_io.dart';
 
 /// Represents the supported CPU architectures
 enum Architecture {
@@ -31,14 +27,16 @@ Architecture getCurrentArchitecture() {
 }
 
 /// Gets the platform-specific library configuration
+///
+/// Note: Desktop platforms (macOS, Linux, Windows) are not supported
+/// in the pub.dev package and binaries are not included. This package only
+/// supports iOS and Android. Desktop loading is allowed here for testing
+/// purposes when native binaries are manually placed in the expected directories.
 LibraryConfig getPlatformConfig(Architecture arch) {
-  // We only need platform configs for desktop platforms
-  // Android and iOS are handled directly in their respective loaders
   if (Platform.isMacOS) {
     if (arch == Architecture.x86_64) {
       throw UnsupportedError('x86_64 is no longer supported on macOS');
     }
-
     return LibraryConfig('darwin_aarch64', 'libfliptengine.dylib');
   }
 
@@ -64,6 +62,17 @@ String getPackagePath(LibraryConfig config) {
   );
 
   if (!File(libraryPath).existsSync()) {
+    // Provide platform-specific error messages
+    if (Platform.isMacOS || Platform.isLinux || Platform.isWindows) {
+      throw UnsupportedError(
+        'Could not find native library at: $libraryPath\n\n'
+        'Note: Desktop platforms (macOS, Linux, Windows) are not officially supported.\n'
+        'The flipt_client pub.dev package only includes binaries for iOS and Android.\n\n'
+        'If you are running tests, ensure native binaries are present in the expected directory.\n'
+        'For production use, please use this package on iOS or Android devices only.',
+      );
+    }
+
     throw UnsupportedError(
       'Could not find native library at: $libraryPath\n'
       'Make sure the native binaries are present in the binaries directory.',
