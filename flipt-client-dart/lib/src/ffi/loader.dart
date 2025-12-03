@@ -31,7 +31,7 @@ Architecture getCurrentArchitecture() {
 }
 
 /// Gets the platform-specific library configuration
-/// 
+///
 /// Note: Desktop platforms (macOS, Linux, Windows) are not supported
 /// in the pub.dev package and binaries are not included. This package only
 /// supports iOS and Android. Desktop loading is allowed here for testing
@@ -76,7 +76,7 @@ String getPackagePath(LibraryConfig config) {
         'For production use, please use this package on iOS or Android devices only.',
       );
     }
-    
+
     throw UnsupportedError(
       'Could not find native library at: $libraryPath\n'
       'Make sure the native binaries are present in the binaries directory.',
