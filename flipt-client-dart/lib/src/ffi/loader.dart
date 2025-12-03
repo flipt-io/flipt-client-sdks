@@ -1,11 +1,7 @@
 import 'dart:ffi';
 import 'dart:io';
 import 'package:path/path.dart' as path;
-
-// Use conditional imports to handle Flutter vs pure Dart
-import 'loader_io.dart'
-    if (dart.library.html) 'loader_web.dart'
-    if (dart.library.flutter) 'loader_flutter.dart';
+import 'loader_io.dart';
 
 /// Represents the supported CPU architectures
 enum Architecture {
