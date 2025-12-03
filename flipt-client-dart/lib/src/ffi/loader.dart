@@ -32,23 +32,12 @@ Architecture getCurrentArchitecture() {
 
 /// Gets the platform-specific library configuration
 LibraryConfig getPlatformConfig(Architecture arch) {
-  // We only need platform configs for desktop platforms
-  // Android and iOS are handled directly in their respective loaders
-  if (Platform.isMacOS) {
-    if (arch == Architecture.x86_64) {
-      throw UnsupportedError('x86_64 is no longer supported on macOS');
-    }
-
-    return LibraryConfig('darwin_aarch64', 'libfliptengine.dylib');
-  }
-
-  if (Platform.isLinux) {
-    final dir = arch == Architecture.arm64 ? 'linux_aarch64' : 'linux_x86_64';
-    return LibraryConfig(dir, 'libfliptengine.so');
-  }
-
-  if (Platform.isWindows) {
-    return const LibraryConfig('windows_x86_64', 'fliptengine.dll');
+  // Desktop platforms are not supported in the pub.dev package yet
+  // Only Android and iOS are supported
+  if (Platform.isMacOS || Platform.isLinux || Platform.isWindows) {
+    throw UnsupportedError(
+        'Desktop platforms (macOS, Linux, Windows) are not supported in the flipt_client pub.dev package.\n'
+        'This package only supports iOS and Android.\n');
   }
 
   throw UnsupportedError('Unsupported platform: ${Platform.operatingSystem}');
