@@ -6,7 +6,7 @@ import 'loader.dart';
 /// This implementation supports mobile platforms only:
 /// - Android: Loads from app-specific library directory
 /// - iOS: Uses statically linked library
-/// 
+///
 /// Desktop platforms (macOS, Linux, Windows) are not supported in this package.
 DynamicLibrary loadPlatformDependentFliptEngine() {
   // Try mobile platforms first
@@ -16,8 +16,7 @@ DynamicLibrary loadPlatformDependentFliptEngine() {
   }
 
   // If we get here, we're on an unsupported platform
-  // getPlatformConfig will throw 
+  // getPlatformConfig will throw
   final config = getPlatformConfig(getCurrentArchitecture());
   return DynamicLibrary.open(getPackagePath(config));
 }
-
