@@ -51,17 +51,15 @@ Retriable errors include:
 - `504 Gateway Timeout`
 - Other potential transient network or DNS errors
 
-## Supported Architectures
+## Supported Platforms
 
-This SDK currently supports the following OSes/architectures:
+This SDK supports **mobile platforms only**:
 
-- Linux x86_64
-- Linux arm64
-- MacOS arm64
-- Windows x86_64
 - Android arm64
 - iOS arm64 ⚠️ See [iOS Integration](#ios-integration)
 - iOS arm64 (simulator) ⚠️ See [iOS Integration](#ios-integration)
+
+> **Note**: Desktop platforms (Linux, macOS, Windows) are not supported due to pub.dev's 100MB package size limit.
 
 ## Migration Notes
 
@@ -72,7 +70,7 @@ This section is for users who are migrating from a previous (pre-1.0.0) version 
 - `FliptEvaluationClient` has been renamed to `FliptClient`.
 - `Options` now accept `namespace` and `environment` as optional parameters.
 - `requestTimeout` and `updateInterval` in `Options` are now `Duration` types instead of `int` (seconds). Update your code to use `Duration(seconds: ...)`.
-- MacOS x86_64 is no longer supported as pub.dev enforces a file size limit of published packages so we cannot include every architecture in the SDK.
+- Desktop platforms (Linux, macOS, Windows) are no longer supported due to pub.dev's 100MB package size limit. Only iOS and Android are supported.
 
 ## Usage
 
