@@ -15,11 +15,8 @@ type DartSDK struct {
 }
 
 func (s *DartSDK) SupportedPlatforms() []platform.Platform {
+	// Only Android and iOS are supported for Dart SDK to stay under pub.dev's 100MB package size limit
 	return []platform.Platform{
-		platform.LinuxX86_64,
-		platform.LinuxArm64,
-		platform.DarwinArm64,
-		platform.WindowsX86_64,
 		platform.AndroidArm64,
 	}
 }
@@ -53,7 +50,7 @@ func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, container *d
 	// staging/android/src/main/jniLibs/arm64-v8a/
 
 	// this is because the Android SDK and iOS SDKs expects the library to be in a specific directory structure based on host OS and architecture
-	// the other platforms just pass through to the native directory
+	// desktop platforms (linux, darwin, windows) are no longer packaged to stay under pub.dev's 100MB limit
 	type rename struct {
 		old string
 		new string
@@ -61,11 +58,6 @@ func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, container *d
 
 	renames := []rename{
 		{old: "android_aarch64", new: "android/src/main/jniLibs/arm64-v8a"},
-		{old: "linux_x86_64", new: "native/linux_x86_64"},
-		{old: "linux_aarch64", new: "native/linux_aarch64"},
-		{old: "darwin_x86_64", new: "native/darwin_x86_64"},
-		{old: "darwin_aarch64", new: "native/darwin_aarch64"},
-		{old: "windows_x86_64", new: "native/windows_x86_64"},
 		{old: "ios", new: "ios"},
 	}
 
