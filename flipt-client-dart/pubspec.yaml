@@ -27,7 +27,6 @@ flutter:
       android:
         ffiPlugin: true
         package: io.flipt.client
-        pluginClass: none
       ios:
         ffiPlugin: true
         pluginClass: FliptClient
