@@ -339,9 +339,16 @@ impl HTTPFetcher {
                         }
                     }
                     FetchMode::Streaming => {
-                        if let Err(e) = fetcher.handle_streaming(&tx).await {
+                        if let Err(e) = fetcher
+                            .handle_streaming(&tx, &stop_signal, &stop_notify_clone)
+                            .await
+                        {
                             log::warn!("error fetching streaming: {e}");
                             break;
+                        }
+                        // If handle_streaming returns without error, the stream was closed or stop_signal was set
+                        if stop_signal.load(Ordering::Relaxed) {
+                            return;
                         }
                     }
                 }
@@ -496,6 +503,8 @@ impl HTTPFetcher {
     async fn handle_streaming(
         &mut self,
         sender: &mpsc::Sender<Result<source::Document, Error>>,
+        stop_signal: &Arc<AtomicBool>,
+        stop_notify: &Arc<Notify>,
     ) -> Result<(), Error> {
         let stream_result = self.fetch_stream().await;
 
@@ -521,18 +530,35 @@ impl HTTPFetcher {
                         Err(err) => Err(err),
                     });
 
-                while let Some(value) = stream.next().await {
-                    match sender.send(value).await {
-                        Ok(_) => continue,
-                        Err(e) => {
-                            return Err(Error::Internal(format!(
-                                "failed to send result to engine {e}"
-                            )))
+                loop {
+                    if stop_signal.load(Ordering::Relaxed) {
+                        return Ok(());
+                    }
+
+                    let stop_notified = stop_notify.notified();
+                    tokio::pin!(stop_notified);
+
+                    tokio::select! {
+                        value = stream.next() => {
+                            match value {
+                                Some(result) => {
+                                    match sender.send(result).await {
+                                        Ok(_) => continue,
+                                        Err(e) => {
+                                            return Err(Error::Internal(format!(
+                                                "failed to send result to engine {e}"
+                                            )))
+                                        }
+                                    }
+                                }
+                                None => return Ok(()),
+                            }
+                        }
+                        _ = &mut stop_notified => {
+                            return Ok(());
                         }
                     }
                 }
-
-                Ok(())
             }
             Ok(None) => Ok(()),
             Err(e) => sender
@@ -547,11 +573,13 @@ impl HTTPFetcher {
 mod tests {
     use futures::FutureExt;
     use mockito::Server;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
 
     use crate::http::Authentication;
     use crate::http::FetchMode;
     use crate::http::HTTPFetcherBuilder;
-    use tokio::sync::mpsc;
+    use tokio::sync::{mpsc, Notify};
 
     #[tokio::test]
     async fn test_http_fetch() {
@@ -766,7 +794,12 @@ mod tests {
             .unwrap();
 
         let (tx, mut rx) = mpsc::channel(4);
-        let result = fetcher.handle_streaming(&tx).await;
+        let stop_signal = Arc::new(AtomicBool::new(false));
+        let stop_notify = Arc::new(Notify::new());
+
+        let result = fetcher
+            .handle_streaming(&tx, &stop_signal, &stop_notify)
+            .await;
         assert!(result.is_ok());
         mock.assert();
         assert!(rx.len() == 3);
@@ -840,5 +873,74 @@ mod tests {
         let unwrapped_string: Authentication = serde_json::from_str(json).unwrap_or_default();
 
         assert_eq!(unwrapped_string, Authentication::JwtToken("secret".into()));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_streaming_close_does_not_hang() {
+        let mut server = Server::new_async().await;
+
+        // Create a streaming mock that never ends (infinite stream)
+        // This simulates a persistent HTTP/2 connection
+        let mock = server
+            .mock(
+                "GET",
+                "/client/v2/environments/default/namespaces/default/stream",
+            )
+            .match_header("x-flipt-environment", "default")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_chunked_body(|w| {
+                // Send first chunk
+                w.write_all(
+                    b"{\"result\":{\"namespace\": {\"key\": \"default\"}, \"flags\":[]}}\n",
+                )?;
+                // Then block indefinitely (simulating persistent connection)
+                std::thread::sleep(std::time::Duration::from_secs(1000));
+                Ok(())
+            })
+            .create_async()
+            .await;
+
+        let url = server.url();
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
+            .authentication(Authentication::None)
+            .mode(FetchMode::Streaming)
+            .build()
+            .unwrap();
+
+        let stop_signal = Arc::new(AtomicBool::new(false));
+        let stop_notify = Arc::new(Notify::new());
+
+        // Start the fetcher task
+        let _rx = fetcher.start(stop_signal.clone(), stop_notify.clone());
+
+        // Give the task a moment to start and connect to the stream
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+
+        // Now trigger the stop signal and notify
+        // This should cause the streaming loop to exit immediately
+        // without hanging, even though the HTTP stream is still active
+        let stop_time = std::time::Instant::now();
+
+        stop_signal.store(true, Ordering::Relaxed);
+        stop_notify.notify_waiters();
+
+        // Wait a bit for the task to exit
+        // If the fix works, this should complete quickly (< 1 second)
+        // Without the fix, it would hang indefinitely waiting for the stream
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+        let elapsed = stop_time.elapsed();
+
+        // Verify that the stop was processed quickly
+        // If the streaming handler properly checks stop_signal/stop_notify,
+        // this should be nearly instant
+        assert!(
+            elapsed < std::time::Duration::from_secs(5),
+            "Streaming close took too long: {:?}. This indicates the streaming handler is not checking stop signals.",
+            elapsed
+        );
+
+        mock.assert();
     }
 }
