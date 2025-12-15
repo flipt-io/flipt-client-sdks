@@ -49,7 +49,7 @@ jobs:
           tar -czvf flipt-engine-wasm.tar.gz target/wasm32-wasip1/release/flipt_engine_wasm.wasm || true
 
       - name: Upload Artifact (Pull Request)
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         if: github.event_name == 'pull_request'
         with:
           name: flipt-engine-wasm.tar.gz
