@@ -58,7 +58,7 @@ jobs:
           private-key: ${{ secrets.FLIPT_RELEASE_BOT_APP_PEM }}
 
       - name: Download Artifact (iOS arm64)
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           name: flipt-engine-ffi-iOS-aarch64.tar.gz
@@ -66,7 +66,7 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
 
       - name: Download Artifact (iOS arm64 sim)
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           name: flipt-engine-ffi-iOS-aarch64-sim.tar.gz
@@ -74,7 +74,7 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
 
       - name: Download Artifact (Darwin arm64)
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           name: flipt-engine-ffi-Darwin-aarch64.tar.gz
@@ -84,7 +84,7 @@ jobs:
       # TODO: Add Darwin x86_64 artifact using lipo
       # https://developer.apple.com/forums/thread/666335
       # - name: Download Artifact (Darwin x86_64)
-      #   uses: actions/download-artifact@v6
+      #   uses: actions/download-artifact@v7
       #   with:
       #     github-token: ${{ steps.generate_token.outputs.token }}
       #     name: flipt-engine-ffi-Darwin-x86_64.tar.gz
