@@ -76,9 +76,7 @@ impl Snapshot {
                     segment_operator: rule.segment_operator,
                 };
 
-                if rule.segments.is_some() {
-                    let rule_segments = rule.segments.unwrap();
-
+                if let Some(rule_segments) = rule.segments {
                     for rule_segment in rule_segments {
                         let mut eval_constraints: Vec<flipt::EvaluationConstraint> = Vec::new();
                         for constraint in rule_segment.constraints {
@@ -137,19 +135,16 @@ impl Snapshot {
 
                 evaluation_rollout.rank = rollout_idx;
 
-                if rollout.threshold.is_some() {
-                    let threshold = rollout.threshold.unwrap();
+                if let Some(threshold) = rollout.threshold {
                     evaluation_rollout.threshold = Some(flipt::RolloutThreshold {
                         percentage: threshold.percentage,
                         value: threshold.value,
                     });
 
                     evaluation_rollout.rollout_type = flipt::RolloutType::Threshold;
-                } else if rollout.segment.is_some() {
+                } else if let Some(segment_rule) = rollout.segment {
                     let mut evaluation_rollout_segments: HashMap<String, flipt::EvaluationSegment> =
                         HashMap::new();
-
-                    let segment_rule = rollout.segment.unwrap();
 
                     for segment in segment_rule.segments {
                         let mut constraints: Vec<flipt::EvaluationConstraint> = Vec::new();
