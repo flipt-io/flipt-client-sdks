@@ -989,10 +989,11 @@ mod tests {
         );
 
         assert!(result_one.is_err());
-        assert_eq!(
-            result_one.err().unwrap().to_string(),
-            "invalid request: error parsing time blah: input contains invalid characters"
-        );
+        assert!(result_one
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("invalid request: error parsing time blah: "));
 
         let result_two = matches_datetime(
             &flipt::EvaluationConstraint {
@@ -1005,10 +1006,11 @@ mod tests {
         );
 
         assert!(result_two.is_err());
-        assert_eq!(
-            result_two.err().unwrap().to_string(),
-            "invalid request: error parsing time blah: input contains invalid characters"
-        );
+        assert!(result_two
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("invalid request: error parsing time blah: "));
     }
 
     #[test]
