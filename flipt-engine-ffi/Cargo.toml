@@ -19,7 +19,7 @@ serde_json = { version = "1.0.89", features = ["raw_value"] }
 reqwest = { version = "0.13.1", features = [
   "json",
   "stream",
-  "rustls-tls",
+  "rustls-no-provider",
   "http2",
 ], default-features = false }
 http = "1.0"
@@ -34,12 +34,14 @@ tokio-util = { version = "0.7", features = ["io"], default-features = false }
 futures-util = { version = "0.3.30", default-features = false }
 futures = { version = "0.3", default-features = false }
 thiserror = "2.0.3"
-reqwest-retry = "0.8.0"
-reqwest-middleware = "0.4.0"
+reqwest-retry = "0.9.0"
+reqwest-middleware = "0.5.0"
 async-trait = "0.1"
 base64 = "0.22"
 log = "0.4"
 env_logger = "0.11"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-platform-verifier = "0.6"
 
 [dependencies.flipt-evaluation]
 path = "../flipt-evaluation"
@@ -47,6 +49,7 @@ path = "../flipt-evaluation"
 [dev-dependencies]
 mockall = "0.14.0"
 mockito = "1.4.0"
+ctor = "0.2"
 
 [build-dependencies]
 cbindgen = "0.29.0"
