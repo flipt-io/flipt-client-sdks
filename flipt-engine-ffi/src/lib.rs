@@ -27,6 +27,24 @@ use tokio::runtime::Handle;
 use tokio::runtime::Runtime;
 use tokio::sync::Notify;
 
+// Initialize rustls with ring crypto provider
+static RUSTLS_INIT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+
+pub fn init_rustls() {
+    RUSTLS_INIT.get_or_init(|| {
+        rustls::crypto::ring::default_provider()
+            .install_default()
+            .expect("Failed to install rustls ring crypto provider");
+    });
+}
+
+// Global test initializer - runs once before all tests using ctor
+#[cfg(test)]
+#[ctor::ctor]
+fn global_test_init() {
+    init_rustls();
+}
+
 #[derive(Deserialize)]
 struct FFIEvaluationRequest {
     flag_key: String,
@@ -283,6 +301,7 @@ impl Engine {
 pub unsafe extern "C" fn initialize_engine_ffi(opts: *const c_char) -> *mut c_void {
     match std::panic::catch_unwind(|| {
         init_logging();
+        init_rustls();
         log::trace!(
             "initialize_engine_ffi called: opts ptr=0x{:x}",
             opts as usize
@@ -310,6 +329,7 @@ pub unsafe extern "C" fn initialize_engine_ffi(opts: *const c_char) -> *mut c_vo
 pub unsafe extern "C" fn initialize_engine(opts: *const c_char) -> *mut c_void {
     match std::panic::catch_unwind(|| {
         init_logging();
+        init_rustls();
         log::trace!("initialize_engine called: opts ptr=0x{:x}", opts as usize);
         let ptr = _initialize_engine(opts);
         log::trace!(

@@ -77,7 +77,10 @@ pub fn configure_tls(
 
     // Handle hostname verification skip
     if tls_config.insecure_skip_hostname_verify.unwrap_or(false) {
-        builder = builder.danger_accept_invalid_hostnames(true);
+        builder = builder
+            .tls_certs_only(vec![]) // workaround for check in reqwest 0.13.0
+            .tls_sni(false)
+            .danger_accept_invalid_hostnames(true);
     }
 
     // Handle client certificates (if needed)
