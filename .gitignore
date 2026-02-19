@@ -22,3 +22,6 @@ staging
 .claude
 .cursor
 CLAUDE.local.md
+
+# Address issue #1595
+flipt-client-go/ext/*.wasm
