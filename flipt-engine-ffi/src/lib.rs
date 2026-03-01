@@ -1146,4 +1146,130 @@ mod tests {
         assert_eq!(opts.snapshot, None);
         assert_eq!(opts.tls_config, None);
     }
+
+    #[test]
+    fn test_update_authentication_null_engine_ptr() {
+        unsafe {
+            let auth_json = CString::new(r#"{"client_token":"secret"}"#).unwrap();
+            let result_ptr = _update_authentication(std::ptr::null_mut(), auth_json.as_ptr());
+            assert!(!result_ptr.is_null());
+
+            let result_str = CStr::from_ptr(result_ptr).to_str().unwrap();
+            assert!(
+                result_str.contains("failure"),
+                "Expected failure response, got: {}",
+                result_str
+            );
+
+            _destroy_string(result_ptr as *mut c_char);
+        }
+    }
+
+    #[test]
+    fn test_update_authentication_null_auth_json() {
+        unsafe {
+            let opts = CString::new(
+                r#"{"url":"http://localhost:1","error_strategy":"fallback","update_interval":9999}"#,
+            )
+            .unwrap();
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            assert!(!engine_ptr.is_null());
+
+            let result_ptr = _update_authentication(engine_ptr, std::ptr::null());
+            assert!(!result_ptr.is_null());
+
+            let result_str = CStr::from_ptr(result_ptr).to_str().unwrap();
+            assert!(
+                result_str.contains("failure"),
+                "Expected failure response, got: {}",
+                result_str
+            );
+
+            _destroy_string(result_ptr as *mut c_char);
+            _destroy_engine(engine_ptr);
+        }
+    }
+
+    #[test]
+    fn test_update_authentication_invalid_json() {
+        unsafe {
+            let opts = CString::new(
+                r#"{"url":"http://localhost:1","error_strategy":"fallback","update_interval":9999}"#,
+            )
+            .unwrap();
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            assert!(!engine_ptr.is_null());
+
+            let invalid_json = CString::new("not valid json").unwrap();
+            let result_ptr = _update_authentication(engine_ptr, invalid_json.as_ptr());
+            assert!(!result_ptr.is_null());
+
+            let result_str = CStr::from_ptr(result_ptr).to_str().unwrap();
+            assert!(
+                result_str.contains("failure"),
+                "Expected failure response, got: {}",
+                result_str
+            );
+            assert!(
+                result_str.contains("invalid auth json"),
+                "Expected 'invalid auth json' error, got: {}",
+                result_str
+            );
+
+            _destroy_string(result_ptr as *mut c_char);
+            _destroy_engine(engine_ptr);
+        }
+    }
+
+    #[test]
+    fn test_update_authentication_valid_client_token() {
+        unsafe {
+            let opts = CString::new(
+                r#"{"url":"http://localhost:1","error_strategy":"fallback","update_interval":9999}"#,
+            )
+            .unwrap();
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            assert!(!engine_ptr.is_null());
+
+            let auth_json = CString::new(r#"{"client_token":"new-secret"}"#).unwrap();
+            let result_ptr = _update_authentication(engine_ptr, auth_json.as_ptr());
+            assert!(!result_ptr.is_null());
+
+            let result_str = CStr::from_ptr(result_ptr).to_str().unwrap();
+            assert!(
+                result_str.contains("success"),
+                "Expected success response, got: {}",
+                result_str
+            );
+
+            _destroy_string(result_ptr as *mut c_char);
+            _destroy_engine(engine_ptr);
+        }
+    }
+
+    #[test]
+    fn test_update_authentication_valid_jwt_token() {
+        unsafe {
+            let opts = CString::new(
+                r#"{"url":"http://localhost:1","error_strategy":"fallback","update_interval":9999}"#,
+            )
+            .unwrap();
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            assert!(!engine_ptr.is_null());
+
+            let auth_json = CString::new(r#"{"jwt_token":"new-jwt"}"#).unwrap();
+            let result_ptr = _update_authentication(engine_ptr, auth_json.as_ptr());
+            assert!(!result_ptr.is_null());
+
+            let result_str = CStr::from_ptr(result_ptr).to_str().unwrap();
+            assert!(
+                result_str.contains("success"),
+                "Expected success response, got: {}",
+                result_str
+            );
+
+            _destroy_string(result_ptr as *mut c_char);
+            _destroy_engine(engine_ptr);
+        }
+    }
 }
