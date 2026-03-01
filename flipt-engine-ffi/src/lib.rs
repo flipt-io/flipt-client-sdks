@@ -163,8 +163,8 @@ impl Engine {
         evaluator: Evaluator<snapshot::Snapshot>,
         error_strategy: ErrorStrategy,
         initial_snapshot: snapshot::Snapshot,
-        auth_sender: Option<watch::Sender<HeaderMap>>,
     ) -> Self {
+        let auth_sender = fetcher.take_auth_sender();
         let stop_signal = Arc::new(AtomicBool::new(false));
         let stop_signal_clone = stop_signal.clone();
 
@@ -762,12 +762,10 @@ unsafe extern "C" fn _initialize_engine(opts: *const c_char) -> *mut c_void {
             fetcher_builder = fetcher_builder.tls_config(tls_config);
         }
 
-        let mut fetcher = fetcher_builder.build().unwrap_or_else(|e| {
+        let fetcher = fetcher_builder.build().unwrap_or_else(|e| {
             log::warn!("failed to build custom fetcher: {e}");
             HTTPFetcherBuilder::default().build().unwrap()
         });
-
-        let auth_sender = fetcher.take_auth_sender();
 
         let evaluator = Evaluator::new(&namespace);
 
@@ -788,7 +786,6 @@ unsafe extern "C" fn _initialize_engine(opts: *const c_char) -> *mut c_void {
             evaluator,
             engine_opts.error_strategy.unwrap_or_default(),
             initial_snapshot,
-            auth_sender,
         );
 
         // Convert to raw pointer
