@@ -13,6 +13,7 @@ use fliptevaluation::{
 };
 use http::{Authentication, ErrorStrategy, FetchMode, HTTPFetcher, HTTPFetcherBuilder};
 use libc::c_void;
+use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
@@ -25,7 +26,7 @@ use thiserror::Error;
 use tokio::runtime::Builder;
 use tokio::runtime::Handle;
 use tokio::runtime::Runtime;
-use tokio::sync::Notify;
+use tokio::sync::{watch, Notify};
 
 #[derive(Deserialize)]
 struct FFIEvaluationRequest {
@@ -125,6 +126,7 @@ pub struct Engine {
     stop_signal: Arc<AtomicBool>,
     fetcher_handle: Option<tokio::task::JoinHandle<()>>,
     stop_notify: Arc<Notify>,
+    auth_sender: Option<watch::Sender<HeaderMap>>,
 }
 
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
@@ -162,6 +164,7 @@ impl Engine {
         error_strategy: ErrorStrategy,
         initial_snapshot: snapshot::Snapshot,
     ) -> Self {
+        let auth_sender = fetcher.take_auth_sender();
         let stop_signal = Arc::new(AtomicBool::new(false));
         let stop_signal_clone = stop_signal.clone();
 
@@ -228,6 +231,7 @@ impl Engine {
             stop_signal,
             fetcher_handle: Some(fetcher_handle),
             stop_notify,
+            auth_sender,
         }
     }
 
@@ -613,6 +617,58 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
 
 /// # Safety
 ///
+/// This function will update the authentication for the engine.
+#[no_mangle]
+#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
+pub unsafe extern "C" fn update_authentication_ffi(
+    engine_ptr: *mut c_void,
+    auth_json: *const c_char,
+) -> *const c_char {
+    match std::panic::catch_unwind(|| {
+        log::trace!(
+            "update_authentication_ffi called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _update_authentication(engine_ptr, auth_json)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            log::error!("PANIC in update_authentication_ffi: {e:?}");
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in update_authentication_ffi".to_string(),
+            )))
+        }
+    }
+}
+
+/// # Safety
+///
+/// This function will update the authentication for the engine.
+#[no_mangle]
+#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
+pub unsafe extern "C" fn update_authentication(
+    engine_ptr: *mut c_void,
+    auth_json: *const c_char,
+) -> *const c_char {
+    match std::panic::catch_unwind(|| {
+        log::trace!(
+            "update_authentication called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _update_authentication(engine_ptr, auth_json)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            log::error!("PANIC in update_authentication: {e:?}");
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in update_authentication".to_string(),
+            )))
+        }
+    }
+}
+
+/// # Safety
+///
 /// This function will take in a pointer to a string and destroy it.
 #[no_mangle]
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
@@ -821,6 +877,53 @@ unsafe extern "C" fn _list_flags(engine_ptr: *mut c_void) -> *const c_char {
     };
 
     result_to_json_ptr(res)
+}
+
+unsafe extern "C" fn _update_authentication(
+    engine_ptr: *mut c_void,
+    auth_json: *const c_char,
+) -> *const c_char {
+    if engine_ptr.is_null() || auth_json.is_null() {
+        return result_to_json_ptr::<(), _>(Err(FFIError::NullPointer));
+    }
+
+    let e = match get_engine(engine_ptr) {
+        Ok(e) => e,
+        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
+    };
+
+    let auth_bytes = CStr::from_ptr(auth_json).to_bytes();
+    let auth_str = match std::str::from_utf8(auth_bytes) {
+        Ok(s) => s,
+        Err(e) => {
+            return result_to_json_ptr::<(), Error>(Err(Error::Internal(format!(
+                "invalid utf8: {e}"
+            ))));
+        }
+    };
+
+    let auth: Authentication = match serde_json::from_str(auth_str) {
+        Ok(a) => a,
+        Err(e) => {
+            return result_to_json_ptr::<(), Error>(Err(Error::Internal(format!(
+                "invalid auth json: {e}"
+            ))));
+        }
+    };
+
+    let header_map = HeaderMap::from(auth);
+
+    match &e.auth_sender {
+        Some(sender) => match sender.send(header_map) {
+            Ok(_) => result_to_json_ptr(Ok::<(), Error>(())),
+            Err(_) => result_to_json_ptr::<(), Error>(Err(Error::Internal(
+                "auth channel closed".to_string(),
+            ))),
+        },
+        None => result_to_json_ptr::<(), Error>(Err(Error::Internal(
+            "no auth sender available".to_string(),
+        ))),
+    }
 }
 
 unsafe extern "C" fn _destroy_engine(engine_ptr: *mut c_void) {
@@ -1041,5 +1144,131 @@ mod tests {
         assert_eq!(opts.error_strategy, Some(ErrorStrategy::Fail));
         assert_eq!(opts.snapshot, None);
         assert_eq!(opts.tls_config, None);
+    }
+
+    #[test]
+    fn test_update_authentication_null_engine_ptr() {
+        unsafe {
+            let auth_json = CString::new(r#"{"client_token":"secret"}"#).unwrap();
+            let result_ptr = _update_authentication(std::ptr::null_mut(), auth_json.as_ptr());
+            assert!(!result_ptr.is_null());
+
+            let result_str = CStr::from_ptr(result_ptr).to_str().unwrap();
+            assert!(
+                result_str.contains("failure"),
+                "Expected failure response, got: {}",
+                result_str
+            );
+
+            _destroy_string(result_ptr as *mut c_char);
+        }
+    }
+
+    #[test]
+    fn test_update_authentication_null_auth_json() {
+        unsafe {
+            let opts = CString::new(
+                r#"{"url":"http://localhost:1","error_strategy":"fallback","update_interval":9999}"#,
+            )
+            .unwrap();
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            assert!(!engine_ptr.is_null());
+
+            let result_ptr = _update_authentication(engine_ptr, std::ptr::null());
+            assert!(!result_ptr.is_null());
+
+            let result_str = CStr::from_ptr(result_ptr).to_str().unwrap();
+            assert!(
+                result_str.contains("failure"),
+                "Expected failure response, got: {}",
+                result_str
+            );
+
+            _destroy_string(result_ptr as *mut c_char);
+            _destroy_engine(engine_ptr);
+        }
+    }
+
+    #[test]
+    fn test_update_authentication_invalid_json() {
+        unsafe {
+            let opts = CString::new(
+                r#"{"url":"http://localhost:1","error_strategy":"fallback","update_interval":9999}"#,
+            )
+            .unwrap();
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            assert!(!engine_ptr.is_null());
+
+            let invalid_json = CString::new("not valid json").unwrap();
+            let result_ptr = _update_authentication(engine_ptr, invalid_json.as_ptr());
+            assert!(!result_ptr.is_null());
+
+            let result_str = CStr::from_ptr(result_ptr).to_str().unwrap();
+            assert!(
+                result_str.contains("failure"),
+                "Expected failure response, got: {}",
+                result_str
+            );
+            assert!(
+                result_str.contains("invalid auth json"),
+                "Expected 'invalid auth json' error, got: {}",
+                result_str
+            );
+
+            _destroy_string(result_ptr as *mut c_char);
+            _destroy_engine(engine_ptr);
+        }
+    }
+
+    #[test]
+    fn test_update_authentication_valid_client_token() {
+        unsafe {
+            let opts = CString::new(
+                r#"{"url":"http://localhost:1","error_strategy":"fallback","update_interval":9999}"#,
+            )
+            .unwrap();
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            assert!(!engine_ptr.is_null());
+
+            let auth_json = CString::new(r#"{"client_token":"new-secret"}"#).unwrap();
+            let result_ptr = _update_authentication(engine_ptr, auth_json.as_ptr());
+            assert!(!result_ptr.is_null());
+
+            let result_str = CStr::from_ptr(result_ptr).to_str().unwrap();
+            assert!(
+                result_str.contains("success"),
+                "Expected success response, got: {}",
+                result_str
+            );
+
+            _destroy_string(result_ptr as *mut c_char);
+            _destroy_engine(engine_ptr);
+        }
+    }
+
+    #[test]
+    fn test_update_authentication_valid_jwt_token() {
+        unsafe {
+            let opts = CString::new(
+                r#"{"url":"http://localhost:1","error_strategy":"fallback","update_interval":9999}"#,
+            )
+            .unwrap();
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            assert!(!engine_ptr.is_null());
+
+            let auth_json = CString::new(r#"{"jwt_token":"new-jwt"}"#).unwrap();
+            let result_ptr = _update_authentication(engine_ptr, auth_json.as_ptr());
+            assert!(!result_ptr.is_null());
+
+            let result_str = CStr::from_ptr(result_ptr).to_str().unwrap();
+            assert!(
+                result_str.contains("success"),
+                "Expected success response, got: {}",
+                result_str
+            );
+
+            _destroy_string(result_ptr as *mut c_char);
+            _destroy_engine(engine_ptr);
+        }
     }
 }

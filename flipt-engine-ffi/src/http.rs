@@ -12,7 +12,7 @@ use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Middleware, Next};
 use reqwest_retry::policies::ExponentialBackoff;
 use reqwest_retry::{Jitter, RetryTransientMiddleware};
 use serde::Deserialize;
-use tokio::sync::{mpsc, Notify};
+use tokio::sync::{mpsc, watch, Notify};
 use tokio_util::io::StreamReader;
 
 use fliptevaluation::error::Error;
@@ -94,17 +94,34 @@ pub enum ErrorStrategy {
     Fallback,
 }
 
-#[derive(Clone)]
 pub struct HTTPFetcher {
     http_client: ClientWithMiddleware,
     base_url: String,
     environment: String,
     namespace: String,
-    authentication: HeaderMap,
+    auth_receiver: watch::Receiver<HeaderMap>,
+    auth_sender: Option<watch::Sender<HeaderMap>>,
     etag: Option<String>,
     reference: Option<String>,
     update_interval: Duration,
     mode: FetchMode,
+}
+
+impl Clone for HTTPFetcher {
+    fn clone(&self) -> Self {
+        Self {
+            http_client: self.http_client.clone(),
+            base_url: self.base_url.clone(),
+            environment: self.environment.clone(),
+            namespace: self.namespace.clone(),
+            auth_receiver: self.auth_receiver.clone(),
+            auth_sender: None,
+            etag: self.etag.clone(),
+            reference: self.reference.clone(),
+            update_interval: self.update_interval,
+            mode: self.mode.clone(),
+        }
+    }
 }
 
 pub struct HTTPFetcherBuilder {
@@ -277,6 +294,8 @@ impl HTTPFetcherBuilder {
             .build()
             .map_err(|e| Error::Internal(format!("failed to create client: {e}")))?;
 
+        let (auth_sender, auth_receiver) = watch::channel(self.authentication);
+
         Ok(HTTPFetcher {
             base_url: self.base_url,
             environment: self.environment.unwrap_or("default".to_string()),
@@ -285,7 +304,8 @@ impl HTTPFetcherBuilder {
                 .with(RetryTransientMiddleware::new_with_policy(retry_policy))
                 .with(LoggingMiddleware::default())
                 .build(),
-            authentication: self.authentication,
+            auth_receiver,
+            auth_sender: Some(auth_sender),
             etag: None,
             reference: self.reference,
             update_interval: self.update_interval,
@@ -297,6 +317,11 @@ impl HTTPFetcherBuilder {
 type FetchResult = Result<source::Document, Error>;
 
 impl HTTPFetcher {
+    /// Take the auth sender out of the fetcher. Returns `None` if already taken or if this is a clone.
+    pub fn take_auth_sender(&mut self) -> Option<watch::Sender<HeaderMap>> {
+        self.auth_sender.take()
+    }
+
     /// Start the fetcher and return a channel to receive updates on the snapshot changes
     pub fn start(
         &mut self,
@@ -399,7 +424,7 @@ impl HTTPFetcher {
             );
         }
 
-        for (key, value) in self.authentication.iter() {
+        for (key, value) in self.auth_receiver.borrow().iter() {
             headers.insert(key, value.clone());
         }
 
@@ -575,6 +600,8 @@ mod tests {
     use mockito::Server;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
+
+    use reqwest::header::HeaderMap;
 
     use crate::http::Authentication;
     use crate::http::FetchMode;
@@ -942,5 +969,56 @@ mod tests {
         );
 
         mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_auth_update_via_watch_channel() {
+        let mut server = Server::new_async().await;
+
+        // First request expects no auth
+        let mock_no_auth = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("x-flipt-environment", "default")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .expect(1)
+            .create_async()
+            .await;
+
+        let url = server.url();
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
+            .authentication(Authentication::None)
+            .build()
+            .unwrap();
+
+        let auth_sender = fetcher
+            .take_auth_sender()
+            .expect("auth sender should be available");
+
+        // Fetch with no auth
+        let result = fetcher.fetch().await;
+        assert!(result.is_ok());
+        mock_no_auth.assert();
+
+        // Now update auth via the watch channel
+        let new_auth = HeaderMap::from(Authentication::ClientToken("new-token".to_string()));
+        auth_sender.send(new_auth).unwrap();
+
+        // Second request should include the new auth header
+        let mock_with_auth = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("x-flipt-environment", "default")
+            .match_header("authorization", "Bearer new-token")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .expect(1)
+            .create_async()
+            .await;
+
+        let result = fetcher.fetch().await;
+        assert!(result.is_ok());
+        mock_with_auth.assert();
     }
 }

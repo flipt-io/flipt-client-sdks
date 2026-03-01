@@ -29,6 +29,7 @@ tokio = { version = "1.36.0", features = [
   "io-util",
   "net",
   "time",
+  "sync",
 ], default-features = false }
 tokio-util = { version = "0.7", features = ["io"], default-features = false }
 futures-util = { version = "0.3.30", default-features = false }
