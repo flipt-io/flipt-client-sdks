@@ -617,6 +617,58 @@ pub unsafe extern "C" fn destroy_engine(engine_ptr: *mut c_void) {
 
 /// # Safety
 ///
+/// This function will update the authentication for the engine.
+#[no_mangle]
+#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
+pub unsafe extern "C" fn update_authentication_ffi(
+    engine_ptr: *mut c_void,
+    auth_json: *const c_char,
+) -> *const c_char {
+    match std::panic::catch_unwind(|| {
+        log::trace!(
+            "update_authentication_ffi called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _update_authentication(engine_ptr, auth_json)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            log::error!("PANIC in update_authentication_ffi: {e:?}");
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in update_authentication_ffi".to_string(),
+            )))
+        }
+    }
+}
+
+/// # Safety
+///
+/// This function will update the authentication for the engine.
+#[no_mangle]
+#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
+pub unsafe extern "C" fn update_authentication(
+    engine_ptr: *mut c_void,
+    auth_json: *const c_char,
+) -> *const c_char {
+    match std::panic::catch_unwind(|| {
+        log::trace!(
+            "update_authentication called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _update_authentication(engine_ptr, auth_json)
+    }) {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            log::error!("PANIC in update_authentication: {e:?}");
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in update_authentication".to_string(),
+            )))
+        }
+    }
+}
+
+/// # Safety
+///
 /// This function will take in a pointer to a string and destroy it.
 #[no_mangle]
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
@@ -826,6 +878,53 @@ unsafe extern "C" fn _list_flags(engine_ptr: *mut c_void) -> *const c_char {
     };
 
     result_to_json_ptr(res)
+}
+
+unsafe extern "C" fn _update_authentication(
+    engine_ptr: *mut c_void,
+    auth_json: *const c_char,
+) -> *const c_char {
+    if engine_ptr.is_null() || auth_json.is_null() {
+        return result_to_json_ptr::<(), _>(Err(FFIError::NullPointer));
+    }
+
+    let e = match get_engine(engine_ptr) {
+        Ok(e) => e,
+        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
+    };
+
+    let auth_bytes = CStr::from_ptr(auth_json).to_bytes();
+    let auth_str = match std::str::from_utf8(auth_bytes) {
+        Ok(s) => s,
+        Err(e) => {
+            return result_to_json_ptr::<(), Error>(Err(Error::Internal(format!(
+                "invalid utf8: {e}"
+            ))));
+        }
+    };
+
+    let auth: Authentication = match serde_json::from_str(auth_str) {
+        Ok(a) => a,
+        Err(e) => {
+            return result_to_json_ptr::<(), Error>(Err(Error::Internal(format!(
+                "invalid auth json: {e}"
+            ))));
+        }
+    };
+
+    let header_map = HeaderMap::from(auth);
+
+    match &e.auth_sender {
+        Some(sender) => match sender.send(header_map) {
+            Ok(_) => result_to_json_ptr(Ok::<(), Error>(())),
+            Err(_) => result_to_json_ptr::<(), Error>(Err(Error::Internal(
+                "auth channel closed".to_string(),
+            ))),
+        },
+        None => result_to_json_ptr::<(), Error>(Err(Error::Internal(
+            "no auth sender available".to_string(),
+        ))),
+    }
 }
 
 unsafe extern "C" fn _destroy_engine(engine_ptr: *mut c_void) {

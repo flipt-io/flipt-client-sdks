@@ -581,6 +581,8 @@ mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
 
+    use reqwest::header::HeaderMap;
+
     use crate::http::Authentication;
     use crate::http::FetchMode;
     use crate::http::HTTPFetcherBuilder;
@@ -947,5 +949,52 @@ mod tests {
         );
 
         mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_auth_update_via_watch_channel() {
+        let mut server = Server::new_async().await;
+
+        // First request expects no auth
+        let mock_no_auth = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("x-flipt-environment", "default")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .expect(1)
+            .create_async()
+            .await;
+
+        let url = server.url();
+        let (mut fetcher, auth_sender) = HTTPFetcherBuilder::new(&url)
+            .authentication(Authentication::None)
+            .build()
+            .unwrap();
+
+        // Fetch with no auth
+        let result = fetcher.fetch().await;
+        assert!(result.is_ok());
+        mock_no_auth.assert();
+
+        // Now update auth via the watch channel
+        let new_auth = HeaderMap::from(Authentication::ClientToken("new-token".to_string()));
+        auth_sender.send(new_auth).unwrap();
+
+        // Second request should include the new auth header
+        let mock_with_auth = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("x-flipt-environment", "default")
+            .match_header("authorization", "Bearer new-token")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .expect(1)
+            .create_async()
+            .await;
+
+        let result = fetcher.fetch().await;
+        assert!(result.is_ok());
+        mock_with_auth.assert();
     }
 }
