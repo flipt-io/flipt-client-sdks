@@ -114,11 +114,12 @@ public class FliptClient implements AutoCloseable {
     this.tlsConfig = tlsConfig;
     this.authenticationProvider = authenticationProvider;
 
-    // If provider is set, use it for the initial token
+    if (this.authenticationProvider != null && this.authentication != null) {
+      throw new IllegalArgumentException(
+          "Cannot set both authentication and authenticationProvider");
+    }
+
     if (this.authenticationProvider != null) {
-      if (this.authentication != null) {
-        logger.warning("Both authentication and authenticationProvider set; using provider");
-      }
       AuthenticationLease initial = this.authenticationProvider.get();
       this.authentication = initial.getStrategy();
       this.currentExpiry = initial.getExpiresAt();
