@@ -12,7 +12,7 @@ use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Middleware, Next};
 use reqwest_retry::policies::ExponentialBackoff;
 use reqwest_retry::{Jitter, RetryTransientMiddleware};
 use serde::Deserialize;
-use tokio::sync::{mpsc, Notify};
+use tokio::sync::{mpsc, watch, Notify};
 use tokio_util::io::StreamReader;
 
 use fliptevaluation::error::Error;
@@ -100,7 +100,7 @@ pub struct HTTPFetcher {
     base_url: String,
     environment: String,
     namespace: String,
-    authentication: HeaderMap,
+    auth_receiver: watch::Receiver<HeaderMap>,
     etag: Option<String>,
     reference: Option<String>,
     update_interval: Duration,
@@ -238,7 +238,7 @@ impl HTTPFetcherBuilder {
         self
     }
 
-    pub fn build(self) -> Result<HTTPFetcher, Error> {
+    pub fn build(self) -> Result<(HTTPFetcher, watch::Sender<HeaderMap>), Error> {
         let retry_policy = ExponentialBackoff::builder()
             .retry_bounds(Duration::from_secs(1), Duration::from_secs(30))
             .jitter(Jitter::Full)
@@ -277,20 +277,25 @@ impl HTTPFetcherBuilder {
             .build()
             .map_err(|e| Error::Internal(format!("failed to create client: {e}")))?;
 
-        Ok(HTTPFetcher {
-            base_url: self.base_url,
-            environment: self.environment.unwrap_or("default".to_string()),
-            namespace: self.namespace.unwrap_or("default".to_string()),
-            http_client: ClientBuilder::new(client)
-                .with(RetryTransientMiddleware::new_with_policy(retry_policy))
-                .with(LoggingMiddleware::default())
-                .build(),
-            authentication: self.authentication,
-            etag: None,
-            reference: self.reference,
-            update_interval: self.update_interval,
-            mode: self.mode,
-        })
+        let (auth_sender, auth_receiver) = watch::channel(self.authentication);
+
+        Ok((
+            HTTPFetcher {
+                base_url: self.base_url,
+                environment: self.environment.unwrap_or("default".to_string()),
+                namespace: self.namespace.unwrap_or("default".to_string()),
+                http_client: ClientBuilder::new(client)
+                    .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+                    .with(LoggingMiddleware::default())
+                    .build(),
+                auth_receiver,
+                etag: None,
+                reference: self.reference,
+                update_interval: self.update_interval,
+                mode: self.mode,
+            },
+            auth_sender,
+        ))
     }
 }
 
@@ -399,7 +404,7 @@ impl HTTPFetcher {
             );
         }
 
-        for (key, value) in self.authentication.iter() {
+        for (key, value) in self.auth_receiver.borrow().iter() {
             headers.insert(key, value.clone());
         }
 
@@ -595,7 +600,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url)
+        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .build()
             .unwrap();
@@ -625,7 +630,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url)
+        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
             .reference("123")
             .build()
             .unwrap();
@@ -650,7 +655,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url)
+        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .build()
             .unwrap();
@@ -677,7 +682,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url)
+        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .build()
             .unwrap();
@@ -703,7 +708,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url)
+        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::ClientToken("foo".to_string()))
             .build()
             .unwrap();
@@ -728,7 +733,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url)
+        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::JwtToken("foo".to_string()))
             .build()
             .unwrap();
@@ -753,7 +758,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url)
+        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::JwtToken("foo".to_string()))
             .build()
             .unwrap();
@@ -787,7 +792,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url)
+        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .mode(FetchMode::Streaming)
             .build()
@@ -834,7 +839,7 @@ mod tests {
             .create();
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url)
+        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .build()
             .unwrap();
@@ -902,7 +907,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let mut fetcher = HTTPFetcherBuilder::new(&url)
+        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .mode(FetchMode::Streaming)
             .build()
