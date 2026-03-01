@@ -179,7 +179,7 @@ The provider returns an `AuthResult` containing:
 - An `AuthenticationStrategy` (e.g., `ClientTokenAuthentication` or `JWTAuthentication`)
 - An `Instant` indicating when the token expires
 
-The SDK checks every 10 seconds whether the token is within 30 seconds of expiry. If so, it calls the provider for a fresh token and updates the underlying engine without any disruption to evaluations.
+The SDK automatically schedules a refresh 30 seconds before the token expires. On successful refresh, it reschedules based on the new token's expiry. If a refresh fails, it retries after 5 seconds.
 
 > **Note:** If both `authentication` and `authenticationProvider` are set, the provider takes precedence and a warning is logged.
 
