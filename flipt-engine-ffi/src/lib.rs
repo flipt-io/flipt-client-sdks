@@ -13,6 +13,7 @@ use fliptevaluation::{
 };
 use http::{Authentication, ErrorStrategy, FetchMode, HTTPFetcher, HTTPFetcherBuilder};
 use libc::c_void;
+use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
@@ -25,7 +26,7 @@ use thiserror::Error;
 use tokio::runtime::Builder;
 use tokio::runtime::Handle;
 use tokio::runtime::Runtime;
-use tokio::sync::Notify;
+use tokio::sync::{watch, Notify};
 
 #[derive(Deserialize)]
 struct FFIEvaluationRequest {
@@ -125,6 +126,7 @@ pub struct Engine {
     stop_signal: Arc<AtomicBool>,
     fetcher_handle: Option<tokio::task::JoinHandle<()>>,
     stop_notify: Arc<Notify>,
+    auth_sender: Option<watch::Sender<HeaderMap>>,
 }
 
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
@@ -161,6 +163,7 @@ impl Engine {
         evaluator: Evaluator<snapshot::Snapshot>,
         error_strategy: ErrorStrategy,
         initial_snapshot: snapshot::Snapshot,
+        auth_sender: Option<watch::Sender<HeaderMap>>,
     ) -> Self {
         let stop_signal = Arc::new(AtomicBool::new(false));
         let stop_signal_clone = stop_signal.clone();
@@ -228,6 +231,7 @@ impl Engine {
             stop_signal,
             fetcher_handle: Some(fetcher_handle),
             stop_notify,
+            auth_sender,
         }
     }
 
@@ -706,7 +710,7 @@ unsafe extern "C" fn _initialize_engine(opts: *const c_char) -> *mut c_void {
             fetcher_builder = fetcher_builder.tls_config(tls_config);
         }
 
-        let fetcher = fetcher_builder.build().unwrap_or_else(|e| {
+        let (fetcher, auth_sender) = fetcher_builder.build().unwrap_or_else(|e| {
             log::warn!("failed to build custom fetcher: {e}");
             HTTPFetcherBuilder::default().build().unwrap()
         });
@@ -730,6 +734,7 @@ unsafe extern "C" fn _initialize_engine(opts: *const c_char) -> *mut c_void {
             evaluator,
             engine_opts.error_strategy.unwrap_or_default(),
             initial_snapshot,
+            Some(auth_sender),
         );
 
         // Convert to raw pointer
