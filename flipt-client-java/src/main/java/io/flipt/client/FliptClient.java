@@ -56,6 +56,7 @@ public class FliptClient implements AutoCloseable {
   private volatile Instant currentExpiry;
   private java.util.concurrent.ScheduledExecutorService authScheduler;
   private static final Duration EXPIRY_BUFFER = Duration.ofSeconds(30);
+  private static final Duration MIN_RETRY_DELAY = Duration.ofSeconds(5);
   private static final java.util.logging.Logger logger =
       java.util.logging.Logger.getLogger(FliptClient.class.getName());
 
@@ -338,25 +339,32 @@ public class FliptClient implements AutoCloseable {
               return t;
             });
 
-    this.authScheduler.scheduleAtFixedRate(
+    scheduleNextAuthCheck();
+  }
+
+  private void scheduleNextAuthCheck() {
+    Duration delay = Duration.between(Instant.now(), this.currentExpiry.minus(EXPIRY_BUFFER));
+    if (delay.isNegative() || delay.isZero()) {
+      delay = MIN_RETRY_DELAY;
+    }
+
+    this.authScheduler.schedule(
         () -> {
           try {
-            if (Instant.now().plus(EXPIRY_BUFFER).isAfter(this.currentExpiry)) {
-              AuthResult result = this.authenticationProvider.getAuthentication();
-              String authJson = this.objectMapper.writeValueAsString(result.getStrategy());
-              Pointer response = CLibrary.INSTANCE.update_authentication(this.engine, authJson);
-              if (response != null) {
-                CLibrary.INSTANCE.destroy_string(response);
-              }
-              this.currentExpiry = result.getExpiresAt();
+            AuthResult result = this.authenticationProvider.getAuthentication();
+            String authJson = this.objectMapper.writeValueAsString(result.getStrategy());
+            Pointer response = CLibrary.INSTANCE.update_authentication(this.engine, authJson);
+            if (response != null) {
+              CLibrary.INSTANCE.destroy_string(response);
             }
+            this.currentExpiry = result.getExpiresAt();
           } catch (Exception e) {
             logger.warning("Failed to refresh authentication: " + e.getMessage());
           }
+          scheduleNextAuthCheck();
         },
-        10,
-        10,
-        java.util.concurrent.TimeUnit.SECONDS);
+        delay.toMillis(),
+        java.util.concurrent.TimeUnit.MILLISECONDS);
   }
 
   @Override
