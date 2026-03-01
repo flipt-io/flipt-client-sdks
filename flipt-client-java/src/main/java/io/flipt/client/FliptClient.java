@@ -54,6 +54,7 @@ public class FliptClient implements AutoCloseable {
   private TlsConfig tlsConfig;
   private AuthenticationProvider authenticationProvider;
   private volatile Instant currentExpiry;
+  private volatile boolean closed;
   private java.util.concurrent.ScheduledExecutorService authScheduler;
   private static final Duration EXPIRY_BUFFER = Duration.ofSeconds(30);
   private static final Duration MIN_RETRY_DELAY = Duration.ofSeconds(5);
@@ -350,18 +351,29 @@ public class FliptClient implements AutoCloseable {
 
     this.authScheduler.schedule(
         () -> {
+          if (this.closed) {
+            return;
+          }
           try {
-            AuthenticationLease result = this.authenticationProvider.get();
-            String authJson = this.objectMapper.writeValueAsString(result.getStrategy());
+            AuthenticationLease lease = this.authenticationProvider.get();
+            String authJson = this.objectMapper.writeValueAsString(lease.getStrategy());
             Pointer response = CLibrary.INSTANCE.update_authentication(this.engine, authJson);
-            if (response != null) {
-              CLibrary.INSTANCE.destroy_string(response);
+
+            TypeReference<Result<Void>> typeRef = new TypeReference<Result<Void>>() {};
+            Result<Void> resp = this.readValue(response, typeRef);
+            if (!STATUS_SUCCESS.equals(resp.getStatus())) {
+              logger.warning(
+                  "Failed to update engine authentication: "
+                      + resp.getErrorMessage().orElse("Unknown error"));
+            } else {
+              this.currentExpiry = lease.getExpiresAt();
             }
-            this.currentExpiry = result.getExpiresAt();
           } catch (Exception e) {
             logger.warning("Failed to refresh authentication: " + e.getMessage());
           }
-          scheduleNextAuthCheck();
+          if (!this.closed) {
+            scheduleNextAuthCheck();
+          }
         },
         delay.toMillis(),
         java.util.concurrent.TimeUnit.MILLISECONDS);
@@ -369,8 +381,14 @@ public class FliptClient implements AutoCloseable {
 
   @Override
   public void close() {
+    this.closed = true;
     if (this.authScheduler != null) {
       this.authScheduler.shutdownNow();
+      try {
+        this.authScheduler.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
     }
     if (this.engine != null) {
       CLibrary.INSTANCE.destroy_engine(this.engine);
