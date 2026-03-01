@@ -54,7 +54,8 @@ public class FliptClient implements AutoCloseable {
   private TlsConfig tlsConfig;
   private AuthenticationProvider authenticationProvider;
   private volatile Instant currentExpiry;
-  private volatile boolean closed;
+  private final java.util.concurrent.atomic.AtomicBoolean closed =
+      new java.util.concurrent.atomic.AtomicBoolean(false);
   private java.util.concurrent.ScheduledExecutorService authScheduler;
   private static final Duration EXPIRY_BUFFER = Duration.ofSeconds(30);
   private static final Duration MIN_RETRY_DELAY = Duration.ofSeconds(5);
@@ -351,7 +352,7 @@ public class FliptClient implements AutoCloseable {
 
     this.authScheduler.schedule(
         () -> {
-          if (this.closed) {
+          if (this.closed.get()) {
             return;
           }
           try {
@@ -371,7 +372,7 @@ public class FliptClient implements AutoCloseable {
           } catch (Exception e) {
             logger.warning("Failed to refresh authentication: " + e.getMessage());
           }
-          if (!this.closed) {
+          if (!this.closed.get()) {
             scheduleNextAuthCheck();
           }
         },
@@ -381,7 +382,9 @@ public class FliptClient implements AutoCloseable {
 
   @Override
   public void close() {
-    this.closed = true;
+    if (!this.closed.compareAndSet(false, true)) {
+      return;
+    }
     if (this.authScheduler != null) {
       this.authScheduler.shutdownNow();
       try {
