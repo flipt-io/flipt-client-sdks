@@ -10,6 +10,7 @@ import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import io.flipt.client.models.*;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -51,6 +52,12 @@ public class FliptClient implements AutoCloseable {
   private ErrorStrategy errorStrategy;
   private String snapshot;
   private TlsConfig tlsConfig;
+  private AuthenticationProvider authenticationProvider;
+  private volatile Instant currentExpiry;
+  private java.util.concurrent.ScheduledExecutorService authScheduler;
+  private static final Duration EXPIRY_BUFFER = Duration.ofSeconds(30);
+  private static final java.util.logging.Logger logger =
+      java.util.logging.Logger.getLogger(FliptClient.class.getName());
 
   private final Pointer engine;
   private final ObjectMapper objectMapper;
@@ -73,6 +80,8 @@ public class FliptClient implements AutoCloseable {
     void destroy_engine(Pointer engine);
 
     void destroy_string(Pointer str);
+
+    Pointer update_authentication(Pointer engine, String auth_json);
   }
 
   @Builder
@@ -81,6 +90,7 @@ public class FliptClient implements AutoCloseable {
       String namespace,
       String url,
       AuthenticationStrategy authentication,
+      AuthenticationProvider authenticationProvider,
       String reference,
       Duration requestTimeout,
       Duration updateInterval,
@@ -99,6 +109,17 @@ public class FliptClient implements AutoCloseable {
     this.errorStrategy = errorStrategy != null ? errorStrategy : ErrorStrategy.FAIL;
     this.snapshot = snapshot;
     this.tlsConfig = tlsConfig;
+    this.authenticationProvider = authenticationProvider;
+
+    // If provider is set, use it for the initial token
+    if (this.authenticationProvider != null) {
+      if (this.authentication != null) {
+        logger.warning("Both authentication and authenticationProvider set; using provider");
+      }
+      AuthResult initial = this.authenticationProvider.getAuthentication();
+      this.authentication = initial.getStrategy();
+      this.currentExpiry = initial.getExpiresAt();
+    }
 
     this.objectMapper = new ObjectMapper();
     this.objectMapper.registerModule(new Jdk8Module());
@@ -126,6 +147,11 @@ public class FliptClient implements AutoCloseable {
     }
 
     this.engine = CLibrary.INSTANCE.initialize_engine(clientOptionsSerialized);
+
+    // Start auth refresh scheduler if provider is set
+    if (this.authenticationProvider != null) {
+      startAuthRefreshScheduler();
+    }
   }
 
   private static class InternalEvaluationRequest {
@@ -303,8 +329,41 @@ public class FliptClient implements AutoCloseable {
     }
   }
 
+  private void startAuthRefreshScheduler() {
+    this.authScheduler =
+        java.util.concurrent.Executors.newSingleThreadScheduledExecutor(
+            r -> {
+              Thread t = new Thread(r, "flipt-auth-refresh");
+              t.setDaemon(true);
+              return t;
+            });
+
+    this.authScheduler.scheduleAtFixedRate(
+        () -> {
+          try {
+            if (Instant.now().plus(EXPIRY_BUFFER).isAfter(this.currentExpiry)) {
+              AuthResult result = this.authenticationProvider.getAuthentication();
+              String authJson = this.objectMapper.writeValueAsString(result.getStrategy());
+              Pointer response = CLibrary.INSTANCE.update_authentication(this.engine, authJson);
+              if (response != null) {
+                CLibrary.INSTANCE.destroy_string(response);
+              }
+              this.currentExpiry = result.getExpiresAt();
+            }
+          } catch (Exception e) {
+            logger.warning("Failed to refresh authentication: " + e.getMessage());
+          }
+        },
+        10,
+        10,
+        java.util.concurrent.TimeUnit.SECONDS);
+  }
+
   @Override
   public void close() {
+    if (this.authScheduler != null) {
+      this.authScheduler.shutdownNow();
+    }
     if (this.engine != null) {
       CLibrary.INSTANCE.destroy_engine(this.engine);
     }
