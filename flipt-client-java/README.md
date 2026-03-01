@@ -167,17 +167,12 @@ FliptClient client = FliptClient.builder()
         // Your token refresh logic here
         String token = myOAuthClient.getAccessToken();
         Instant expiresAt = myOAuthClient.getTokenExpiry();
-        return new AuthResult(
-            new JWTAuthentication(token),
-            expiresAt
-        );
+        return AuthenticationLease.jwt(token, expiresAt);
     })
     .build();
 ```
 
-The provider returns an `AuthResult` containing:
-- An `AuthenticationStrategy` (e.g., `ClientTokenAuthentication` or `JWTAuthentication`)
-- An `Instant` indicating when the token expires
+The provider returns an `AuthenticationLease` containing the credential and its expiry. Use the factory methods `AuthenticationLease.jwt(token, expiresAt)` or `AuthenticationLease.clientToken(token, expiresAt)` to create one.
 
 The SDK automatically schedules a refresh 30 seconds before the token expires. On successful refresh, it reschedules based on the new token's expiry. If a refresh fails, it retries after 5 seconds.
 

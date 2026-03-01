@@ -117,7 +117,7 @@ public class FliptClient implements AutoCloseable {
       if (this.authentication != null) {
         logger.warning("Both authentication and authenticationProvider set; using provider");
       }
-      AuthResult initial = this.authenticationProvider.getAuthentication();
+      AuthenticationLease initial = this.authenticationProvider.get();
       this.authentication = initial.getStrategy();
       this.currentExpiry = initial.getExpiresAt();
     }
@@ -351,7 +351,7 @@ public class FliptClient implements AutoCloseable {
     this.authScheduler.schedule(
         () -> {
           try {
-            AuthResult result = this.authenticationProvider.getAuthentication();
+            AuthenticationLease result = this.authenticationProvider.get();
             String authJson = this.objectMapper.writeValueAsString(result.getStrategy());
             Pointer response = CLibrary.INSTANCE.update_authentication(this.engine, authJson);
             if (response != null) {
