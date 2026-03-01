@@ -104,6 +104,20 @@ void destroy_engine(void *engine_ptr);
 /**
  * # Safety
  *
+ * This function will update the authentication for the engine.
+ */
+const char *update_authentication_ffi(void *engine_ptr, const char *auth_json);
+
+/**
+ * # Safety
+ *
+ * This function will update the authentication for the engine.
+ */
+const char *update_authentication(void *engine_ptr, const char *auth_json);
+
+/**
+ * # Safety
+ *
  * This function will take in a pointer to a string and destroy it.
  */
 void destroy_string_ffi(char *ptr);
