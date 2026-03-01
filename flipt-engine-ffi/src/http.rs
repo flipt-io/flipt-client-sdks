@@ -94,17 +94,34 @@ pub enum ErrorStrategy {
     Fallback,
 }
 
-#[derive(Clone)]
 pub struct HTTPFetcher {
     http_client: ClientWithMiddleware,
     base_url: String,
     environment: String,
     namespace: String,
     auth_receiver: watch::Receiver<HeaderMap>,
+    auth_sender: Option<watch::Sender<HeaderMap>>,
     etag: Option<String>,
     reference: Option<String>,
     update_interval: Duration,
     mode: FetchMode,
+}
+
+impl Clone for HTTPFetcher {
+    fn clone(&self) -> Self {
+        Self {
+            http_client: self.http_client.clone(),
+            base_url: self.base_url.clone(),
+            environment: self.environment.clone(),
+            namespace: self.namespace.clone(),
+            auth_receiver: self.auth_receiver.clone(),
+            auth_sender: None,
+            etag: self.etag.clone(),
+            reference: self.reference.clone(),
+            update_interval: self.update_interval,
+            mode: self.mode.clone(),
+        }
+    }
 }
 
 pub struct HTTPFetcherBuilder {
@@ -238,7 +255,7 @@ impl HTTPFetcherBuilder {
         self
     }
 
-    pub fn build(self) -> Result<(HTTPFetcher, watch::Sender<HeaderMap>), Error> {
+    pub fn build(self) -> Result<HTTPFetcher, Error> {
         let retry_policy = ExponentialBackoff::builder()
             .retry_bounds(Duration::from_secs(1), Duration::from_secs(30))
             .jitter(Jitter::Full)
@@ -279,29 +296,32 @@ impl HTTPFetcherBuilder {
 
         let (auth_sender, auth_receiver) = watch::channel(self.authentication);
 
-        Ok((
-            HTTPFetcher {
-                base_url: self.base_url,
-                environment: self.environment.unwrap_or("default".to_string()),
-                namespace: self.namespace.unwrap_or("default".to_string()),
-                http_client: ClientBuilder::new(client)
-                    .with(RetryTransientMiddleware::new_with_policy(retry_policy))
-                    .with(LoggingMiddleware::default())
-                    .build(),
-                auth_receiver,
-                etag: None,
-                reference: self.reference,
-                update_interval: self.update_interval,
-                mode: self.mode,
-            },
-            auth_sender,
-        ))
+        Ok(HTTPFetcher {
+            base_url: self.base_url,
+            environment: self.environment.unwrap_or("default".to_string()),
+            namespace: self.namespace.unwrap_or("default".to_string()),
+            http_client: ClientBuilder::new(client)
+                .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+                .with(LoggingMiddleware::default())
+                .build(),
+            auth_receiver,
+            auth_sender: Some(auth_sender),
+            etag: None,
+            reference: self.reference,
+            update_interval: self.update_interval,
+            mode: self.mode,
+        })
     }
 }
 
 type FetchResult = Result<source::Document, Error>;
 
 impl HTTPFetcher {
+    /// Take the auth sender out of the fetcher. Returns `None` if already taken or if this is a clone.
+    pub fn take_auth_sender(&mut self) -> Option<watch::Sender<HeaderMap>> {
+        self.auth_sender.take()
+    }
+
     /// Start the fetcher and return a channel to receive updates on the snapshot changes
     pub fn start(
         &mut self,
@@ -602,7 +622,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .build()
             .unwrap();
@@ -632,7 +652,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .reference("123")
             .build()
             .unwrap();
@@ -657,7 +677,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .build()
             .unwrap();
@@ -684,7 +704,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .build()
             .unwrap();
@@ -710,7 +730,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::ClientToken("foo".to_string()))
             .build()
             .unwrap();
@@ -735,7 +755,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::JwtToken("foo".to_string()))
             .build()
             .unwrap();
@@ -760,7 +780,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::JwtToken("foo".to_string()))
             .build()
             .unwrap();
@@ -794,7 +814,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .mode(FetchMode::Streaming)
             .build()
@@ -841,7 +861,7 @@ mod tests {
             .create();
 
         let url = server.url();
-        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .build()
             .unwrap();
@@ -909,7 +929,7 @@ mod tests {
             .await;
 
         let url = server.url();
-        let (mut fetcher, _auth_sender) = HTTPFetcherBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .mode(FetchMode::Streaming)
             .build()
@@ -967,10 +987,14 @@ mod tests {
             .await;
 
         let url = server.url();
-        let (mut fetcher, auth_sender) = HTTPFetcherBuilder::new(&url)
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
             .authentication(Authentication::None)
             .build()
             .unwrap();
+
+        let auth_sender = fetcher
+            .take_auth_sender()
+            .expect("auth sender should be available");
 
         // Fetch with no auth
         let result = fetcher.fetch().await;

@@ -762,10 +762,12 @@ unsafe extern "C" fn _initialize_engine(opts: *const c_char) -> *mut c_void {
             fetcher_builder = fetcher_builder.tls_config(tls_config);
         }
 
-        let (fetcher, auth_sender) = fetcher_builder.build().unwrap_or_else(|e| {
+        let mut fetcher = fetcher_builder.build().unwrap_or_else(|e| {
             log::warn!("failed to build custom fetcher: {e}");
             HTTPFetcherBuilder::default().build().unwrap()
         });
+
+        let auth_sender = fetcher.take_auth_sender();
 
         let evaluator = Evaluator::new(&namespace);
 
@@ -786,7 +788,7 @@ unsafe extern "C" fn _initialize_engine(opts: *const c_char) -> *mut c_void {
             evaluator,
             engine_opts.error_strategy.unwrap_or_default(),
             initial_snapshot,
-            Some(auth_sender),
+            auth_sender,
         );
 
         // Convert to raw pointer
