@@ -176,7 +176,7 @@ The provider returns an `AuthenticationLease` containing the credential and its 
 
 The SDK automatically schedules a refresh 30 seconds before the token expires. On successful refresh, it reschedules based on the new token's expiry. If a refresh fails, it retries after 5 seconds.
 
-> **Note:** If both `authentication` and `authenticationProvider` are set, the provider takes precedence and a warning is logged.
+> **Note:** Setting both `authentication` and `authenticationProvider` will throw an `IllegalArgumentException`.
 
 ### TLS Configuration
 
