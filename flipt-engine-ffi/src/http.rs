@@ -597,7 +597,7 @@ impl HTTPFetcher {
 #[cfg(test)]
 mod tests {
     use futures::FutureExt;
-    use mockito::Server;
+    use mockito::{Matcher, Server};
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
 
@@ -979,6 +979,7 @@ mod tests {
         let mock_no_auth = server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
             .match_header("x-flipt-environment", "default")
+            .match_header("authorization", Matcher::Missing)
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)

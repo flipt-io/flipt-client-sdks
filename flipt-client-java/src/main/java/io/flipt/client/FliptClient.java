@@ -358,6 +358,9 @@ public class FliptClient implements AutoCloseable {
           }
           try {
             AuthenticationLease lease = this.authenticationProvider.get();
+            if (this.closed.get()) {
+              return;
+            }
             String authJson = this.objectMapper.writeValueAsString(lease.getStrategy());
             Pointer response = CLibrary.INSTANCE.update_authentication(this.engine, authJson);
 

@@ -897,7 +897,7 @@ unsafe extern "C" fn _update_authentication(
         Ok(s) => s,
         Err(e) => {
             return result_to_json_ptr::<(), Error>(Err(Error::Internal(format!(
-                "invalid utf8: {e}"
+                "invalid UTF-8: {e}"
             ))));
         }
     };
@@ -906,7 +906,7 @@ unsafe extern "C" fn _update_authentication(
         Ok(a) => a,
         Err(e) => {
             return result_to_json_ptr::<(), Error>(Err(Error::Internal(format!(
-                "invalid auth json: {e}"
+                "invalid auth JSON: {e}"
             ))));
         }
     };
@@ -1210,8 +1210,8 @@ mod tests {
                 result_str
             );
             assert!(
-                result_str.contains("invalid auth json"),
-                "Expected 'invalid auth json' error, got: {}",
+                result_str.contains("invalid auth JSON"),
+                "Expected 'invalid auth JSON' error, got: {}",
                 result_str
             );
 
