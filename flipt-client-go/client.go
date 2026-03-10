@@ -11,8 +11,10 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	neturl "net/url"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -630,10 +632,13 @@ func (c *Client) newRequest(ctx context.Context, url string) (*http.Request, err
 
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "flipt-client-go/"+Version)
-	req.Header.Set("x-flipt-accept-server-version", "1.47.0")
 
-	if c.cfg.Environment != "" {
-		req.Header.Set("x-flipt-environment", c.cfg.Environment)
+	if c.shouldIncludeLegacyHeaders(url) {
+		req.Header.Set("x-flipt-accept-server-version", "1.47.0")
+
+		if c.cfg.Environment != "" {
+			req.Header.Set("x-flipt-environment", c.cfg.Environment)
+		}
 	}
 
 	if c.cfg.Authentication != nil {
@@ -645,6 +650,26 @@ func (c *Client) newRequest(ctx context.Context, url string) (*http.Request, err
 		}
 	}
 	return req, nil
+}
+
+func (c *Client) shouldIncludeLegacyHeaders(rawURL string) bool {
+	switch c.cfg.LegacyHeadersMode {
+	case legacyHeadersModeEnabled:
+		return true
+	case legacyHeadersModeDisabled:
+		return false
+	default:
+		return !isClientV2Path(rawURL)
+	}
+}
+
+func isClientV2Path(rawURL string) bool {
+	parsed, err := neturl.Parse(rawURL)
+	if err == nil && parsed.Path != "" {
+		return strings.HasPrefix(parsed.Path, "/client/v2/")
+	}
+
+	return strings.Contains(rawURL, "/client/v2/")
 }
 
 // fetch fetches the snapshot for the given namespace.

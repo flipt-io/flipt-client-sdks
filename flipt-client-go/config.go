@@ -9,6 +9,14 @@ import (
 	"time"
 )
 
+type legacyHeadersMode uint8
+
+const (
+	legacyHeadersModeAuto legacyHeadersMode = iota
+	legacyHeadersModeEnabled
+	legacyHeadersModeDisabled
+)
+
 // Option configures the Flipt client via the provided config struct.
 type Option func(*config)
 
@@ -38,6 +46,30 @@ func WithURL(url string) Option {
 func WithHTTPClient(httpClient *http.Client) Option {
 	return func(cfg *config) {
 		cfg.HTTPClient = httpClient
+	}
+}
+
+// WithLegacyHeaders controls legacy Flipt request headers:
+// x-flipt-accept-server-version and x-flipt-environment.
+// When unset, behavior is automatic:
+// - non-v2 client paths: enabled
+// - /client/v2 paths: disabled
+func WithLegacyHeaders(enabled bool) Option {
+	return func(cfg *config) {
+		if enabled {
+			cfg.LegacyHeadersMode = legacyHeadersModeEnabled
+			return
+		}
+
+		cfg.LegacyHeadersMode = legacyHeadersModeDisabled
+	}
+}
+
+// WithForceAttemptHTTP2 sets the ForceAttemptHTTP2 option on the client's http.Transport
+// without requiring the caller to replace the entire HTTP client.
+func WithForceAttemptHTTP2(forceAttemptHTTP2 bool) Option {
+	return func(cfg *config) {
+		cfg.ForceAttemptHTTP2 = &forceAttemptHTTP2
 	}
 }
 
@@ -183,12 +215,21 @@ type config struct {
 	HTTPClient *http.Client
 	// Hook for before and after evaluation callbacks. Optional.
 	Hook Hook
+	// LegacyHeadersMode controls legacy request headers behavior.
+	// Auto mode enables legacy headers for non-v2 paths only.
+	LegacyHeadersMode legacyHeadersMode
+	// ForceAttemptHTTP2 optionally overrides the transport's HTTP/2 negotiation behavior.
+	ForceAttemptHTTP2 *bool
 }
 
 // validate validates the configuration and sets defaults.
 func (c *config) validate() error {
 	if c.HTTPClient == nil {
 		c.HTTPClient = defaultHTTPClient
+	}
+
+	if err := c.applyForceAttemptHTTP2(); err != nil {
+		return err
 	}
 
 	if c.Namespace == "" {
@@ -222,5 +263,34 @@ func (c *config) validate() error {
 		return fmt.Errorf("invalid fetch mode: %s", c.FetchMode)
 	}
 
+	return nil
+}
+
+func (c *config) applyForceAttemptHTTP2() error {
+	if c.ForceAttemptHTTP2 == nil {
+		return nil
+	}
+
+	httpClient := *c.HTTPClient
+
+	switch transport := c.HTTPClient.Transport.(type) {
+	case nil:
+		defaultTransport, ok := defaultHTTPClient.Transport.(*http.Transport)
+		if !ok {
+			return fmt.Errorf("default transport is not *http.Transport")
+		}
+
+		cloned := defaultTransport.Clone()
+		cloned.ForceAttemptHTTP2 = *c.ForceAttemptHTTP2
+		httpClient.Transport = cloned
+	case *http.Transport:
+		cloned := transport.Clone()
+		cloned.ForceAttemptHTTP2 = *c.ForceAttemptHTTP2
+		httpClient.Transport = cloned
+	default:
+		return fmt.Errorf("http client transport must be *http.Transport when using WithForceAttemptHTTP2")
+	}
+
+	c.HTTPClient = &httpClient
 	return nil
 }
