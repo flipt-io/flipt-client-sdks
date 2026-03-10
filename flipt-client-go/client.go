@@ -653,14 +653,7 @@ func (c *Client) newRequest(ctx context.Context, url string) (*http.Request, err
 }
 
 func (c *Client) shouldIncludeLegacyHeaders(rawURL string) bool {
-	switch c.cfg.LegacyHeadersMode {
-	case legacyHeadersModeEnabled:
-		return true
-	case legacyHeadersModeDisabled:
-		return false
-	default:
-		return !isClientV2Path(rawURL)
-	}
+	return !isClientV2Path(rawURL)
 }
 
 func isClientV2Path(rawURL string) bool {
