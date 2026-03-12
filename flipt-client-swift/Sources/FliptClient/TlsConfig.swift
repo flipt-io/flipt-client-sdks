@@ -10,7 +10,7 @@ public struct TlsConfig: Codable {
     public let clientCertData: String?
     public let clientKeyData: String?
 
-    // Custom Codable implementation to skip nil fields
+    /* Custom Codable implementation to skip nil fields */
     private enum CodingKeys: String, CodingKey {
         case caCertFile = "ca_cert_file"
         case caCertData = "ca_cert_data"

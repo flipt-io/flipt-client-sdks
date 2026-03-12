@@ -41,6 +41,14 @@ func WithHTTPClient(httpClient *http.Client) Option {
 	}
 }
 
+// WithForceAttemptHTTP2 sets the ForceAttemptHTTP2 option on the client's http.Transport
+// without requiring the caller to replace the entire HTTP client.
+func WithForceAttemptHTTP2(forceAttemptHTTP2 bool) Option {
+	return func(cfg *config) {
+		cfg.ForceAttemptHTTP2 = &forceAttemptHTTP2
+	}
+}
+
 // WithReference sets the reference for the client.
 func WithReference(ref string) Option {
 	return func(cfg *config) {
@@ -183,12 +191,18 @@ type config struct {
 	HTTPClient *http.Client
 	// Hook for before and after evaluation callbacks. Optional.
 	Hook Hook
+	// ForceAttemptHTTP2 optionally overrides the transport's HTTP/2 negotiation behavior.
+	ForceAttemptHTTP2 *bool
 }
 
 // validate validates the configuration and sets defaults.
 func (c *config) validate() error {
 	if c.HTTPClient == nil {
 		c.HTTPClient = defaultHTTPClient
+	}
+
+	if err := c.applyForceAttemptHTTP2(); err != nil {
+		return err
 	}
 
 	if c.Namespace == "" {
@@ -222,5 +236,34 @@ func (c *config) validate() error {
 		return fmt.Errorf("invalid fetch mode: %s", c.FetchMode)
 	}
 
+	return nil
+}
+
+func (c *config) applyForceAttemptHTTP2() error {
+	if c.ForceAttemptHTTP2 == nil {
+		return nil
+	}
+
+	httpClient := *c.HTTPClient
+
+	switch transport := c.HTTPClient.Transport.(type) {
+	case nil:
+		defaultTransport, ok := defaultHTTPClient.Transport.(*http.Transport)
+		if !ok {
+			return fmt.Errorf("default transport is not *http.Transport")
+		}
+
+		cloned := defaultTransport.Clone()
+		cloned.ForceAttemptHTTP2 = *c.ForceAttemptHTTP2
+		httpClient.Transport = cloned
+	case *http.Transport:
+		cloned := transport.Clone()
+		cloned.ForceAttemptHTTP2 = *c.ForceAttemptHTTP2
+		httpClient.Transport = cloned
+	default:
+		return fmt.Errorf("http client transport must be *http.Transport when using WithForceAttemptHTTP2")
+	}
+
+	c.HTTPClient = &httpClient
 	return nil
 }
