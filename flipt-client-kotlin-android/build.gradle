@@ -2,7 +2,6 @@
 
 plugins {
     id 'com.android.library' // For library modules
-    id 'kotlin-android' // Correct plugin ID for Kotlin Android projects
     id 'org.jetbrains.kotlin.plugin.serialization'
     id 'maven-publish'
     id 'signing'
