@@ -4,8 +4,8 @@ experimental_monorepo_root = true
 go = "1.25"
 dagger = "0.18.19"
 rust = "stable"
-wasm-pack = "latest"
-cargo-llvm-cov = "latest"
+"aqua:rustwasm/wasm-pack" = "latest"
+"aqua:taiki-e/cargo-llvm-cov" = "latest"
 
 [monorepo]
 config_roots = [
