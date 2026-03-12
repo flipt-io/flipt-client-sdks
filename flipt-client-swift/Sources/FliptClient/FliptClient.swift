@@ -271,7 +271,7 @@ public enum Authentication: Encodable {
     case clientToken(String)
     case jwtToken(String)
 
-    // Custom Codable logic to encode/decode based on the case
+    /* Custom Codable logic to encode/decode based on the case */
     private enum CodingKeys: String, CodingKey {
         case client_token
         case jwt_token
