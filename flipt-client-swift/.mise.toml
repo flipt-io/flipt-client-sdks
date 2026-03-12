@@ -1,0 +1,8 @@
+[tools]
+swift = "latest"
+swiftformat = "latest"
+swiftlint = "latest"
+
+[tasks.lint]
+description = "Run Swift lint checks"
+run = "swiftformat . --lint && swiftlint lint --strict"

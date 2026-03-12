@@ -1,0 +1,8 @@
+[tools]
+python = "3.11"
+poetry = "1.7.0"
+black = "latest"
+
+[tasks.lint]
+description = "Run Python lint checks"
+run = "poetry install && poetry run black --check ."

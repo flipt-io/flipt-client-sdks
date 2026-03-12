@@ -1,0 +1,6 @@
+[tools]
+flutter = "stable"
+
+[tasks.lint]
+description = "Run Dart format and analysis checks"
+run = "flutter pub get && dart format --output=none --set-exit-if-changed . && dart analyze --no-fatal-warnings"

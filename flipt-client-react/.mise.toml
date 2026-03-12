@@ -1,0 +1,6 @@
+[tools]
+node = "21"
+
+[tasks.lint]
+description = "Run React lint checks"
+run = "npm ci && npm run lint"

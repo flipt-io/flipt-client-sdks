@@ -1,0 +1,6 @@
+[tools]
+java = "21"
+
+[tasks.lint]
+description = "Run Java lint checks"
+run = "./gradlew spotlessCheck"
