@@ -4,4 +4,8 @@ ktlint = "latest"
 
 [tasks.lint]
 description = "Run Kotlin lint checks"
-run = "chmod +x ./gradlew && ./gradlew ktlintCheck"
+run = "ktlint"
+
+[tasks.fmt]
+description = "Format Kotlin source"
+run = "ktlint -F"

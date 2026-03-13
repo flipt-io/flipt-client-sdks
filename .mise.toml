@@ -1,4 +1,5 @@
-experimental_monorepo_root = true
+[settings]
+experimental = true
 
 [tools]
 go = "1.25"

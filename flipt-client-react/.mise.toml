@@ -4,3 +4,7 @@ node = "21"
 [tasks.lint]
 description = "Run React lint checks"
 run = "npm ci && npm run lint"
+
+[tasks.fmt]
+description = "Format React source"
+run = "npm ci && npm run fmt"

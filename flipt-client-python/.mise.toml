@@ -6,3 +6,7 @@ black = "latest"
 [tasks.lint]
 description = "Run Python lint checks"
 run = "poetry install && poetry run black --check ."
+
+[tasks.fmt]
+description = "Format Python source"
+run = "poetry install && poetry run black ."

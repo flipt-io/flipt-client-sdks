@@ -4,3 +4,7 @@ java = "21"
 [tasks.lint]
 description = "Run Java lint checks"
 run = "./gradlew spotlessCheck"
+
+[tasks.fmt]
+description = "Format Java source"
+run = "./gradlew spotlessApply"

@@ -4,3 +4,7 @@ dotnet = "8"
 [tasks.lint]
 description = "Run C# lint checks"
 run = "dotnet restore && dotnet format style --verify-no-changes --verbosity detailed && dotnet build --no-restore /warnaserror"
+
+[tasks.fmt]
+description = "Format C# source"
+run = "dotnet restore && dotnet format style"

@@ -6,3 +6,7 @@ swiftlint = "latest"
 [tasks.lint]
 description = "Run Swift lint checks"
 run = "swiftformat . --lint && swiftlint lint --strict"
+
+[tasks.fmt]
+description = "Format Swift source"
+run = "swiftformat ."

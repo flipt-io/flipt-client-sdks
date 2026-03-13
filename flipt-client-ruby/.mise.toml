@@ -4,3 +4,7 @@ ruby = "3.2"
 [tasks.lint]
 description = "Run Ruby lint checks"
 run = "gem install bundler && bundle install && bundle exec rubocop"
+
+[tasks.fmt]
+description = "Format Ruby source"
+run = "gem install bundler && bundle install && bundle exec rubocop -a"

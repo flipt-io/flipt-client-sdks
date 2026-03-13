@@ -4,3 +4,7 @@ node = "21"
 [tasks.lint]
 description = "Run JS lint checks"
 run = "npm ci && npm run lint"
+
+[tasks.fmt]
+description = "Format JS source"
+run = "npm ci && npm run fmt"
