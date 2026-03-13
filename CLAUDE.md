@@ -97,9 +97,10 @@ Note: Use `progress=plain` to see the output of the tests.
 
 ## File Structure
 
+- `.mise.toml`: Root mise config (shared tools + monorepo config roots)
 - `flipt-evaluation/`: Core evaluation logic in Rust
 - `flipt-engine-*/`: Engine implementations (FFI, WASM, WASM-JS)
-- `flipt-client-*/`: Language-specific client implementations
+- `flipt-client-*/`: Language-specific client implementations (each has its own `.mise.toml`)
 - `test/`: Integration test infrastructure using Dagger
 - `package/`: Build tooling for packaging engines
 - `release/`: Release automation scripts
@@ -146,13 +147,56 @@ All SDKs support two modes for keeping flag state up-to-date:
 6. Follow conventional commits for commit messages prefer shorter commit messages over longer ones
 7. Create a PR for your changes using the `gh pr create` command. Give detailed description of the changes and why you made them.
 
-## Build Dependencies
+## Tooling with mise
 
-- Rust toolchain (for engines)
-- wasm-pack (for WASM builds)
+This monorepo uses [mise](https://mise.jdx.dev/) to manage all development tool versions. Install mise first, then tools are installed automatically when you `cd` into the repo or any SDK subdirectory.
+
+### Setup
+
+```bash
+# Install mise (see https://mise.jdx.dev/getting-started.html)
+curl https://mise.run | sh
+
+# Trust and install all tools for the repo
+mise trust
+mise install
+```
+
+### How It Works
+
+- **Root `.mise.toml`**: Defines shared tools (Go, Rust, Dagger, wasm-pack, cargo-llvm-cov) and declares SDK subdirectories as monorepo config roots
+- **Per-SDK `.mise.toml`**: Each `flipt-client-*/` directory has its own config specifying the language toolchain and a `lint` task
+
+When you `cd` into an SDK directory, mise automatically activates the correct tool versions for that SDK.
+
+### Tools Managed by mise
+
+| Scope | Tools |
+|-------|-------|
+| Root | Go 1.25, Rust stable, Dagger 0.18.19, wasm-pack, cargo-llvm-cov |
+| Python SDK | Python 3.11, Poetry 1.7.0, Black |
+| Ruby SDK | Ruby 3.2 |
+| Java SDK | Java 21 |
+| Kotlin SDK | Java 21, ktlint |
+| Go SDK | Go 1.24, golangci-lint 2.1.6 |
+| JS/Node/Browser/React SDKs | Node 21 |
+| C# SDK | .NET 8 |
+| Dart SDK | Flutter stable |
+| Swift SDK | Swift, swiftformat, swiftlint |
+
+### Lint Tasks
+
+Each SDK defines a `mise run lint` task. Run it from the SDK directory:
+
+```bash
+cd flipt-client-python && mise run lint
+cd flipt-client-go && mise run lint
+# etc.
+```
+
+### Build Dependencies (beyond mise)
+
 - Docker (for integration tests)
-- Dagger CLI v0.17.1+ (for integration tests)
-- Language-specific toolchains as needed
 - Platform-specific requirements:
   - **Linux**: musl-gcc for static linking
   - **Mobile**: Xcode (iOS), Android SDK
@@ -218,12 +262,16 @@ To add a new language SDK:
    - Update `test/main.go` to include new SDK
    - Add to appropriate test group (ffi/wasm/js)
 
-5. **Set up CI/CD**:
+5. **Add mise config**:
+   - Create `.mise.toml` in the SDK directory with required tool versions and a `lint` task
+   - Add the SDK directory to `config_roots` in the root `.mise.toml`
+
+6. **Set up CI/CD**:
    - Create `.github/workflows/test-{language}-sdk.yml`
    - Create `.github/workflows/package-{language}-sdk.yml`
    - Add Dependabot configuration
 
-6. **Update documentation**:
+7. **Update documentation**:
    - Add to this file (CLAUDE.md)
    - Create SDK-specific README
    - Add to main repository README

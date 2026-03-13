@@ -20,21 +20,34 @@ Join our [Discord](https://www.flipt.io/discord) to chat with the team about any
 
 ## Development Tools with mise
 
-This repository uses [mise](https://mise.jdx.dev/) with monorepo task/config support.
+This repository uses [mise](https://mise.jdx.dev/) to manage all development tool versions across the monorepo. Each SDK directory has its own `.mise.toml` defining the required language toolchain and lint tasks.
 
-1. Install mise.
-1. From the repository root, install tools:
+### Setup
+
+1. [Install mise](https://mise.jdx.dev/getting-started.html).
+2. Trust and install tools from the repository root:
 
 ```bash
-MISE_EXPERIMENTAL=1 mise install
+mise trust
+mise install
 ```
 
-1. Run client-specific lint tasks using monorepo task paths:
+### Running Lint Tasks
+
+Each SDK defines a `lint` task. Run it from the SDK directory:
 
 ```bash
-MISE_EXPERIMENTAL=1 mise //flipt-client-python:lint
-MISE_EXPERIMENTAL=1 mise //flipt-client-swift:lint
-MISE_EXPERIMENTAL=1 mise //flipt-client-js:lint
+cd flipt-client-python && mise run lint
+cd flipt-client-swift && mise run lint
+cd flipt-client-js && mise run lint
+```
+
+Or use monorepo task paths from the root:
+
+```bash
+mise run //flipt-client-python:lint
+mise run //flipt-client-swift:lint
+mise run //flipt-client-js:lint
 ```
 
 ## Adding a New Language Client
