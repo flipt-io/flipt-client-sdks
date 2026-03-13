@@ -4,203 +4,47 @@ on:
     branches-ignore:
       - release/*
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  lint-python:
-    name: Lint Python
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v6
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: 1.7.0
-
-      - name: Lint Python source
-        working-directory: flipt-client-python
-        run: |
-          poetry install
-          poetry run black --check .
-
-  lint-typescript:
-    name: Lint Typescript
+  lint:
+    name: Lint ${{ matrix.sdk }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        sdk: ["flipt-client-react", "flipt-client-js"]
-    runs-on: ubuntu-latest
+        include:
+          - sdk: flipt-client-python
+            os: ubuntu-latest
+          - sdk: flipt-client-react
+            os: ubuntu-latest
+          - sdk: flipt-client-js
+            os: ubuntu-latest
+          - sdk: flipt-client-java
+            os: ubuntu-latest
+          - sdk: flipt-client-ruby
+            os: ubuntu-latest
+          - sdk: flipt-client-csharp
+            os: ubuntu-latest
+          - sdk: flipt-client-kotlin-android
+            os: ubuntu-latest
+          - sdk: flipt-client-dart
+            os: ubuntu-latest
+          - sdk: flipt-client-go
+            os: ubuntu-latest
+          - sdk: flipt-client-swift
+            os: macos-latest
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v6
 
-      - name: Install Node 21
-        uses: actions/setup-node@v6
+      - name: Setup mise
+        uses: jdx/mise-action@v4
         with:
-          node-version: 21
+          working_directory: ${{ matrix.sdk }}
 
-      - name: Lint Typescript source for ${{ matrix.sdk }}
+      - name: Lint
         working-directory: ${{ matrix.sdk }}
-        run: |
-          npm ci
-          npm run lint
-
-  lint-java:
-    name: Lint Java
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v6
-
-      - name: Install Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: 21
-
-      - name: Setup Gradle
-        uses: gradle/gradle-build-action@v3
-
-      - name: Lint Java code
-        working-directory: flipt-client-java
-        run: ./gradlew spotlessCheck
-
-  lint-ruby:
-    name: Lint Ruby
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v6
-
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.2"
-
-      - name: Lint Ruby code
-        working-directory: flipt-client-ruby
-        run: |
-          gem install bundler
-          bundle install
-          bundle exec rubocop
-
-  lint-csharp:
-    name: Lint C#
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v6
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: "8.0.x"
-
-      - name: Restore dependencies
-        working-directory: flipt-client-csharp
-        run: dotnet restore
-
-      - name: Check formatting
-        working-directory: flipt-client-csharp
-        run: dotnet format style --verify-no-changes --verbosity detailed
-
-      - name: Build with analyzers
-        working-directory: flipt-client-csharp
-        run: dotnet build --no-restore /warnaserror
-
-  lint-kotlin:
-    name: Lint Kotlin
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v6
-
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: 21
-
-      - name: Setup Gradle
-        uses: gradle/gradle-build-action@v3
-
-      - name: Lint Kotlin code
-        working-directory: flipt-client-kotlin-android
-        run: |
-          chmod +x ./gradlew
-          ./gradlew ktlintCheck
-
-  lint-dart:
-    name: Lint Dart
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v6
-
-      - name: Setup Flutter SDK
-        uses: flutter-actions/setup-flutter@v4
-        with:
-          channel: stable
-          version: latest
-
-      - name: Get Flutter dependencies
-        working-directory: flipt-client-dart
-        run: flutter pub get
-
-      - name: Format Dart code
-        working-directory: flipt-client-dart
-        run: dart format --output=none --set-exit-if-changed .
-
-      - name: Analyze Dart code
-        working-directory: flipt-client-dart
-        run: dart analyze --no-fatal-warnings
-
-  lint-go:
-    name: Lint Go
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v6
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: "1.24"
-          cache: false
-
-      # Touch the wasm file to ensure it is present at lint time
-      - name: Touch wasm file
-        working-directory: flipt-client-go
-        run: touch ext/flipt_engine_wasm.wasm
-
-      - name: Lint Go code
-        uses: golangci/golangci-lint-action@v9
-        with:
-          working-directory: flipt-client-go
-          args: --timeout=5m
-          version: v2.1.6
-
-  lint-swift:
-    name: Lint Swift
-    runs-on: macos-latest
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v6
-
-      - name: Install SwiftLint and SwiftFormat
-        run: |
-          brew install swiftlint
-          brew install swiftformat
-
-      - name: Check Swift formatting
-        working-directory: flipt-client-swift
-        run: swiftformat . --lint
-
-      - name: Lint Swift code
-        working-directory: flipt-client-swift
-        run: swiftlint lint --strict
+        run: mise run lint

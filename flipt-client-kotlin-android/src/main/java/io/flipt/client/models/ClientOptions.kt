@@ -29,14 +29,13 @@ object DurationSecondsSerializer : KSerializer<Duration?> {
         }
     }
 
-    override fun deserialize(decoder: Decoder): Duration? {
-        return try {
+    override fun deserialize(decoder: Decoder): Duration? =
+        try {
             val seconds = decoder.decodeLong()
             seconds.seconds
         } catch (e: Exception) {
             null
         }
-    }
 }
 
 /**

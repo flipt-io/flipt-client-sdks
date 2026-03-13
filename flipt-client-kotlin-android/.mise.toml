@@ -1,0 +1,11 @@
+[tools]
+java = "21"
+ktlint = "latest"
+
+[tasks.lint]
+description = "Run Kotlin lint checks"
+run = "ktlint"
+
+[tasks.fmt]
+description = "Format Kotlin source"
+run = "ktlint -F"

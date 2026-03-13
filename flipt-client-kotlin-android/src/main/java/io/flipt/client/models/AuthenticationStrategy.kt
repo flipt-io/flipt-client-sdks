@@ -66,15 +66,21 @@ object AuthenticationStrategySerializer : KSerializer<AuthenticationStrategy> {
                 ?: throw SerializationException("Expected JSON object")
 
         return when {
-            "client_token" in jsonElement ->
+            "client_token" in jsonElement -> {
                 ClientTokenAuthentication(
                     clientToken = jsonElement["client_token"]!!.jsonPrimitive.content,
                 )
-            "jwt_token" in jsonElement ->
+            }
+
+            "jwt_token" in jsonElement -> {
                 JWTAuthentication(
                     jwtToken = jsonElement["jwt_token"]!!.jsonPrimitive.content,
                 )
-            else -> throw SerializationException("Unknown authentication strategy")
+            }
+
+            else -> {
+                throw SerializationException("Unknown authentication strategy")
+            }
         }
     }
 }
