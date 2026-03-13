@@ -21,7 +21,9 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * Thrown when a validation error occurs in FliptClient.
  */
-class ValidationException(message: String) : IllegalArgumentException(message)
+class ValidationException(
+    message: String,
+) : IllegalArgumentException(message)
 
 class FliptClient(
     options: ClientOptions,
@@ -279,9 +281,7 @@ class FliptClient(
      * Gets the snapshot from the Flipt client.
      * @return the snapshot
      */
-    fun getSnapshot(): String {
-        return CLibrary.INSTANCE.getSnapshot(engine)
-    }
+    fun getSnapshot(): String = CLibrary.INSTANCE.getSnapshot(engine)
 
     /**
      * Closes the Flipt client and releases resources.

@@ -1,0 +1,25 @@
+[settings]
+experimental = true
+
+[tools]
+go = "1.25"
+dagger = "0.18.19"
+rust = "stable"
+"aqua:rustwasm/wasm-pack" = "latest"
+"aqua:taiki-e/cargo-llvm-cov" = "latest"
+
+[monorepo]
+config_roots = [
+  "flipt-client-browser",
+  "flipt-client-csharp",
+  "flipt-client-dart",
+  "flipt-client-go",
+  "flipt-client-java",
+  "flipt-client-js",
+  "flipt-client-kotlin-android",
+  "flipt-client-node",
+  "flipt-client-python",
+  "flipt-client-react",
+  "flipt-client-ruby",
+  "flipt-client-swift",
+]
