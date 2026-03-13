@@ -1,5 +1,5 @@
 [tools]
-flutter = "stable"
+flutter = "3.22.1-stable"
 
 [tasks.lint]
 description = "Run Dart format and analysis checks"
