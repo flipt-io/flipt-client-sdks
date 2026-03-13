@@ -633,7 +633,7 @@ func (c *Client) newRequest(ctx context.Context, url string) (*http.Request, err
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "flipt-client-go/"+Version)
 
-	if c.shouldIncludeLegacyHeaders(url) {
+	if shouldIncludeLegacyHeaders(url) {
 		req.Header.Set("x-flipt-accept-server-version", "1.47.0")
 
 		if c.cfg.Environment != "" {
@@ -652,7 +652,7 @@ func (c *Client) newRequest(ctx context.Context, url string) (*http.Request, err
 	return req, nil
 }
 
-func (c *Client) shouldIncludeLegacyHeaders(rawURL string) bool {
+func shouldIncludeLegacyHeaders(rawURL string) bool {
 	return !isClientV2Path(rawURL)
 }
 
