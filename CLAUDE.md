@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI Agents when working with code in this repository.
 
 ## Project Overview
 
@@ -63,16 +63,13 @@ cd flipt-engine-wasm-js && wasm-pack test --node
 
 ### Linting / Formatting
 
-Before committing, run the following commands to ensure the code is formatted and linted from within the language-specific directory:
+Before committing, run `mise run lint` from the relevant SDK directory to check formatting and lint:
 
-- C#: `dotnet format style`
-- Kotlin: `./gradlew ktlintFormat`
-- Python: `poetry run black .`
-- Ruby: `bundle exec rubocop`
-- JavaScript: `npm run fmt`
-- Go: `go fmt ./...`
-- Swift: `swiftformat .`
-- Java: `./gradlew spotlessApply`
+```bash
+cd flipt-client-python && mise run lint
+cd flipt-client-go && mise run lint
+# etc.
+```
 
 ### Integration Tests
 
@@ -171,18 +168,18 @@ When you `cd` into an SDK directory, mise automatically activates the correct to
 
 ### Tools Managed by mise
 
-| Scope | Tools |
-|-------|-------|
-| Root | Go 1.25, Rust stable, Dagger 0.18.19, wasm-pack, cargo-llvm-cov |
-| Python SDK | Python 3.11, Poetry 1.7.0, Black |
-| Ruby SDK | Ruby 3.2 |
-| Java SDK | Java 21 |
-| Kotlin SDK | Java 21, ktlint |
-| Go SDK | Go 1.24, golangci-lint 2.1.6 |
-| JS/Node/Browser/React SDKs | Node 21 |
-| C# SDK | .NET 8 |
-| Dart SDK | Flutter stable |
-| Swift SDK | Swift, swiftformat, swiftlint |
+| Scope                      | Tools                                                           |
+| -------------------------- | --------------------------------------------------------------- |
+| Root                       | Go 1.25, Rust stable, Dagger 0.18.19, wasm-pack, cargo-llvm-cov |
+| Python SDK                 | Python 3.11, Poetry 1.7.0, Black                                |
+| Ruby SDK                   | Ruby 3.2                                                        |
+| Java SDK                   | Java 21                                                         |
+| Kotlin SDK                 | Java 21, ktlint                                                 |
+| Go SDK                     | Go 1.24, golangci-lint 2.1.6                                    |
+| JS/Node/Browser/React SDKs | Node 21                                                         |
+| C# SDK                     | .NET 8                                                          |
+| Dart SDK                   | Flutter stable                                                  |
+| Swift SDK                  | Swift, swiftformat, swiftlint                                   |
 
 ### Lint Tasks
 
