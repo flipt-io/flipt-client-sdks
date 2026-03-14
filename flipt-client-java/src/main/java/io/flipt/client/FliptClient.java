@@ -16,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Logger;
 import lombok.Builder;
 
 /**
@@ -54,13 +59,11 @@ public class FliptClient implements AutoCloseable {
   private TlsConfig tlsConfig;
   private AuthenticationProvider authenticationProvider;
   private volatile Instant currentExpiry;
-  private final java.util.concurrent.atomic.AtomicBoolean closed =
-      new java.util.concurrent.atomic.AtomicBoolean(false);
-  private java.util.concurrent.ScheduledExecutorService authScheduler;
+  private final AtomicBoolean closed = new AtomicBoolean(false);
+  private ScheduledExecutorService authScheduler;
   private static final Duration EXPIRY_BUFFER = Duration.ofSeconds(30);
   private static final Duration MIN_RETRY_DELAY = Duration.ofSeconds(5);
-  private static final java.util.logging.Logger logger =
-      java.util.logging.Logger.getLogger(FliptClient.class.getName());
+  private static final Logger logger = Logger.getLogger(FliptClient.class.getName());
 
   private final Pointer engine;
   private final ObjectMapper objectMapper;
@@ -114,7 +117,7 @@ public class FliptClient implements AutoCloseable {
     this.tlsConfig = tlsConfig;
     this.authenticationProvider = authenticationProvider;
 
-    if (this.authenticationProvider != null && this.authentication != null) {
+    if (authenticationProvider != null && authentication != null) {
       throw new IllegalArgumentException(
           "Cannot set both authentication and authenticationProvider");
     }
@@ -335,7 +338,7 @@ public class FliptClient implements AutoCloseable {
 
   private void startAuthRefreshScheduler() {
     this.authScheduler =
-        java.util.concurrent.Executors.newSingleThreadScheduledExecutor(
+        Executors.newSingleThreadScheduledExecutor(
             r -> {
               Thread t = new Thread(r, "flipt-auth-refresh");
               t.setDaemon(true);
@@ -381,7 +384,7 @@ public class FliptClient implements AutoCloseable {
           }
         },
         delay.toMillis(),
-        java.util.concurrent.TimeUnit.MILLISECONDS);
+        TimeUnit.MILLISECONDS);
   }
 
   @Override
@@ -392,7 +395,7 @@ public class FliptClient implements AutoCloseable {
     if (this.authScheduler != null) {
       this.authScheduler.shutdownNow();
       try {
-        this.authScheduler.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS);
+        this.authScheduler.awaitTermination(5, TimeUnit.SECONDS);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
       }
