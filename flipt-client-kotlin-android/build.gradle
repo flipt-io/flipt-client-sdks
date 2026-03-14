@@ -1,7 +1,7 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 plugins {
-    id 'com.android.library' // For library modules
+    id 'com.android.library'
     id 'org.jetbrains.kotlin.plugin.serialization'
     id 'maven-publish'
     id 'signing'
@@ -61,6 +61,12 @@ android {
     buildFeatures {
       buildConfig true
     }
+
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+        }
+    }
 }
 
 dependencies {
@@ -68,7 +74,6 @@ dependencies {
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit
     androidTestImplementation libs.androidx.espresso.core
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.1.21"
 }
 
 publishing {
