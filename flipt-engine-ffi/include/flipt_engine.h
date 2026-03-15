@@ -104,14 +104,28 @@ void destroy_engine(void *engine_ptr);
 /**
  * # Safety
  *
- * This function will update the authentication for the engine.
+ * This function will update the authentication for the engine at runtime.
+ *
+ * `auth_json` must be a valid JSON string with one of the following shapes:
+ *   - `{"client_token": "token"}` for bearer token authentication
+ *   - `{"jwt_token": "token"}` for JWT authentication
+ *
+ * Returns a JSON string indicating success or failure. The caller must free
+ * the returned string using `destroy_string_ffi`.
  */
 const char *update_authentication_ffi(void *engine_ptr, const char *auth_json);
 
 /**
  * # Safety
  *
- * This function will update the authentication for the engine.
+ * This function will update the authentication for the engine at runtime.
+ *
+ * `auth_json` must be a valid JSON string with one of the following shapes:
+ *   - `{"client_token": "token"}` for bearer token authentication
+ *   - `{"jwt_token": "token"}` for JWT authentication
+ *
+ * Returns a JSON string indicating success or failure. The caller must free
+ * the returned string using `destroy_string`.
  */
 const char *update_authentication(void *engine_ptr, const char *auth_json);
 
