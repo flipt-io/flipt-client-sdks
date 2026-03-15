@@ -1601,7 +1601,8 @@ mod tests {
         let mut context: HashMap<String, String> = HashMap::new();
         context.insert(String::from("bar"), String::from("baz"));
 
-        let mut variant_keys_seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut variant_keys_seen: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
         for i in 0..1000_u32 {
             let entity_id = i.to_string();
             let variant = variant_evaluation(
@@ -1615,7 +1616,11 @@ mod tests {
             );
             assert!(variant.is_ok(), "entity_id {} should evaluate", entity_id);
             let v = variant.unwrap();
-            assert!(v.r#match, "entity_id {} should match a distribution", entity_id);
+            assert!(
+                v.r#match,
+                "entity_id {} should match a distribution",
+                entity_id
+            );
             assert!(
                 matches!(v.variant_key.as_str(), "variant1" | "variant2" | "variant3"),
                 "entity_id {} got unexpected variant_key {}",
@@ -1624,7 +1629,11 @@ mod tests {
             );
             variant_keys_seen.insert(v.variant_key);
         }
-        assert_eq!(variant_keys_seen.len(), 3, "all three variants should be assigned");
+        assert_eq!(
+            variant_keys_seen.len(),
+            3,
+            "all three variants should be assigned"
+        );
     }
 
     #[test]
@@ -1714,7 +1723,11 @@ mod tests {
             );
             assert!(variant.is_ok(), "entity_id {} should evaluate", entity_id);
             let v = variant.unwrap();
-            assert!(v.r#match, "entity_id {} should match a distribution", entity_id);
+            assert!(
+                v.r#match,
+                "entity_id {} should match a distribution",
+                entity_id
+            );
             assert!(
                 matches!(v.variant_key.as_str(), "v1" | "v2" | "v3"),
                 "entity_id {} got unexpected variant_key {}",
@@ -1727,9 +1740,21 @@ mod tests {
         let v1 = counts.get("v1").copied().unwrap();
         let v2 = counts.get("v2").copied().unwrap();
         let v3 = counts.get("v3").copied().unwrap();
-        assert!(v1 >= 450 && v1 <= 550, "v1 (50%) should get ~500, got {}", v1);
-        assert!(v2 >= 250 && v2 <= 350, "v2 (30%) should get ~300, got {}", v2);
-        assert!(v3 >= 150 && v3 <= 250, "v3 (20%) should get ~200, got {}", v3);
+        assert!(
+            v1 >= 450 && v1 <= 550,
+            "v1 (50%) should get ~500, got {}",
+            v1
+        );
+        assert!(
+            v2 >= 250 && v2 <= 350,
+            "v2 (30%) should get ~300, got {}",
+            v2
+        );
+        assert!(
+            v3 >= 150 && v3 <= 250,
+            "v3 (20%) should get ~200, got {}",
+            v3
+        );
         assert_eq!(v1 + v2 + v3, 1000, "all 1000 entities should be assigned");
     }
 
