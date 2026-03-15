@@ -137,6 +137,7 @@ The `FliptClient.builder()` method returns a `FliptClient.Builder` object that a
 - `requestTimeout`: The timeout (Duration) for requests to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.
 - `updateInterval`: The interval (Duration) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
 - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
+- `authenticationProvider`: A provider for dynamic authentication credentials that supports token refresh. If set, the SDK will automatically refresh tokens before they expire. See the [Authentication](#authentication) section for more information.
 - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
 - `fetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
 - `errorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to fail. See the [Error Strategies](#error-strategies) section for more information.
@@ -150,6 +151,32 @@ The `FliptClient` supports the following authentication strategies:
 - No Authentication (default)
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
 - [JWT Authentication](https://docs.flipt.io/authentication/using-jwts)
+
+#### Dynamic Token Refresh
+
+If your tokens expire and need to be refreshed (e.g., OAuth2 access tokens), you can use an `AuthenticationProvider` instead of a static `authentication` value. The SDK will automatically call your provider to get a fresh token before the current one expires.
+
+```java
+import io.flipt.client.FliptClient;
+import io.flipt.client.models.*;
+import java.time.Instant;
+
+FliptClient client = FliptClient.builder()
+    .url("https://flipt.example.com")
+    .authenticationProvider(() -> {
+        // Your token refresh logic here
+        String token = myOAuthClient.getAccessToken();
+        Instant expiresAt = myOAuthClient.getTokenExpiry();
+        return AuthenticationLease.jwt(token, expiresAt);
+    })
+    .build();
+```
+
+The provider returns an `AuthenticationLease` containing the credential and its expiry. Use the factory methods `AuthenticationLease.jwt(token, expiresAt)` or `AuthenticationLease.clientToken(token, expiresAt)` to create one.
+
+The SDK automatically schedules a refresh 30 seconds before the token expires. On successful refresh, it reschedules based on the new token's expiry. If a refresh fails, it retries after 5 seconds.
+
+> **Note:** Setting both `authentication` and `authenticationProvider` will throw an `IllegalArgumentException`.
 
 ### TLS Configuration
 

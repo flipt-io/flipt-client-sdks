@@ -10,11 +10,17 @@ import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import io.flipt.client.models.*;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Logger;
 import lombok.Builder;
 
 /**
@@ -51,6 +57,13 @@ public class FliptClient implements AutoCloseable {
   private ErrorStrategy errorStrategy;
   private String snapshot;
   private TlsConfig tlsConfig;
+  private AuthenticationProvider authenticationProvider;
+  private volatile Instant currentExpiry;
+  private final AtomicBoolean closed = new AtomicBoolean(false);
+  private ScheduledExecutorService authScheduler;
+  private static final Duration EXPIRY_BUFFER = Duration.ofSeconds(30);
+  private static final Duration MIN_RETRY_DELAY = Duration.ofSeconds(5);
+  private static final Logger logger = Logger.getLogger(FliptClient.class.getName());
 
   private final Pointer engine;
   private final ObjectMapper objectMapper;
@@ -73,6 +86,8 @@ public class FliptClient implements AutoCloseable {
     void destroy_engine(Pointer engine);
 
     void destroy_string(Pointer str);
+
+    Pointer update_authentication(Pointer engine, String auth_json);
   }
 
   @Builder
@@ -81,6 +96,7 @@ public class FliptClient implements AutoCloseable {
       String namespace,
       String url,
       AuthenticationStrategy authentication,
+      AuthenticationProvider authenticationProvider,
       String reference,
       Duration requestTimeout,
       Duration updateInterval,
@@ -99,6 +115,18 @@ public class FliptClient implements AutoCloseable {
     this.errorStrategy = errorStrategy != null ? errorStrategy : ErrorStrategy.FAIL;
     this.snapshot = snapshot;
     this.tlsConfig = tlsConfig;
+    this.authenticationProvider = authenticationProvider;
+
+    if (authenticationProvider != null && authentication != null) {
+      throw new IllegalArgumentException(
+          "Cannot set both authentication and authenticationProvider");
+    }
+
+    if (this.authenticationProvider != null) {
+      AuthenticationLease initial = this.authenticationProvider.get();
+      this.authentication = initial.getStrategy();
+      this.currentExpiry = initial.getExpiresAt();
+    }
 
     this.objectMapper = new ObjectMapper();
     this.objectMapper.registerModule(new Jdk8Module());
@@ -126,6 +154,11 @@ public class FliptClient implements AutoCloseable {
     }
 
     this.engine = CLibrary.INSTANCE.initialize_engine(clientOptionsSerialized);
+
+    // Start auth refresh scheduler if provider is set
+    if (this.authenticationProvider != null) {
+      startAuthRefreshScheduler();
+    }
   }
 
   private static class InternalEvaluationRequest {
@@ -303,8 +336,74 @@ public class FliptClient implements AutoCloseable {
     }
   }
 
+  private void startAuthRefreshScheduler() {
+    this.authScheduler =
+        Executors.newSingleThreadScheduledExecutor(
+            r -> {
+              Thread t = new Thread(r, "flipt-auth-refresh");
+              t.setDaemon(true);
+              return t;
+            });
+
+    scheduleNextAuthCheck();
+  }
+
+  private void scheduleNextAuthCheck() {
+    Duration delay = Duration.between(Instant.now(), this.currentExpiry.minus(EXPIRY_BUFFER));
+    if (delay.isNegative() || delay.isZero()) {
+      delay = MIN_RETRY_DELAY;
+    }
+
+    this.authScheduler.schedule(
+        () -> {
+          if (this.closed.get()) {
+            return;
+          }
+          try {
+            AuthenticationLease lease = this.authenticationProvider.get();
+            if (this.closed.get()) {
+              return;
+            }
+            String authJson = this.objectMapper.writeValueAsString(lease.getStrategy());
+            Pointer response = CLibrary.INSTANCE.update_authentication(this.engine, authJson);
+
+            TypeReference<Result<Void>> typeRef = new TypeReference<Result<Void>>() {};
+            Result<Void> resp = this.readValue(response, typeRef);
+            if (!STATUS_SUCCESS.equals(resp.getStatus())) {
+              logger.warning(
+                  "Failed to update engine authentication: "
+                      + resp.getErrorMessage().orElse("Unknown error"));
+            } else {
+              this.currentExpiry = lease.getExpiresAt();
+            }
+          } catch (Exception e) {
+            logger.warning("Failed to refresh authentication: " + e.getMessage());
+          }
+          if (!this.closed.get()) {
+            scheduleNextAuthCheck();
+          }
+        },
+        delay.toMillis(),
+        TimeUnit.MILLISECONDS);
+  }
+
   @Override
   public void close() {
+    if (!this.closed.compareAndSet(false, true)) {
+      return;
+    }
+    if (this.authScheduler != null) {
+      this.authScheduler.shutdown();
+      try {
+        if (!this.authScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+          logger.warning("Auth refresh scheduler did not terminate in time, forcing shutdown");
+          this.authScheduler.shutdownNow();
+        }
+      } catch (InterruptedException e) {
+        logger.warning("Interrupted while waiting for auth refresh scheduler to terminate");
+        this.authScheduler.shutdownNow();
+      }
+    }
     if (this.engine != null) {
       CLibrary.INSTANCE.destroy_engine(this.engine);
     }
