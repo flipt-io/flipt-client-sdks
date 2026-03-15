@@ -1741,17 +1741,17 @@ mod tests {
         let v2 = counts.get("v2").copied().unwrap();
         let v3 = counts.get("v3").copied().unwrap();
         assert!(
-            v1 >= 450 && v1 <= 550,
+            (450..=550).contains(&v1),
             "v1 (50%) should get ~500, got {}",
             v1
         );
         assert!(
-            v2 >= 250 && v2 <= 350,
+            (250..=350).contains(&v2),
             "v2 (30%) should get ~300, got {}",
             v2
         );
         assert!(
-            v3 >= 150 && v3 <= 250,
+            (150..=250).contains(&v3),
             "v3 (20%) should get ~200, got {}",
             v3
         );
