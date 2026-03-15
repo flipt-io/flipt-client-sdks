@@ -393,11 +393,15 @@ public class FliptClient implements AutoCloseable {
       return;
     }
     if (this.authScheduler != null) {
-      this.authScheduler.shutdownNow();
+      this.authScheduler.shutdown();
       try {
-        this.authScheduler.awaitTermination(5, TimeUnit.SECONDS);
+        if (!this.authScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+          logger.warning("Auth refresh scheduler did not terminate in time, forcing shutdown");
+          this.authScheduler.shutdownNow();
+        }
       } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
+        logger.warning("Interrupted while waiting for auth refresh scheduler to terminate");
+        this.authScheduler.shutdownNow();
       }
     }
     if (this.engine != null) {
