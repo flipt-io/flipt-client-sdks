@@ -11,10 +11,8 @@ package io.flipt.client.models;
  *     .url("https://flipt.example.com")
  *     .authenticationProvider(() -> {
  *         Token token = myOAuthClient.getAccessToken();
- *         return AuthenticationLease.jwt(
- *             token.getValue(),
- *             token.getExpiresAt()
- *         );
+ *         return AuthenticationLease.expiring(token.getExpiresAt())
+ *             .jwt(token.getValue());
  *     })
  *     .build();
  * }</pre>

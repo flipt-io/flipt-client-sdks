@@ -161,20 +161,32 @@ import io.flipt.client.FliptClient;
 import io.flipt.client.models.*;
 import java.time.Instant;
 
+// Expiring lease: token expires and is automatically refreshed
 FliptClient client = FliptClient.builder()
     .url("https://flipt.example.com")
     .authenticationProvider(() -> {
-        // Your token refresh logic here
         String token = myOAuthClient.getAccessToken();
         Instant expiresAt = myOAuthClient.getTokenExpiry();
-        return AuthenticationLease.jwt(token, expiresAt);
+        return AuthenticationLease.expiring(expiresAt).jwt(token);
+    })
+    .build();
+
+// Fixed lease: token does not expire, no refresh scheduling
+FliptClient staticClient = FliptClient.builder()
+    .url("https://flipt.example.com")
+    .authenticationProvider(() -> {
+        return AuthenticationLease.fixed().clientToken(myConfig.getApiToken());
     })
     .build();
 ```
 
-The provider returns an `AuthenticationLease` containing the credential and its expiry. Use the factory methods `AuthenticationLease.jwt(token, expiresAt)` or `AuthenticationLease.clientToken(token, expiresAt)` to create one.
+The provider returns an `AuthenticationLease` containing the credential and an optional expiry. Use the fluent builder to create one:
 
-The SDK automatically schedules a refresh 30 seconds before the token expires. On successful refresh, it reschedules based on the new token's expiry. If a refresh fails, it retries after 5 seconds.
+- `AuthenticationLease.expiring(expiresAt).jwt(token)` — expiring lease that triggers refresh (default: 5 max retries)
+- `AuthenticationLease.expiring(expiresAt).maxRetries(3).jwt(token)` — expiring lease with custom retry limit
+- `AuthenticationLease.fixed().clientToken(token)` — fixed lease with no expiry or refresh
+
+For expiring leases, the SDK automatically schedules a refresh 30 seconds before the token expires. On successful refresh, it reschedules based on the new token's expiry. If a refresh fails, it retries after 5 seconds. After `maxRetries` (default: 5) consecutive failures, the SDK stops retrying and logs an error. The retry counter resets on any successful refresh. Fixed leases do not schedule any refresh.
 
 > **Note:** Setting both `authentication` and `authenticationProvider` will throw an `IllegalArgumentException`.
 

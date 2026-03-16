@@ -58,7 +58,9 @@ public class FliptClient implements AutoCloseable {
   private String snapshot;
   private TlsConfig tlsConfig;
   private AuthenticationProvider authenticationProvider;
+  private int maxAuthRetries;
   private volatile Instant currentExpiry;
+  private int consecutiveAuthFailures = 0;
   private final AtomicBoolean closed = new AtomicBoolean(false);
   private ScheduledExecutorService authScheduler;
   private static final Duration EXPIRY_BUFFER = Duration.ofSeconds(30);
@@ -125,7 +127,8 @@ public class FliptClient implements AutoCloseable {
     if (this.authenticationProvider != null) {
       AuthenticationLease initial = this.authenticationProvider.get();
       this.authentication = initial.getStrategy();
-      this.currentExpiry = initial.getExpiresAt();
+      this.currentExpiry = initial.getExpiresAt().orElse(null);
+      this.maxAuthRetries = initial.getMaxRetries().orElse(0);
     }
 
     this.objectMapper = new ObjectMapper();
@@ -155,8 +158,8 @@ public class FliptClient implements AutoCloseable {
 
     this.engine = CLibrary.INSTANCE.initialize_engine(clientOptionsSerialized);
 
-    // Start auth refresh scheduler if provider is set
-    if (this.authenticationProvider != null) {
+    // Start auth refresh scheduler only for bounded leases (with expiry)
+    if (this.authenticationProvider != null && this.currentExpiry != null) {
       startAuthRefreshScheduler();
     }
   }
@@ -370,18 +373,33 @@ public class FliptClient implements AutoCloseable {
             TypeReference<Result<Void>> typeRef = new TypeReference<Result<Void>>() {};
             Result<Void> resp = this.readValue(response, typeRef);
             if (!STATUS_SUCCESS.equals(resp.getStatus())) {
+              this.consecutiveAuthFailures++;
               logger.warning(
                   "Failed to update engine authentication: "
                       + resp.getErrorMessage().orElse("Unknown error"));
             } else {
-              this.currentExpiry = lease.getExpiresAt();
+              this.consecutiveAuthFailures = 0;
+              this.currentExpiry = lease.getExpiresAt().orElse(null);
             }
           } catch (Exception e) {
+            this.consecutiveAuthFailures++;
             logger.warning("Failed to refresh authentication: " + e.getMessage());
           }
-          if (!this.closed.get()) {
-            scheduleNextAuthCheck();
+
+          if (this.closed.get()) {
+            return;
           }
+          if (this.currentExpiry == null) {
+            return;
+          }
+          if (this.consecutiveAuthFailures >= this.maxAuthRetries) {
+            logger.severe(
+                "Authentication refresh failed after "
+                    + this.maxAuthRetries
+                    + " consecutive attempts, stopping refresh");
+            return;
+          }
+          scheduleNextAuthCheck();
         },
         delay.toMillis(),
         TimeUnit.MILLISECONDS);
