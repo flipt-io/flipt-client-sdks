@@ -35,5 +35,5 @@ require (
 )
 
 replace (
-//go.flipt.io/flipt-client => ../flipt-client-go
+	go.flipt.io/flipt-client => ../flipt-client-go
 )

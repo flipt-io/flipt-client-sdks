@@ -456,6 +456,7 @@ func harnessTests(ctx context.Context, root *dagger.Container, t *testCase) erro
 		WithWorkdir("/src/harness").
 		WithDirectory("/src/harness", t.hostDir.Directory("test/harness")).
 		WithDirectory("/src/flipt-client-go", t.hostDir.Directory("flipt-client-go")).
+		WithFile("/src/flipt-client-go/ext/flipt_engine_wasm.wasm", t.engine.File(wasmFile)).
 		WithDirectory("/src/test/fixtures/tls", t.hostDir.Directory("test/fixtures/tls")).
 		WithServiceBinding("flipt", t.flipt.AsService()).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
