@@ -167,7 +167,7 @@ FliptClient client = FliptClient.builder()
     .authenticationProvider(() -> {
         String token = myOAuthClient.getAccessToken();
         Instant expiresAt = myOAuthClient.getTokenExpiry();
-        return AuthenticationLease.expiring(expiresAt).jwt(token);
+        return AuthenticationLease.expiring(expiresAt).jwt(token).build();
     })
     .build();
 
@@ -175,16 +175,16 @@ FliptClient client = FliptClient.builder()
 FliptClient staticClient = FliptClient.builder()
     .url("https://flipt.example.com")
     .authenticationProvider(() -> {
-        return AuthenticationLease.fixed().clientToken(myConfig.getApiToken());
+        return AuthenticationLease.fixed().clientToken(myConfig.getApiToken()).build();
     })
     .build();
 ```
 
 The provider returns an `AuthenticationLease` containing the credential and an optional expiry. Use the fluent builder to create one:
 
-- `AuthenticationLease.expiring(expiresAt).jwt(token)` — expiring lease that triggers refresh (default: 5 max retries)
-- `AuthenticationLease.expiring(expiresAt).maxRetries(3).jwt(token)` — expiring lease with custom retry limit
-- `AuthenticationLease.fixed().clientToken(token)` — fixed lease with no expiry or refresh
+- `AuthenticationLease.expiring(expiresAt).jwt(token).build()` — expiring lease that triggers refresh (default: 5 max retries)
+- `AuthenticationLease.expiring(expiresAt).jwt(token).maxRetries(3).build()` — expiring lease with custom retry limit
+- `AuthenticationLease.fixed().clientToken(token).build()` — fixed lease with no expiry or refresh
 
 For expiring leases, the SDK automatically schedules a refresh 30 seconds before the token expires. On successful refresh, it reschedules based on the new token's expiry. If a refresh fails, it retries after 5 seconds. After `maxRetries` (default: 5) consecutive failures, the SDK stops retrying and logs an error. The retry counter resets on any successful refresh. Fixed leases do not schedule any refresh.
 

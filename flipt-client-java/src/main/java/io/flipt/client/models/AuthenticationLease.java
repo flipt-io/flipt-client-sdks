@@ -12,11 +12,11 @@ import java.util.OptionalInt;
  *
  * <pre>{@code
  * // Expiring lease (triggers refresh before expiry)
- * AuthenticationLease.expiring(expiresAt).jwt(token)
- * AuthenticationLease.expiring(expiresAt).maxRetries(3).jwt(token)
+ * AuthenticationLease.expiring(expiresAt).jwt(token).build()
+ * AuthenticationLease.expiring(expiresAt).jwt(token).maxRetries(3).build()
  *
  * // Fixed lease (no expiry, no refresh scheduling)
- * AuthenticationLease.fixed().clientToken(token)
+ * AuthenticationLease.fixed().clientToken(token).build()
  * }</pre>
  */
 public class AuthenticationLease {
@@ -87,32 +87,81 @@ public class AuthenticationLease {
     private FixedBuilder() {}
 
     /**
-     * Creates the lease with JWT authentication.
+     * Sets JWT authentication for this lease.
      *
      * @param token the JWT token value
-     * @return a new AuthenticationLease
+     * @return the build step to finalize the lease
      */
-    public AuthenticationLease jwt(String token) {
-      return new AuthenticationLease(new JWTAuthentication(token), null, 0);
+    public FixedBuildStep jwt(String token) {
+      return new FixedBuildStep(new JWTAuthentication(token));
     }
 
     /**
-     * Creates the lease with client token authentication.
+     * Sets client token authentication for this lease.
      *
      * @param token the client token value
-     * @return a new AuthenticationLease
+     * @return the build step to finalize the lease
      */
-    public AuthenticationLease clientToken(String token) {
-      return new AuthenticationLease(new ClientTokenAuthentication(token), null, 0);
+    public FixedBuildStep clientToken(String token) {
+      return new FixedBuildStep(new ClientTokenAuthentication(token));
     }
   }
 
-  /** Builder for expiring leases with configurable retries. */
+  /** Final build step for fixed leases. */
+  public static class FixedBuildStep {
+    private final AuthenticationStrategy strategy;
+
+    private FixedBuildStep(AuthenticationStrategy strategy) {
+      this.strategy = strategy;
+    }
+
+    /**
+     * Builds the fixed authentication lease.
+     *
+     * @return a new AuthenticationLease
+     */
+    public AuthenticationLease build() {
+      return new AuthenticationLease(strategy, null, 0);
+    }
+  }
+
+  /** Builder for expiring leases. */
   public static class ExpiringBuilder {
+    private final Instant expiresAt;
+
+    private ExpiringBuilder(Instant expiresAt) {
+      this.expiresAt = expiresAt;
+    }
+
+    /**
+     * Sets JWT authentication for this lease.
+     *
+     * @param token the JWT token value
+     * @return the build step to configure retries and finalize the lease
+     */
+    public ExpiringBuildStep jwt(String token) {
+      return new ExpiringBuildStep(new JWTAuthentication(token), expiresAt);
+    }
+
+    /**
+     * Sets client token authentication for this lease.
+     *
+     * @param token the client token value
+     * @return the build step to configure retries and finalize the lease
+     */
+    public ExpiringBuildStep clientToken(String token) {
+      return new ExpiringBuildStep(new ClientTokenAuthentication(token), expiresAt);
+    }
+  }
+
+  /** Final build step for expiring leases with configurable retries. */
+  public static class ExpiringBuildStep {
+    private final AuthenticationStrategy strategy;
     private final Instant expiresAt;
     private int maxRetries = DEFAULT_MAX_RETRIES;
 
-    private ExpiringBuilder(Instant expiresAt) {
+    private ExpiringBuildStep(AuthenticationStrategy strategy, Instant expiresAt) {
+      this.strategy = strategy;
       this.expiresAt = expiresAt;
     }
 
@@ -120,31 +169,20 @@ public class AuthenticationLease {
      * Sets the maximum number of consecutive refresh failures before stopping. Defaults to 5.
      *
      * @param maxRetries the maximum number of retries
-     * @return this builder
+     * @return this build step
      */
-    public ExpiringBuilder maxRetries(int maxRetries) {
+    public ExpiringBuildStep maxRetries(int maxRetries) {
       this.maxRetries = maxRetries;
       return this;
     }
 
     /**
-     * Creates the lease with JWT authentication.
+     * Builds the expiring authentication lease.
      *
-     * @param token the JWT token value
      * @return a new AuthenticationLease
      */
-    public AuthenticationLease jwt(String token) {
-      return new AuthenticationLease(new JWTAuthentication(token), expiresAt, maxRetries);
-    }
-
-    /**
-     * Creates the lease with client token authentication.
-     *
-     * @param token the client token value
-     * @return a new AuthenticationLease
-     */
-    public AuthenticationLease clientToken(String token) {
-      return new AuthenticationLease(new ClientTokenAuthentication(token), expiresAt, maxRetries);
+    public AuthenticationLease build() {
+      return new AuthenticationLease(strategy, expiresAt, maxRetries);
     }
   }
 }
