@@ -248,7 +248,7 @@ pub fn variant_evaluation(
         // if index is outside of our existing buckets then it does not match any distribution
         if index == valid_distributions.len() {
             variant_evaluation_response.r#match = false;
-            variant_evaluation_response.reason = flipt::EvaluationReason::NoMatchingDistribution;
+            variant_evaluation_response.reason = flipt::EvaluationReason::Default;
             variant_evaluation_response.request_duration_millis =
                 start.elapsed().as_millis() as f64;
             return Ok(variant_evaluation_response);
@@ -1529,7 +1529,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(!v.r#match);
-        assert_eq!(v.reason, flipt::EvaluationReason::NoMatchingDistribution);
+        assert_eq!(v.reason, flipt::EvaluationReason::Default);
     }
 
     #[test]
@@ -2557,7 +2557,7 @@ mod tests {
 
         assert_eq!(v.flag_key, String::from("foo"));
         assert!(!v.r#match);
-        assert_eq!(v.reason, flipt::EvaluationReason::NoMatchingDistribution);
+        assert_eq!(v.reason, flipt::EvaluationReason::Default);
     }
 
     #[test]

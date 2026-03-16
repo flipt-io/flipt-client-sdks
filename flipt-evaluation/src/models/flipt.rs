@@ -153,8 +153,6 @@ pub enum EvaluationReason {
     Match,
     #[serde(rename = "DEFAULT_EVALUATION_REASON")]
     Default,
-    #[serde(rename = "NO_MATCHING_DISTRIBUTION_EVALUATION_REASON")]
-    NoMatchingDistribution,
     #[default]
     #[serde(other)]
     #[serde(rename = "UNKNOWN_EVALUATION_REASON")]
