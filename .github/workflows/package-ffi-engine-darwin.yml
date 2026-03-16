@@ -80,7 +80,7 @@ jobs:
           retention-days: 1
 
       - name: Upload Release Assets (Tag)
-        uses: softprops/action-gh-release@v2.5.0
+        uses: softprops/action-gh-release@v2.6.1
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/flipt-engine-ffi-v')
         with:
           tag_name: ${{ github.ref_name }}
@@ -93,7 +93,7 @@ jobs:
     steps:
       - name: Generate token
         id: generate_token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.FLIPT_RELEASE_BOT_APP_ID }}
           private-key: ${{ secrets.FLIPT_RELEASE_BOT_APP_PEM }}
