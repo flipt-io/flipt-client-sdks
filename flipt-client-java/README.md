@@ -136,7 +136,7 @@ The `FliptClient.builder()` method returns a `FliptClient.Builder` object that a
 - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
 - `requestTimeout`: The timeout (Duration) for requests to the upstream Flipt instance. If not provided, the client will default to no timeout. Note: this only affects polling mode. Streaming mode will have no timeout set.
 - `updateInterval`: The interval (Duration) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
-- `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
+- `authentication` (**deprecated**): The authentication strategy to use when communicating with the upstream Flipt instance. Use `authenticationProvider` with `AuthenticationLease.fixed()` instead.
 - `authenticationProvider`: A provider for dynamic authentication credentials that supports token refresh. If set, the SDK will automatically refresh tokens before they expire. See the [Authentication](#authentication) section for more information.
 - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
 - `fetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.

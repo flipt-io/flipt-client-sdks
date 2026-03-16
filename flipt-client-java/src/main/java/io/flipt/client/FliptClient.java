@@ -46,6 +46,22 @@ import lombok.Builder;
 public class FliptClient implements AutoCloseable {
   private static final String STATUS_SUCCESS = "success";
 
+  /**
+   * Partial builder definition to add deprecation on {@code authentication}. Lombok fills in the
+   * rest.
+   */
+  public static class FliptClientBuilder {
+    /**
+     * @deprecated Use {@link #authenticationProvider(AuthenticationProvider)} instead with {@link
+     *     AuthenticationLease#fixed()} for static credentials.
+     */
+    @Deprecated
+    public FliptClientBuilder authentication(AuthenticationStrategy authentication) {
+      this.authentication = authentication;
+      return this;
+    }
+  }
+
   private String environment;
   private String namespace;
   private String url;
