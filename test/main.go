@@ -80,6 +80,10 @@ var (
 		{base: "golang:1.24-alpine", setup: []string{"apk update", "apk add --no-cache build-base"}, useHTTPS: true},
 	}
 
+	harnessVersions = []containerConfig{
+		{base: "golang:1.26-alpine", setup: []string{}, useHTTPS: false},
+	}
+
 	rubyVersions = []containerConfig{
 		{base: "ruby:3.1-bookworm", useHTTPS: true},
 		{base: "ruby:3.1-bullseye", useHTTPS: true},
@@ -114,20 +118,21 @@ var (
 
 // sdkToConfig defines the test configurations for each SDK
 var sdkToConfig = map[string]testConfig{
-	"python": {containers: pythonVersions, fn: pythonTests},
-	"go":     {containers: goVersions, fn: goTests},
-	"js":     {containers: javascriptVersions, fn: javascriptTests},
-	"ruby":   {containers: rubyVersions, fn: rubyTests},
-	"java":   {containers: javaVersions, fn: javaTests},
-	"dart":   {containers: dartVersions, fn: dartTests},
-	"react":  {containers: reactVersions, fn: reactTests},
-	"csharp": {containers: csharpVersions, fn: csharpTests},
+	"python":  {containers: pythonVersions, fn: pythonTests},
+	"go":      {containers: goVersions, fn: goTests},
+	"harness": {containers: harnessVersions, fn: harnessTests},
+	"js":      {containers: javascriptVersions, fn: javascriptTests},
+	"ruby":    {containers: rubyVersions, fn: rubyTests},
+	"java":    {containers: javaVersions, fn: javaTests},
+	"dart":    {containers: dartVersions, fn: dartTests},
+	"react":   {containers: reactVersions, fn: reactTests},
+	"csharp":  {containers: csharpVersions, fn: csharpTests},
 }
 
 // sdkGroups defines which SDKs belong to each group
 var sdkGroups = map[string][]string{
 	"ffi":  {"python", "ruby", "java", "dart", "csharp"},
-	"wasm": {"go"},
+	"wasm": {"go", "harness"},
 	"js":   {"js", "react"},
 }
 
@@ -243,7 +248,7 @@ func run() error {
 				switch lang {
 				case "js", "react":
 					testCase.engine = getWasmJSBuildContainer(ctx, client, hostDir)
-				case "go":
+				case "go", "harness":
 					testCase.engine = getWasmBuildContainer(ctx, client, hostDir)
 				default:
 					testCase.engine = getFFIBuildContainer(ctx, client, hostDir, arch)
@@ -305,12 +310,11 @@ func setupFliptContainer(client *dagger.Client, hostDir *dagger.Directory, enabl
 
 	container := client.Container().From("flipt/flipt:v2").
 		WithUser("root").
-		WithExec(args("apk update")).
-		WithExec(args("apk add --no-cache git")).
 		WithUser("flipt").
 		WithEnvVariable("FLIPT_LOG_LEVEL", "debug").
 		WithEnvVariable("FLIPT_STORAGE_DEFAULT_NAME", "default").
-		WithEnvVariable("FLIPT_STORAGE_DEFAULT_REMOTE", "https://github.com/flipt-io/flipt-test-corpus.git").
+		WithEnvVariable("FLIPT_META_CHECK_FOR_UPDATES", "false").
+		WithEnvVariable("FLIPT_STORAGE_DEFAULT_REMOTE", "https://github.com/erka/flipt-test-corpus.git").
 		WithEnvVariable("FLIPT_ENVIRONMENTS_DEFAULT_NAME", "default").
 		WithEnvVariable("FLIPT_ENVIRONMENTS_DEFAULT_STORAGE", "default").
 		WithEnvVariable("FLIPT_AUTHENTICATION_REQUIRED", "true").
@@ -440,6 +444,23 @@ func goTests(ctx context.Context, root *dagger.Container, t *testCase) error {
 		WithEnvVariable("FLIPT_CA_CERT_PATH", "/src/test/fixtures/tls/ca.crt").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec(args("go mod download")).
+		WithExec(args("go test -v -timeout 30s ./...")).
+		Sync(ctx)
+
+	return err
+}
+
+// harnessTests runs the harness integration test suite against a container running Flipt.
+func harnessTests(ctx context.Context, root *dagger.Container, t *testCase) error {
+	_, err := root.
+		WithWorkdir("/src/harness").
+		WithDirectory("/src/harness", t.hostDir.Directory("test/harness")).
+		WithDirectory("/src/flipt-client-go", t.hostDir.Directory("flipt-client-go")).
+		WithDirectory("/src/test/fixtures/tls", t.hostDir.Directory("test/fixtures/tls")).
+		WithServiceBinding("flipt", t.flipt.AsService()).
+		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
+		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
+		WithExec(args("go mod tidy")).
 		WithExec(args("go test -v -timeout 30s ./...")).
 		Sync(ctx)
 
