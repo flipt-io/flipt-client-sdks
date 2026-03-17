@@ -1,6 +1,9 @@
 import init, { Engine } from '../wasm/flipt_engine_wasm_js.js';
 import { BaseFliptClient } from '../core/base';
 import { ClientOptions, ClientOptionsFactory } from '../core/types';
+import { WasmEngine } from '../core/engines/wasm-engine';
+import { RestEvaluationEngine } from '../core/engines/rest-engine';
+import { JsLocalEngine } from '../core/engines/js-local-engine';
 
 export * from '../core/types';
 export * from '../core/base';
@@ -35,18 +38,12 @@ export class FliptClient extends BaseFliptClient {
     options: ClientOptions = ClientOptionsFactory.default(),
     wasmOptions?: WasmOptions
   ): Promise<FliptClient> {
-    if (!wasmOptions || !wasmOptions.wasm) {
-      throw new Error(
-        'WASM module must be provided in slim mode. Use the standard client or provide a wasm module.'
-      );
-    }
-
     const environment = options.environment ?? 'default';
     const namespace = options.namespace ?? 'default';
+    const evaluationMode = options.evaluationMode ?? 'wasm';
 
-    let url = options.url ?? 'http://localhost:8080';
-    url = url.replace(/\/$/, '');
-    url = `${url}/internal/v1/evaluation/snapshot/namespace/${namespace}`;
+    const baseUrl = (options.url ?? 'http://localhost:8080').replace(/\/$/, '');
+    let url = `${baseUrl}/internal/v1/evaluation/snapshot/namespace/${namespace}`;
 
     if (options.reference) {
       url = `${url}?reference=${options.reference}`;
@@ -88,26 +85,68 @@ export class FliptClient extends BaseFliptClient {
       };
     }
 
-    // Initialize WASM engine with the provided WASM module
-    await init(wasmOptions.wasm);
-
     if (!fetcher) {
       throw new Error('Failed to initialize fetcher');
     }
 
-    // handle case if they pass in a custom fetcher that doesn't throw on non-2xx status codes
-    const resp = await fetcher();
-    if (!resp.ok) {
-      throw new Error(`Failed to fetch data: ${resp.statusText}`);
-    }
+    let engine;
+    let resp: Awaited<ReturnType<typeof fetcher>> | undefined;
 
-    const data = await resp.json();
-    const engine = new Engine(namespace);
-    engine.snapshot(data);
+    if (evaluationMode === 'rest') {
+      engine = new RestEvaluationEngine(baseUrl, namespace, headers);
+    } else if (evaluationMode === 'js-local') {
+      engine = new JsLocalEngine(namespace);
+      resp = await fetcher();
+      if (!resp.ok) {
+        throw new Error(`Failed to fetch data: ${resp.statusText}`);
+      }
+      const data = await resp.json();
+      engine.snapshot(data);
+    } else {
+      if (!wasmOptions || !wasmOptions.wasm) {
+        throw new Error(
+          'WASM module must be provided in slim mode. Use the standard client or provide a wasm module.'
+        );
+      }
+
+      try {
+        // Initialize WASM engine with the provided WASM module
+        await init(wasmOptions.wasm);
+
+        // handle case if they pass in a custom fetcher that doesn't throw on non-2xx status codes
+        resp = await fetcher();
+        if (!resp.ok) {
+          throw new Error(`Failed to fetch data: ${resp.statusText}`);
+        }
+
+        const data = await resp.json();
+        const wasmEngineInstance = new Engine(namespace);
+        engine = new WasmEngine(wasmEngineInstance, namespace);
+        engine.snapshot(data);
+      } catch (error) {
+        if (!options.enableAutoFallback) {
+          throw error;
+        }
+        // Fallback: wasm → js-local → rest
+        try {
+          engine = new JsLocalEngine(namespace);
+          resp = await fetcher();
+          if (!resp.ok) {
+            throw new Error(`Failed to fetch data: ${resp.statusText}`);
+          }
+          const data = await resp.json();
+          engine.snapshot(data);
+        } catch {
+          engine = new RestEvaluationEngine(baseUrl, namespace, headers);
+        }
+      }
+    }
 
     // Create client instance
     const client = new FliptClient(engine, fetcher);
-    client.storeEtag(resp);
+    if (resp) {
+      client.storeEtag(resp);
+    }
     client.errorStrategy = options.errorStrategy;
     client.hook = options.hook;
 

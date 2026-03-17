@@ -67,6 +67,8 @@ The `FliptClient` constructor accepts the following optional arguments:
   - `fetcher`: An implementation of a [fetcher](https://github.com/flipt-io/flipt-client-sdks/blob/d0869dc9f6b3a65052712926b88fa0f9b18defaa/flipt-client-js/src/core/types.ts#L60-L62) interface to use when requesting flag state. If not provided, a default fetcher using the browser's [`fetch` API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) will be used.
   - `errorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to fail. See the [Error Strategies](#error-strategies) section for more information.
   - `hook`: A hook implementation for before and after evaluation callbacks. See the [Hooks](#hooks) section for more information.
+  - `evaluationMode`: The evaluation engine to use. Accepts `'wasm'` (default), `'rest'`, or `'js-local'`. See [Evaluation Modes](#evaluation-modes).
+  - `enableAutoFallback`: When `true`, automatically falls back to a simpler engine if initialization fails. Fallback order: `wasm` → `js-local` → `rest`. Defaults to `false`. See [Auto-Fallback](#auto-fallback).
 
 ### Authentication
 
@@ -313,6 +315,98 @@ The `slim` build of the FliptClient is designed for environments where you want 
 - For browser usage, pass the URL to the WASM file (using your bundler's asset handling).
 - For Node.js, pass the WASM file as a buffer.
 - Make sure your environment supports top-level `await` or wrap your code in an async function.
+
+## Evaluation Modes
+
+The `FliptClient` supports three evaluation modes:
+
+### WASM Mode (Default)
+
+The default mode uses a WebAssembly engine for **client-side** flag evaluation. Flag state is fetched from the Flipt server and evaluated locally in the browser or Node.js runtime.
+
+```typescript
+const client = await FliptClient.init({
+  url: 'http://localhost:8080',
+  namespace: 'default',
+  evaluationMode: 'wasm' // default, can be omitted
+});
+
+// Synchronous evaluation
+const result = client.evaluateVariant({
+  flagKey: 'flag1',
+  entityId: 'user-123',
+  context: { plan: 'premium' }
+});
+```
+
+> [!NOTE]
+> WASM mode requires the `wasm-unsafe-eval` Content Security Policy (CSP) directive to be set in the browser.
+
+### JS-Local Mode (CSP-Compliant, Client-Side)
+
+JS-Local mode evaluates flags entirely in JavaScript — no WebAssembly required. Flag state is fetched from the Flipt server and evaluated locally using a pure TypeScript port of the Rust evaluation engine. This gives you the same client-side evaluation benefits as WASM mode with full CSP compliance.
+
+```typescript
+const client = await FliptClient.init({
+  url: 'http://localhost:8080',
+  namespace: 'default',
+  evaluationMode: 'js-local'
+});
+
+// Synchronous evaluation — same API as WASM mode
+const result = client.evaluateVariant({
+  flagKey: 'flag1',
+  entityId: 'user-123',
+  context: { plan: 'premium' }
+});
+```
+
+> [!TIP]
+> Use `js-local` mode when you need client-side evaluation in environments with strict CSP policies that block both `unsafe-eval` and `wasm-unsafe-eval`.
+
+### REST Mode (CSP-Compliant, Server-Side)
+
+REST mode delegates flag evaluation to the Flipt server via HTTP requests. This mode is ideal for environments with strict CSP policies that block WebAssembly execution.
+
+```typescript
+const client = await FliptClient.init({
+  url: 'http://localhost:8080',
+  namespace: 'default',
+  evaluationMode: 'rest'
+});
+
+// All evaluations are async in REST mode
+const result = await client.evaluateVariantAsync({
+  flagKey: 'flag1',
+  entityId: 'user-123',
+  context: { plan: 'premium' }
+});
+```
+
+> [!IMPORTANT]
+> In REST mode, synchronous methods (`evaluateVariant`, `evaluateBoolean`, `evaluateBatch`, `listFlags`) will throw an error. Use the async variants instead: `evaluateVariantAsync`, `evaluateBooleanAsync`, `evaluateBatchAsync`, `listFlagsAsync`.
+
+### Auto-Fallback
+
+Enable `enableAutoFallback` to automatically fall back to a simpler engine if initialization fails. The fallback order is: `wasm` → `js-local` → `rest`.
+
+```typescript
+const client = await FliptClient.init({
+  url: 'http://localhost:8080',
+  namespace: 'default',
+  enableAutoFallback: true // wasm → js-local → rest
+});
+
+// Use async methods to ensure compatibility with all modes
+const result = await client.evaluateVariantAsync({
+  flagKey: 'flag1',
+  entityId: 'user-123',
+  context: { plan: 'premium' }
+});
+```
+
+> [!TIP]
+> When using `enableAutoFallback`, always use the `*Async` methods to ensure your code works regardless of which engine is active. If the WASM engine fails (e.g., CSP restriction), the client will first try `js-local` (synchronous, client-side). If that also fails (e.g., snapshot fetch error), it falls back to `rest` (async, server-side).
 
 ## Development
 

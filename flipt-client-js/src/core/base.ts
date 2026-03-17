@@ -1,7 +1,6 @@
 import {
   BatchEvaluationResponse,
   BooleanEvaluationResponse,
-  ErrorEvaluationResponse,
   EvaluationRequest,
   EvaluationResponse,
   Flag,
@@ -9,27 +8,31 @@ import {
   VariantEvaluationResponse,
   ErrorStrategy,
   Response,
-  VariantResult,
-  BooleanResult,
-  BatchResult,
-  ListFlagsResult,
   Hook
 } from './types';
 
-import { deserialize, serialize } from './utils';
+import { IEvaluationEngine } from './engines/types';
 
 export type FliptClient = BaseFliptClient;
 
 export abstract class BaseFliptClient {
-  protected engine: any; // Type will be provided by platform implementations
+  protected engine: IEvaluationEngine;
   protected fetcher: IFetcher;
   protected etag?: string;
   protected errorStrategy?: ErrorStrategy;
   protected hook?: Hook;
 
-  constructor(engine: any, fetcher: IFetcher) {
+  constructor(engine: IEvaluationEngine, fetcher: IFetcher) {
     this.engine = engine;
     this.fetcher = fetcher;
+  }
+
+  private assertSyncEngine(methodName: string) {
+    if (this.engine.isAsync) {
+      throw new Error(
+        `${methodName} is synchronous and not available in REST mode. Use ${methodName}Async instead.`
+      );
+    }
   }
 
   /**
@@ -81,36 +84,23 @@ export abstract class BaseFliptClient {
     entityId: string;
     context: Record<string, string>;
   }): VariantEvaluationResponse {
+    this.assertSyncEngine('evaluateVariant');
+
     if (!flagKey || flagKey.trim() === '') {
       throw new Error('flagKey cannot be empty');
     }
     if (!entityId || entityId.trim() === '') {
       throw new Error('entityId cannot be empty');
     }
-    const evaluationRequest: EvaluationRequest = {
+
+    this.hook?.before({ flagKey });
+
+    const result = this.engine.evaluateVariant({
       flagKey,
       entityId,
       context
-    };
+    }) as VariantEvaluationResponse;
 
-    this.hook?.before({ flagKey });
-    const variantResult: VariantResult | null = this.engine.evaluate_variant(
-      serialize(evaluationRequest)
-    );
-
-    if (variantResult === null) {
-      throw new Error('Failed to evaluate variant');
-    }
-
-    if (variantResult.status === 'failure') {
-      throw new Error(variantResult.errorMessage);
-    }
-
-    if (!variantResult.result) {
-      throw new Error('Failed to evaluate variant');
-    }
-
-    const result = deserialize<VariantEvaluationResponse>(variantResult.result);
     this.hook?.after({
       flagKey,
       flagType: 'variant',
@@ -118,6 +108,44 @@ export abstract class BaseFliptClient {
       reason: result.reason,
       segmentKeys: result.segmentKeys
     });
+
+    return result;
+  }
+
+  public async evaluateVariantAsync({
+    flagKey,
+    entityId,
+    context
+  }: {
+    flagKey: string;
+    entityId: string;
+    context: Record<string, string>;
+  }): Promise<VariantEvaluationResponse> {
+    if (!flagKey || flagKey.trim() === '') {
+      throw new Error('flagKey cannot be empty');
+    }
+    if (!entityId || entityId.trim() === '') {
+      throw new Error('entityId cannot be empty');
+    }
+
+    this.hook?.before({ flagKey });
+
+    const result = (await Promise.resolve(
+      this.engine.evaluateVariant({
+        flagKey,
+        entityId,
+        context
+      })
+    )) as VariantEvaluationResponse;
+
+    this.hook?.after({
+      flagKey,
+      flagType: 'variant',
+      value: result.variantKey,
+      reason: result.reason,
+      segmentKeys: result.segmentKeys
+    });
+
     return result;
   }
 
@@ -133,6 +161,8 @@ export abstract class BaseFliptClient {
     entityId: string;
     context: Record<string, string>;
   }): BooleanEvaluationResponse {
+    this.assertSyncEngine('evaluateBoolean');
+
     if (!flagKey || flagKey.trim() === '') {
       throw new Error('flagKey cannot be empty');
     }
@@ -140,30 +170,14 @@ export abstract class BaseFliptClient {
       throw new Error('entityId cannot be empty');
     }
 
-    const evaluationRequest: EvaluationRequest = {
+    this.hook?.before({ flagKey });
+
+    const result = this.engine.evaluateBoolean({
       flagKey,
       entityId,
       context
-    };
+    }) as BooleanEvaluationResponse;
 
-    this.hook?.before({ flagKey });
-    const booleanResult: BooleanResult | null = this.engine.evaluate_boolean(
-      serialize(evaluationRequest)
-    );
-
-    if (booleanResult === null) {
-      throw new Error('Failed to evaluate boolean');
-    }
-
-    if (booleanResult.status === 'failure') {
-      throw new Error(booleanResult.errorMessage);
-    }
-
-    if (!booleanResult.result) {
-      throw new Error('Failed to evaluate boolean');
-    }
-
-    const result = deserialize<BooleanEvaluationResponse>(booleanResult.result);
     this.hook?.after({
       flagKey,
       flagType: 'boolean',
@@ -171,6 +185,43 @@ export abstract class BaseFliptClient {
       reason: result.reason,
       segmentKeys: result.segmentKeys
     });
+
+    return result;
+  }
+
+  public async evaluateBooleanAsync({
+    flagKey,
+    entityId,
+    context
+  }: {
+    flagKey: string;
+    entityId: string;
+    context: Record<string, string>;
+  }): Promise<BooleanEvaluationResponse> {
+    if (!flagKey || flagKey.trim() === '') {
+      throw new Error('flagKey cannot be empty');
+    }
+    if (!entityId || entityId.trim() === '') {
+      throw new Error('entityId cannot be empty');
+    }
+
+    this.hook?.before({ flagKey });
+    const result = (await Promise.resolve(
+      this.engine.evaluateBoolean({
+        flagKey,
+        entityId,
+        context
+      })
+    )) as BooleanEvaluationResponse;
+
+    this.hook?.after({
+      flagKey,
+      flagType: 'boolean',
+      value: result.enabled.toString(),
+      reason: result.reason,
+      segmentKeys: result.segmentKeys
+    });
+
     return result;
   }
 
@@ -178,98 +229,106 @@ export abstract class BaseFliptClient {
    * Evaluate a batch of flag requests
    */
   public evaluateBatch(requests: EvaluationRequest[]): BatchEvaluationResponse {
+    this.assertSyncEngine('evaluateBatch');
+
     if (this.hook) {
       requests.forEach((req) => this.hook?.before({ flagKey: req.flagKey }));
     }
-    const serializedRequests = requests.map(serialize);
-    const batchResult: BatchResult | null =
-      this.engine.evaluate_batch(serializedRequests);
 
-    if (batchResult === null) {
-      throw new Error('Failed to evaluate batch');
+    const batchResult = this.engine.evaluateBatch(
+      requests.map((req) => ({
+        flagKey: req.flagKey,
+        entityId: req.entityId,
+        context: req.context
+      }))
+    ) as BatchEvaluationResponse;
+
+    // Fire after hooks for each response
+    batchResult.responses.forEach((response: EvaluationResponse) => {
+      if (response.type === 'BOOLEAN_EVALUATION_RESPONSE_TYPE') {
+        const booleanResponse = response.booleanEvaluationResponse;
+        if (!booleanResponse) {
+          return;
+        }
+        this.hook?.after({
+          flagKey: booleanResponse.flagKey,
+          flagType: 'boolean',
+          value: booleanResponse.enabled.toString(),
+          reason: booleanResponse.reason,
+          segmentKeys: booleanResponse.segmentKeys
+        });
+      } else if (response.type === 'VARIANT_EVALUATION_RESPONSE_TYPE') {
+        const variantResponse = response.variantEvaluationResponse;
+        if (!variantResponse) {
+          return;
+        }
+        this.hook?.after({
+          flagKey: variantResponse.flagKey,
+          flagType: 'variant',
+          value: variantResponse.variantKey,
+          reason: variantResponse.reason,
+          segmentKeys: variantResponse.segmentKeys
+        });
+      }
+    });
+
+    return batchResult;
+  }
+
+  public async evaluateBatchAsync(
+    requests: EvaluationRequest[]
+  ): Promise<BatchEvaluationResponse> {
+    if (this.hook) {
+      requests.forEach((req) => this.hook?.before({ flagKey: req.flagKey }));
     }
 
-    if (batchResult.status === 'failure') {
-      throw new Error(batchResult.errorMessage);
-    }
+    const batchResult = (await Promise.resolve(
+      this.engine.evaluateBatch(
+        requests.map((req) => ({
+          flagKey: req.flagKey,
+          entityId: req.entityId,
+          context: req.context
+        }))
+      )
+    )) as BatchEvaluationResponse;
 
-    if (!batchResult.result) {
-      throw new Error('Failed to evaluate batch');
-    }
+    batchResult.responses.forEach((response: EvaluationResponse) => {
+      if (response.type === 'BOOLEAN_EVALUATION_RESPONSE_TYPE') {
+        const booleanResponse = response.booleanEvaluationResponse;
+        if (!booleanResponse) {
+          return;
+        }
+        this.hook?.after({
+          flagKey: booleanResponse.flagKey,
+          flagType: 'boolean',
+          value: booleanResponse.enabled.toString(),
+          reason: booleanResponse.reason,
+          segmentKeys: booleanResponse.segmentKeys
+        });
+      } else if (response.type === 'VARIANT_EVALUATION_RESPONSE_TYPE') {
+        const variantResponse = response.variantEvaluationResponse;
+        if (!variantResponse) {
+          return;
+        }
+        this.hook?.after({
+          flagKey: variantResponse.flagKey,
+          flagType: 'variant',
+          value: variantResponse.variantKey,
+          reason: variantResponse.reason,
+          segmentKeys: variantResponse.segmentKeys
+        });
+      }
+    });
 
-    const responses = batchResult.result.responses
-      .map((response): EvaluationResponse | undefined => {
-        if (response.type === 'BOOLEAN_EVALUATION_RESPONSE_TYPE') {
-          const booleanResponse = deserialize<BooleanEvaluationResponse>(
-            // @ts-ignore
-            response.boolean_evaluation_response
-          );
-          this.hook?.after({
-            flagKey: booleanResponse.flagKey,
-            flagType: 'boolean',
-            value: booleanResponse.enabled.toString(),
-            reason: booleanResponse.reason,
-            segmentKeys: booleanResponse.segmentKeys
-          });
-          return {
-            booleanEvaluationResponse: booleanResponse,
-            type: 'BOOLEAN_EVALUATION_RESPONSE_TYPE'
-          };
-        }
-        if (response.type === 'VARIANT_EVALUATION_RESPONSE_TYPE') {
-          const variantResponse = deserialize<VariantEvaluationResponse>(
-            // @ts-ignore
-            response.variant_evaluation_response
-          );
-          this.hook?.after({
-            flagKey: variantResponse.flagKey,
-            flagType: 'variant',
-            value: variantResponse.variantKey,
-            reason: variantResponse.reason,
-            segmentKeys: variantResponse.segmentKeys
-          });
-          return {
-            variantEvaluationResponse: variantResponse,
-            type: 'VARIANT_EVALUATION_RESPONSE_TYPE'
-          };
-        }
-        if (response.type === 'ERROR_EVALUATION_RESPONSE_TYPE') {
-          const errorResponse = deserialize<ErrorEvaluationResponse>(
-            // @ts-ignore
-            response.error_evaluation_response
-          );
-          return {
-            errorEvaluationResponse: errorResponse,
-            type: 'ERROR_EVALUATION_RESPONSE_TYPE'
-          };
-        }
-        return undefined;
-      })
-      .filter(
-        (response): response is EvaluationResponse => response !== undefined
-      );
-
-    return {
-      responses,
-      requestDurationMillis: batchResult.result.requestDurationMillis
-    };
+    return batchResult;
   }
 
   public listFlags(): Flag[] {
-    const listFlagsResult: ListFlagsResult | null = this.engine.list_flags();
+    this.assertSyncEngine('listFlags');
+    return this.engine.listFlags() as Flag[];
+  }
 
-    if (listFlagsResult === null) {
-      throw new Error('Failed to list flags');
-    }
-
-    if (listFlagsResult.status === 'failure') {
-      throw new Error(listFlagsResult.errorMessage);
-    }
-
-    if (!listFlagsResult.result) {
-      throw new Error('Failed to list flags');
-    }
-
-    return listFlagsResult.result.map(deserialize<Flag>);
+  public async listFlagsAsync(): Promise<Flag[]> {
+    return (await Promise.resolve(this.engine.listFlags())) as Flag[];
   }
 }

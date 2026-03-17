@@ -88,6 +88,8 @@ export interface JWTAuthentication extends AuthenticationStrategy {
   jwtToken: string;
 }
 
+export type EvaluationMode = 'wasm' | 'rest' | 'js-local';
+
 export interface ClientOptions {
   /**
    * The environment to use when evaluating flags (Flipt v2)
@@ -139,6 +141,22 @@ export interface ClientOptions {
    * The hook to use for before and after evaluation calls.
    */
   hook?: Hook;
+
+  /**
+   * Evaluation mode.
+   * - `wasm`: Local evaluation using WebAssembly (default)
+   * - `rest`: Server-side evaluation using Flipt /evaluate/v1 endpoints
+   * - `js-local`: Local evaluation using pure JavaScript (no WASM, CSP-compliant)
+   */
+  evaluationMode?: EvaluationMode;
+
+  /**
+   * Automatically fall back to a simpler engine when initialization fails.
+   * Fallback order: `wasm` → `js-local` → `rest`.
+   *
+   * @defaultValue `false`
+   */
+  enableAutoFallback?: boolean;
 }
 
 /**
@@ -295,7 +313,9 @@ export class ClientOptionsFactory {
       url: 'http://localhost:8080',
       reference: '',
       updateInterval: 120,
-      errorStrategy: ErrorStrategy.Fail
+      errorStrategy: ErrorStrategy.Fail,
+      evaluationMode: 'wasm',
+      enableAutoFallback: false
     };
   }
 }

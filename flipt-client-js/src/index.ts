@@ -5,6 +5,7 @@ export * from './core/types';
 export type {
   Flag,
   ClientOptions,
+  EvaluationMode,
   EvaluationRequest,
   VariantEvaluationResponse,
   BooleanEvaluationResponse,

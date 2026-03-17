@@ -10,6 +10,7 @@
 export type {
   Flag,
   ClientOptions,
+  EvaluationMode,
   EvaluationRequest,
   VariantEvaluationResponse,
   BooleanEvaluationResponse,
@@ -31,3 +32,5 @@ export type {
 } from './core/types';
 
 export { ErrorStrategy, ClientOptionsFactory } from './core/types';
+
+export type { IEvaluationEngine } from './core/engines/types';
