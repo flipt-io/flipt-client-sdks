@@ -172,6 +172,9 @@ public class AuthenticationLease {
      * @return this build step
      */
     public ExpiringBuildStep maxRetries(int maxRetries) {
+      if (maxRetries < 0) {
+        throw new IllegalArgumentException("maxRetries must be non-negative");
+      }
       this.maxRetries = maxRetries;
       return this;
     }
