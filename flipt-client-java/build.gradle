@@ -50,6 +50,11 @@ spotless {
     }
 }
 
+javadoc {
+    options.addStringOption('Xdoclint:none', '-quiet')
+    failOnError = false
+}
+
 test {
     useJUnitPlatform()
 }

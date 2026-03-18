@@ -52,7 +52,7 @@ public class FliptClient implements AutoCloseable {
    */
   public static class FliptClientBuilder {
     /**
-     * @deprecated Use {@link #authenticationProvider(AuthenticationProvider)} instead with {@link
+     * @deprecated Use {@code authenticationProvider(AuthenticationProvider)} instead with {@link
      *     AuthenticationLease#fixed()} for static credentials.
      */
     @Deprecated
