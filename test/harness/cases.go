@@ -2,83 +2,83 @@ package venus
 
 import (
 	"cmp"
-	"encoding/json"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 var (
 	FliptURL  = cmp.Or(os.Getenv("FLIPT_URL"), "http://localhost:8080")
 	Namespace = "venus"
-	CasesFile = "cases.json"
+	CasesFile = "cases.yaml"
 )
 
 type TestCase struct {
-	Name      string    `json:"name"`
-	Namespace string    `json:"namespace"`
-	Type      string    `json:"type"`
-	Request   Request   `json:"request"`
-	Requests  []Request `json:"requests,omitempty"`
-	Expected  Expected  `json:"expected"`
+	Name      string    `yaml:"name"`
+	Namespace string    `yaml:"namespace"`
+	Type      string    `yaml:"type"`
+	Request   Request   `yaml:"request"`
+	Requests  []Request `yaml:"requests,omitempty"`
+	Expected  Expected  `yaml:"expected"`
 }
 
 type Request struct {
-	FlagKey  string            `json:"flag_key"`
-	EntityID string            `json:"entity_id"`
-	Context  map[string]string `json:"context"`
+	FlagKey  string            `yaml:"flag_key"`
+	EntityID string            `yaml:"entity_id"`
+	Context  map[string]string `yaml:"context"`
 }
 
 type Expected struct {
-	Match             *bool              `json:"match,omitempty"`
-	Enabled           *bool              `json:"enabled,omitempty"`
-	SegmentKeys       []string           `json:"segment_keys"`
-	Reason            string             `json:"reason"`
-	FlagKey           string             `json:"flag_key"`
-	VariantKey        *string            `json:"variant_key"`
-	VariantAttachment any                `json:"variant_attachment"`
-	Responses         []BatchResponseAPI `json:"responses,omitempty"`
+	Match             *bool              `yaml:"match,omitempty"`
+	Enabled           *bool              `yaml:"enabled,omitempty"`
+	SegmentKeys       []string           `yaml:"segment_keys"`
+	Reason            string             `yaml:"reason"`
+	FlagKey           string             `yaml:"flag_key"`
+	VariantKey        *string            `yaml:"variant_key"`
+	VariantAttachment any                `yaml:"variant_attachment"`
+	Responses         []BatchResponseAPI `yaml:"responses,omitempty"`
 }
 
 type BatchResponseAPI struct {
-	Type                      string                  `json:"type"`
-	BooleanEvaluationResponse *BoolEvalResponseAPI    `json:"booleanResponse"`
-	VariantEvaluationResponse *VariantEvalResponseAPI `json:"variantResponse"`
-	ErrorEvaluationResponse   *ErrorEvalResponseAPI   `json:"errorResponse"`
+	Type                      string                  `yaml:"type"`
+	BooleanEvaluationResponse *BoolEvalResponseAPI    `yaml:"booleanResponse"`
+	VariantEvaluationResponse *VariantEvalResponseAPI `yaml:"variantResponse"`
+	ErrorEvaluationResponse   *ErrorEvalResponseAPI   `yaml:"errorResponse"`
 }
 
 type BoolEvalResponseAPI struct {
-	Enabled     bool     `json:"enabled"`
-	FlagKey     string   `json:"flagKey"`
-	Reason      string   `json:"reason"`
-	SegmentKeys []string `json:"segmentKeys"`
+	Enabled     bool     `yaml:"enabled"`
+	FlagKey     string   `yaml:"flagKey"`
+	Reason      string   `yaml:"reason"`
+	SegmentKeys []string `yaml:"segmentKeys"`
 }
 
 type VariantEvalResponseAPI struct {
-	Match             bool     `json:"match"`
-	SegmentKeys       []string `json:"segmentKeys"`
-	Reason            string   `json:"reason"`
-	FlagKey           string   `json:"flagKey"`
-	VariantKey        string   `json:"variantKey"`
-	VariantAttachment *string  `json:"variantAttachment"`
+	Match             bool     `yaml:"match"`
+	SegmentKeys       []string `yaml:"segmentKeys"`
+	Reason            string   `yaml:"reason"`
+	FlagKey           string   `yaml:"flagKey"`
+	VariantKey        string   `yaml:"variantKey"`
+	VariantAttachment *string  `yaml:"variantAttachment"`
 }
 
 type ErrorEvalResponseAPI struct {
-	FlagKey      string `json:"flagKey"`
-	NamespaceKey string `json:"namespaceKey"`
-	Reason       string `json:"reason"`
+	FlagKey      string `yaml:"flagKey"`
+	NamespaceKey string `yaml:"namespaceKey"`
+	Reason       string `yaml:"reason"`
 }
 
 func loadCases(t *testing.T) []TestCase {
 	t.Helper()
 
 	data, err := os.ReadFile(CasesFile)
-	require.NoError(t, err, "Failed to read cases.json")
+	require.NoError(t, err, "Failed to read cases.yaml")
 
 	var cases []TestCase
-	err = json.Unmarshal(data, &cases)
-	require.NoError(t, err, "Failed to parse cases.json")
+	err = yaml.Unmarshal(data, &cases)
+	require.NoError(t, err, "Failed to parse cases.yaml")
 
 	return cases
 }

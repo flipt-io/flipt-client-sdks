@@ -17,7 +17,7 @@ func TestCasesWithClient(t *testing.T) {
 	opts := []flipt.Option{
 		flipt.WithURL(FliptURL),
 		flipt.WithRequestTimeout(30 * time.Second),
-		flipt.WithUpdateInterval(2 * time.Minute),
+		flipt.WithUpdateInterval(10 * time.Minute),
 		flipt.WithFetchMode(flipt.FetchModePolling),
 		flipt.WithEnvironment("default"),
 		flipt.WithNamespace("venus"),
