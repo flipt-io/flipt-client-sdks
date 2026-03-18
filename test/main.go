@@ -314,7 +314,7 @@ func setupFliptContainer(client *dagger.Client, hostDir *dagger.Directory, enabl
 		WithEnvVariable("FLIPT_LOG_LEVEL", "debug").
 		WithEnvVariable("FLIPT_STORAGE_DEFAULT_NAME", "default").
 		WithEnvVariable("FLIPT_META_CHECK_FOR_UPDATES", "false").
-		WithEnvVariable("FLIPT_STORAGE_DEFAULT_REMOTE", "https://github.com/erka/flipt-test-corpus.git").
+		WithEnvVariable("FLIPT_STORAGE_DEFAULT_REMOTE", "https://github.com/flipt-io/flipt-test-corpus.git").
 		WithEnvVariable("FLIPT_ENVIRONMENTS_DEFAULT_NAME", "default").
 		WithEnvVariable("FLIPT_ENVIRONMENTS_DEFAULT_STORAGE", "default").
 		WithEnvVariable("FLIPT_AUTHENTICATION_REQUIRED", "true").
