@@ -43,9 +43,9 @@ type Expected struct {
 
 type BatchResponseAPI struct {
 	Type                      string                  `yaml:"type"`
-	BooleanEvaluationResponse *BoolEvalResponseAPI    `yaml:"booleanResponse"`
-	VariantEvaluationResponse *VariantEvalResponseAPI `yaml:"variantResponse"`
-	ErrorEvaluationResponse   *ErrorEvalResponseAPI   `yaml:"errorResponse"`
+	BooleanEvaluationResponse *BoolEvalResponseAPI    `yaml:"booleanResponse" json:"booleanResponse"`
+	VariantEvaluationResponse *VariantEvalResponseAPI `yaml:"variantResponse" json:"variantResponse"`
+	ErrorEvaluationResponse   *ErrorEvalResponseAPI   `yaml:"errorResponse" json:"errorResponse"`
 }
 
 type BoolEvalResponseAPI struct {
