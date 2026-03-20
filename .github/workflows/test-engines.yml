@@ -4,6 +4,9 @@ on:
     branches-ignore:
       - release/*
 
+env:
+  MISE_EXPERIMENTAL: "1"
+
 jobs:
   test:
     name: Test
@@ -14,8 +17,11 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v6
 
-      - name: Install Rust
-        run: rustup update stable
+      - name: Install mise
+        uses: jdx/mise-action@v4
+
+      - name: Install Rust toolchain
+        run: mise install
 
       - name: Test
         run: cargo test --all-features
@@ -36,8 +42,11 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v6
 
-      - name: Install Rust
-        run: rustup update stable
+      - name: Install mise
+        uses: jdx/mise-action@v4
+
+      - name: Install Rust toolchain
+        run: mise install
 
       - name: Check Formatting
         run: cargo fmt --all -- --check
@@ -53,11 +62,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install Rust
-        run: rustup update stable
+      - name: Install mise
+        uses: jdx/mise-action@v4
 
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Install Rust tooling
+        run: mise install
 
       - name: Generate code coverage
         run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
