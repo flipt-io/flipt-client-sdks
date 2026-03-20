@@ -9,6 +9,7 @@ require (
 	go.flipt.io/flipt-client v1.3.1
 	go.flipt.io/flipt/rpc/flipt v1.54.0
 	go.flipt.io/flipt/sdk/go v0.13.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -22,18 +23,15 @@ require (
 	github.com/tetratelabs/wazero v1.9.0 // indirect
 	go.flipt.io/flipt/errors v1.45.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/otel v1.38.0 // indirect
+	go.opentelemetry.io/otel v1.39.0 // indirect
 	go.uber.org/mock v0.6.0 // indirect
-	golang.org/x/net v0.43.0 // indirect
-	golang.org/x/sys v0.35.0 // indirect
-	golang.org/x/text v0.31.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20241230172942-26aa7a208def // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20241230172942-26aa7a208def // indirect
-	google.golang.org/grpc v1.69.2 // indirect
-	google.golang.org/protobuf v1.36.1 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	golang.org/x/net v0.48.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/text v0.32.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20251202230838-ff82c1b0f217 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
+	google.golang.org/grpc v1.79.3 // indirect
+	google.golang.org/protobuf v1.36.10 // indirect
 )
 
-replace (
-	go.flipt.io/flipt-client => ../flipt-client-go
-)
+replace go.flipt.io/flipt-client => ../flipt-client-go
