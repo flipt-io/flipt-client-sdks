@@ -212,15 +212,9 @@ pub fn variant_evaluation(
             })?;
 
         let mut valid_distributions: Vec<flipt::EvaluationDistribution> = vec![];
-        let mut buckets: Vec<i32> = vec![];
-        let mut cumulative_rollout: f32 = 0.0;
-
         for distribution in distributions {
             if distribution.rollout > 0.0 {
                 valid_distributions.push(distribution.clone());
-                cumulative_rollout += distribution.rollout;
-                let bucket = (cumulative_rollout * DEFAULT_PERCENT_MULTIPIER).round() as i32;
-                buckets.push(bucket);
             }
         }
 
@@ -232,6 +226,20 @@ pub fn variant_evaluation(
             variant_evaluation_response.request_duration_millis =
                 start.elapsed().as_millis() as f64;
             return Ok(variant_evaluation_response);
+        }
+
+        let mut buckets: Vec<i32> = vec![];
+        let mut cumulative_rollout: f32 = 0.0;
+        let total_rollout: f32 = valid_distributions.iter().map(|d| d.rollout).sum();
+
+        for (idx, distribution) in valid_distributions.iter().enumerate() {
+            let normalized_rollout = (distribution.rollout / total_rollout) * DEFAULT_PERCENT;
+            cumulative_rollout += normalized_rollout;
+            let mut bucket = (cumulative_rollout * DEFAULT_PERCENT_MULTIPIER).round() as i32;
+            if idx + 1 == valid_distributions.len() {
+                bucket = DEFAULT_TOTAL_BUCKET_NUMBER as i32;
+            }
+            buckets.push(bucket);
         }
 
         let bucket =
@@ -1504,7 +1512,7 @@ mod tests {
                     rule_id: String::from("1"),
                     variant_key: String::from("variant1"),
                     variant_attachment: None,
-                    rollout: 10.0,
+                    rollout: 1.0,
                 }])
             });
 
@@ -1528,8 +1536,9 @@ mod tests {
         let v = variant.unwrap();
 
         assert_eq!(v.flag_key, String::from("foo"));
-        assert!(!v.r#match);
-        assert_eq!(v.reason, flipt::EvaluationReason::Default);
+        assert!(v.r#match);
+        assert_eq!(v.variant_key, String::from("variant1"));
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
     }
 
     #[test]
@@ -1756,6 +1765,224 @@ mod tests {
             v3
         );
         assert_eq!(v1 + v2 + v3, 1000, "all 1000 entities should be assigned");
+    }
+
+    #[test]
+    fn test_evaluator_two_way_split_normalized_under_100() {
+        let mut mock_store = MockStore::new();
+
+        mock_store.expect_get_flag().returning(|_, _| {
+            Some(flipt::Flag {
+                key: String::from("baz"),
+                enabled: true,
+                description: Some(String::from("baz flag")),
+                r#type: flipt::FlagType::Variant,
+                default_variant: None,
+            })
+        });
+
+        let mut segments: HashMap<String, flipt::EvaluationSegment> = HashMap::new();
+        segments.insert(
+            String::from("segment1"),
+            flipt::EvaluationSegment {
+                segment_key: String::from("segment1"),
+                match_type: flipt::SegmentMatchType::All,
+                constraints: vec![flipt::EvaluationConstraint {
+                    r#type: flipt::ConstraintComparisonType::String,
+                    property: String::from("bar"),
+                    operator: String::from("eq"),
+                    value: String::from("baz"),
+                }],
+            },
+        );
+
+        mock_store
+            .expect_get_evaluation_rules()
+            .returning(move |_, _| {
+                Some(vec![flipt::EvaluationRule {
+                    id: String::from("1"),
+                    flag_key: String::from("baz"),
+                    segments: segments.clone(),
+                    rank: 1,
+                    segment_operator: flipt::SegmentOperator::And,
+                }])
+            });
+
+        mock_store
+            .expect_get_evaluation_distributions()
+            .returning(|_, _| {
+                Some(vec![
+                    flipt::EvaluationDistribution {
+                        rule_id: String::from("1"),
+                        variant_key: String::from("v1"),
+                        variant_attachment: None,
+                        rollout: 10.0,
+                    },
+                    flipt::EvaluationDistribution {
+                        rule_id: String::from("1"),
+                        variant_key: String::from("v2"),
+                        variant_attachment: None,
+                        rollout: 20.0,
+                    },
+                ])
+            });
+
+        let mut context: HashMap<String, String> = HashMap::new();
+        context.insert(String::from("bar"), String::from("baz"));
+
+        let mut counts: HashMap<String, u32> = HashMap::new();
+        counts.insert(String::from("v1"), 0);
+        counts.insert(String::from("v2"), 0);
+
+        for i in 0..1000_u32 {
+            let entity_id = i.to_string();
+            let variant = variant_evaluation(
+                &mock_store,
+                "default",
+                &EvaluationRequest {
+                    flag_key: String::from("baz"),
+                    entity_id: entity_id.clone(),
+                    context: context.clone(),
+                },
+            );
+            assert!(variant.is_ok(), "entity_id {} should evaluate", entity_id);
+            let v = variant.unwrap();
+            assert!(
+                v.r#match,
+                "entity_id {} should match a distribution",
+                entity_id
+            );
+            assert!(
+                matches!(v.variant_key.as_str(), "v1" | "v2"),
+                "entity_id {} got unexpected variant_key {}",
+                entity_id,
+                v.variant_key
+            );
+            *counts.get_mut(&v.variant_key).unwrap() += 1;
+        }
+
+        let v1 = counts.get("v1").copied().unwrap();
+        let v2 = counts.get("v2").copied().unwrap();
+        assert!(
+            (300..=366).contains(&v1),
+            "v1 (~33.33%) should get ~333, got {}",
+            v1
+        );
+        assert!(
+            (634..=700).contains(&v2),
+            "v2 (~66.67%) should get ~667, got {}",
+            v2
+        );
+        assert_eq!(v1 + v2, 1000, "all 1000 entities should be assigned");
+    }
+
+    #[test]
+    fn test_evaluator_two_way_split_normalized_over_100() {
+        let mut mock_store = MockStore::new();
+
+        mock_store.expect_get_flag().returning(|_, _| {
+            Some(flipt::Flag {
+                key: String::from("qux"),
+                enabled: true,
+                description: Some(String::from("qux flag")),
+                r#type: flipt::FlagType::Variant,
+                default_variant: None,
+            })
+        });
+
+        let mut segments: HashMap<String, flipt::EvaluationSegment> = HashMap::new();
+        segments.insert(
+            String::from("segment1"),
+            flipt::EvaluationSegment {
+                segment_key: String::from("segment1"),
+                match_type: flipt::SegmentMatchType::All,
+                constraints: vec![flipt::EvaluationConstraint {
+                    r#type: flipt::ConstraintComparisonType::String,
+                    property: String::from("bar"),
+                    operator: String::from("eq"),
+                    value: String::from("baz"),
+                }],
+            },
+        );
+
+        mock_store
+            .expect_get_evaluation_rules()
+            .returning(move |_, _| {
+                Some(vec![flipt::EvaluationRule {
+                    id: String::from("1"),
+                    flag_key: String::from("qux"),
+                    segments: segments.clone(),
+                    rank: 1,
+                    segment_operator: flipt::SegmentOperator::And,
+                }])
+            });
+
+        mock_store
+            .expect_get_evaluation_distributions()
+            .returning(|_, _| {
+                Some(vec![
+                    flipt::EvaluationDistribution {
+                        rule_id: String::from("1"),
+                        variant_key: String::from("v1"),
+                        variant_attachment: None,
+                        rollout: 80.0,
+                    },
+                    flipt::EvaluationDistribution {
+                        rule_id: String::from("1"),
+                        variant_key: String::from("v2"),
+                        variant_attachment: None,
+                        rollout: 40.0,
+                    },
+                ])
+            });
+
+        let mut context: HashMap<String, String> = HashMap::new();
+        context.insert(String::from("bar"), String::from("baz"));
+
+        let mut counts: HashMap<String, u32> = HashMap::new();
+        counts.insert(String::from("v1"), 0);
+        counts.insert(String::from("v2"), 0);
+
+        for i in 0..1000_u32 {
+            let entity_id = i.to_string();
+            let variant = variant_evaluation(
+                &mock_store,
+                "default",
+                &EvaluationRequest {
+                    flag_key: String::from("qux"),
+                    entity_id: entity_id.clone(),
+                    context: context.clone(),
+                },
+            );
+            assert!(variant.is_ok(), "entity_id {} should evaluate", entity_id);
+            let v = variant.unwrap();
+            assert!(
+                v.r#match,
+                "entity_id {} should match a distribution",
+                entity_id
+            );
+            assert!(
+                matches!(v.variant_key.as_str(), "v1" | "v2"),
+                "entity_id {} got unexpected variant_key {}",
+                entity_id,
+                v.variant_key
+            );
+            *counts.get_mut(&v.variant_key).unwrap() += 1;
+        }
+
+        let v1 = counts.get("v1").copied().unwrap();
+        let v2 = counts.get("v2").copied().unwrap();
+        assert!(
+            (600..=700).contains(&v1),
+            "v1 (~66.67%) should get ~667, got {}",
+            v1
+        );
+        assert!(
+            (300..=400).contains(&v2),
+            "v2 (~33.33%) should get ~333, got {}",
+            v2
+        );
+        assert_eq!(v1 + v2, 1000, "all 1000 entities should be assigned");
     }
 
     #[test]
@@ -2533,7 +2760,7 @@ mod tests {
                     rule_id: String::from("1"),
                     variant_key: String::from("variant1"),
                     variant_attachment: None,
-                    rollout: 10.0,
+                    rollout: 1.0,
                 }])
             });
 
@@ -2556,8 +2783,9 @@ mod tests {
         let v = variant.unwrap();
 
         assert_eq!(v.flag_key, String::from("foo"));
-        assert!(!v.r#match);
-        assert_eq!(v.reason, flipt::EvaluationReason::Default);
+        assert!(v.r#match);
+        assert_eq!(v.variant_key, String::from("variant1"));
+        assert_eq!(v.reason, flipt::EvaluationReason::Match);
     }
 
     #[test]
