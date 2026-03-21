@@ -6,8 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  GO_VERSION: "1.25"
-  DAGGER_VERSION: "0.18.19"
+  MISE_EXPERIMENTAL: "1"
 
 jobs:
   test:
@@ -25,16 +24,8 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          check-latest: true
-          cache: true
-
-      - name: Install Dagger
-        run: |
-          cd /usr/local
-          curl -L https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=${{ env.DAGGER_VERSION }} sh
+      - name: Install mise
+        uses: jdx/mise-action@v4
 
       - name: Run Integration Tests (${{ matrix.group }})
         run: |
@@ -58,16 +49,8 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          check-latest: true
-          cache: true
-
-      - name: Install Dagger
-        run: |
-          cd /usr/local
-          curl -L https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=${{ env.DAGGER_VERSION }} sh
+      - name: Install mise
+        uses: jdx/mise-action@v4
 
       - name: Run Integration Tests (${{ matrix.sdk }})
         run: |
