@@ -8,6 +8,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+env:
+  MISE_EXPERIMENTAL: "1"
+
 jobs:
   lint:
     name: Lint ${{ matrix.sdk }}
