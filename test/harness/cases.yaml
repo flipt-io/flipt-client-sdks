@@ -1,0 +1,360 @@
+- name: variant_string_eq_match
+  namespace: venus
+  type: variant
+  request:
+    flag_key: flag_variant_string_eq
+    entity_id: user-1
+    context:
+      env: prod
+  expected:
+    match: true
+    segment_keys:
+      - seg_string_eq
+    reason: MATCH_EVALUATION_REASON
+    flag_key: flag_variant_string_eq
+    variant_key: on
+    variant_attachment: null
+- name: variant_string_eq_default
+  namespace: venus
+  type: variant
+  request:
+    flag_key: flag_variant_string_eq
+    entity_id: user-2
+    context:
+      env: dev
+  expected:
+    match: false
+    segment_keys: []
+    reason: DEFAULT_EVALUATION_REASON
+    flag_key: flag_variant_string_eq
+    variant_key: off
+    variant_attachment: null
+- name: variant_number_gt_match
+  namespace: venus
+  type: variant
+  request:
+    flag_key: flag_variant_number_gt
+    entity_id: user-3
+    context:
+      age: "30"
+  expected:
+    match: true
+    segment_keys:
+      - seg_number_gt
+    reason: MATCH_EVALUATION_REASON
+    flag_key: flag_variant_number_gt
+    variant_key: high
+    variant_attachment: null
+- name: variant_boolean_true_match
+  namespace: venus
+  type: variant
+  request:
+    flag_key: flag_variant_boolean_true
+    entity_id: user-4
+    context:
+      beta: "true"
+  expected:
+    match: true
+    segment_keys:
+      - seg_boolean_true
+    reason: MATCH_EVALUATION_REASON
+    flag_key: flag_variant_boolean_true
+    variant_key: enabled
+    variant_attachment: null
+- name: variant_datetime_gt_match
+  namespace: venus
+  type: variant
+  request:
+    flag_key: flag_variant_datetime_gt
+    entity_id: user-5
+    context:
+      ts: 2025-01-02T00:00:00Z
+  expected:
+    match: true
+    segment_keys:
+      - seg_datetime_gt
+    reason: MATCH_EVALUATION_REASON
+    flag_key: flag_variant_datetime_gt
+    variant_key: future
+    variant_attachment: null
+- name: variant_entity_prefix_match
+  namespace: venus
+  type: variant
+  request:
+    flag_key: flag_variant_entity_prefix
+    entity_id: user-123
+    context: {}
+  expected:
+    match: true
+    segment_keys:
+      - seg_entity_prefix
+    reason: MATCH_EVALUATION_REASON
+    flag_key: flag_variant_entity_prefix
+    variant_key: match
+    variant_attachment: null
+- name: variant_any_match
+  namespace: venus
+  type: variant
+  request:
+    flag_key: flag_variant_any
+    entity_id: user-6
+    context:
+      env: prod
+      age: "10"
+  expected:
+    match: true
+    segment_keys:
+      - seg_any_match
+    reason: MATCH_EVALUATION_REASON
+    flag_key: flag_variant_any
+    variant_key: match
+    variant_attachment: null
+- name: variant_all_match
+  namespace: venus
+  type: variant
+  request:
+    flag_key: flag_variant_all
+    entity_id: user-7
+    context:
+      env: prod
+      age: "30"
+  expected:
+    match: true
+    segment_keys:
+      - seg_all_match
+    reason: MATCH_EVALUATION_REASON
+    flag_key: flag_variant_all
+    variant_key: match
+    variant_attachment: null
+- name: variant_all_default
+  namespace: venus
+  type: variant
+  request:
+    flag_key: flag_variant_all
+    entity_id: user-8
+    context:
+      env: prod
+      age: "10"
+  expected:
+    match: false
+    segment_keys: []
+    reason: DEFAULT_EVALUATION_REASON
+    flag_key: flag_variant_all
+    variant_key: nomatch
+    variant_attachment: null
+- name: variant_disabled
+  namespace: venus
+  type: variant
+  request:
+    flag_key: flag_variant_disabled
+    entity_id: user-9
+    context: {}
+  expected:
+    match: false
+    segment_keys: []
+    reason: FLAG_DISABLED_EVALUATION_REASON
+    flag_key: flag_variant_disabled
+    variant_key: null
+    variant_attachment: null
+- name: boolean_segment_match
+  namespace: venus
+  type: boolean
+  request:
+    flag_key: flag_boolean_segment
+    entity_id: user-10
+    context:
+      env: prod
+  expected:
+    enabled: true
+    flag_key: flag_boolean_segment
+    reason: MATCH_EVALUATION_REASON
+    segment_keys:
+      - seg_string_eq
+- name: boolean_threshold_match
+  namespace: venus
+  type: boolean
+  request:
+    flag_key: flag_boolean_segment
+    entity_id: user-11
+    context:
+      env: dev
+  expected:
+    enabled: true
+    flag_key: flag_boolean_segment
+    reason: MATCH_EVALUATION_REASON
+    segment_keys: []
+- name: boolean_default
+  namespace: venus
+  type: boolean
+  request:
+    flag_key: flag_boolean_default
+    entity_id: user-12
+    context: {}
+  expected:
+    enabled: true
+    flag_key: flag_boolean_default
+    reason: DEFAULT_EVALUATION_REASON
+    segment_keys: []
+- name: batch_mixed
+  namespace: venus
+  type: batch
+  requests:
+    - flag_key: flag_variant_string_eq
+      entity_id: user-13
+      context:
+        env: prod
+    - flag_key: flag_boolean_segment
+      entity_id: user-14
+      context:
+        env: prod
+    - flag_key: flag_missing
+      entity_id: user-15
+      context: {}
+  expected:
+    responses:
+      - type: VARIANT_EVALUATION_RESPONSE_TYPE
+        booleanResponse: null
+        variantResponse:
+          match: true
+          segmentKeys:
+            - seg_string_eq
+          reason: MATCH_EVALUATION_REASON
+          flagKey: flag_variant_string_eq
+          variantKey: on
+          variantAttachment: null
+        errorResponse: null
+      - type: BOOLEAN_EVALUATION_RESPONSE_TYPE
+        booleanResponse:
+          enabled: true
+          flagKey: flag_boolean_segment
+          reason: MATCH_EVALUATION_REASON
+          segmentKeys:
+            - seg_string_eq
+        variantResponse: null
+        errorResponse: null
+      - type: ERROR_EVALUATION_RESPONSE_TYPE
+        booleanResponse: null
+        variantResponse: null
+        errorResponse:
+          flagKey: flag_missing
+          namespaceKey: venus
+          reason: NOT_FOUND_ERROR_EVALUATION_REASON
+- name: variant_distribution_cumulative_rounding_match
+  namespace: venus
+  type: variant
+  request:
+    flag_key: flag_cumulative_rounding
+    entity_id: user-100
+    context:
+      target: yes
+  expected:
+    match: true
+    segment_keys:
+      - seg_cumulative
+    reason: MATCH_EVALUATION_REASON
+    flag_key: flag_cumulative_rounding
+    variant_key: variant3
+- name: variant_distribution_cumulative_rounding_all_variants
+  namespace: venus
+  type: variant
+  request:
+    flag_key: flag_cumulative_rounding
+    entity_id: user-500
+    context:
+      target: yes
+  expected:
+    match: true
+    segment_keys:
+      - seg_cumulative
+    reason: MATCH_EVALUATION_REASON
+    flag_key: flag_cumulative_rounding
+    variant_key: variant1
+- name: variant_distribution_cumulative_rounding_last_variant
+  namespace: venus
+  type: variant
+  request:
+    flag_key: flag_cumulative_rounding
+    entity_id: user-994
+    context:
+      target: yes
+  expected:
+    match: true
+    segment_keys:
+      - seg_cumulative
+    reason: MATCH_EVALUATION_REASON
+    flag_key: flag_cumulative_rounding
+    variant_key: variant2
+- name: boolean_segment_keys_in_response
+  namespace: venus
+  type: boolean
+  request:
+    flag_key: flag_boolean_segment
+    entity_id: user-20
+    context:
+      env: prod
+  expected:
+    enabled: true
+    flag_key: flag_boolean_segment
+    reason: MATCH_EVALUATION_REASON
+    segment_keys:
+      - seg_string_eq
+- name: variant_flag_no_distribution_11
+  namespace: venus
+  type: variant
+  request:
+    flag_key: flag_no_distribution
+    entity_id: e13e0294-fef5-47d9-8fc5-3acc8bff8321
+    context:
+      target: yes
+  expected:
+    match: true
+    segment_keys:
+      - seg_no_dist
+    reason: MATCH_EVALUATION_REASON
+    flag_key: flag_no_distribution
+    variant_key: variant1
+- name: variant_flag_no_distribution_12
+  namespace: venus
+  type: variant
+  request:
+    flag_key: flag_no_distribution
+    entity_id: 7dcb6f47-234c-47cb-8179-4ad9c6dc9f5b
+    context:
+      target: yes
+  expected:
+    match: true
+    segment_keys:
+      - seg_no_dist
+    reason: MATCH_EVALUATION_REASON
+    flag_key: flag_no_distribution
+    variant_key: variant1
+- name: variant_flag_no_distribution_21
+  namespace: venus
+  type: variant
+  request:
+    flag_key: flag_no_distribution
+    entity_id: d278c4a2-fe9c-4ebe-b2df-57e343eada7e
+    context:
+      target: yes
+  expected:
+    match: true
+    segment_keys:
+      - seg_no_dist
+    reason: MATCH_EVALUATION_REASON
+    flag_key: flag_no_distribution
+    variant_key: variant2
+- name: variant_flag_no_distribution_22
+  namespace: venus
+  type: variant
+  request:
+    flag_key: flag_no_distribution
+    entity_id: e13e0294-fef5-47d9-8fc5-3acc8bff832
+    context:
+      target: yes
+  expected:
+    match: true
+    segment_keys:
+      - seg_no_dist
+    reason: MATCH_EVALUATION_REASON
+    flag_key: flag_no_distribution
+    variant_key: variant2
