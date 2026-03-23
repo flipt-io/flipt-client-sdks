@@ -45,6 +45,8 @@ pub enum WASMError {
     SnapshotBuildError(#[from] Error),
     #[error("Null pointer error")]
     NullPointer,
+    #[error("Internal error: {0}")]
+    InternalError(String),
 }
 
 impl<T, E> From<Result<T, E>> for WASMResponse<T>
@@ -70,7 +72,12 @@ where
 
 fn result_to_string<T: Serialize, E: std::error::Error>(result: Result<T, E>) -> String {
     let wasm_response: WASMResponse<T> = result.into();
-    serde_json::to_string(&wasm_response).unwrap()
+    serde_json::to_string(&wasm_response).unwrap_or_else(|e| {
+        format!(
+            r#"{{"status":"failure","result":null,"error_message":"serialization error: {}"}}"#,
+            e
+        )
+    })
 }
 
 pub struct Engine {
@@ -228,9 +235,10 @@ pub unsafe extern "C" fn evaluate_variant(
         result_to_ptr(e.evaluate_variant(&request))
     });
 
-    result.unwrap_or_else(|_| {
-        eprintln!("Panic in evaluate_variant");
-        0
+    result.unwrap_or_else(|_| unsafe {
+        result_to_ptr::<VariantEvaluationResponse, _>(Err(WASMError::InternalError(
+            "panic in evaluate_variant".to_string(),
+        )))
     })
 }
 
@@ -276,9 +284,10 @@ pub unsafe extern "C" fn evaluate_boolean(
         result_to_ptr(e.evaluate_boolean(&request))
     });
 
-    result.unwrap_or_else(|_| {
-        eprintln!("Panic in evaluate_boolean");
-        0
+    result.unwrap_or_else(|_| unsafe {
+        result_to_ptr::<BooleanEvaluationResponse, _>(Err(WASMError::InternalError(
+            "panic in evaluate_boolean".to_string(),
+        )))
     })
 }
 
@@ -324,9 +333,10 @@ pub unsafe extern "C" fn evaluate_batch(
         result_to_ptr(e.evaluate_batch(requests))
     });
 
-    result.unwrap_or_else(|_| {
-        eprintln!("Panic in evaluate_batch");
-        0
+    result.unwrap_or_else(|_| unsafe {
+        result_to_ptr::<BatchEvaluationResponse, _>(Err(WASMError::InternalError(
+            "panic in evaluate_batch".to_string(),
+        )))
     })
 }
 
@@ -344,9 +354,10 @@ pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> u64 {
         result_to_ptr(e.list_flags())
     });
 
-    result.unwrap_or_else(|_| {
-        eprintln!("Panic in list_flags");
-        0
+    result.unwrap_or_else(|_| unsafe {
+        result_to_ptr::<Option<Vec<Flag>>, _>(Err(WASMError::InternalError(
+            "panic in list_flags".to_string(),
+        )))
     })
 }
 
@@ -385,9 +396,10 @@ pub unsafe extern "C" fn snapshot(
         result_to_ptr(e.snapshot(snapshot))
     });
 
-    result.unwrap_or_else(|_| {
-        eprintln!("Panic in snapshot");
-        0
+    result.unwrap_or_else(|_| unsafe {
+        result_to_ptr::<(), _>(Err(WASMError::InternalError(
+            "panic in snapshot".to_string(),
+        )))
     })
 }
 
@@ -439,16 +451,19 @@ pub unsafe extern "C" fn deallocate(ptr: *mut c_void, size: usize) {
     });
 }
 
-unsafe fn get_evaluation_request(evaluation_request: &str) -> Result<EvaluationRequest, WASMError> {
+fn get_evaluation_request(evaluation_request: &str) -> Result<EvaluationRequest, WASMError> {
     let client_eval_request: WASMEvaluationRequest =
         serde_json::from_str(evaluation_request).map_err(WASMError::InvalidJson)?;
 
     let mut context_map: HashMap<String, String> = HashMap::new();
     if let Some(context_value) = client_eval_request.context {
         for (key, value) in context_value {
-            if let serde_json::Value::String(val) = value {
-                context_map.insert(key, val);
-            }
+            let str_val = match value {
+                serde_json::Value::String(s) => s,
+                serde_json::Value::Null => continue,
+                other => other.to_string(),
+            };
+            context_map.insert(key, str_val);
         }
     }
 
@@ -459,7 +474,7 @@ unsafe fn get_evaluation_request(evaluation_request: &str) -> Result<EvaluationR
     })
 }
 
-unsafe fn get_batch_evaluation_request(
+fn get_batch_evaluation_request(
     batch_evaluation_request: &str,
 ) -> Result<Vec<EvaluationRequest>, WASMError> {
     let batch_eval_request: Vec<WASMEvaluationRequest> =
@@ -471,9 +486,12 @@ unsafe fn get_batch_evaluation_request(
         let mut context_map: HashMap<String, String> = HashMap::new();
         if let Some(context_value) = req.context {
             for (key, value) in context_value {
-                if let serde_json::Value::String(val) = value {
-                    context_map.insert(key, val);
-                }
+                let str_val = match value {
+                    serde_json::Value::String(s) => s,
+                    serde_json::Value::Null => continue,
+                    other => other.to_string(),
+                };
+                context_map.insert(key, str_val);
             }
         }
 

@@ -87,7 +87,7 @@ impl Engine {
 
         let response = JsResponse::from(result);
 
-        Ok(serde_wasm_bindgen::to_value(&response)?)
+        serialize_response(response)
     }
 
     pub fn evaluate_variant(&self, request: JsValue) -> Result<JsValue, JsValue> {
@@ -99,7 +99,7 @@ impl Engine {
 
         let response = JsResponse::from(result);
 
-        Ok(serde_wasm_bindgen::to_value(&response)?)
+        serialize_response(response)
     }
 
     pub fn evaluate_batch(&self, request: JsValue) -> Result<JsValue, JsValue> {
@@ -111,15 +111,26 @@ impl Engine {
 
         let response = JsResponse::from(result);
 
-        Ok(serde_wasm_bindgen::to_value(&response)?)
+        serialize_response(response)
     }
 
     pub fn list_flags(&self) -> Result<JsValue, JsValue> {
         let flags = self.store.list_flags(&self.namespace);
         let infallible_result = Result::<_, std::convert::Infallible>::Ok(flags);
         let response = JsResponse::from(infallible_result);
-        Ok(serde_wasm_bindgen::to_value(&response)?)
+        serialize_response(response)
     }
+}
+
+fn serialize_response<T: Serialize>(response: JsResponse<T>) -> Result<JsValue, JsValue> {
+    serde_wasm_bindgen::to_value(&response).or_else(|e| {
+        let error_response: JsResponse<()> = JsResponse {
+            status: Status::Failure,
+            result: None,
+            error_message: Some(format!("serialization error: {}", e)),
+        };
+        serde_wasm_bindgen::to_value(&error_response).map_err(|e| JsValue::from_str(&e.to_string()))
+    })
 }
 
 #[cfg(test)]
