@@ -131,7 +131,9 @@ jobs:
           ndk: 25.1.8937393
           target: default
           arch: x86_64
-          script: ./gradlew connectedAndroidTest
+          script: |
+            export JAVA_HOME=$(mise where java)
+            ./gradlew connectedAndroidTest
           working-directory: ./flipt-client-kotlin-android
           emulator-options: -no-window -no-snapshot -screen no-touch -noaudio -no-boot-anim -camera-back none
 
@@ -238,7 +240,9 @@ jobs:
           ndk: 25.1.8937393
           target: default
           arch: x86_64
-          script: ./gradlew connectedAndroidTest
+          script: |
+            export JAVA_HOME=$(mise where java)
+            ./gradlew connectedAndroidTest
           working-directory: ./flipt-client-kotlin-android
           emulator-options: -no-window -no-snapshot -screen no-touch -noaudio -no-boot-anim -camera-back none
 
