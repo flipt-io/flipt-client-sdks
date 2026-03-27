@@ -10,6 +10,7 @@ extern const char* list_flags_ffi(void* engine);
 extern const char* get_snapshot_ffi(void* engine);
 extern void destroy_engine_ffi(void* engine);
 extern void destroy_string_ffi(char* str);
+extern const char* update_authentication_ffi(void* engine, const char* auth_json);
 
 // Wrapper functions that will be exported in our .so
 void* initialize_engine(const char* options) {
@@ -42,4 +43,8 @@ void destroy_engine(void* engine) {
 
 void destroy_string(char* str) {
     destroy_string_ffi(str);
+}
+
+const char* update_authentication(void* engine, const char* auth_json) {
+    return update_authentication_ffi(engine, auth_json);
 } 
