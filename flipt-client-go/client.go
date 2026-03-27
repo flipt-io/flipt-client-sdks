@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net"
 	"net/http"
 	neturl "net/url"
@@ -454,6 +453,7 @@ func (c *Client) Close(ctx context.Context) (err error) {
 		c.wg.Wait()
 
 		// close channels
+		close(c.snapshotChan)
 		close(c.errChan)
 
 		if c.engine != 0 {
@@ -490,7 +490,6 @@ func (c *Client) handleUpdates(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			close(c.snapshotChan)
 			return ctx.Err()
 		case s, ok := <-c.snapshotChan:
 			if !ok {
@@ -575,55 +574,6 @@ func (c *Client) startPolling(ctx context.Context) {
 	}
 }
 
-const (
-	maxRetries = 3
-	baseDelay  = 1 * time.Second
-	maxDelay   = 30 * time.Second
-)
-
-// doWithRetry executes the given function with exponential backoff and jitter.
-// It will retry up to maxRetries times if the function returns a transient error.
-// The function can modify the attempt counter through the pointer, useful for long-lived
-// connections that want to reset the counter on success.
-func doWithRetry[T any](ctx context.Context, fn func(attempt *int) (T, error)) (T, error) {
-	var (
-		lastErr error
-		zero    T
-		attempt int
-	)
-
-	for {
-		if attempt > 0 {
-			// calculate exponential backoff with jitter
-			delay := min(baseDelay*time.Duration(1<<uint(attempt)), maxDelay)
-			// add jitter: ±10% of the delay
-			jitter := time.Duration(rand.Float64()*float64(delay)*0.2 - float64(delay)*0.1)
-			delay += jitter
-
-			select {
-			case <-ctx.Done():
-				return zero, ctx.Err()
-			case <-time.After(delay):
-			}
-		}
-
-		result, err := fn(&attempt)
-		if err == nil {
-			return result, nil
-		}
-
-		lastErr = err
-		if !isTransientError(err) {
-			return zero, err
-		}
-
-		attempt++
-		if attempt >= maxRetries {
-			return zero, fmt.Errorf("failed after %d retries, last error: %w", maxRetries, lastErr)
-		}
-	}
-}
-
 func (c *Client) newRequest(ctx context.Context, url string) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -667,7 +617,7 @@ func isClientV2Path(rawURL string) bool {
 
 // fetch fetches the snapshot for the given namespace.
 func (c *Client) fetch(ctx context.Context, url, etag string) (snapshot, error) {
-	return doWithRetry(ctx, func(_ *int) (snapshot, error) {
+	return doWithRetry(ctx, 3, func(ctx context.Context) (snapshot, error) {
 		req, err := c.newRequest(ctx, url)
 		if err != nil {
 			return snapshot{}, err
@@ -685,6 +635,9 @@ func (c *Client) fetch(ctx context.Context, url, etag string) (snapshot, error) 
 		}
 
 		if err != nil {
+			if isTransientError(err) {
+				err = newRetryableError(err)
+			}
 			return snapshot{}, err
 		}
 
@@ -730,7 +683,7 @@ func (c *Client) startStreaming(ctx context.Context) {
 
 func (c *Client) initiateStream(ctx context.Context) error {
 	url := c.getSnapshotURL()
-	_, err := doWithRetry(ctx, func(attempt *int) (struct{}, error) {
+	_, err := doWithRetry(ctx, 0, func(ctx context.Context) (struct{}, error) {
 		req, err := c.newRequest(ctx, url)
 		if err != nil {
 			return struct{}{}, err
@@ -738,7 +691,7 @@ func (c *Client) initiateStream(ctx context.Context) error {
 
 		resp, err := c.cfg.HTTPClient.Do(req)
 		if err != nil {
-			return struct{}{}, err
+			return struct{}{}, newRetryableError(err)
 		}
 
 		// Ensure response body is closed when we're done
@@ -747,16 +700,12 @@ func (c *Client) initiateStream(ctx context.Context) error {
 		}()
 
 		if resp.StatusCode != http.StatusOK {
-			return struct{}{}, &networkError{msg: fmt.Sprintf("unexpected status code: %d", resp.StatusCode), status: resp.StatusCode}
+			return struct{}{}, newRetryableError(&networkError{msg: fmt.Sprintf("unexpected status code: %d", resp.StatusCode), status: resp.StatusCode})
 		}
-
-		// Reset attempt counter on successful connection
-		*attempt = 0
 
 		if err := c.handleStream(ctx, resp.Body); err != nil && ctx.Err() == nil {
 			return struct{}{}, err
 		}
-
 		return struct{}{}, nil
 	})
 	return err
@@ -773,28 +722,35 @@ func (c *Client) handleStream(ctx context.Context, r io.ReadCloser) error {
 
 	// Start a goroutine to handle reading
 	go func() {
+		defer func() {
+			close(readCh)
+			close(readErrCh)
+		}()
 		for {
-			chunk, err := reader.ReadBytes('\n')
-			if err != nil {
-				readErrCh <- err
+			select {
+			case <-ctx.Done():
 				return
+			default:
+				chunk, err := reader.ReadBytes('\n')
+				if err != nil {
+					readErrCh <- err
+					return
+				}
+				readCh <- chunk
 			}
-			readCh <- chunk
 		}
 	}()
 
 	for {
 		select {
-		case <-ctx.Done():
-			return ctx.Err()
 		case err := <-readErrCh:
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
-		case chunk := <-readCh:
-			if len(chunk) > 0 {
-				buffer.Write(chunk)
+		case rawChunk := <-readCh:
+			if len(rawChunk) > 0 {
+				buffer.Write(rawChunk)
 				if json.Valid(buffer.Bytes()) {
 					var chunk streamChunk
 					if err := json.Unmarshal(buffer.Bytes(), &chunk); err != nil {
