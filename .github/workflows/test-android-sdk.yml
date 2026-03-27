@@ -59,7 +59,9 @@ jobs:
 
       - name: Install kotlin tooling
         working-directory: flipt-client-kotlin-android
-        run: mise install
+        run: |
+          mise install
+          echo "JAVA_HOME=$(mise where java)" >> "$GITHUB_ENV"
 
       - name: Install Flipt
         uses: flipt-io/setup-action@v0.5.0
@@ -131,9 +133,7 @@ jobs:
           ndk: 25.1.8937393
           target: default
           arch: x86_64
-          script: |
-            export JAVA_HOME=$(mise where java)
-            ./gradlew connectedAndroidTest
+          script: ./gradlew connectedAndroidTest
           working-directory: ./flipt-client-kotlin-android
           emulator-options: -no-window -no-snapshot -screen no-touch -noaudio -no-boot-anim -camera-back none
 
@@ -181,7 +181,9 @@ jobs:
 
       - name: Install kotlin tooling
         working-directory: flipt-client-kotlin-android
-        run: mise install
+        run: |
+          mise install
+          echo "JAVA_HOME=$(mise where java)" >> "$GITHUB_ENV"
 
       - name: Install Flipt
         uses: flipt-io/setup-action@v0.5.0
@@ -240,9 +242,7 @@ jobs:
           ndk: 25.1.8937393
           target: default
           arch: x86_64
-          script: |
-            export JAVA_HOME=$(mise where java)
-            ./gradlew connectedAndroidTest
+          script: ./gradlew connectedAndroidTest
           working-directory: ./flipt-client-kotlin-android
           emulator-options: -no-window -no-snapshot -screen no-touch -noaudio -no-boot-anim -camera-back none
 
