@@ -214,22 +214,30 @@ cd flipt-client-go && mise run lint
 
 ### Release Workflow
 
-### Engines
+Use the `/release-prep` skill (`.claude/skills/release-prep/SKILL.md`) to audit unreleased changes and determine what needs releasing. It walks through the full process: engine audit, SDK audit, version bumps, tagging, and publishing.
 
-1. Bump the version in the `Cargo.toml` file
-2. Create a PR for the changes
-3. Merge the PR
-4. Create a tag for the release: `flipt-engine-v{version}`
-5. GitHub Actions automatically builds and publishes the engine to this repository
+#### Engines
 
-**Note**: The engines must be built and published to this repository before they can be used by the client SDKs!
+Each engine has its own tag that triggers CI builds:
+
+1. Bump the version in the relevant `Cargo.toml` file(s)
+2. Run `cargo check` to verify compilation
+3. Create a PR for the changes, merge it
+4. Create and push tags from main:
+   - `flipt-engine-ffi-v{version}` — triggers CI to build and publish FFI binaries
+   - `flipt-engine-wasm-v{version}` — bookkeeping (WASM is bundled with SDKs at release time)
+   - `flipt-engine-wasm-js-v{version}` — bookkeeping (WASM-JS is bundled with SDKs at release time)
+
+**Note**: Only the FFI engine tag triggers builds that publish platform binaries. FFI-based SDKs must wait for these builds to complete before releasing. WASM/WASM-JS SDKs can be released immediately.
 
 #### Client SDKs
 
-1. Use the interactive release script: `python release/release.py`
-2. Select SDK and version bump type
-3. Push the generated tag: `flipt-client-{language}-v{version}`
-4. GitHub Actions automatically builds and publishes to package registries
+Two options:
+
+1. **Non-interactive** (preferred for automation): `cd release && .venv/bin/python release_cli.py --sdk flipt-client-go --bump patch --publish`
+2. **Interactive**: `cd release && .venv/bin/python release.py`
+
+Both handle version bumps, file updates, tagging, and pushing. See `release/README.md` for full usage.
 
 ## CI/CD Structure
 

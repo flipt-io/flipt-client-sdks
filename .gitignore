@@ -19,7 +19,8 @@ tmp
 .vscode
 staging
 .tool-versions
-.claude
+.claude/*
+!.claude/skills/
 .cursor
 CLAUDE.local.md
 

@@ -1,62 +1,67 @@
-# SDK Release Script
+# SDK Release Scripts
 
-This script automates the process of updating versions and creating tags for multiple SDKs in this project.
+Tools for releasing SDK versions in this project.
 
 ![image](./release.png)
-
-## Overview
-
-The release script is designed to:
-
-1. Allow users to select which SDKs to update
-2. Choose the type of version bump (patch, minor, or major)
-3. Update version numbers in SDK-specific files
-4. Create and push Git tags for the new versions
-
-## Requirements
-
-- Python 3.7+
-- Required Python packages (install using `pip install -r requirements.txt`):
-  - semver
-  - PyYAML
-  - toml
-  - prompt_toolkit
-  - colorama
 
 ## Setup
 
 ```
+cd release
 python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+.venv/bin/pip install -r requirements.txt
 ```
 
-## Usage
+## Scripts
 
-Run the script from the command line:
+### `release.py` — Interactive
+
+Interactive TUI for manual releases. Guides you through SDK selection, version bump, tagging, and pushing.
 
 ```
-python release.py
+.venv/bin/python release.py
 ```
+
+### `release_cli.py` — Non-Interactive
+
+CLI for automation and AI agents. Dry-run by default — pass `--publish` to actually release.
+
+```bash
+# Dry-run (default)
+.venv/bin/python release_cli.py --sdk flipt-client-go --bump patch
+
+# Real release
+.venv/bin/python release_cli.py --sdk flipt-client-go --bump patch --publish
+
+# Explicit version
+.venv/bin/python release_cli.py --sdk flipt-client-java --version 2.0.0 --publish
+
+# Create a PR instead of pushing to main
+.venv/bin/python release_cli.py --sdk flipt-client-js --bump minor --publish --pr
+```
+
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `--sdk NAME` | SDK to release (required) |
+| `--bump patch\|minor\|major` | Version bump type |
+| `--version X.Y.Z` | Explicit version (instead of `--bump`) |
+| `--publish` | Actually release (default is dry-run) |
+| `--pr` | Create a pull request instead of pushing to main |
+
+**Available SDKs:** `flipt-client-go`, `flipt-client-js`, `flipt-client-react`, `flipt-client-python`, `flipt-client-ruby`, `flipt-client-java`, `flipt-client-csharp`, `flipt-client-dart`, `flipt-client-swift`, `flipt-client-kotlin-android`
 
 ## How It Works
 
-1. **SDK Selection**: The script presents a list of available SDKs and allows the user to select which ones to update.
-
-2. **Version Bump Selection**: The user selects the type of version bump (patch, minor, or major).
-
-3. **Version Update**: For each selected SDK, the script:
-   - Reads the current version
-   - Calculates the new version based on the bump type
-   - Updates the version in the SDK-specific file (e.g., package.json, build.gradle)
-
-4. **Tagging and Pushing**: The script creates Git tags for the new versions and pushes them to the remote repository.
-
-5. **Pull Request**: The script optionally creates a pull request with the versioning changes.
+1. Reads the current version from SDK-specific files (e.g., `package.json`, `build.gradle`, git tags)
+2. Calculates the new version based on the bump type
+3. Updates version files in the SDK directory
+4. Commits, tags, and pushes to the remote repository
+5. Optionally creates a pull request
 
 ## Notes
 
-- The script assumes it's run from the `release` directory within the project structure.
-- It interacts with Git, so make sure you have the necessary permissions to create and push tags.
-
-For more detailed information on each SDK's specific implementation, refer to the individual SDK class files in the `sdks` directory.
+- Both scripts must be run from the `release` directory.
+- Git permissions are required to create and push tags.
+- See the `sdks/` directory for per-SDK version file handling.
