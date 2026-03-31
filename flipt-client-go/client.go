@@ -29,9 +29,10 @@ import (
 var wasm []byte
 
 const (
-	defaultEnvironment = "default"
-	defaultNamespace   = "default"
-	statusSuccess      = "success"
+	defaultEnvironment  = "default"
+	defaultNamespace    = "default"
+	statusSuccess       = "success"
+	maxStreamBufferSize = 1 << 20
 
 	fInitializeEngine = "initialize_engine"
 	fAllocate         = "allocate"
@@ -265,17 +266,9 @@ func (c *Client) EvaluateVariant(ctx context.Context, req *EvaluationRequest) (*
 		return nil, err
 	}
 
-	var variantResult *VariantResult
-	if err := json.Unmarshal(result, &variantResult); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal variant result: %w", err)
-	}
-
-	if variantResult == nil {
-		return nil, errors.New("failed to unmarshal variant result: nil")
-	}
-
-	if variantResult.Status != statusSuccess {
-		return nil, errors.New(variantResult.ErrorMessage)
+	variantResult, err := decodeVariantResult(result)
+	if err != nil {
+		return nil, err
 	}
 
 	if c.cfg.Hook != nil {
@@ -302,17 +295,9 @@ func (c *Client) EvaluateBoolean(ctx context.Context, req *EvaluationRequest) (*
 		return nil, err
 	}
 
-	var booleanResult *BooleanResult
-	if err := json.Unmarshal(result, &booleanResult); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal boolean result: %w", err)
-	}
-
-	if booleanResult == nil {
-		return nil, errors.New("failed to unmarshal boolean result: nil")
-	}
-
-	if booleanResult.Status != statusSuccess {
-		return nil, errors.New(booleanResult.ErrorMessage)
+	booleanResult, err := decodeBooleanResult(result)
+	if err != nil {
+		return nil, err
 	}
 
 	if c.cfg.Hook != nil {
@@ -341,17 +326,9 @@ func (c *Client) EvaluateBatch(ctx context.Context, requests []*EvaluationReques
 		return nil, err
 	}
 
-	var batchResult *BatchResult
-	if err := json.Unmarshal(result, &batchResult); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal batch result: %w", err)
-	}
-
-	if batchResult == nil {
-		return nil, errors.New("failed to unmarshal batch result: nil")
-	}
-
-	if batchResult.Status != statusSuccess {
-		return nil, errors.New(batchResult.ErrorMessage)
+	batchResult, err := decodeBatchResult(result)
+	if err != nil {
+		return nil, err
 	}
 
 	if c.cfg.Hook != nil {
@@ -475,18 +452,75 @@ func decodePtr(ptr uint64) (uint32, uint32) {
 	return uint32(ptr >> 32), uint32(ptr)
 }
 
+func decodeVariantResult(result []byte) (*VariantResult, error) {
+	var variantResult *VariantResult
+	if err := json.Unmarshal(result, &variantResult); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal variant result: %w", err)
+	}
+
+	if variantResult == nil {
+		return nil, errors.New("failed to unmarshal variant result: nil")
+	}
+
+	if variantResult.Status != statusSuccess {
+		return nil, errors.New(variantResult.ErrorMessage)
+	}
+
+	if variantResult.Result == nil {
+		return nil, errors.New("failed to unmarshal variant result: nil result")
+	}
+
+	return variantResult, nil
+}
+
+func decodeBooleanResult(result []byte) (*BooleanResult, error) {
+	var booleanResult *BooleanResult
+	if err := json.Unmarshal(result, &booleanResult); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal boolean result: %w", err)
+	}
+
+	if booleanResult == nil {
+		return nil, errors.New("failed to unmarshal boolean result: nil")
+	}
+
+	if booleanResult.Status != statusSuccess {
+		return nil, errors.New(booleanResult.ErrorMessage)
+	}
+
+	if booleanResult.Result == nil {
+		return nil, errors.New("failed to unmarshal boolean result: nil result")
+	}
+
+	return booleanResult, nil
+}
+
+func decodeBatchResult(result []byte) (*BatchResult, error) {
+	var batchResult *BatchResult
+	if err := json.Unmarshal(result, &batchResult); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal batch result: %w", err)
+	}
+
+	if batchResult == nil {
+		return nil, errors.New("failed to unmarshal batch result: nil")
+	}
+
+	if batchResult.Status != statusSuccess {
+		return nil, errors.New(batchResult.ErrorMessage)
+	}
+
+	if batchResult.Result == nil {
+		return nil, errors.New("failed to unmarshal batch result: nil result")
+	}
+
+	return batchResult, nil
+}
+
 type snapshot struct {
 	payload []byte
 	etag    string
 }
 
 func (c *Client) handleUpdates(ctx context.Context) error {
-	var (
-		allocFunc    = c.exportedFuncs[fAllocate]
-		deallocFunc  = c.exportedFuncs[fDeallocate]
-		snapshotFunc = c.mod.ExportedFunction(fSnapshot)
-	)
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -501,11 +535,14 @@ func (c *Client) handleUpdates(ctx context.Context) error {
 			c.mu.Unlock()
 
 			if len(s.payload) == 0 {
-				c.mu.Lock()
-				c.err = nil
-				c.mu.Unlock()
 				continue
 			}
+
+			var (
+				allocFunc    = c.exportedFuncs[fAllocate]
+				deallocFunc  = c.exportedFuncs[fDeallocate]
+				snapshotFunc = c.mod.ExportedFunction(fSnapshot)
+			)
 
 			c.mu.Lock()
 			// allocate memory for the new payload
@@ -718,38 +755,61 @@ func (c *Client) handleStream(ctx context.Context, r io.ReadCloser) error {
 
 		readErrCh = make(chan error, 1)
 		readCh    = make(chan []byte, 1)
+		readWG    sync.WaitGroup
 	)
 
-	// Start a goroutine to handle reading
+	readWG.Add(1)
 	go func() {
+		defer readWG.Done()
 		defer func() {
 			close(readCh)
 			close(readErrCh)
 		}()
+
 		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				chunk, err := reader.ReadBytes('\n')
-				if err != nil {
-					readErrCh <- err
-					return
+			chunk, err := reader.ReadBytes('\n')
+			if len(chunk) > 0 {
+				select {
+				case readCh <- chunk:
+				case <-ctx.Done():
 				}
-				readCh <- chunk
+			}
+
+			if err != nil {
+				select {
+				case readErrCh <- err:
+				case <-ctx.Done():
+				}
+				return
 			}
 		}
 	}()
+	defer readWG.Wait()
 
 	for {
 		select {
-		case err := <-readErrCh:
+		case <-ctx.Done():
+			_ = r.Close()
+			if errors.Is(ctx.Err(), context.Canceled) {
+				return nil
+			}
+			return ctx.Err()
+		case err, ok := <-readErrCh:
+			if !ok {
+				return nil
+			}
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
-		case rawChunk := <-readCh:
+		case rawChunk, ok := <-readCh:
+			if !ok {
+				continue
+			}
 			if len(rawChunk) > 0 {
+				if buffer.Len()+len(rawChunk) > maxStreamBufferSize {
+					return fmt.Errorf("stream buffer exceeded %d bytes without a complete JSON message", maxStreamBufferSize)
+				}
 				buffer.Write(rawChunk)
 				if json.Valid(buffer.Bytes()) {
 					var chunk streamChunk
