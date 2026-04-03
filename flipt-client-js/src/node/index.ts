@@ -103,7 +103,13 @@ export class FliptClient extends BaseFliptClient {
   private setupAutoRefresh(interval: number = 120_000): void {
     this.cleanupAutoRefresh();
     this.updateInterval = setInterval(async () => {
-      await this.refresh();
+      try {
+        await this.refresh();
+      } catch {
+        // ErrorStrategy.Fail causes refresh() to re-throw on network errors.
+        // Swallow here to prevent an unhandled promise rejection from crashing
+        // the process - the cached snapshot from the last successful fetch remains valid.
+      }
     }, interval);
   }
 
