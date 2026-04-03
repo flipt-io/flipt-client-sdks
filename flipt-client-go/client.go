@@ -266,22 +266,22 @@ func (c *Client) EvaluateVariant(ctx context.Context, req *EvaluationRequest) (*
 		return nil, err
 	}
 
-	variantResult, err := decodeVariantResult(result)
+	variantResult, err := decodeResult[VariantEvaluationResponse](result)
 	if err != nil {
 		return nil, err
 	}
 
 	if c.cfg.Hook != nil {
 		c.cfg.Hook.After(ctx, AfterHookData{
-			FlagKey:     variantResult.Result.FlagKey,
+			FlagKey:     variantResult.FlagKey,
 			FlagType:    "variant",
-			Value:       variantResult.Result.VariantKey,
-			Reason:      variantResult.Result.Reason,
-			SegmentKeys: slices.Clone(variantResult.Result.SegmentKeys),
+			Value:       variantResult.VariantKey,
+			Reason:      variantResult.Reason,
+			SegmentKeys: slices.Clone(variantResult.SegmentKeys),
 		})
 	}
 
-	return variantResult.Result, nil
+	return variantResult, nil
 }
 
 // EvaluateBoolean performs evaluation for a boolean flag.
@@ -295,22 +295,22 @@ func (c *Client) EvaluateBoolean(ctx context.Context, req *EvaluationRequest) (*
 		return nil, err
 	}
 
-	booleanResult, err := decodeBooleanResult(result)
+	booleanResult, err := decodeResult[BooleanEvaluationResponse](result)
 	if err != nil {
 		return nil, err
 	}
 
 	if c.cfg.Hook != nil {
 		c.cfg.Hook.After(ctx, AfterHookData{
-			FlagKey:     booleanResult.Result.FlagKey,
+			FlagKey:     booleanResult.FlagKey,
 			FlagType:    "boolean",
-			Value:       strconv.FormatBool(booleanResult.Result.Enabled),
-			Reason:      booleanResult.Result.Reason,
-			SegmentKeys: slices.Clone(booleanResult.Result.SegmentKeys),
+			Value:       strconv.FormatBool(booleanResult.Enabled),
+			Reason:      booleanResult.Reason,
+			SegmentKeys: slices.Clone(booleanResult.SegmentKeys),
 		})
 	}
 
-	return booleanResult.Result, nil
+	return booleanResult, nil
 }
 
 // EvaluateBatch performs evaluation for a batch of flags.
@@ -326,13 +326,13 @@ func (c *Client) EvaluateBatch(ctx context.Context, requests []*EvaluationReques
 		return nil, err
 	}
 
-	batchResult, err := decodeBatchResult(result)
+	batchResult, err := decodeResult[BatchEvaluationResponse](result)
 	if err != nil {
 		return nil, err
 	}
 
 	if c.cfg.Hook != nil {
-		for _, resp := range batchResult.Result.Responses {
+		for _, resp := range batchResult.Responses {
 			switch resp.Type {
 			case "VARIANT_EVALUATION_RESPONSE_TYPE":
 				if resp.VariantEvaluationResponse != nil {
@@ -358,7 +358,7 @@ func (c *Client) EvaluateBatch(ctx context.Context, requests []*EvaluationReques
 		}
 	}
 
-	return batchResult.Result, nil
+	return batchResult, nil
 }
 
 // ListFlags lists all flags.
@@ -452,67 +452,25 @@ func decodePtr(ptr uint64) (uint32, uint32) {
 	return uint32(ptr >> 32), uint32(ptr)
 }
 
-func decodeVariantResult(result []byte) (*VariantResult, error) {
-	var variantResult *VariantResult
-	if err := json.Unmarshal(result, &variantResult); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal variant result: %w", err)
+func decodeResult[R any](payload []byte) (*R, error) {
+	var decoded *Result[R]
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal result: %w", err)
 	}
 
-	if variantResult == nil {
-		return nil, errors.New("failed to unmarshal variant result: nil")
+	if decoded == nil {
+		return nil, fmt.Errorf("failed to unmarshal result: nil")
 	}
 
-	if variantResult.Status != statusSuccess {
-		return nil, errors.New(variantResult.ErrorMessage)
+	if decoded.Status != statusSuccess {
+		return nil, errors.New(decoded.ErrorMessage)
 	}
 
-	if variantResult.Result == nil {
-		return nil, errors.New("failed to unmarshal variant result: nil result")
+	if decoded.Result == nil {
+		return nil, fmt.Errorf("failed to unmarshal result: nil result")
 	}
 
-	return variantResult, nil
-}
-
-func decodeBooleanResult(result []byte) (*BooleanResult, error) {
-	var booleanResult *BooleanResult
-	if err := json.Unmarshal(result, &booleanResult); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal boolean result: %w", err)
-	}
-
-	if booleanResult == nil {
-		return nil, errors.New("failed to unmarshal boolean result: nil")
-	}
-
-	if booleanResult.Status != statusSuccess {
-		return nil, errors.New(booleanResult.ErrorMessage)
-	}
-
-	if booleanResult.Result == nil {
-		return nil, errors.New("failed to unmarshal boolean result: nil result")
-	}
-
-	return booleanResult, nil
-}
-
-func decodeBatchResult(result []byte) (*BatchResult, error) {
-	var batchResult *BatchResult
-	if err := json.Unmarshal(result, &batchResult); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal batch result: %w", err)
-	}
-
-	if batchResult == nil {
-		return nil, errors.New("failed to unmarshal batch result: nil")
-	}
-
-	if batchResult.Status != statusSuccess {
-		return nil, errors.New(batchResult.ErrorMessage)
-	}
-
-	if batchResult.Result == nil {
-		return nil, errors.New("failed to unmarshal batch result: nil result")
-	}
-
-	return batchResult, nil
+	return decoded.Result, nil
 }
 
 type snapshot struct {

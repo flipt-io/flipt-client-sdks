@@ -12,19 +12,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDecodeVariantResult_NilResult(t *testing.T) {
-	_, err := decodeVariantResult([]byte(`{"status":"success","result":null}`))
-	require.EqualError(t, err, "failed to unmarshal variant result: nil result")
+func TestDecodeResultVariant_NilResult(t *testing.T) {
+	_, err := decodeResult[VariantEvaluationResponse]([]byte(`{"status":"success","result":null}`))
+	require.EqualError(t, err, "failed to unmarshal result: nil result")
 }
 
-func TestDecodeBooleanResult_NilResult(t *testing.T) {
-	_, err := decodeBooleanResult([]byte(`{"status":"success","result":null}`))
-	require.EqualError(t, err, "failed to unmarshal boolean result: nil result")
+func TestDecodeResultBoolean_NilResult(t *testing.T) {
+	_, err := decodeResult[BooleanEvaluationResponse]([]byte(`{"status":"success","result":null}`))
+	require.EqualError(t, err, "failed to unmarshal result: nil result")
 }
 
-func TestDecodeBatchResult_NilResult(t *testing.T) {
-	_, err := decodeBatchResult([]byte(`{"status":"success","result":null}`))
-	require.EqualError(t, err, "failed to unmarshal batch result: nil result")
+func TestDecodeResultBatch_NilResult(t *testing.T) {
+	_, err := decodeResult[BatchEvaluationResponse]([]byte(`{"status":"success","result":null}`))
+	require.EqualError(t, err, "failed to unmarshal result: nil result")
 }
 
 func TestHandleUpdates_EmptySnapshotPreservesError(t *testing.T) {
