@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh api:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh release view:*)",
+      "Bash(gh run list:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git cherry-pick:*)",
+      "Bash(find:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr:*)",
+      "Bash(cd /Users/markphelps/workspace/flipt-client-sdks/flipt-client-kotlin-android && mise tasks ls 2>&1)",
+      "Bash(mise run:*)",
+      "Bash(mise ls-remote:*)",
+      "Bash(cargo check:*)",
+      "Bash(docker manifest:*)",
+      "Bash(git pull:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
