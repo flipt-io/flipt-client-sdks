@@ -32,3 +32,15 @@ func TestDoWithRetry_NonRetryable(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, 1, calls)
 }
+
+func TestDoWithRetry_RetryCountMessage(t *testing.T) {
+	var calls int
+
+	_, err := doWithRetry(t.Context(), 2, func(ctx context.Context) (struct{}, error) {
+		calls++
+		return struct{}{}, newRetryableError(errors.New("transient"))
+	})
+
+	require.EqualError(t, err, "failed after 2 retries, last error: transient")
+	require.Equal(t, 3, calls)
+}
