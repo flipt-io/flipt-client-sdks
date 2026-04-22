@@ -7,6 +7,7 @@ import (
 	"log"
 	"maps"
 	"os"
+	"os/exec"
 	"runtime"
 	"slices"
 	"strconv"
@@ -396,7 +397,7 @@ func getWasmBuildContainer(_ context.Context, client *dagger.Client, hostDirecto
 // getWasmJSBuildContainer builds the wasm module for the Rust core for the client libraries to run
 // their tests against.
 func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory) *dagger.Container {
-	return client.Container().From("rust:1.89.0-bullseye").
+	container := client.Container().From("rust:1.89.0-bullseye").
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
 		WithDirectory("/src/flipt-engine-wasm", hostDirectory.Directory("flipt-engine-wasm"), dagger.ContainerWithDirectoryOpts{
@@ -406,8 +407,17 @@ func getWasmJSBuildContainer(_ context.Context, client *dagger.Client, hostDirec
 			Exclude: []string{"pkg/", ".gitignore"},
 		}).
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
-		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
-		WithExec(args("cargo install wasm-pack --force")).
+		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml"))
+
+	if wasmPackPath, err := exec.LookPath("wasm-pack"); err == nil {
+		container = container.
+			WithFile("/usr/local/bin/wasm-pack", client.Host().File(wasmPackPath)).
+			WithExec(args("chmod +x /usr/local/bin/wasm-pack"))
+	} else {
+		container = container.WithExec(args("cargo install wasm-pack --force"))
+	}
+
+	return container.
 		WithWorkdir("/src/flipt-engine-wasm-js").
 		WithExec(args("wasm-pack build --target web"))
 }

@@ -26,9 +26,6 @@ jobs:
       - name: Test
         run: cargo test --all-features
 
-      - name: Install wasm-pack
-        run: cargo install wasm-pack
-
       - name: Test wasm (js)
         run: wasm-pack test --node
         working-directory: flipt-engine-wasm-js

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"dagger.io/dagger"
@@ -33,10 +34,17 @@ func buildWasmJS(ctx context.Context, client *dagger.Client, container *dagger.C
 		WithDirectory("/src/flipt-evaluation", hostDirectory.Directory("flipt-evaluation")).
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml"))
 
+	if wasmPackPath, err := exec.LookPath("wasm-pack"); err == nil {
+		rust = rust.
+			WithFile("/usr/local/bin/wasm-pack", client.Host().File(wasmPackPath)).
+			WithExec(args("chmod +x /usr/local/bin/wasm-pack"))
+	} else {
+		rust = rust.WithExec(args("cargo install wasm-pack"))
+	}
+
 	var err error
 
 	rust, err = rust.
-		WithExec(args("cargo install wasm-pack")). // Install wasm-pack
 		WithWorkdir("/src/flipt-engine-wasm-js").
 		WithExec(args("wasm-pack build --target %s", target)). // Build the wasm package
 		Sync(ctx)
