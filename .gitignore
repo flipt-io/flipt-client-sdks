@@ -26,3 +26,4 @@ CLAUDE.local.md
 
 # Address issue #1595
 flipt-client-go/ext/*.wasm
+settings.local.json
