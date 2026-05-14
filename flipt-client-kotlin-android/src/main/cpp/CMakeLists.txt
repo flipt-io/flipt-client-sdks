@@ -14,6 +14,7 @@ endif()
 
 add_library(fliptengine_wrapper SHARED fliptengine_wrapper.c)
 target_link_libraries(fliptengine_wrapper PRIVATE libfliptengine)
+target_link_options(fliptengine_wrapper PRIVATE "-Wl,-z,max-page-size=0x4000")
 
 set_target_properties(fliptengine_wrapper PROPERTIES
         VERSION $(PROJECT_VERSION)
