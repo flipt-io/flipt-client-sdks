@@ -175,7 +175,7 @@ When you `cd` into an SDK directory, mise automatically activates the correct to
 | Ruby SDK                   | Ruby 3.2                                                        |
 | Java SDK                   | Java 21                                                         |
 | Kotlin SDK                 | Java 21, ktlint                                                 |
-| Go SDK                     | Go 1.24, golangci-lint 2.1.6                                    |
+| Go SDK                     | Go 1.25, golangci-lint 2.12.2                                    |
 | JS/Node/Browser/React SDKs | Node 21                                                         |
 | C# SDK                     | .NET 8                                                          |
 | Dart SDK                   | Flutter stable                                                  |
