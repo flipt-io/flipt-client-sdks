@@ -3,6 +3,7 @@ export {
   useFliptVariant,
   useFliptSelector,
   FliptClientHook,
-  useFliptContext
+  useFliptContext,
+  FliptProviderOptions
 } from './useFliptClient';
 export { FliptProvider } from './provider';

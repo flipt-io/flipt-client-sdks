@@ -24,6 +24,11 @@ export default [
         tsconfigRootDir: import.meta.dirname
       }
     },
+    settings: {
+      react: {
+        version: 'detect'
+      }
+    },
     plugins: {
       '@typescript-eslint': tseslint,
       'react-hooks': reactHooks,

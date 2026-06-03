@@ -4,7 +4,7 @@ import {
   createContext,
   useEffect,
   useRef,
-  useMemo
+  useState
 } from 'react';
 import { useSyncExternalStore } from 'use-sync-external-store/shim';
 import type { FliptClient, ClientOptions } from '@flipt-io/flipt-client-js';
@@ -21,14 +21,80 @@ export interface FliptStore extends FliptClientHook {
   detach: () => void;
 }
 
-export const useStore = (options: ClientOptions): FliptStore => {
-  const storeRef = useRef<FliptStore>({
+export type FliptProviderOptions = ClientOptions & {
+  maxRetryAttempts?: number;
+};
+
+export const useStore = (options: FliptProviderOptions): FliptStore => {
+  const maxRetryAttempts =
+    options.maxRetryAttempts !== undefined
+      ? Math.max(0, options.maxRetryAttempts)
+      : Infinity;
+  const listenersRef = useRef(new Set<() => void>());
+  const intervalIdRef = useRef<ReturnType<typeof setInterval> | undefined>(
+    undefined
+  );
+  const mountedRef = useRef<boolean>(false);
+  const dataRef = useRef<{
+    client: FliptClient | null;
+    isLoading: boolean;
+    error: Error | null;
+  }>({
     client: null,
     isLoading: true,
-    error: null,
+    error: null
+  });
+
+  const notify = useCallback(() => {
+    listenersRef.current.forEach((l) => l());
+  }, []);
+
+  const setupPolling = useCallback(() => {
+    const interval =
+      (options.updateInterval !== undefined ? options.updateInterval : 120) *
+      1000;
+    if (
+      interval > 0 &&
+      mountedRef.current &&
+      dataRef.current.client !== null &&
+      intervalIdRef.current === undefined
+    ) {
+      intervalIdRef.current = setInterval(() => {
+        if (
+          typeof window !== 'undefined' &&
+          navigator.onLine &&
+          dataRef.current.client
+        ) {
+          dataRef.current.client
+            .refresh()
+            .then((updated) => {
+              if (updated) {
+                notify();
+              }
+            })
+            .catch((error) => {
+              console.error('Error refreshing client:', error);
+              dataRef.current.error = error as Error;
+              notify();
+            });
+        }
+      }, interval);
+    }
+  }, [options, notify]);
+
+  const [store] = useState<FliptStore>(() => ({
+    get client() {
+      return dataRef.current.client;
+    },
+    get isLoading() {
+      return dataRef.current.isLoading;
+    },
+    get error() {
+      return dataRef.current.error;
+    },
     subscribe: (listener: () => void) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
+      listenersRef.current.add(listener);
+      return () => listenersRef.current.delete(listener);
     },
     attach: () => {
       mountedRef.current = true;
@@ -39,106 +105,66 @@ export const useStore = (options: ClientOptions): FliptStore => {
       clearInterval(intervalIdRef.current);
       intervalIdRef.current = undefined;
     }
-  });
-
-  const listeners = useMemo(() => new Set<() => void>(), []);
-
-  const notify = useCallback(() => {
-    listeners.forEach((l) => l());
-  }, [listeners]);
-
-  const intervalIdRef = useRef<ReturnType<typeof setInterval> | undefined>(
-    undefined
-  );
-  const mountedRef = useRef<boolean>(false);
-
-  const setupPolling = useCallback(() => {
-    // Default to 120 seconds if updateInterval is not set
-    const interval =
-      (options.updateInterval !== undefined ? options.updateInterval : 120) *
-      1000;
-    if (
-      interval > 0 &&
-      mountedRef.current &&
-      storeRef.current.client !== null &&
-      intervalIdRef.current === undefined
-    ) {
-      intervalIdRef.current = setInterval(() => {
-        if (
-          typeof window !== 'undefined' &&
-          navigator.onLine &&
-          storeRef.current.client
-        ) {
-          storeRef.current.client
-            .refresh()
-            .then((updated) => {
-              if (updated) {
-                notify();
-              }
-            })
-            .catch((error) => {
-              console.error('Error refreshing client:', error);
-              storeRef.current.error = error as Error;
-              notify();
-            });
-        }
-      }, interval);
-    }
-  }, [options, notify]);
-
-  useEffect(() => {
-    mountedRef.current = true;
-
-    return () => {
-      mountedRef.current = false;
-      if (intervalIdRef.current) {
-        clearInterval(intervalIdRef.current);
-        intervalIdRef.current = undefined;
-      }
-    };
-  }, []);
+  }));
 
   useEffect(() => {
     let isMounted = true;
 
     const initializeClient = async () => {
-      try {
-        const { FliptClient } = await import('@flipt-io/flipt-client-js');
-        const client = await FliptClient.init({
-          ...options
-        });
+      let attempt = 0;
 
-        if (isMounted) {
-          storeRef.current.client = client;
-          storeRef.current.isLoading = false;
-          setupPolling();
+      while (isMounted && (maxRetryAttempts === Infinity || attempt < maxRetryAttempts)) {
+        try {
+          const { FliptClient } = await import('@flipt-io/flipt-client-js');
+          const client = await FliptClient.init({
+            ...options
+          });
+
+          if (isMounted) {
+            dataRef.current.client = client;
+            dataRef.current.isLoading = false;
+            dataRef.current.error = null;
+            setupPolling();
+            notify();
+          }
+          return;
+        } catch (err) {
+          if (!isMounted) return;
+
+          attempt++;
+
+          if (maxRetryAttempts !== Infinity && attempt >= maxRetryAttempts) {
+            console.error(
+              `Flipt client initialization failed after ${attempt} attempts, giving up.`,
+              err
+            );
+            dataRef.current.error = err as Error;
+            dataRef.current.isLoading = false;
+            notify();
+            return;
+          }
+
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 30000);
+          console.warn(
+            `Flipt client initialization failed (attempt ${attempt}), retrying in ${delay / 1000}s...`,
+            err
+          );
+          dataRef.current.error = err as Error;
           notify();
-        }
-      } catch (err) {
-        if (isMounted) {
-          console.error('Error initializing client:', err);
-          storeRef.current.error = err as Error;
-          storeRef.current.isLoading = false;
-          notify();
+
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     };
 
-    initializeClient().catch((err) => {
-      console.error('Unhandled error in initializeClient:', err);
-      if (isMounted) {
-        storeRef.current.error = err as Error;
-        storeRef.current.isLoading = false;
-        notify();
-      }
-    });
+    void initializeClient();
 
     return () => {
       isMounted = false;
     };
-  }, [options, notify, setupPolling]);
+  }, [options, notify, setupPolling, maxRetryAttempts]);
 
-  return storeRef.current;
+  return store;
 };
 
 export const FliptContext = createContext<FliptStore | null>(null);
