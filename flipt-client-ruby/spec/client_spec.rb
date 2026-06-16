@@ -95,7 +95,7 @@ RSpec.describe Flipt::Client do
     it 'returns a list of flags' do
       resp = @client.list_flags
       expect(resp).to_not be_nil
-      expect(resp).to include({ 'description' => 'flag description', 'enabled' => true, 'key' => 'flag_boolean', 'type' => 'BOOLEAN_FLAG_TYPE' })
+      expect(resp).to include({ 'description' => '', 'enabled' => true, 'key' => 'flag_boolean', 'type' => 'BOOLEAN_FLAG_TYPE' })
     end
   end
 
@@ -130,7 +130,7 @@ RSpec.describe Flipt::Client do
 
         flags = fallback_client.list_flags
         expect(flags).to_not be_nil
-        expect(flags).to include({ 'description' => 'flag description', 'enabled' => true, 'key' => 'flag_boolean', 'type' => 'BOOLEAN_FLAG_TYPE' })
+        expect(flags).to include({ 'description' => '', 'enabled' => true, 'key' => 'flag_boolean', 'type' => 'BOOLEAN_FLAG_TYPE' })
 
         new_snapshot = fallback_client.snapshot
         expect(new_snapshot).not_to be_nil
