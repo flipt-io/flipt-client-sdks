@@ -2,7 +2,7 @@ import init, { Engine } from '../wasm/flipt_engine_wasm_js.js';
 import wasm from '../wasm/flipt_engine_wasm_js_bg.wasm';
 import { BaseFliptClient } from '../core/base';
 import { initializeSnapshot } from '../core/snapshot';
-import { ClientOptions, ClientOptionsFactory } from '../core/types';
+import { ClientOptions, ClientOptionsFactory, FetchMode } from '../core/types';
 
 export * from '../core/types';
 export * from '../core/base';
@@ -18,13 +18,20 @@ export class FliptClient extends BaseFliptClient {
   ): Promise<FliptClient> {
     const environment = options.environment ?? 'default';
     const namespace = options.namespace ?? 'default';
+    const fetchMode = options.fetchMode ?? FetchMode.Polling;
 
-    let url = options.url ?? 'http://localhost:8080';
-    url = url.replace(/\/$/, '');
-    url = `${url}/internal/v1/evaluation/snapshot/namespace/${namespace}`;
+    let baseUrl = options.url ?? 'http://localhost:8080';
+    baseUrl = baseUrl.replace(/\/$/, '');
+    let url = `${baseUrl}/internal/v1/evaluation/snapshot/namespace/${namespace}`;
 
     if (options.reference) {
       url = `${url}?reference=${options.reference}`;
+    }
+
+    let streamUrl = `${baseUrl}/client/v2/environments/${environment}/namespaces/${namespace}/stream`;
+
+    if (options.reference) {
+      streamUrl = `${streamUrl}?reference=${options.reference}`;
     }
 
     const headers: Record<string, string> = {
@@ -82,6 +89,39 @@ export class FliptClient extends BaseFliptClient {
     });
     client.errorStrategy = options.errorStrategy;
     client.hook = options.hook;
+    client.logger = options.logger ?? client.logger;
+
+    // Setup data refresh based on fetch mode
+    if (fetchMode === FetchMode.Streaming) {
+      client.setupStream(streamUrl);
+    }
+
     return client;
+  }
+
+  private setupStream(url: string): void {
+    // Native browser EventSource does not support custom headers.
+    // For authenticated SSE, use cookies or configure the server accordingly.
+    const eventSource = new EventSource(url);
+
+    eventSource.onmessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        this.logger.debug('sse message:', data);
+        if (data.type === 'refetchEvaluation') {
+          this.refresh().catch((err) => {
+            this.logger.warn('sse refresh failed:', err);
+          });
+        }
+      } catch {
+        this.logger.warn('sse parse error:', event.data);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      this.logger.warn('sse error:', err);
+    };
+
+    this.eventSource = eventSource;
   }
 }
