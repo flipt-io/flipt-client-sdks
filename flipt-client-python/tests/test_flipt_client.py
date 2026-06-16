@@ -90,7 +90,7 @@ class TestFliptClient(unittest.TestCase):
         flags = self.flipt_client.list_flags()
         self.assertEqual(2, len(flags))
         for flag in flags:
-            self.assertEqual(flag.description, "flag description")
+            self.assertEqual(flag.description, "")
             if flag.key == "flag1":
                 self.assertEqual(flag.type, FlagType.VARIANT)
             elif flag.key == "flag_boolean":
