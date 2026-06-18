@@ -1,4 +1,6 @@
 extern crate console_error_panic_hook;
+use base64::prelude::BASE64_STANDARD;
+use base64::Engine as Base64Engine;
 use wasm_bindgen::prelude::*;
 
 use fliptevaluation::{
@@ -76,6 +78,25 @@ impl Engine {
 
         self.store = snapshot::Snapshot::build(doc);
         Ok(())
+    }
+
+    pub fn seed_snapshot(&mut self, snapshot_b64: &str) -> Result<(), JsValue> {
+        let decoded = BASE64_STANDARD
+            .decode(snapshot_b64)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        let snapshot: snapshot::Snapshot =
+            serde_json::from_slice(&decoded).map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        self.store = snapshot;
+        Ok(())
+    }
+
+    pub fn get_snapshot(&self) -> Result<String, JsValue> {
+        let json =
+            serde_json::to_string(&self.store).map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        Ok(BASE64_STANDARD.encode(json))
     }
 
     pub fn evaluate_boolean(&self, request: JsValue) -> Result<JsValue, JsValue> {
@@ -182,6 +203,49 @@ pub mod tests {
 
         let result = engine.evaluate_batch(req);
         assert!(result.is_ok());
+    }
+
+    #[wasm_bindgen_test]
+    fn test_get_and_seed_snapshot_round_trip() {
+        let mut engine = Engine::new("default");
+        let state = r#"
+        {
+         "namespace": { "key": "default"},
+         "flags": [
+             {
+             "key": "flag1",
+             "name": "flag1",
+             "description": "foo flag",
+             "enabled": true,
+             "type": "BOOLEAN_FLAG_TYPE",
+             "createdAt": "2024-09-13T19:37:18.723909Z",
+             "updatedAt": "2024-09-13T19:37:18.723909Z",
+             "rules": [],
+             "rollouts": []
+        }]}"#;
+
+        let document: source::Document = serde_json::from_str(state).expect("valid snapshot");
+        let data = serde_wasm_bindgen::to_value(&document).unwrap();
+        engine.snapshot(data).unwrap();
+
+        let encoded = engine.get_snapshot().expect("snapshot export");
+        assert!(!encoded.is_empty());
+
+        let mut seeded = Engine::new("default");
+        seeded.seed_snapshot(&encoded).expect("snapshot seed");
+
+        let flags = seeded.list_flags().expect("flags response");
+        let response: JsResponse<Vec<fliptevaluation::models::flipt::Flag>> =
+            serde_wasm_bindgen::from_value(flags).expect("list flags response");
+        assert_eq!(response.status, Status::Success);
+        assert_eq!(response.result.unwrap().len(), 1);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_seed_snapshot_rejects_invalid_base64() {
+        let mut engine = Engine::new("default");
+        let result = engine.seed_snapshot("not base64");
+        assert!(result.is_err());
     }
 
     #[wasm_bindgen_test]

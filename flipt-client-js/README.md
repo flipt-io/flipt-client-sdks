@@ -64,6 +64,7 @@ The `FliptClient` constructor accepts the following optional arguments:
   - `updateInterval`: **Node.js Only** The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
   - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
   - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
+  - `snapshot`: A base64-encoded snapshot returned by `client.getSnapshot()`. When provided with `errorStrategy: ErrorStrategy.Fallback`, the client can initialize while offline and refresh from Flipt when the network becomes available.
   - `fetcher`: An implementation of a [fetcher](https://github.com/flipt-io/flipt-client-sdks/blob/d0869dc9f6b3a65052712926b88fa0f9b18defaa/flipt-client-js/src/core/types.ts#L60-L62) interface to use when requesting flag state. If not provided, a default fetcher using the browser's [`fetch` API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) will be used.
   - `errorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to fail. See the [Error Strategies](#error-strategies) section for more information.
   - `hook`: A hook implementation for before and after evaluation callbacks. See the [Hooks](#hooks) section for more information.
@@ -82,6 +83,29 @@ The client `errorStrategy` option supports the following error strategies:
 
 - `fail`: The client will throw an error if the flag state cannot be fetched. This is the default behavior.
 - `fallback`: The client will maintain the last known good state and use that state for evaluation in case of an error.
+
+### Snapshotting
+
+The client supports manual snapshotting of flag state. This is useful when an app may start before Flipt is reachable. The SDK does not write to local storage for you because browser, Node.js, edge, and worker environments store data differently.
+
+Use `getSnapshot()` to export the current state, store it wherever your app prefers, and pass it back as `snapshot` on the next startup.
+
+```typescript
+import { ErrorStrategy, FliptClient } from '@flipt-io/flipt-client-js';
+
+const snapshot = localStorage.getItem('fliptSnapshot') ?? undefined;
+
+const client = await FliptClient.init({
+  namespace: 'default',
+  url: 'https://your-flipt-instance.com',
+  snapshot,
+  errorStrategy: ErrorStrategy.Fallback
+});
+
+localStorage.setItem('fliptSnapshot', client.getSnapshot());
+```
+
+If Flipt is reachable during initialization, fresh server state replaces the provided snapshot. If Flipt is unreachable and `ErrorStrategy.Fallback` is set, the client evaluates using the provided snapshot.
 
 ### Custom Fetcher
 

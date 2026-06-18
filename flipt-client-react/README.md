@@ -149,6 +149,8 @@ The `FliptProvider` component accepts two optional arguments:
   - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
   - `updateInterval`: The polling interval (in seconds) for fetching new state from Flipt. Set to `120` seconds by default. A `0` value disables polling completely after the initial fetch.
   - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
+  - `snapshot`: A base64-encoded snapshot returned by the underlying JS client's `getSnapshot()` method. Use this with `errorStrategy: ErrorStrategy.Fallback` to allow startup while Flipt is unreachable.
+  - `errorStrategy`: The strategy for fetch errors. Use `ErrorStrategy.Fallback` with `snapshot` for offline startup.
   - `fetcher`: An implementation of a [fetcher](https://github.com/flipt-io/flipt-client-sdks/blob/4821cb227c6c8b10419b96674d44ad1d6668a647/flipt-client-browser/src/models.ts#L5) interface to use when requesting flag state. If not provided, a default fetcher using the browser's [`fetch` API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) will be used.
 
 ### Authentication
@@ -158,6 +160,46 @@ The `FliptProvider` component supports the following authentication strategies:
 - No Authentication (default)
 - [Client Token Authentication](https://docs.flipt.io/authentication/using-tokens)
 - [JWT Authentication](https://docs.flipt.io/authentication/using-jwts)
+
+### Offline Startup with Snapshots
+
+`flipt-client-react` uses `@flipt-io/flipt-client-js` under the hood, so it supports the same manual snapshot flow. Store the snapshot yourself, then pass it through `FliptProvider` options on the next page load.
+
+```tsx
+import { ErrorStrategy } from '@flipt-io/flipt-client-js';
+import { FliptProvider, useFliptSelector } from '@flipt-io/flipt-client-react';
+
+function PersistFliptSnapshot() {
+  useFliptSelector((client) => {
+    if (client) {
+      localStorage.setItem('fliptSnapshot', client.getSnapshot());
+    }
+    return null;
+  });
+
+  return null;
+}
+
+function App() {
+  const snapshot = localStorage.getItem('fliptSnapshot') ?? undefined;
+
+  return (
+    <FliptProvider
+      options={{
+        namespace: 'default',
+        url: 'https://your-flipt-instance.com',
+        snapshot,
+        errorStrategy: ErrorStrategy.Fallback
+      }}
+    >
+      <PersistFliptSnapshot />
+      {/* Your app components */}
+    </FliptProvider>
+  );
+}
+```
+
+The provider will use the cached snapshot if startup fetch fails. When Flipt is reachable, fresh state replaces the cached snapshot and `getSnapshot()` returns the latest state.
 
 ## Examples
 

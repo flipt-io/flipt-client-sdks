@@ -43,6 +43,13 @@ export abstract class BaseFliptClient {
   }
 
   /**
+   * Returns a base64-encoded snapshot of the current flag state.
+   */
+  public getSnapshot(): string {
+    return this.engine.get_snapshot();
+  }
+
+  /**
    * Refresh the flags snapshot
    * @returns true if snapshot changed
    */

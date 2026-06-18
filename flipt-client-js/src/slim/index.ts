@@ -1,5 +1,6 @@
 import init, { Engine } from '../wasm/flipt_engine_wasm_js.js';
 import { BaseFliptClient } from '../core/base';
+import { initializeSnapshot } from '../core/snapshot';
 import { ClientOptions, ClientOptionsFactory } from '../core/types';
 
 export * from '../core/types';
@@ -95,19 +96,17 @@ export class FliptClient extends BaseFliptClient {
       throw new Error('Failed to initialize fetcher');
     }
 
-    // handle case if they pass in a custom fetcher that doesn't throw on non-2xx status codes
-    const resp = await fetcher();
-    if (!resp.ok) {
-      throw new Error(`Failed to fetch data: ${resp.statusText}`);
-    }
-
-    const data = await resp.json();
     const engine = new Engine(namespace);
-    engine.snapshot(data);
 
     // Create client instance
     const client = new FliptClient(engine, fetcher);
-    client.storeEtag(resp);
+    await initializeSnapshot({
+      engine,
+      snapshot: options.snapshot,
+      errorStrategy: options.errorStrategy,
+      fetcher,
+      storeEtag: (resp) => client.storeEtag(resp)
+    });
     client.errorStrategy = options.errorStrategy;
     client.hook = options.hook;
 
