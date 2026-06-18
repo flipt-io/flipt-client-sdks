@@ -14,6 +14,8 @@ This monorepo has three release layers that must be released in order:
 2. **FFI-based SDKs** - depend on `flipt-engine-ffi` binaries published to GitHub releases
 3. **WASM/WASM-JS SDKs** - depend on `flipt-engine-wasm` / `flipt-engine-wasm-js` artifacts
 
+**Important JS ordering:** `flipt-client-react` has a peer dependency on `@flipt-io/flipt-client-js`. When releasing both JS and React SDKs, do **not** publish them in parallel. Release `flipt-client-js` first, then bump `@flipt-io/flipt-client-js` in `flipt-client-react/package.json`, then release `flipt-client-react`.
+
 ## Step 1: Audit Engine Changes
 
 ### Find last engine release tags
@@ -80,7 +82,7 @@ git log --oneline <last-sdk-tag>..HEAD --no-merges -- <sdk-directory>/
 | Swift | `flipt-client-swift/` | `flipt-client-swift-v` | FFI |
 | Go | `flipt-client-go/` | `flipt-client-go-v` | WASM |
 | JS | `flipt-client-js/` | `flipt-client-js-v` | WASM-JS |
-| React | `flipt-client-react/` | `flipt-client-react-v` | WASM-JS |
+| React | `flipt-client-react/` | `flipt-client-react-v` | WASM-JS + peer dependency on `@flipt-io/flipt-client-js` |
 
 ## Step 3: Categorize and Prioritize
 
@@ -137,4 +139,16 @@ Options:
 
 The interactive version (`python release.py`) is also available for manual use.
 
-Release order doesn't matter between SDKs, but FFI-based SDKs must wait for engine artifacts to be published.
+Release order usually doesn't matter between independent SDKs, but FFI-based SDKs must wait for engine artifacts to be published.
+
+### JS + React release order
+
+When releasing both `flipt-client-js` and `flipt-client-react`:
+
+1. Release `flipt-client-js` first and wait for the npm publish workflow to succeed.
+2. Update `flipt-client-react/package.json` so `peerDependencies["@flipt-io/flipt-client-js"]` points at the newly published JS SDK version.
+3. Run `npm install` in `flipt-client-react/` so `package-lock.json` is updated.
+4. Commit that React dependency bump.
+5. Release `flipt-client-react`.
+
+Do not publish JS and React at the same time: React's package metadata must reference the JS version that is already available on npm.
