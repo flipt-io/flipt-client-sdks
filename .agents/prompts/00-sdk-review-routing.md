@@ -19,8 +19,10 @@ Apply these local personas when their paths are touched:
   `flipt-client-react/`.
 
 If a PR touches multiple groups, synthesize the relevant findings into one review.
-If a PR touches docs, release tooling, GitHub Actions, or test harness files, review
-those changes directly using `AGENTS.md` and the central code-review guidance.
+If a PR touches docs, release tooling, GitHub Actions, test harness files, root
+configuration, dependency automation, `package/`, `.mise.toml`, `Cargo.toml`, or
+other repository metadata, review those changes directly using `AGENTS.md` plus
+the central `flipt-io/agents` code-review skill guidance.
 
 ## Review priorities
 

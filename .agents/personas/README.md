@@ -6,12 +6,12 @@ review overrides.
 
 ## Available personas
 
-- `rust-engine-reviewer.md` — Rust evaluation and engine reviewer for
-  `flipt-evaluation/` and `flipt-engine-*` changes.
-- `ffi-sdk-reviewer.md` — native FFI SDK reviewer for Python, Ruby, Java, C#,
-  Dart, Kotlin Android, and Swift changes.
-- `wasm-sdk-reviewer.md` — WASM SDK reviewer for Go and JavaScript-family SDK
-  changes.
+- `rust-engine-reviewer.md` — Rust evaluation and engine reviewer.
+- `ffi-sdk-reviewer.md` — native FFI SDK reviewer.
+- `wasm-sdk-reviewer.md` — WASM SDK reviewer.
+
+Path routing lives in `.agents/prompts/00-sdk-review-routing.md`; keep this file
+as an index so SDK directory changes have one source of truth.
 
 ## Conventions
 
