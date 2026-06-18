@@ -214,7 +214,7 @@ cd flipt-client-go && mise run lint
 
 ### Release Workflow
 
-Use the `/release-prep` skill (`.claude/skills/release-prep/SKILL.md`) to audit unreleased changes and determine what needs releasing. It walks through the full process: engine audit, SDK audit, version bumps, tagging, and publishing.
+Use the `/release` skill (`.agents/skills/release/SKILL.md`) to audit unreleased changes and determine what needs releasing. It walks through the full process: engine audit, SDK audit, version bumps, tagging, and publishing.
 
 #### Engines
 

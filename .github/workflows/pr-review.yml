@@ -37,7 +37,7 @@ jobs:
       - uses: actions/checkout@v6
 
       # This repo's .agents/skills currently contains human-invoked skills like
-      # release-prep. The PR reviewer treats local skills as extra review
+      # release. The PR reviewer treats local skills as extra review
       # instructions, so keep only prompts/personas for automated reviews.
       - name: Ignore non-review local skills
         run: rm -rf .agents/skills

@@ -1,9 +1,9 @@
 ---
-name: release-prep
+name: release
 description: Use when preparing a release, checking what needs releasing, determining version bumps, auditing unreleased changes across engines and client SDKs, or when the user asks "what needs to be released" or "do we need a release".
 ---
 
-# Release Prep
+# Release
 
 Audit unreleased changes across engines and client SDKs, determine version bumps, and identify what needs releasing.
 
