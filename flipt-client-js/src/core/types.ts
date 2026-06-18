@@ -126,6 +126,13 @@ export interface ClientOptions {
   reference?: string;
 
   /**
+   * Base64-encoded snapshot returned by getSnapshot(). When provided with
+   * ErrorStrategy.Fallback, the client can initialize offline and refresh when
+   * Flipt becomes reachable again.
+   */
+  snapshot?: string;
+
+  /**
    * The fetcher to use when fetching flag state. If not provided, the client will default to a fetch function.
    */
   fetcher?: IFetcher;
