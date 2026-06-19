@@ -538,6 +538,7 @@ func javascriptTests(ctx context.Context, root *dagger.Container, t *testCase) e
 		WithExec(args("npm install")).
 		WithExec(args("npm run build")).
 		WithExec(args("npm test")).
+		WithExec(args("node integration/snapshot.mjs")).
 		Sync(ctx)
 
 	return err

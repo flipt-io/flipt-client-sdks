@@ -38,6 +38,8 @@ const (
 	fAllocate         = "allocate"
 	fDeallocate       = "deallocate"
 	fSnapshot         = "snapshot"
+	fSeedSnapshot     = "seed_snapshot"
+	fGetSnapshot      = "get_snapshot"
 	fEvaluateVariant  = "evaluate_variant"
 	fEvaluateBoolean  = "evaluate_boolean"
 	fEvaluateBatch    = "evaluate_batch"
@@ -137,8 +139,11 @@ func NewClient(ctx context.Context, opts ...Option) (_ *Client, err error) {
 	c.exportedFuncs = map[string]api.Function{
 		fAllocate:        allocFunc,
 		fDeallocate:      deallocFunc,
+		fSnapshot:        mod.ExportedFunction(fSnapshot),
 		fEvaluateVariant: mod.ExportedFunction(fEvaluateVariant),
 		fEvaluateBoolean: mod.ExportedFunction(fEvaluateBoolean),
+		fSeedSnapshot:    mod.ExportedFunction(fSeedSnapshot),
+		fGetSnapshot:     mod.ExportedFunction(fGetSnapshot),
 		fEvaluateBatch:   mod.ExportedFunction(fEvaluateBatch),
 		fListFlags:       mod.ExportedFunction(fListFlags),
 	}
@@ -160,42 +165,51 @@ func NewClient(ctx context.Context, opts ...Option) (_ *Client, err error) {
 	}
 
 	// fetch initial state
-	snapshot, err := c.fetch(ctx, initialURL, "")
+	state, err := c.fetch(ctx, initialURL, "")
+	fetchErr := err
 	if err != nil {
 		if cfg.ErrorStrategy == ErrorStrategyFallback {
 			c.mu.Lock()
 			c.err = err
 			c.mu.Unlock()
-			snapshot = c.emptyPayload(c.cfg.Namespace)
+			state = c.emptyPayload(c.cfg.Namespace)
 		} else {
 			return nil, fmt.Errorf("failed to fetch initial state: %w", err)
 		}
 	}
 
 	// set initial etag
-	c.etag = snapshot.etag
+	c.etag = state.etag
 
 	// allocate payload
-	pmPtr, err := allocFunc.Call(ctx, uint64(len(snapshot.payload)))
+	pmPtr, err := allocFunc.Call(ctx, uint64(len(state.payload)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to allocate memory for payload: %w", err)
 	}
-
-	if !mod.Memory().Write(uint32(pmPtr[0]), snapshot.payload) {
+	if !mod.Memory().Write(uint32(pmPtr[0]), state.payload) {
 		return nil, fmt.Errorf("failed to write payload to memory")
 	}
 
 	// initialize engine
-	res, err := initializeEngine.Call(ctx, nsPtr[0], uint64(len(c.cfg.Namespace)), pmPtr[0], uint64(len(snapshot.payload)))
+	res, err := initializeEngine.Call(ctx, nsPtr[0], uint64(len(c.cfg.Namespace)), pmPtr[0], uint64(len(state.payload)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize engine: %w", err)
 	}
-
 	if len(res) < 1 || res[0] == 0 {
 		return nil, fmt.Errorf("failed to initialize engine: invalid pointer returned")
 	}
-
 	c.engine = uint32(res[0])
+
+	if cfg.Snapshot != "" {
+		if err := c.seedSnapshot(ctx, cfg.Snapshot); err != nil {
+			return nil, fmt.Errorf("failed initialize engine from snapshot: %w", err)
+		}
+		if fetchErr == nil {
+			if err := c.updateSnapshot(ctx, state.payload); err != nil {
+				return nil, fmt.Errorf("failed initialize engine with fetched state: %w", err)
+			}
+		}
+	}
 
 	c.wg.Add(1)
 	go func() {
@@ -253,6 +267,104 @@ func (c *Client) Err() error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.err
+}
+
+// GetSnapshot returns a base64-encoded snapshot of the current flag state.
+func (c *Client) GetSnapshot(ctx context.Context) (string, error) {
+	getSnapshotFunc, ok := c.exportedFuncs[fGetSnapshot]
+	if !ok {
+		return "", errors.New("failed find get_snapshot function")
+	}
+	deallocFunc := c.exportedFuncs[fDeallocate]
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	res, err := getSnapshotFunc.Call(ctx, uint64(c.engine))
+	if err != nil {
+		return "", fmt.Errorf("failed call get_snapshot: %w", err)
+	}
+	if len(res) < 1 {
+		return "", fmt.Errorf("failed call get_snapshot: no result returned")
+	}
+
+	ptr, length := decodePtr(res[0])
+	b, ok := c.mod.Memory().Read(ptr, length)
+	if !ok {
+		_, _ = deallocFunc.Call(ctx, uint64(ptr), uint64(length))
+		return "", fmt.Errorf("failed read result from memory")
+	}
+
+	result := make([]byte, len(b))
+	copy(result, b)
+	if _, err := deallocFunc.Call(ctx, uint64(ptr), uint64(length)); err != nil {
+		return "", fmt.Errorf("failed deallocate memory: %w", err)
+	}
+
+	snapshot, err := decodeResult[string](result)
+	if err != nil {
+		return "", err
+	}
+	return *snapshot, nil
+}
+
+func (c *Client) seedSnapshot(ctx context.Context, snapshot string) error {
+	seedSnapshotFunc, ok := c.exportedFuncs[fSeedSnapshot]
+	if !ok {
+		return errors.New("failed find seed_snapshot function")
+	}
+	return c.callWASMWithPayload(ctx, seedSnapshotFunc, []byte(snapshot))
+}
+
+func (c *Client) updateSnapshot(ctx context.Context, payload []byte) error {
+	snapshotFunc, ok := c.exportedFuncs[fSnapshot]
+	if !ok {
+		return errors.New("failed find snapshot function")
+	}
+	return c.callWASMWithPayload(ctx, snapshotFunc, payload)
+}
+
+func (c *Client) callWASMWithPayload(ctx context.Context, fn api.Function, payload []byte) error {
+	allocFunc := c.exportedFuncs[fAllocate]
+	deallocFunc := c.exportedFuncs[fDeallocate]
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	payloadPtr, err := allocFunc.Call(ctx, uint64(len(payload)))
+	if err != nil {
+		return fmt.Errorf("failed allocate memory payload: %w", err)
+	}
+	if !c.mod.Memory().Write(uint32(payloadPtr[0]), payload) {
+		_, _ = deallocFunc.Call(ctx, payloadPtr[0], uint64(len(payload)))
+		return fmt.Errorf("failed write payload memory")
+	}
+
+	res, err := fn.Call(ctx, uint64(c.engine), payloadPtr[0], uint64(len(payload)))
+	if _, deallocErr := deallocFunc.Call(ctx, payloadPtr[0], uint64(len(payload))); deallocErr != nil {
+		return fmt.Errorf("failed deallocate memory: %w", deallocErr)
+	}
+	if err != nil {
+		return fmt.Errorf("failed call wasm function: %w", err)
+	}
+	if len(res) < 1 {
+		return fmt.Errorf("failed call wasm function: no result returned")
+	}
+
+	ptr, length := decodePtr(res[0])
+	b, ok := c.mod.Memory().Read(ptr, length)
+	if !ok {
+		_, _ = deallocFunc.Call(ctx, uint64(ptr), uint64(length))
+		return fmt.Errorf("failed read result from memory")
+	}
+
+	result := make([]byte, len(b))
+	copy(result, b)
+	if _, err := deallocFunc.Call(ctx, uint64(ptr), uint64(length)); err != nil {
+		return fmt.Errorf("failed deallocate memory: %w", err)
+	}
+
+	return decodeStatus(result)
 }
 
 // EvaluateVariant performs evaluation for a variant flag.
@@ -471,6 +583,20 @@ func decodeResult[R any](payload []byte) (*R, error) {
 	}
 
 	return decoded.Result, nil
+}
+
+func decodeStatus(payload []byte) error {
+	var decoded *Result[json.RawMessage]
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		return fmt.Errorf("failed to unmarshal result: %w", err)
+	}
+	if decoded == nil {
+		return fmt.Errorf("failed to unmarshal result: nil")
+	}
+	if decoded.Status != statusSuccess {
+		return errors.New(decoded.ErrorMessage)
+	}
+	return nil
 }
 
 type snapshot struct {
