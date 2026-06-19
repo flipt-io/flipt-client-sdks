@@ -18,6 +18,7 @@ func (s *DartSDK) SupportedPlatforms() []platform.Platform {
 	// Only Android and iOS are supported for Dart SDK to stay under pub.dev's 100MB package size limit
 	return []platform.Platform{
 		platform.AndroidArm64,
+		platform.AndroidArmv7,
 	}
 }
 
@@ -44,10 +45,12 @@ func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, container *d
 	// the directory structure of the tmp directory is as follows:
 	// tmp/android_x86_64/
 	// tmp/android_aarch64/
+	// tmp/android_armv7/
 
 	// we need to convert it to the following structure:
 	// staging/android/src/main/jniLibs/x86_64/
 	// staging/android/src/main/jniLibs/arm64-v8a/
+	// staging/android/src/main/jniLibs/armeabi-v7a/
 
 	// this is because the Android SDK and iOS SDKs expects the library to be in a specific directory structure based on host OS and architecture
 	// desktop platforms (linux, darwin, windows) are no longer packaged to stay under pub.dev's 100MB limit
@@ -58,6 +61,7 @@ func (s *DartSDK) Build(ctx context.Context, client *dagger.Client, container *d
 
 	renames := []rename{
 		{old: "android_aarch64", new: "android/src/main/jniLibs/arm64-v8a"},
+		{old: "android_armv7", new: "android/src/main/jniLibs/armeabi-v7a"},
 		{old: "ios", new: "ios"},
 	}
 
