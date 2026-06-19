@@ -26,5 +26,6 @@ var (
 	IOSArm64      = Platform{ID: "iOS-aarch64", Target: "aarch64-apple-ios"}
 	IOSSimArm64   = Platform{ID: "iOS-aarch64-sim", Target: "aarch64-apple-ios-sim"}
 	AndroidArm64  = Platform{ID: "Android-aarch64", Target: "aarch64-linux-android"}
+	AndroidArmv7  = Platform{ID: "Android-armv7", Target: "armv7-linux-androideabi"}
 	AndroidX86_64 = Platform{ID: "Android-x86_64", Target: "x86_64-linux-android"}
 )

@@ -55,7 +55,8 @@ Retriable errors include:
 
 This SDK supports **mobile platforms only**:
 
-- Android arm64
+- Android arm64 (`arm64-v8a`)
+- Android 32-bit ARM (`armeabi-v7a`)
 - iOS arm64 ⚠️ See [iOS Integration](#ios-integration)
 - iOS arm64 (simulator) ⚠️ See [iOS Integration](#ios-integration)
 
