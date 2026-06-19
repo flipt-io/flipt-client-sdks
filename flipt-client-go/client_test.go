@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"os"
 	"strings"
 	"testing"
@@ -342,6 +343,20 @@ func TestWithSnapshotInvalid(t *testing.T) {
 	require.Error(t, err)
 	assert.Nil(t, client)
 	assert.Contains(t, err.Error(), "failed initialize engine")
+}
+
+func TestWithSnapshotNamespaceMismatch(t *testing.T) {
+	ctx := context.Background()
+	snapshot := base64.StdEncoding.EncodeToString([]byte(`{"version":1,"namespace":{"key":"other","flags":{},"eval_rules":{},"eval_rollouts":{},"eval_distributions":{}}}`))
+	client, err := flipt.NewClient(ctx,
+		flipt.WithURL("http://localhost:19999"),
+		flipt.WithNamespace("test"),
+		flipt.WithSnapshot(snapshot),
+		flipt.WithErrorStrategy(flipt.ErrorStrategyFallback),
+	)
+	require.Error(t, err)
+	assert.Nil(t, client)
+	assert.Contains(t, err.Error(), "snapshot namespace 'other' does not match engine namespace 'test'")
 }
 
 func TestErrorStrategyFallback_EvaluationReturnsError(t *testing.T) {

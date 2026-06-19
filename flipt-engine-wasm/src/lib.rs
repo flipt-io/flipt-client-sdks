@@ -113,6 +113,12 @@ impl Engine {
             .map_err(|e| WASMError::InvalidSnapshot(e.to_string()))?;
         let snapshot: snapshot::Snapshot =
             serde_json::from_slice(&decoded).map_err(WASMError::InvalidJson)?;
+        if snapshot.namespace.key != self.namespace {
+            return Err(WASMError::InvalidSnapshot(format!(
+                "snapshot namespace '{}' does not match engine namespace '{}'",
+                snapshot.namespace.key, self.namespace
+            )));
+        }
         self.store = snapshot;
         Ok(())
     }
@@ -599,4 +605,28 @@ unsafe fn result_to_ptr<T: Serialize, E: std::error::Error>(result: Result<T, E>
     let (ptr, len) = string_to_ptr(&result);
     std::mem::forget(result);
     ((ptr as u64) << 32) | len as u64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn encoded_snapshot(namespace: &str) -> String {
+        let snapshot = snapshot::Snapshot::empty(namespace);
+        BASE64_STANDARD.encode(serde_json::to_string(&snapshot).expect("serialize snapshot"))
+    }
+
+    #[test]
+    fn seed_snapshot_rejects_namespace_mismatch() {
+        let mut engine = Engine::new("default", r#"{"namespace":{"key":"default"},"flags":[]}"#)
+            .expect("engine");
+
+        let err = engine
+            .seed_snapshot(&encoded_snapshot("other"))
+            .expect_err("namespace mismatch should fail");
+
+        assert!(err
+            .to_string()
+            .contains("snapshot namespace 'other' does not match engine namespace 'default'"));
+    }
 }
