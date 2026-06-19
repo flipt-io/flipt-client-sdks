@@ -88,6 +88,13 @@ impl Engine {
         let snapshot: snapshot::Snapshot =
             serde_json::from_slice(&decoded).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
+        if snapshot.namespace.key != self.namespace {
+            return Err(JsValue::from_str(&format!(
+                "snapshot namespace '{}' does not match engine namespace '{}'",
+                snapshot.namespace.key, self.namespace
+            )));
+        }
+
         self.store = snapshot;
         Ok(())
     }
@@ -246,6 +253,21 @@ pub mod tests {
         let mut engine = Engine::new("default");
         let result = engine.seed_snapshot("not base64");
         assert!(result.is_err());
+    }
+
+    #[wasm_bindgen_test]
+    fn test_seed_snapshot_rejects_namespace_mismatch() {
+        let snapshot = snapshot::Snapshot::empty("other");
+        let encoded = BASE64_STANDARD.encode(serde_json::to_string(&snapshot).expect("snapshot"));
+        let mut engine = Engine::new("default");
+
+        let result = engine.seed_snapshot(&encoded);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().and_then(|e| e.as_string()).unwrap(),
+            "snapshot namespace 'other' does not match engine namespace 'default'"
+        );
     }
 
     #[wasm_bindgen_test]
