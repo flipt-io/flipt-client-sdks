@@ -13,12 +13,20 @@ import {
   BooleanResult,
   BatchResult,
   ListFlagsResult,
-  Hook
+  Hook,
+  Logger
 } from './types';
 
 import { deserialize, serialize } from './utils';
 
 export type FliptClient = BaseFliptClient;
+
+const noopLogger: Logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {}
+};
 
 export abstract class BaseFliptClient {
   protected engine: any; // Type will be provided by platform implementations
@@ -26,10 +34,25 @@ export abstract class BaseFliptClient {
   protected etag?: string;
   protected errorStrategy?: ErrorStrategy;
   protected hook?: Hook;
-
+  protected eventSource?: any;
+  protected logger: Logger = noopLogger;
   constructor(engine: any, fetcher: IFetcher) {
     this.engine = engine;
     this.fetcher = fetcher;
+  }
+
+  /**
+   * Close the client and clean up resources.
+   */
+  public close(): void {
+    this.closeEventSource();
+  }
+
+  protected closeEventSource(): void {
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = undefined;
+    }
   }
 
   /**

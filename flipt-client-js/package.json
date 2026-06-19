@@ -83,6 +83,7 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
+    "eventsource": "^4.1.0",
     "node-fetch": "^3.3.0"
   },
   "devDependencies": {

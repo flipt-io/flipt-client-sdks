@@ -1,5 +1,5 @@
 [tools]
-node = "21"
+node = "22"
 
 [tasks.lint]
 description = "Run JS lint checks"

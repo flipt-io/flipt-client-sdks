@@ -143,6 +143,18 @@ export interface ClientOptions {
   errorStrategy?: ErrorStrategy;
 
   /**
+   * The fetch mode to use for receiving flag state updates. {@link FetchMode}
+   *
+   * @defaultValue `FetchMode.Polling`
+   */
+  fetchMode?: FetchMode;
+
+  /**
+   * Optional logger for debugging and diagnostics.
+   */
+  logger?: Logger;
+
+  /**
    * The hook to use for before and after evaluation calls.
    */
   hook?: Hook;
@@ -278,6 +290,16 @@ export interface BatchEvaluationResponse {
 }
 
 /**
+ * Defines how the client fetches flag state updates from the Flipt server.
+ */
+export enum FetchMode {
+  /** Periodically poll the server for new flag state at the configured updateInterval. */
+  Polling = 'polling',
+  /** Use Server-Sent Events to receive real-time flag state updates. */
+  Streaming = 'streaming'
+}
+
+/**
  * Defines the strategy to handle errors during the flags snapshot update calls.
  */
 export enum ErrorStrategy {
@@ -302,7 +324,8 @@ export class ClientOptionsFactory {
       url: 'http://localhost:8080',
       reference: '',
       updateInterval: 120,
-      errorStrategy: ErrorStrategy.Fail
+      errorStrategy: ErrorStrategy.Fail,
+      fetchMode: FetchMode.Polling
     };
   }
 }
@@ -325,4 +348,14 @@ export interface Hook {
     reason: string;
     segmentKeys: string[];
   }): void;
+}
+
+/**
+ * Logger interface for client diagnostics.
+ */
+export interface Logger {
+  debug(...args: any[]): void;
+  info(...args: any[]): void;
+  warn(...args: any[]): void;
+  error(...args: any[]): void;
 }
