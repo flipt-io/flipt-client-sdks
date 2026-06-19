@@ -304,6 +304,46 @@ func TestErrorStrategyDefault_InitializationWithInvalidURL(t *testing.T) {
 	assert.Nil(t, client, "client should be nil when initialization fails")
 }
 
+func (s *ClientTestSuite) TestSnapshotRoundTripOfflineFallback() {
+	ctx := context.Background()
+
+	snapshot, err := s.client.GetSnapshot(ctx)
+	s.Require().NoError(err)
+	s.NotEmpty(snapshot)
+
+	client, err := flipt.NewClient(ctx,
+		flipt.WithURL("http://localhost:19999"),
+		flipt.WithSnapshot(snapshot),
+		flipt.WithErrorStrategy(flipt.ErrorStrategyFallback),
+	)
+	s.Require().NoError(err)
+	s.Require().NotNil(client)
+	s.T().Cleanup(func() {
+		s.Require().NoError(client.Close(ctx))
+	})
+
+	variant, err := client.EvaluateVariant(ctx, &flipt.EvaluationRequest{FlagKey: "flag1", EntityID: "someentity", Context: map[string]string{
+		"fizz": "buzz",
+	}})
+	s.Require().NoError(err)
+	s.True(variant.Match)
+	s.Equal("flag1", variant.FlagKey)
+	s.Equal("MATCH_EVALUATION_REASON", variant.Reason)
+	s.Equal("variant1", variant.VariantKey)
+}
+
+func TestWithSnapshotInvalid(t *testing.T) {
+	ctx := context.Background()
+	client, err := flipt.NewClient(ctx,
+		flipt.WithURL("http://localhost:19999"),
+		flipt.WithSnapshot("not base64"),
+		flipt.WithErrorStrategy(flipt.ErrorStrategyFallback),
+	)
+	require.Error(t, err)
+	assert.Nil(t, client)
+	assert.Contains(t, err.Error(), "failed initialize engine")
+}
+
 func TestErrorStrategyFallback_EvaluationReturnsError(t *testing.T) {
 	ctx := context.Background()
 
