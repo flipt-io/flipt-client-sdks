@@ -176,7 +176,7 @@ When you `cd` into an SDK directory, mise automatically activates the correct to
 | Java SDK                   | Java 21                                                         |
 | Kotlin SDK                 | Java 21, ktlint                                                 |
 | Go SDK                     | Go 1.25, golangci-lint 2.12.2                                    |
-| JS/Node/Browser/React SDKs | Node 21                                                         |
+| JS/Node/Browser/React SDKs | Node 22                                                         |
 | C# SDK                     | .NET 8                                                          |
 | Dart SDK                   | Flutter stable                                                  |
 | Swift SDK                  | Swift, swiftformat, swiftlint                                   |
