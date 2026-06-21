@@ -98,9 +98,9 @@ var (
 	}
 
 	javascriptVersions = []containerConfig{
-		{base: "node:21.2-bookworm"},
-		{base: "node:21.2-bullseye"},
-		{base: "node:21.2-alpine"},
+		{base: "node:22-bookworm"},
+		{base: "node:22-bullseye"},
+		{base: "node:22-alpine"},
 	}
 
 	dartVersions = []containerConfig{
@@ -108,7 +108,7 @@ var (
 	}
 
 	reactVersions = []containerConfig{
-		{base: "node:21.2-bookworm"},
+		{base: "node:22-bookworm"},
 	}
 
 	csharpVersions = []containerConfig{
