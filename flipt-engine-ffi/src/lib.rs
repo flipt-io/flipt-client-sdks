@@ -127,6 +127,7 @@ pub struct Engine {
     fetcher_handle: Option<tokio::task::JoinHandle<()>>,
     stop_notify: Arc<Notify>,
     auth_sender: Option<watch::Sender<HeaderMap>>,
+    reconnect_notify: Arc<Notify>,
 }
 
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
@@ -165,6 +166,7 @@ impl Engine {
         initial_snapshot: snapshot::Snapshot,
     ) -> Self {
         let auth_sender = fetcher.take_auth_sender();
+        let reconnect_notify = fetcher.reconnect_notify();
         let stop_signal = Arc::new(AtomicBool::new(false));
         let stop_signal_clone = stop_signal.clone();
 
@@ -232,6 +234,7 @@ impl Engine {
             fetcher_handle: Some(fetcher_handle),
             stop_notify,
             auth_sender,
+            reconnect_notify,
         }
     }
 
@@ -914,11 +917,11 @@ unsafe extern "C" fn _update_authentication(
     let header_map = HeaderMap::from(auth);
 
     match &e.auth_sender {
-        Some(sender) => match sender.send(header_map) {
+        // Rotate the stored headers and, in streaming mode, signal a reconnect
+        // so the new credentials take effect without restarting the engine.
+        Some(sender) => match http::rotate_auth_headers(sender, &e.reconnect_notify, header_map) {
             Ok(_) => result_to_json_ptr(Ok::<(), Error>(())),
-            Err(_) => result_to_json_ptr::<(), Error>(Err(Error::Internal(
-                "auth channel closed".to_string(),
-            ))),
+            Err(err) => result_to_json_ptr::<(), Error>(Err(err)),
         },
         None => result_to_json_ptr::<(), Error>(Err(Error::Internal(
             "no auth sender available".to_string(),
@@ -1019,10 +1022,7 @@ mod tests {
     fn test_engine_opts_with_invalid_snapshot() {
         let json = r#"{\"url\":\"http://localhost:8080\",\"snapshot\":\"eyJmb28iOiJiYXIifQ==\",\"error_strategy\":\"fallback\"}"#;
 
-        match serde_json::from_str::<EngineOpts>(json) {
-            Ok(_) => panic!("Expected error, but got Ok"),
-            Err(_) => (),
-        }
+        assert!(serde_json::from_str::<EngineOpts>(json).is_err());
     }
 
     #[test]
@@ -1270,5 +1270,149 @@ mod tests {
             _destroy_string(result_ptr as *mut c_char);
             _destroy_engine(engine_ptr);
         }
+    }
+
+    #[test]
+    fn test_update_authentication_clears_with_none() {
+        // Authentication::None deserializes from the bare string "none";
+        // updating to it must succeed and clear the Authorization header.
+        unsafe {
+            let opts = CString::new(
+                r#"{"url":"http://localhost:1","error_strategy":"fallback","update_interval":9999,"authentication":{"client_token":"old"}}"#,
+            )
+            .unwrap();
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            assert!(!engine_ptr.is_null());
+
+            let auth_json = CString::new(r#""none""#).unwrap();
+            let result_ptr = _update_authentication(engine_ptr, auth_json.as_ptr());
+            assert!(!result_ptr.is_null());
+
+            let result_str = CStr::from_ptr(result_ptr).to_str().unwrap();
+            assert!(
+                result_str.contains("success"),
+                "Expected success response, got: {}",
+                result_str
+            );
+
+            _destroy_string(result_ptr as *mut c_char);
+            _destroy_engine(engine_ptr);
+        }
+    }
+
+    #[test]
+    fn test_update_authentication_rejects_empty_object() {
+        // `{}` is not a valid serialization of the externally-tagged
+        // Authentication enum and must error rather than be treated as None.
+        unsafe {
+            let opts = CString::new(
+                r#"{"url":"http://localhost:1","error_strategy":"fallback","update_interval":9999}"#,
+            )
+            .unwrap();
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            assert!(!engine_ptr.is_null());
+
+            let auth_json = CString::new("{}").unwrap();
+            let result_ptr = _update_authentication(engine_ptr, auth_json.as_ptr());
+            assert!(!result_ptr.is_null());
+
+            let result_str = CStr::from_ptr(result_ptr).to_str().unwrap();
+            assert!(
+                result_str.contains("failure") && result_str.contains("invalid auth JSON"),
+                "Expected invalid-auth-JSON failure, got: {}",
+                result_str
+            );
+
+            _destroy_string(result_ptr as *mut c_char);
+            _destroy_engine(engine_ptr);
+        }
+    }
+
+    /// Emits one snapshot frame then holds the connection open with non-newline
+    /// filler until the client disconnects — a long-lived streaming response.
+    fn write_snapshot_then_hold(w: &mut dyn std::io::Write) -> std::io::Result<()> {
+        w.write_all(b"{\"result\":{\"namespace\": {\"key\": \"default\"}, \"flags\":[]}}\n")?;
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(25));
+            if w.write_all(b" ").is_err() {
+                return Ok(());
+            }
+        }
+    }
+
+    #[test]
+    fn test_streaming_auth_rotation_through_ffi() {
+        // Drives the full FFI auth-rotation path against a real HTTP server:
+        // _initialize_engine -> initial snapshot fetch -> streaming session with
+        // old auth -> _update_authentication -> reconnect with new auth. Stubs
+        // both the snapshot and stream endpoints because _initialize_engine
+        // performs a synchronous initial_fetch().
+        let mut server = mockito::Server::new();
+
+        let snapshot_mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .expect_at_least(1)
+            .create();
+
+        let stream_old = server
+            .mock(
+                "GET",
+                "/client/v2/environments/default/namespaces/default/stream",
+            )
+            .match_header("authorization", "Bearer old")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_chunked_body(write_snapshot_then_hold)
+            .expect(1)
+            .create();
+
+        let stream_new = server
+            .mock(
+                "GET",
+                "/client/v2/environments/default/namespaces/default/stream",
+            )
+            .match_header("authorization", "Bearer new")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_chunked_body(write_snapshot_then_hold)
+            .expect_at_least(1)
+            .create();
+
+        let opts_json = format!(
+            r#"{{"url":"{}","error_strategy":"fallback","update_interval":9999,"fetch_mode":"streaming","authentication":{{"client_token":"old"}}}}"#,
+            server.url()
+        );
+
+        unsafe {
+            let opts = CString::new(opts_json).unwrap();
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            assert!(!engine_ptr.is_null());
+
+            // Wait for the streaming task to dial with old auth.
+            std::thread::sleep(std::time::Duration::from_millis(500));
+
+            let auth_json = CString::new(r#"{"client_token":"new"}"#).unwrap();
+            let result_ptr = _update_authentication(engine_ptr, auth_json.as_ptr());
+            assert!(!result_ptr.is_null());
+            let result_str = CStr::from_ptr(result_ptr).to_str().unwrap();
+            assert!(
+                result_str.contains("success"),
+                "auth update should succeed, got: {}",
+                result_str
+            );
+            _destroy_string(result_ptr as *mut c_char);
+
+            // Wait for reconnect with the new credentials.
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+
+            _destroy_engine(engine_ptr);
+        }
+
+        snapshot_mock.assert();
+        stream_old.assert();
+        stream_new.assert();
     }
 }

@@ -101,6 +101,10 @@ pub struct HTTPFetcher {
     namespace: String,
     auth_receiver: watch::Receiver<HeaderMap>,
     auth_sender: Option<watch::Sender<HeaderMap>>,
+    /// Signals the streaming loop to drop its current connection and reconnect,
+    /// picking up rotated credentials. A streaming request's headers are fixed
+    /// at connect time, so new credentials only take effect on a new connection.
+    reconnect_notify: Arc<Notify>,
     etag: Option<String>,
     reference: Option<String>,
     update_interval: Duration,
@@ -116,12 +120,33 @@ impl Clone for HTTPFetcher {
             namespace: self.namespace.clone(),
             auth_receiver: self.auth_receiver.clone(),
             auth_sender: None,
+            reconnect_notify: self.reconnect_notify.clone(),
             etag: self.etag.clone(),
             reference: self.reference.clone(),
             update_interval: self.update_interval,
             mode: self.mode.clone(),
         }
     }
+}
+
+/// Stores rotated auth headers and, if they changed, signals the streaming loop
+/// to reconnect with the new credentials. Returns whether the value changed so a
+/// no-op rotation doesn't needlessly drop the streaming connection. Errors only
+/// when the watch channel has no live receivers (the fetcher has shut down).
+pub(crate) fn rotate_auth_headers(
+    sender: &watch::Sender<HeaderMap>,
+    reconnect_notify: &Notify,
+    headers: HeaderMap,
+) -> Result<bool, Error> {
+    if *sender.borrow() == headers {
+        return Ok(false);
+    }
+    sender
+        .send(headers)
+        .map_err(|_| Error::Internal("auth channel closed".to_string()))?;
+    log::debug!("auth headers rotated; signaling streaming reconnect");
+    reconnect_notify.notify_one();
+    Ok(true)
 }
 
 pub struct HTTPFetcherBuilder {
@@ -306,6 +331,7 @@ impl HTTPFetcherBuilder {
                 .build(),
             auth_receiver,
             auth_sender: Some(auth_sender),
+            reconnect_notify: Arc::new(Notify::new()),
             etag: None,
             reference: self.reference,
             update_interval: self.update_interval,
@@ -320,6 +346,12 @@ impl HTTPFetcher {
     /// Take the auth sender out of the fetcher. Returns `None` if already taken or if this is a clone.
     pub fn take_auth_sender(&mut self) -> Option<watch::Sender<HeaderMap>> {
         self.auth_sender.take()
+    }
+
+    /// Returns a handle to the reconnect notifier. Signalling it (via
+    /// `rotate_auth_headers`) makes an active streaming session reconnect.
+    pub fn reconnect_notify(&self) -> Arc<Notify> {
+        self.reconnect_notify.clone()
     }
 
     /// Start the fetcher and return a channel to receive updates on the snapshot changes
@@ -371,7 +403,9 @@ impl HTTPFetcher {
                             log::warn!("error fetching streaming: {e}");
                             break;
                         }
-                        // If handle_streaming returns without error, the stream was closed or stop_signal was set
+                        // handle_streaming returns Ok when the stream closed, a stop
+                        // was requested, or credentials were rotated; loop to
+                        // reconnect unless we're actually stopping.
                         if stop_signal.load(Ordering::Relaxed) {
                             return;
                         }
@@ -531,6 +565,9 @@ impl HTTPFetcher {
         stop_signal: &Arc<AtomicBool>,
         stop_notify: &Arc<Notify>,
     ) -> Result<(), Error> {
+        // Cloned before the connect so the reconnect future doesn't borrow
+        // `self` while the read loop holds the response stream.
+        let reconnect_notify = self.reconnect_notify.clone();
         let stream_result = self.fetch_stream().await;
 
         match stream_result {
@@ -563,6 +600,11 @@ impl HTTPFetcher {
                     let stop_notified = stop_notify.notified();
                     tokio::pin!(stop_notified);
 
+                    // `notify_one` stores a permit, so a rotation that fires
+                    // between sessions is still observed by this fresh future.
+                    let reconnect_notified = reconnect_notify.notified();
+                    tokio::pin!(reconnect_notified);
+
                     tokio::select! {
                         value = stream.next() => {
                             match value {
@@ -580,6 +622,10 @@ impl HTTPFetcher {
                             }
                         }
                         _ = &mut stop_notified => {
+                            return Ok(());
+                        }
+                        _ = &mut reconnect_notified => {
+                            log::debug!("auth credentials rotated; reconnecting stream");
                             return Ok(());
                         }
                     }
@@ -1021,5 +1067,199 @@ mod tests {
         let result = fetcher.fetch().await;
         assert!(result.is_ok());
         mock_with_auth.assert();
+    }
+
+    /// Writes one snapshot frame, then holds the connection open by writing
+    /// non-newline filler bytes every 25ms until the client disconnects.
+    /// LinesCodec buffers the filler without producing frames, so the client
+    /// sees a single snapshot and an idle stream — the shape of a real SSE
+    /// endpoint between pushes. The poll-for-disconnect loop frees the mock
+    /// server thread as soon as the client goes away, so other mocks can run.
+    fn write_snapshot_then_hold(w: &mut dyn std::io::Write) -> std::io::Result<()> {
+        w.write_all(b"{\"result\":{\"namespace\": {\"key\": \"default\"}, \"flags\":[]}}\n")?;
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(25));
+            if w.write_all(b" ").is_err() {
+                return Ok(());
+            }
+        }
+    }
+
+    #[test]
+    fn test_deserialize_authentication_none_string() {
+        // Externally-tagged enum with rename_all="snake_case": the unit variant
+        // None is the bare JSON string "none". `{}` is not a valid serialization
+        // and must fail.
+        let none: Authentication = serde_json::from_str("\"none\"").unwrap();
+        assert_eq!(none, Authentication::None);
+        assert!(serde_json::from_str::<Authentication>("{}").is_err());
+    }
+
+    #[tokio::test]
+    async fn test_auth_update_to_none_clears_authorization() {
+        let mut server = Server::new_async().await;
+
+        let mock_with_auth = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("authorization", "Bearer initial")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .expect(1)
+            .create_async()
+            .await;
+
+        let url = server.url();
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
+            .authentication(Authentication::ClientToken("initial".into()))
+            .build()
+            .unwrap();
+        let sender = fetcher.take_auth_sender().expect("sender present");
+        let reconnect_notify = fetcher.reconnect_notify();
+
+        assert!(fetcher.fetch().await.is_ok());
+        mock_with_auth.assert();
+
+        // Rotate to Authentication::None — the resulting empty HeaderMap should
+        // drop the prior Authorization header on subsequent requests.
+        let cleared = HeaderMap::from(Authentication::None);
+        assert!(super::rotate_auth_headers(&sender, &reconnect_notify, cleared).unwrap());
+
+        let mock_no_auth = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("authorization", Matcher::Missing)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .expect(1)
+            .create_async()
+            .await;
+
+        assert!(fetcher.fetch().await.is_ok());
+        mock_no_auth.assert();
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_streaming_reconnects_on_auth_update() {
+        let mut server = Server::new_async().await;
+
+        let mock_old = server
+            .mock(
+                "GET",
+                "/client/v2/environments/default/namespaces/default/stream",
+            )
+            .match_header("authorization", "Bearer old")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_chunked_body(write_snapshot_then_hold)
+            .expect(1)
+            .create_async()
+            .await;
+
+        let mock_new = server
+            .mock(
+                "GET",
+                "/client/v2/environments/default/namespaces/default/stream",
+            )
+            .match_header("authorization", "Bearer new")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_chunked_body(write_snapshot_then_hold)
+            .expect(1)
+            .create_async()
+            .await;
+
+        let url = server.url();
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
+            .authentication(Authentication::ClientToken("old".into()))
+            .mode(FetchMode::Streaming)
+            .build()
+            .unwrap();
+
+        let auth_sender = fetcher.take_auth_sender().expect("sender present");
+        let reconnect_notify = fetcher.reconnect_notify();
+
+        let stop_signal = Arc::new(AtomicBool::new(false));
+        let stop_notify = Arc::new(Notify::new());
+        let mut rx = fetcher.start(stop_signal.clone(), stop_notify.clone());
+
+        // First snapshot with old auth.
+        let first = tokio::time::timeout(std::time::Duration::from_secs(3), rx.recv())
+            .await
+            .expect("first snapshot timed out")
+            .expect("channel closed")
+            .expect("snapshot error");
+        assert_eq!("default", first.namespace.key);
+
+        // Rotate credentials and signal reconnect.
+        let new_headers = HeaderMap::from(Authentication::ClientToken("new".into()));
+        assert!(super::rotate_auth_headers(&auth_sender, &reconnect_notify, new_headers).unwrap());
+
+        // Second snapshot must come from the new-auth connection.
+        let second = tokio::time::timeout(std::time::Duration::from_secs(3), rx.recv())
+            .await
+            .expect("second snapshot timed out")
+            .expect("channel closed")
+            .expect("snapshot error");
+        assert_eq!("default", second.namespace.key);
+
+        stop_signal.store(true, Ordering::Relaxed);
+        stop_notify.notify_waiters();
+
+        mock_old.assert_async().await;
+        mock_new.assert_async().await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_streaming_skips_reconnect_when_auth_unchanged() {
+        let mut server = Server::new_async().await;
+
+        let mock = server
+            .mock(
+                "GET",
+                "/client/v2/environments/default/namespaces/default/stream",
+            )
+            .match_header("authorization", "Bearer token")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_chunked_body(write_snapshot_then_hold)
+            .expect(1)
+            .create_async()
+            .await;
+
+        let url = server.url();
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
+            .authentication(Authentication::ClientToken("token".into()))
+            .mode(FetchMode::Streaming)
+            .build()
+            .unwrap();
+
+        let auth_sender = fetcher.take_auth_sender().unwrap();
+        let reconnect_notify = fetcher.reconnect_notify();
+
+        let stop_signal = Arc::new(AtomicBool::new(false));
+        let stop_notify = Arc::new(Notify::new());
+        let mut rx = fetcher.start(stop_signal.clone(), stop_notify.clone());
+
+        tokio::time::timeout(std::time::Duration::from_secs(3), rx.recv())
+            .await
+            .expect("snapshot timed out")
+            .expect("channel closed")
+            .expect("snapshot error");
+
+        // Identical headers: rotate_auth_headers must short-circuit without
+        // notifying, so no second request lands (mock is .expect(1)).
+        let same_headers = HeaderMap::from(Authentication::ClientToken("token".into()));
+        assert!(
+            !super::rotate_auth_headers(&auth_sender, &reconnect_notify, same_headers).unwrap(),
+            "rotate_auth_headers must return Ok(false) for identical headers"
+        );
+
+        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+
+        stop_signal.store(true, Ordering::Relaxed);
+        stop_notify.notify_waiters();
+
+        mock.assert_async().await;
     }
 }
