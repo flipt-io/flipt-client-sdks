@@ -36,7 +36,7 @@ jobs:
     env:
       ENGINE_TAG: ${{ inputs.engine-tag }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install mise
         uses: jdx/mise-action@v4
