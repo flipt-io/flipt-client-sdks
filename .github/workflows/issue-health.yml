@@ -1,0 +1,69 @@
+name: Issue Health Check
+
+# AI health check for newly opened issues.
+#
+# The central issue-health action fetches the issue, asks the model for structured
+# actionability data, renders a comment, and applies only labels that already
+# exist in this repository. It does not create labels, close issues, assign
+# maintainers, or edit issue bodies.
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: issue-health-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  issue-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      # This repo's .agents/ prompts/personas are for automated PR review. The
+      # issue-health action also reads local .agents/ overrides, so replace them
+      # with issue-specific guidance to avoid mixing PR-review instructions into
+      # issue triage.
+      - name: Prepare issue-health agent context
+        run: |
+          rm -rf .agents
+          mkdir -p .agents/prompts
+          cat > .agents/prompts/00-sdk-issue-health.md <<'PROMPT'
+          # Flipt Client SDK Issue Health
+
+          This repository contains Flipt client SDKs and their shared Rust
+          evaluation engines. Analyze newly opened issues for actionability and
+          routing, not code review.
+
+          ## Repository-specific issue types
+
+          Treat requests for a new client SDK language as `feature` issues and
+          suggest the existing `new-language` label when the issue asks for a
+          language that is not currently supported.
+
+          When missing information blocks action, suggest the existing
+          `needs more info` label rather than `needs-info`.
+
+          ## Useful existing labels
+
+          Prefer these existing labels when they accurately describe the issue:
+          `bug`, `documentation`, `enhancement`, `question`, `new-language`,
+          `needs more info`, `go`, and `javascript`.
+
+          Do not suggest labels only because they exist. Suggest labels only when
+          the issue content clearly supports them.
+          PROMPT
+
+      - uses: flipt-io/agents/actions/issue-health@main # pin to a tag/SHA to freeze the checker
+        env:
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          model: cloudflare-workers-ai/@cf/moonshotai/kimi-k2.6
