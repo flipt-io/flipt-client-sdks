@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: flipt-io/agents/actions/issue-health@local-config-dir-input # pin to a tag/SHA to freeze the checker
+      - uses: flipt-io/agents/actions/issue-health@main # pin to a tag/SHA to freeze the checker
         env:
           CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
