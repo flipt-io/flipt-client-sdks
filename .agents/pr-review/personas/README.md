@@ -10,7 +10,7 @@ review overrides.
 - `ffi-sdk-reviewer.md` — native FFI SDK reviewer.
 - `wasm-sdk-reviewer.md` — WASM SDK reviewer.
 
-Path routing lives in `.agents/prompts/00-sdk-review-routing.md`; keep this file
+Path routing lives in `.agents/pr-review/prompts/sdk-review-routing.md`; keep this file
 as an index so SDK directory changes have one source of truth.
 
 ## Conventions
