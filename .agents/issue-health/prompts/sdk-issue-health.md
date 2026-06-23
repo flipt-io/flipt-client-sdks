@@ -6,18 +6,14 @@ review.
 
 ## Repository-specific issue types
 
-Treat requests for a new client SDK language as `feature` issues and suggest the
-existing `new-language` label when the issue asks for a language that is not
-currently supported.
+Treat requests for a new client SDK language as `feature` issues when the issue
+asks for a language that is not currently supported.
 
-When missing information blocks action, suggest the existing `needs more info`
-label rather than `needs-info`.
+When suggesting labels, use the `targetRepoLabels` supplied by the workflow as
+the source of truth for labels that exist in this repository. Prefer an existing
+label from that list when it accurately describes the issue type, affected SDK,
+affected engine, or missing-information state.
 
-## Useful existing labels
-
-Prefer these existing labels when they accurately describe the issue: `bug`,
-`documentation`, `enhancement`, `question`, `new-language`, `needs more info`,
-`go`, and `javascript`.
-
-Do not suggest labels only because they exist. Suggest labels only when the issue
-content clearly supports them.
+Do not invent repository-specific label names and do not suggest labels only
+because they exist. Suggest labels only when the issue content clearly supports
+them.
