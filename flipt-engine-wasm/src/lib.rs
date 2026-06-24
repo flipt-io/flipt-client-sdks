@@ -158,7 +158,19 @@ impl Engine {
 ///
 /// This function should not be called unless an Engine is initiated. It provides a helper
 /// utility to retrieve an Engine instance for evaluation use.
-unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, WASMError> {
+unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a Engine, WASMError> {
+    if engine_ptr.is_null() {
+        Err(WASMError::NullPointer)
+    } else {
+        Ok(&*(engine_ptr as *const Engine))
+    }
+}
+
+/// # Safety
+///
+/// This function should not be called unless an Engine is initiated. It provides a helper
+/// utility to retrieve an Engine instance for evaluation use.
+unsafe fn get_engine_mut<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, WASMError> {
     if engine_ptr.is_null() {
         Err(WASMError::NullPointer)
     } else {
@@ -396,7 +408,7 @@ pub unsafe extern "C" fn snapshot(
     snapshot_len: usize,
 ) -> u64 {
     let result = std::panic::catch_unwind(|| {
-        let e = match get_engine(engine_ptr) {
+        let e = match get_engine_mut(engine_ptr) {
             Ok(e) => e,
             Err(e) => return result_to_ptr::<(), _>(Err(e)),
         };
@@ -438,7 +450,7 @@ pub unsafe extern "C" fn seed_snapshot(
     snapshot_len: usize,
 ) -> u64 {
     let result = std::panic::catch_unwind(|| {
-        let e = match get_engine(engine_ptr) {
+        let e = match get_engine_mut(engine_ptr) {
             Ok(e) => e,
             Err(e) => return result_to_ptr::<(), _>(Err(e)),
         };
@@ -614,6 +626,84 @@ mod tests {
     fn encoded_snapshot(namespace: &str) -> String {
         let snapshot = snapshot::Snapshot::empty(namespace);
         BASE64_STANDARD.encode(serde_json::to_string(&snapshot).expect("serialize snapshot"))
+    }
+
+    #[test]
+    fn test_all_evaluation_methods() {
+        let snapshot = r#"{"namespace":{"key":"default"},"flags":[{"key":"flag1","name":"flag1","enabled":true,"type":"VARIANT_FLAG_TYPE"},{"key":"flag_boolean","name":"flag_boolean","enabled":true,"type":"BOOLEAN_FLAG_TYPE"}]}"#;
+        let engine = Engine::new("default", snapshot).expect("engine");
+
+        let result = engine
+            .evaluate_variant(&EvaluationRequest {
+                flag_key: "flag1".into(),
+                entity_id: "entity".into(),
+                context: HashMap::new(),
+            })
+            .expect("variant evaluation");
+        assert_eq!(result.flag_key, "flag1");
+
+        let result = engine
+            .evaluate_boolean(&EvaluationRequest {
+                flag_key: "flag_boolean".into(),
+                entity_id: "entity".into(),
+                context: HashMap::new(),
+            })
+            .expect("boolean evaluation");
+        assert!(result.enabled);
+
+        let results = engine
+            .evaluate_batch(vec![
+                EvaluationRequest {
+                    flag_key: "flag1".into(),
+                    entity_id: "entity".into(),
+                    context: HashMap::new(),
+                },
+                EvaluationRequest {
+                    flag_key: "flag_boolean".into(),
+                    entity_id: "entity".into(),
+                    context: HashMap::new(),
+                },
+            ])
+            .expect("batch evaluation");
+        assert_eq!(results.responses.len(), 2);
+
+        let flags = engine
+            .list_flags()
+            .expect("list flags")
+            .expect("list flags returned none");
+        assert_eq!(flags.len(), 2);
+
+        let snapshot = engine.get_snapshot().expect("get snapshot");
+        assert!(!snapshot.is_empty());
+    }
+
+    #[test]
+    fn test_snapshot_updates_flags() {
+        let flags_one = r#"{"namespace":{"key":"default"},"flags":[{"key":"flag1","name":"flag1","enabled":true,"type":"VARIANT_FLAG_TYPE"}]}"#;
+        let flags_two = r#"{"namespace":{"key":"default"},"flags":[{"key":"flag1","name":"flag1","enabled":true,"type":"VARIANT_FLAG_TYPE"},{"key":"flag2","name":"flag2","enabled":true,"type":"BOOLEAN_FLAG_TYPE"}]}"#;
+
+        let mut engine = Engine::new("default", flags_one).expect("engine");
+
+        let flags = engine
+            .list_flags()
+            .expect("list flags")
+            .expect("list flags on startup");
+        assert_eq!(flags.len(), 1);
+
+        engine.snapshot(flags_two).expect("snapshot");
+        let flags = engine
+            .list_flags()
+            .expect("list flags")
+            .expect("list flags after snapshot");
+        assert_eq!(flags.len(), 2);
+
+        let empty = r#"{"namespace":{"key":"default"},"flags":[]}"#;
+        engine.snapshot(empty).expect("snapshot");
+        let flags = engine
+            .list_flags()
+            .expect("list flags")
+            .expect("list flags after empty snapshot");
+        assert!(flags.is_empty());
     }
 
     #[test]
