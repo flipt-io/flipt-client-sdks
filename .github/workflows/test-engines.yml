@@ -35,6 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
+      RUST_TOOLCHAIN: "1.94.0"
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v7
@@ -46,7 +47,7 @@ jobs:
         run: mise install
 
       - name: Install Rust lint components
-        run: rustup component add rustfmt clippy
+        run: rustup component add --toolchain "$RUST_TOOLCHAIN" rustfmt clippy
 
       - name: Check Formatting
         run: cargo fmt --all -- --check
