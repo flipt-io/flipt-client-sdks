@@ -33,15 +33,15 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       CARGO_TERM_COLOR: always
+      RUST_TOOLCHAIN: "1.94.0"
 
     steps:
       - uses: actions/checkout@v7
 
       - name: Install Rust
-
         run: |
-          rustup update stable
-          rustup default nightly
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+          rustup default "$RUST_TOOLCHAIN"
           rustup target add ${{ matrix.platform.target }}
 
       - uses: actions/cache@v6
@@ -60,7 +60,7 @@ jobs:
       - name: Build
         run: cargo ndk --platform 30 --target ${{ matrix.platform.arch }} build --release
         env:
-          RUSTFLAGS: "-Zlocation-detail=none -Zfmt-debug=none -C link-arg=-Wl,-z,max-page-size=0x4000"
+          RUSTFLAGS: "-C link-arg=-Wl,-z,max-page-size=0x4000"
 
       - name: Package
         run: |

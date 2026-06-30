@@ -25,12 +25,15 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
+      RUST_TOOLCHAIN: "1.94.0"
 
     steps:
       - uses: actions/checkout@v7
 
       - name: Install Rust
-        run: rustup update stable
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+          rustup default "$RUST_TOOLCHAIN"
 
       - uses: actions/cache@v6
         with:

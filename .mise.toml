@@ -4,7 +4,7 @@ experimental = true
 [tools]
 go = "1.25"
 dagger = "0.18.19"
-rust = "stable"
+rust = "1.94.0"
 "aqua:rustwasm/wasm-pack" = "latest"
 "aqua:taiki-e/cargo-llvm-cov" = "latest"
 

@@ -74,6 +74,7 @@ var (
 		{base: "python:3.11-bullseye", useHTTPS: true},
 		{base: "python:3.11-trixie", useHTTPS: true},
 		{base: "python:3.11-alpine", useHTTPS: true},
+		{base: "python:3.14-slim", useHTTPS: true},
 	}
 
 	goVersions = []containerConfig{
