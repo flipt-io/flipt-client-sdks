@@ -70,9 +70,10 @@ const (
 
 var (
 	pythonVersions = []containerConfig{
-		{base: "python:3.9-bookworm", useHTTPS: true},
-		{base: "python:3.9-bullseye", useHTTPS: true},
-		{base: "python:3.9-alpine", useHTTPS: true},
+		{base: "python:3.11-bookworm", useHTTPS: true},
+		{base: "python:3.11-bullseye", useHTTPS: true},
+		{base: "python:3.11-trixie", useHTTPS: true},
+		{base: "python:3.11-alpine", useHTTPS: true},
 	}
 
 	goVersions = []containerConfig{
