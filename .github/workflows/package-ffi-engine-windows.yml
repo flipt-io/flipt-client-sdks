@@ -23,14 +23,15 @@ jobs:
     runs-on: windows-latest
     env:
       CARGO_TERM_COLOR: always
+      RUST_TOOLCHAIN: "1.94.0"
 
     steps:
       - uses: actions/checkout@v7
 
       - name: Install Rust
         run: |
-          rustup update stable
-          rustup default nightly
+          rustup toolchain install "$env:RUST_TOOLCHAIN" --profile minimal
+          rustup default "$env:RUST_TOOLCHAIN"
           rustup target add ${{ matrix.platform.target }}
 
       - uses: actions/cache@v6
@@ -45,8 +46,6 @@ jobs:
 
       - name: Build
         run: cargo build --release --target ${{ matrix.platform.target }} --package flipt-engine-ffi
-        env:
-          RUSTFLAGS: "-Zlocation-detail=none -Zfmt-debug=none"
 
       - name: Package
         run: |

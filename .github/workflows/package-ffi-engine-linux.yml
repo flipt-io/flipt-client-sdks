@@ -28,13 +28,15 @@ jobs:
     runs-on: ${{ matrix.platform.os }}
     env:
       CARGO_TERM_COLOR: always
+      RUST_TOOLCHAIN: "1.94.0"
 
     steps:
       - uses: actions/checkout@v7
 
       - name: Install Rust
         run: |
-          rustup update stable
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+          rustup default "$RUST_TOOLCHAIN"
 
       - name: Install musl-gcc
         run: |

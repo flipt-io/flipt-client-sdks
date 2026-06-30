@@ -45,6 +45,9 @@ jobs:
       - name: Install Rust toolchain
         run: mise install
 
+      - name: Install Rust lint components
+        run: rustup component add rustfmt clippy
+
       - name: Check Formatting
         run: cargo fmt --all -- --check
 
