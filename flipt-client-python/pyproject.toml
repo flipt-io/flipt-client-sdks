@@ -17,7 +17,7 @@ path = "ext/**/*"
 path = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.8,<4.0"
+python = ">=3.11,<4.0"
 pydantic = ">=1.10,<3.0"
 packaging = ">=24,<27"
 
