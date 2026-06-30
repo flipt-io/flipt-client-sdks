@@ -70,9 +70,10 @@ const (
 
 var (
 	pythonVersions = []containerConfig{
-		{base: "python:3.9-bookworm", useHTTPS: true},
-		{base: "python:3.9-bullseye", useHTTPS: true},
-		{base: "python:3.9-alpine", useHTTPS: true},
+		{base: "python:3.11-bookworm", useHTTPS: true},
+		{base: "python:3.11-trixie", useHTTPS: true},
+		{base: "python:3.11-alpine", useHTTPS: true},
+		{base: "python:3.14-slim", useHTTPS: true},
 	}
 
 	goVersions = []containerConfig{
@@ -87,7 +88,7 @@ var (
 
 	rubyVersions = []containerConfig{
 		{base: "ruby:3.1-bookworm", useHTTPS: true},
-		{base: "ruby:3.1-bullseye", useHTTPS: true},
+		{base: "ruby:3.4-trixie", useHTTPS: true},
 		{base: "ruby:3.1-alpine", setup: []string{"apk update", "apk add --no-cache build-base"}, useHTTPS: true},
 	}
 
@@ -99,7 +100,7 @@ var (
 
 	javascriptVersions = []containerConfig{
 		{base: "node:22-bookworm"},
-		{base: "node:22-bullseye"},
+		{base: "node:22-trixie"},
 		{base: "node:22-alpine"},
 	}
 

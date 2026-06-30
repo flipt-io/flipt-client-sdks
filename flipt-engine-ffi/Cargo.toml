@@ -13,17 +13,17 @@ name = "fliptengine"
 crate-type = ["rlib", "dylib", "staticlib"]
 
 [dependencies]
-libc = { version = "0.2.150", features = ["std"] }
-serde = { version = "1.0.147", features = ["derive"] }
-serde_json = { version = "1.0.89", features = ["raw_value"] }
-reqwest = { version = "0.12.9", features = [
+libc = { version = "0.2.186", features = ["std"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = { version = "1.0.150", features = ["raw_value"] }
+reqwest = { version = "0.12.28", features = [
   "json",
   "stream",
   "rustls-tls",
   "http2",
 ], default-features = false }
-http = "1.0"
-tokio = { version = "1.36.0", features = [
+http = "1.4"
+tokio = { version = "1.52.3", features = [
   "rt-multi-thread",
   "macros",
   "io-util",

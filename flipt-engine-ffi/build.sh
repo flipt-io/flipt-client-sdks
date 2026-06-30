@@ -20,11 +20,11 @@ case $TARGET in
       echo "Error: musl-gcc is not installed. Please install it first."
       exit 1
   fi
-  rustup default nightly
+  rustup default nightly-2025-12-08
   rustup target add x86_64-unknown-linux-musl
 
   # https://github.com/johnthagen/min-sized-rust
-  RUSTFLAGS="$RUST_FLAGS" cargo +nightly build -p flipt-engine-ffi --release --target=x86_64-unknown-linux-musl
+  RUSTFLAGS="$RUST_FLAGS" cargo +nightly-2025-12-08 build -p flipt-engine-ffi --release --target=x86_64-unknown-linux-musl
 
   mkdir -p "/tmp/ffi"
 
@@ -43,11 +43,11 @@ case $TARGET in
       echo "Error: musl-gcc is not installed. Please install it first."
       exit 1
   fi
-  rustup default nightly
+  rustup default nightly-2025-12-08
   rustup target add aarch64-unknown-linux-musl
 
   # https://github.com/johnthagen/min-sized-rust
-  RUSTFLAGS="$RUST_FLAGS" cargo +nightly build -p flipt-engine-ffi --release --target=aarch64-unknown-linux-musl
+  RUSTFLAGS="$RUST_FLAGS" cargo +nightly-2025-12-08 build -p flipt-engine-ffi --release --target=aarch64-unknown-linux-musl
 
   mkdir -p "/tmp/ffi"
 
