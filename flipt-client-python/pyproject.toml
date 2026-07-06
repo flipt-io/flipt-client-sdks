@@ -22,5 +22,5 @@ pydantic = ">=1.10,<3.0"
 packaging = ">=24,<27"
 
 [tool.poetry.group.dev.dependencies]
-black = ">=23.11,<26.0"
+black = ">=23.11,<27.0"
 pytest = "^8.2.0"
