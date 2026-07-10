@@ -17,6 +17,7 @@ type AndroidSDK struct {
 func (s *AndroidSDK) SupportedPlatforms() []platform.Platform {
 	return []platform.Platform{
 		platform.AndroidArm64,
+		platform.AndroidArmv7,
 		platform.AndroidX86_64,
 	}
 }
@@ -25,10 +26,12 @@ func (s *AndroidSDK) Build(ctx context.Context, client *dagger.Client, container
 	// the directory structure of the tmp directory is as follows:
 	// tmp/android_x86_64/
 	// tmp/android_aarch64/
+	// tmp/android_armv7/
 
 	// we need to convert it to the following structure:
 	// staging/x86_64/
 	// staging/arm64-v8a/
+	// staging/armeabi-v7a/
 
 	// this is because the Android SDK expects the library to be in a specific directory structure based on host OS and architecture
 
@@ -40,6 +43,7 @@ func (s *AndroidSDK) Build(ctx context.Context, client *dagger.Client, container
 	renames := []rename{
 		{old: "android_x86_64", new: "x86_64"},
 		{old: "android_aarch64", new: "arm64-v8a"},
+		{old: "android_armv7", new: "armeabi-v7a"},
 	}
 
 	if err := os.RemoveAll("staging"); err != nil {

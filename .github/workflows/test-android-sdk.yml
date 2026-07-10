@@ -91,20 +91,32 @@ jobs:
           path: /tmp
           run-id: ${{ github.event.workflow_run.id }}
 
+      - name: Download Artifact (Android armv7)
+        uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ steps.generate_token.outputs.token }}
+          name: flipt-engine-ffi-Android-armv7.tar.gz
+          path: /tmp
+          run-id: ${{ github.event.workflow_run.id }}
+
       - name: Extract Artifacts
         run: |
           mkdir -p /tmp/flipt-engine-ffi-Android-x86_64
           mkdir -p /tmp/flipt-engine-ffi-Android-aarch64
+          mkdir -p /tmp/flipt-engine-ffi-Android-armv7
           tar -xzvf /tmp/flipt-engine-ffi-Android-x86_64.tar.gz -C /tmp/flipt-engine-ffi-Android-x86_64
           tar -xzvf /tmp/flipt-engine-ffi-Android-aarch64.tar.gz -C /tmp/flipt-engine-ffi-Android-aarch64
+          tar -xzvf /tmp/flipt-engine-ffi-Android-armv7.tar.gz -C /tmp/flipt-engine-ffi-Android-armv7
 
       - name: Move Artifacts
         run: |
           mkdir -p flipt-client-kotlin-android/src/main/cpp/libs/x86_64
           mkdir -p flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a
+          mkdir -p flipt-client-kotlin-android/src/main/cpp/libs/armeabi-v7a
           mkdir -p flipt-client-kotlin-android/src/main/cpp/include
           mv /tmp/flipt-engine-ffi-Android-x86_64/target/x86_64-linux-android/release/libfliptengine.a flipt-client-kotlin-android/src/main/cpp/libs/x86_64/
           mv /tmp/flipt-engine-ffi-Android-aarch64/target/aarch64-linux-android/release/libfliptengine.a flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a/
+          mv /tmp/flipt-engine-ffi-Android-armv7/target/armv7-linux-androideabi/release/libfliptengine.a flipt-client-kotlin-android/src/main/cpp/libs/armeabi-v7a/
           cp flipt-engine-ffi/include/flipt_engine.h flipt-client-kotlin-android/src/main/cpp/include/
 
       - name: Run Flipt
@@ -200,20 +212,29 @@ jobs:
           curl -L -o /tmp/flipt-engine-ffi-Android-aarch64.tar.gz \
             https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-${{ github.event.inputs.release_tag }}/flipt-engine-ffi-Android-aarch64.tar.gz
 
+      - name: Download Artifact (Android armv7)
+        run: |
+          curl -L -o /tmp/flipt-engine-ffi-Android-armv7.tar.gz \
+            https://github.com/flipt-io/flipt-client-sdks/releases/download/flipt-engine-ffi-${{ github.event.inputs.release_tag }}/flipt-engine-ffi-Android-armv7.tar.gz
+
       - name: Extract Artifacts
         run: |
           mkdir -p /tmp/flipt-engine-ffi-Android-x86_64
           mkdir -p /tmp/flipt-engine-ffi-Android-aarch64
+          mkdir -p /tmp/flipt-engine-ffi-Android-armv7
           tar -xzvf /tmp/flipt-engine-ffi-Android-x86_64.tar.gz -C /tmp/flipt-engine-ffi-Android-x86_64
           tar -xzvf /tmp/flipt-engine-ffi-Android-aarch64.tar.gz -C /tmp/flipt-engine-ffi-Android-aarch64
+          tar -xzvf /tmp/flipt-engine-ffi-Android-armv7.tar.gz -C /tmp/flipt-engine-ffi-Android-armv7
 
       - name: Move Artifacts
         run: |
           mkdir -p flipt-client-kotlin-android/src/main/cpp/libs/x86_64
           mkdir -p flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a
+          mkdir -p flipt-client-kotlin-android/src/main/cpp/libs/armeabi-v7a
           mkdir -p flipt-client-kotlin-android/src/main/cpp/include
           mv /tmp/flipt-engine-ffi-Android-x86_64/target/x86_64-linux-android/release/libfliptengine.a flipt-client-kotlin-android/src/main/cpp/libs/x86_64/
           mv /tmp/flipt-engine-ffi-Android-aarch64/target/aarch64-linux-android/release/libfliptengine.a flipt-client-kotlin-android/src/main/cpp/libs/arm64-v8a/
+          mv /tmp/flipt-engine-ffi-Android-armv7/target/armv7-linux-androideabi/release/libfliptengine.a flipt-client-kotlin-android/src/main/cpp/libs/armeabi-v7a/
           cp flipt-engine-ffi/include/flipt_engine.h flipt-client-kotlin-android/src/main/cpp/include/
 
       - name: Run Flipt
