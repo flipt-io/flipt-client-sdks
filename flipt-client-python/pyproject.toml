@@ -23,4 +23,4 @@ packaging = ">=24,<27"
 
 [tool.poetry.group.dev.dependencies]
 black = ">=23.11,<27.0"
-pytest = "^8.2.0"
+pytest = ">=8.2,<10.0"
