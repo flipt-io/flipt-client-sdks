@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install mise
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@v4.2.3
 
       - name: Install Rust toolchain
         run: mise install
@@ -41,7 +41,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install mise
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@v4.2.3
 
       - name: Install Rust toolchain
         run: mise install
@@ -64,7 +64,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install mise
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@v4.2.3
 
       - name: Install Rust tooling
         run: mise install
