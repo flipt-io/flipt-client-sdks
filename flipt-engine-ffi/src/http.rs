@@ -131,6 +131,7 @@ pub struct HTTPFetcherBuilder {
     authentication: HeaderMap,
     reference: Option<String>,
     request_timeout: Option<Duration>,
+    default_request_timeout: Duration,
     update_interval: Duration,
     mode: FetchMode,
     tls_config: Option<TlsConfig>,
@@ -142,6 +143,21 @@ struct StreamChunk {
 }
 
 static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
+
+/// Default overall request timeout for polling mode when the caller did not
+/// specify one, so a stalled HTTP response cannot block the refresher (#1926).
+const DEFAULT_POLLING_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Resolve the overall request timeout to use in polling mode. A stalled
+/// response (connection established, body never completes) must not block the
+/// polling loop forever, and `connect_timeout` does not cover this. So we always
+/// apply a timeout, falling back to `default` when the caller did not set one
+/// (or set a sub-second value the builder discards). See #1926.
+fn polling_request_timeout(request_timeout: Option<Duration>, default: Duration) -> Duration {
+    request_timeout
+        .filter(|t| t.as_secs() > 0)
+        .unwrap_or(default)
+}
 
 /// Logging middleware that logs each request attempt
 #[derive(Debug, Clone, Default)]
@@ -205,6 +221,7 @@ impl HTTPFetcherBuilder {
             authentication: HeaderMap::new(),
             reference: None,
             request_timeout: None,
+            default_request_timeout: DEFAULT_POLLING_REQUEST_TIMEOUT,
             update_interval: Duration::from_secs(120),
             mode: FetchMode::default(),
             tls_config: None,
@@ -235,6 +252,15 @@ impl HTTPFetcherBuilder {
         if request_timeout.as_secs() > 0 {
             self.request_timeout = Some(request_timeout);
         }
+        self
+    }
+
+    /// Override the polling-mode default request timeout. Test-only so the
+    /// default-timeout path (#1926) can be exercised end-to-end without waiting
+    /// the production default.
+    #[cfg(test)]
+    fn default_request_timeout(mut self, default_request_timeout: Duration) -> Self {
+        self.default_request_timeout = default_request_timeout;
         self
     }
 
@@ -270,11 +296,10 @@ impl HTTPFetcherBuilder {
 
         match self.mode {
             FetchMode::Polling => {
-                if let Some(request_timeout) = self.request_timeout {
-                    if request_timeout.as_secs() > 0 {
-                        client_builder = client_builder.timeout(request_timeout);
-                    }
-                }
+                client_builder = client_builder.timeout(polling_request_timeout(
+                    self.request_timeout,
+                    self.default_request_timeout,
+                ));
             }
             FetchMode::Streaming => {
                 client_builder = client_builder
@@ -1021,5 +1046,86 @@ mod tests {
         let result = fetcher.fetch().await;
         assert!(result.is_ok());
         mock_with_auth.assert();
+    }
+
+    // Unit test for #1926: polling mode must always resolve to an overall
+    // request timeout. It must fall back to the default when the caller did not
+    // set one (or set a sub-second value the builder discards), and respect an
+    // explicit valid value otherwise.
+    #[test]
+    fn test_polling_request_timeout_resolution() {
+        use crate::http::polling_request_timeout;
+        use std::time::Duration;
+
+        let default = Duration::from_secs(30);
+
+        // Unset -> default is applied (the #1926 regression: previously no
+        // timeout was set at all in this case).
+        assert_eq!(polling_request_timeout(None, default), default);
+
+        // Sub-second values are discarded by the builder, so they also fall
+        // back to the default rather than leaving the client without a timeout.
+        assert_eq!(
+            polling_request_timeout(Some(Duration::from_millis(500)), default),
+            default
+        );
+
+        // An explicit, valid timeout is respected.
+        assert_eq!(
+            polling_request_timeout(Some(Duration::from_secs(5)), default),
+            Duration::from_secs(5)
+        );
+    }
+
+    // End-to-end regression test for #1926: with the DEFAULT polling
+    // configuration (no explicit request_timeout), a stalled response must not
+    // block the refresher forever. Before the fix no timeout was applied in this
+    // case, so this fetch would hang indefinitely. We inject a short default so
+    // the default-timeout path is exercised without waiting the production 30s.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_polling_default_timeout_unblocks_stalled_response() {
+        use std::time::{Duration, Instant};
+
+        let mut server = Server::new_async().await;
+        // Send response headers, then hold the body open so the only way out is
+        // the client's overall request timeout.
+        let _mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("x-flipt-environment", "default")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_chunked_body(|_w| {
+                std::thread::sleep(Duration::from_secs(30));
+                Ok(())
+            })
+            .create_async()
+            .await;
+
+        let short_default = Duration::from_secs(1);
+        let mut fetcher = HTTPFetcherBuilder::new(&server.url())
+            .authentication(Authentication::None)
+            // Note: no request_timeout(..) -> exercises the default path.
+            .default_request_timeout(short_default)
+            .build()
+            .unwrap();
+
+        let start = Instant::now();
+        let result = fetcher.initial_fetch().await;
+        let elapsed = start.elapsed();
+
+        assert!(
+            result.is_err(),
+            "stalled response should time out on the default, not hang"
+        );
+        // Must actually hit the timeout, not fail instantly, and must not hang
+        // far beyond the retry/timeout window.
+        assert!(
+            elapsed >= short_default,
+            "fetch returned before the default timeout could fire: {elapsed:?}"
+        );
+        assert!(
+            elapsed < Duration::from_secs(20),
+            "stalled response did not time out promptly: {elapsed:?}"
+        );
     }
 }
