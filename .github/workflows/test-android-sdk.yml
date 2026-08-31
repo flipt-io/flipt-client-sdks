@@ -55,7 +55,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Install mise
-        uses: jdx/mise-action@v4.2.5
+        uses: jdx/mise-action@v4.3.0
 
       - name: Install kotlin tooling
         working-directory: flipt-client-kotlin-android
@@ -189,7 +189,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Install mise
-        uses: jdx/mise-action@v4.2.5
+        uses: jdx/mise-action@v4.3.0
 
       - name: Install kotlin tooling
         working-directory: flipt-client-kotlin-android
