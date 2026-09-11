@@ -356,7 +356,10 @@ func createBaseContainer(client *dagger.Client, config containerConfig) *dagger.
 // their tests against.
 func getFFIBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory, arch arch) *dagger.Container {
 	return client.Container().
-		From("rust:1.83.0-bullseye"). // requires older version of glibc for best compatibility
+		// bookworm, not bullseye: bullseye LTS ended and its security Release file
+		// is expired, which makes apt-get update fail. The engine is linked statically
+		// against musl, so the base image glibc does not affect the artifact.
+		From("rust:1.83.0-bookworm").
 		WithExec(args("apt-get update")).
 		WithExec(args("apt-get install -y build-essential musl-dev musl-tools")).
 		WithWorkdir("/src").
