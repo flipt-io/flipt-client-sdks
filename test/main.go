@@ -356,8 +356,12 @@ func createBaseContainer(client *dagger.Client, config containerConfig) *dagger.
 // their tests against.
 func getFFIBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory, arch arch) *dagger.Container {
 	return client.Container().
-		From("rust:1.83.0-bullseye"). // requires older version of glibc for best compatibility
-		WithExec(args("apt-get update")).
+		// Stay on bullseye. musl-gcc links against the host libgcc, so a newer base
+		// pulls in _dl_find_object and the engine then fails to load on alpine and on
+		// glibc older than 2.35. Bullseye LTS has ended and its security Release file
+		// is expired, so apt needs Check-Valid-Until turned off to read it.
+		From("rust:1.83.0-bullseye").
+		WithExec(args("apt-get -o Acquire::Check-Valid-Until=false update")).
 		WithExec(args("apt-get install -y build-essential musl-dev musl-tools")).
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
