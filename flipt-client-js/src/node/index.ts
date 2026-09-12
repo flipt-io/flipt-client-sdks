@@ -91,9 +91,10 @@ export class FliptClient extends BaseFliptClient {
     client.errorStrategy = options.errorStrategy;
     client.hook = options.hook;
 
-    // Setup auto-refresh if interval is provided
-    if (options.updateInterval && options.updateInterval > 0) {
-      client.setupAutoRefresh(options.updateInterval * 1_000);
+    // Setup auto-refresh, defaulting to 120 seconds when not explicitly provided.
+    const updateInterval = options.updateInterval ?? 120;
+    if (updateInterval > 0) {
+      client.setupAutoRefresh(updateInterval * 1_000);
     }
 
     return client;
