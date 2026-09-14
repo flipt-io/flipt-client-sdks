@@ -309,6 +309,7 @@ pub fn boolean_evaluation(
             ))
         })?;
 
+    let rollouts_empty = evaluation_rollouts.is_empty();
     for rollout in evaluation_rollouts {
         if rollout.rank < last_rank {
             return Err(Error::InvalidRequest(format!(
@@ -373,10 +374,15 @@ pub fn boolean_evaluation(
         }
     }
 
+    let reason = match (flag.enabled, rollouts_empty) {
+        (false, true) => flipt::EvaluationReason::FlagDisabled,
+        (_, _) => flipt::EvaluationReason::Default,
+    };
+
     Ok(BooleanEvaluationResponse {
         enabled: flag.enabled,
         flag_key: flag.key.clone(),
-        reason: flipt::EvaluationReason::Default,
+        reason,
         request_duration_millis: start.elapsed().as_millis() as f64,
         timestamp: chrono::offset::Utc::now(),
         segment_keys: vec![],
@@ -3553,6 +3559,146 @@ mod tests {
         assert!(b.enabled);
         assert_eq!(b.reason, flipt::EvaluationReason::Match);
         assert_eq!(b.segment_keys, vec![String::from("segment1")]);
+    }
+
+    #[test]
+    fn test_boolean_disabled_no_rollouts() {
+        let mut mock_store = MockStore::new();
+
+        mock_store.expect_get_flag().returning(|_, _| {
+            Some(flipt::Flag {
+                key: String::from("foo"),
+                enabled: false,
+                description: Some(String::from("foo flag")),
+                r#type: flipt::FlagType::Boolean,
+                default_variant: None,
+            })
+        });
+
+        mock_store
+            .expect_get_evaluation_rollouts()
+            .returning(|_, _| Some(vec![]));
+
+        let boolean = boolean_evaluation(
+            &mock_store,
+            "default",
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("1"),
+                context: HashMap::new(),
+            },
+        );
+
+        assert!(boolean.is_ok());
+
+        let b = boolean.unwrap();
+
+        assert_eq!(b.flag_key, String::from("foo"));
+        assert!(!b.enabled);
+        assert_eq!(b.reason, flipt::EvaluationReason::FlagDisabled);
+        assert!(b.segment_keys.is_empty());
+    }
+
+    #[test]
+    fn test_boolean_disabled_unmatched_rollouts() {
+        let mut mock_store = MockStore::new();
+
+        mock_store.expect_get_flag().returning(|_, _| {
+            Some(flipt::Flag {
+                key: String::from("foo"),
+                enabled: false,
+                description: Some(String::from("foo flag")),
+                r#type: flipt::FlagType::Boolean,
+                default_variant: None,
+            })
+        });
+
+        let mut segments: HashMap<String, flipt::EvaluationSegment> = HashMap::new();
+        segments.insert(
+            String::from("segment1"),
+            flipt::EvaluationSegment {
+                segment_key: String::from("segment1"),
+                match_type: flipt::SegmentMatchType::Any,
+                constraints: vec![flipt::EvaluationConstraint {
+                    r#type: flipt::ConstraintComparisonType::Boolean,
+                    property: String::from("some"),
+                    operator: String::from("present"),
+                    value: String::from(""),
+                }],
+            },
+        );
+
+        mock_store
+            .expect_get_evaluation_rollouts()
+            .returning(move |_, _| {
+                Some(vec![flipt::EvaluationRollout {
+                    rollout_type: flipt::RolloutType::Segment,
+                    rank: 1,
+                    segment: Some(RolloutSegment {
+                        value: true,
+                        segment_operator: flipt::SegmentOperator::Or,
+                        segments: segments.clone(),
+                    }),
+                    threshold: None,
+                }])
+            });
+
+        let boolean = boolean_evaluation(
+            &mock_store,
+            "default",
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("1"),
+                context: HashMap::new(),
+            },
+        );
+
+        assert!(boolean.is_ok());
+
+        let b = boolean.unwrap();
+
+        assert_eq!(b.flag_key, String::from("foo"));
+        assert!(!b.enabled);
+        assert_eq!(b.reason, flipt::EvaluationReason::Default);
+        assert!(b.segment_keys.is_empty());
+    }
+
+    #[test]
+    fn test_boolean_enabled_no_rollouts() {
+        let mut mock_store = MockStore::new();
+
+        mock_store.expect_get_flag().returning(|_, _| {
+            Some(flipt::Flag {
+                key: String::from("foo"),
+                enabled: true,
+                description: Some(String::from("foo flag")),
+                r#type: flipt::FlagType::Boolean,
+                default_variant: None,
+            })
+        });
+
+        mock_store
+            .expect_get_evaluation_rollouts()
+            .returning(|_, _| Some(vec![]));
+
+        let boolean = boolean_evaluation(
+            &mock_store,
+            "default",
+            &EvaluationRequest {
+                flag_key: String::from("foo"),
+                entity_id: String::from("1"),
+                context: HashMap::new(),
+            },
+        );
+
+        assert!(boolean.is_ok());
+
+        let b = boolean.unwrap();
+
+        assert_eq!(b.flag_key, String::from("foo"));
+        assert!(b.enabled);
+        assert_eq!(b.reason, flipt::EvaluationReason::Default);
+        assert!(b.segment_keys.is_empty());
     }
 
     #[test]
