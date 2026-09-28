@@ -1042,8 +1042,7 @@ func isTransientError(err error) bool {
 	}
 
 	// Check for HTTP/2 GoAway errors
-	var goAwayErr *http2.GoAwayError
-	if errors.As(err, &goAwayErr) {
+	if goAwayErr, ok := errors.AsType[http2.GoAwayError](err); ok { //nolint:staticcheck
 		// Consider connection-level issues as transient
 		switch goAwayErr.ErrCode {
 		case http2.ErrCodeNo,
