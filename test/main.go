@@ -78,9 +78,9 @@ var (
 	}
 
 	goVersions = []containerConfig{
-		{base: "golang:1.25-bookworm", setup: []string{"apt-get update", "apt-get install -y build-essential"}, useHTTPS: true},
-		{base: "golang:1.25-trixie", setup: []string{"apt-get update", "apt-get install -y build-essential"}, useHTTPS: true},
-		{base: "golang:1.25-alpine", setup: []string{"apk update", "apk add --no-cache build-base"}, useHTTPS: true},
+		{base: "golang:1.26-bookworm", setup: []string{"apt-get update", "apt-get install -y build-essential"}, useHTTPS: true},
+		{base: "golang:1.26-trixie", setup: []string{"apt-get update", "apt-get install -y build-essential"}, useHTTPS: true},
+		{base: "golang:1.26-alpine", setup: []string{"apk update", "apk add --no-cache build-base"}, useHTTPS: true},
 	}
 
 	harnessVersions = []containerConfig{
@@ -599,8 +599,8 @@ func csharpTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithEnvVariable("FLIPT_URL", "https://flipt:8443").
 		WithEnvVariable("FLIPT_CA_CERT_PATH", "/src/test/fixtures/tls/ca.crt").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithExec(args("dotnet clean")).
 		WithExec(args("dotnet restore")).
+		WithExec(args("dotnet clean")).
 		WithExec(args("dotnet build")).
 		WithExec(args("dotnet test")).
 		Sync(ctx)
