@@ -1,5 +1,14 @@
 use crate::Error;
 use serde::Deserialize;
+use std::io::Cursor;
+use std::sync::Arc;
+
+use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+use rustls::crypto::{verify_tls12_signature, verify_tls13_signature, WebPkiSupportedAlgorithms};
+use rustls::pki_types::pem::PemObject;
+use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime};
+use rustls::server::ParsedCertificate;
+use rustls::{DigitallySignedStruct, Error as TlsError, RootCertStore, SignatureScheme};
 
 #[derive(Deserialize, Debug, PartialEq, Default)]
 pub struct TlsConfig {
@@ -9,7 +18,7 @@ pub struct TlsConfig {
     ca_cert_data: Option<String>,
     /// Skip certificate verification (insecure - for development only)
     insecure_skip_verify: Option<bool>,
-    /// Skip hostname verification while maintaining certificate validation (insecure - for development only)
+    /// Skip hostname verification. The verifier keeps certificate validation (insecure - for development only)
     insecure_skip_hostname_verify: Option<bool>,
     /// Client certificate file for mutual TLS (PEM format)
     client_cert_file: Option<String>,
@@ -39,9 +48,75 @@ impl TlsConfig {
     }
 }
 
-/// Configures TLS settings for an HTTP client.
+/// Certificate verifier that checks the chain against the root store.
+/// It ignores the hostname.
 ///
-/// This function handles various TLS configuration scenarios:
+/// It follows the internal `IgnoreHostname` of reqwest.
+/// It uses the native roots of the platform plus the custom CA.
+/// The standard hostname flag does not accept system roots,
+/// so the code keeps its own verifier for that case.
+#[derive(Debug)]
+struct NoHostnameVerifier {
+    roots: RootCertStore,
+    signature_algorithms: WebPkiSupportedAlgorithms,
+}
+
+impl NoHostnameVerifier {
+    fn new(roots: RootCertStore, signature_algorithms: WebPkiSupportedAlgorithms) -> Self {
+        Self {
+            roots,
+            signature_algorithms,
+        }
+    }
+}
+
+impl ServerCertVerifier for NoHostnameVerifier {
+    fn verify_server_cert(
+        &self,
+        end_entity: &CertificateDer<'_>,
+        intermediates: &[CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
+        _ocsp_response: &[u8],
+        now: UnixTime,
+    ) -> Result<ServerCertVerified, TlsError> {
+        let cert = ParsedCertificate::try_from(end_entity)?;
+
+        rustls::client::verify_server_cert_signed_by_trust_anchor(
+            &cert,
+            &self.roots,
+            intermediates,
+            now,
+            self.signature_algorithms.all,
+        )?;
+        Ok(ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, TlsError> {
+        verify_tls12_signature(message, cert, dss, &self.signature_algorithms)
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, TlsError> {
+        verify_tls13_signature(message, cert, dss, &self.signature_algorithms)
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        self.signature_algorithms.supported_schemes()
+    }
+}
+
+/// Configures the TLS configuration for an HTTP client.
+///
+/// This function handles the TLS configuration scenarios:
 /// - Insecure mode (skip all verification)
 /// - Hostname verification skip (keep certificate validation)
 /// - Custom CA certificates
@@ -59,31 +134,39 @@ pub fn configure_tls(
     tls_config: &TlsConfig,
 ) -> Result<reqwest::ClientBuilder, Error> {
     // Always use rustls for consistency
-    builder = builder.use_rustls_tls();
+    builder = builder.tls_backend_rustls();
 
     // Handle insecure mode (skip all validation)
     if tls_config.insecure_skip_verify.unwrap_or(false) {
-        builder = builder.danger_accept_invalid_certs(true);
+        builder = builder.tls_danger_accept_invalid_certs(true);
         return Ok(builder);
     }
 
-    // Handle custom CA certificates using reqwest's built-in method
+    // Skip hostname verification with the preconfigured ClientConfig of rustls.
+    // The standard hostname flag does not accept system roots, so the code builds
+    // its own verifier from the root store of the system plus the custom CA.
+    // The verifier checks the chain. It keeps SNI enabled. It skips only
+    // the hostname check.
+    if tls_config.insecure_skip_hostname_verify.unwrap_or(false) {
+        let rustls_config = build_hostname_blind_config(tls_config)?;
+        builder = builder.tls_backend_preconfigured(rustls_config);
+        return Ok(builder);
+    }
+
+    // Add the custom CA certificates with the standard method of reqwest
     let ca_cert_data = load_ca_certificate_data(tls_config)?;
     if let Some(cert_bytes) = ca_cert_data {
-        let cert = reqwest::Certificate::from_pem(&cert_bytes)
-            .map_err(|e| Error::Internal(format!("failed to parse CA certificate: {e}")))?;
-        builder = builder.add_root_certificate(cert);
+        for cert in parse_ca_certificates(&cert_bytes)? {
+            let cert = reqwest::Certificate::from_der(&cert)
+                .map_err(|e| Error::Internal(format!("failed to parse CA certificate: {e}")))?;
+            builder = builder.add_root_certificate(cert);
+        }
     }
 
-    // Handle hostname verification skip
-    if tls_config.insecure_skip_hostname_verify.unwrap_or(false) {
-        builder = builder.danger_accept_invalid_hostnames(true);
-    }
-
-    // Handle client certificates (if needed)
+    // Handle client certificates for mutual TLS
     let client_cert_data = load_client_certificate_data(tls_config)?;
     if let Some((cert_bytes, key_bytes)) = client_cert_data {
-        // Combine cert and key for reqwest identity
+        // Combine the client certificate with the key for the identity of reqwest
         let mut pem_data = Vec::new();
         pem_data.extend_from_slice(&cert_bytes);
         pem_data.extend_from_slice(&key_bytes);
@@ -97,6 +180,120 @@ pub fn configure_tls(
     }
 
     Ok(builder)
+}
+
+/// Builds the ClientConfig of rustls for skip of hostname verification.
+/// It checks the chain against the root store of the system plus the custom CA.
+/// If the TLS configuration contains a client certificate, it presents that certificate.
+/// It keeps SNI enabled. The verifier skips only the hostname check.
+fn build_hostname_blind_config(tls_config: &TlsConfig) -> Result<rustls::ClientConfig, Error> {
+    let provider = rustls::crypto::CryptoProvider::get_default()
+        .cloned()
+        .unwrap_or_else(|| Arc::new(rustls::crypto::aws_lc_rs::default_provider()));
+    let signature_algorithms = provider.signature_verification_algorithms;
+
+    let mut roots = RootCertStore::empty();
+    let native = rustls_native_certs::load_native_certs();
+    if !native.errors.is_empty() {
+        log::warn!(
+            "errors loading native certs for hostname-skip TLS: {:?}",
+            native.errors
+        );
+    }
+    for cert in native.certs {
+        roots
+            .add(cert)
+            .map_err(|e| Error::Internal(format!("failed to add native root certificate: {e}")))?;
+    }
+
+    if let Some(ca_bytes) = load_ca_certificate_data(tls_config)? {
+        let custom = parse_ca_certificates(&ca_bytes)?;
+        if custom.is_empty() {
+            return Err(Error::Internal(
+                "no valid certificates found in CA certificate data".into(),
+            ));
+        }
+        for cert in custom {
+            roots.add(cert).map_err(|e| {
+                Error::Internal(format!("failed to add custom CA certificate: {e}"))
+            })?;
+        }
+    }
+
+    if roots.is_empty() {
+        return Err(Error::Internal(
+            "no root certificates available for hostname-skip TLS".into(),
+        ));
+    }
+
+    let verifier = Arc::new(NoHostnameVerifier::new(roots, signature_algorithms));
+    let config_builder = rustls::ClientConfig::builder_with_provider(provider)
+        .with_protocol_versions(rustls::ALL_VERSIONS)
+        .map_err(|_| Error::Internal("invalid TLS versions".into()))?
+        .dangerous()
+        .with_custom_certificate_verifier(verifier);
+
+    let mut config = if let Some((cert_bytes, key_bytes)) =
+        load_client_certificate_data(tls_config)?
+    {
+        let mut pem_data = Vec::new();
+        pem_data.extend_from_slice(&cert_bytes);
+        pem_data.extend_from_slice(&key_bytes);
+        let (certs, key) = parse_client_identity(&pem_data)?;
+        config_builder
+            .with_client_auth_cert(certs, key)
+            .map_err(|e| Error::Internal(format!("failed to configure client certificate: {e}")))?
+    } else {
+        config_builder.with_no_client_auth()
+    };
+
+    // Keep SNI enabled. The verifier skips only the hostname check.
+    config.enable_sni = true;
+    config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+
+    Ok(config)
+}
+
+/// Parses PEM CA bundle bytes into DER certificates.
+fn parse_ca_certificates(pem_bytes: &[u8]) -> Result<Vec<CertificateDer<'static>>, Error> {
+    CertificateDer::pem_slice_iter(pem_bytes)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| Error::Internal("invalid CA certificate encoding".into()))
+}
+
+/// Parses combined client cert/key PEM bytes, mirroring
+/// `reqwest::Identity::from_pem` (RSA, SEC1, PKCS#8 keys supported).
+fn parse_client_identity(
+    pem_bytes: &[u8],
+) -> Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>), Error> {
+    use rustls::pki_types::pem::{self, SectionKind};
+
+    let mut cursor = Cursor::new(pem_bytes);
+    let mut keys = Vec::new();
+    let mut certs = Vec::new();
+
+    while let Some((kind, data)) = pem::from_buf(&mut cursor)
+        .map_err(|_| Error::Internal("invalid client identity PEM".into()))?
+    {
+        match kind {
+            SectionKind::Certificate => certs.push(data.into()),
+            SectionKind::PrivateKey => keys.push(PrivateKeyDer::Pkcs8(data.into())),
+            SectionKind::RsaPrivateKey => keys.push(PrivateKeyDer::Pkcs1(data.into())),
+            SectionKind::EcPrivateKey => keys.push(PrivateKeyDer::Sec1(data.into())),
+            _ => {
+                return Err(Error::Internal(
+                    "unsupported section in client identity PEM".into(),
+                ));
+            }
+        }
+    }
+
+    match (keys.pop(), certs.is_empty()) {
+        (Some(key), false) => Ok((certs, key)),
+        _ => Err(Error::Internal(
+            "private key or certificate not found in client identity".into(),
+        )),
+    }
 }
 
 /// Loads CA certificate data from file or direct data.
@@ -221,6 +418,22 @@ mod tests {
         let builder = reqwest::Client::builder();
         let result = configure_tls(builder, &tls_config);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_hostname_skip_with_mtls_builds() {
+        let cert_pem = include_str!("testdata/localhost.crt");
+        let key_pem = include_str!("testdata/localhost.key");
+        let tls_config = TlsConfig {
+            insecure_skip_hostname_verify: Some(true),
+            client_cert_data: Some(cert_pem.to_string()),
+            client_key_data: Some(key_pem.to_string()),
+            ..Default::default()
+        };
+
+        let builder = reqwest::Client::builder();
+        let configured = configure_tls(builder, &tls_config).unwrap();
+        assert!(configured.build().is_ok());
     }
 
     #[tokio::test]
