@@ -1,6 +1,6 @@
 version: 2
 updates:
-  - package-ecosystem: cargo
+  - package-ecosystem: "cargo"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -9,8 +9,19 @@ updates:
       - "dependencies"
       # kodiak `merge.automerge_label`
       - "automerge"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      cargo-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      cargo-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
 
-  - package-ecosystem: github-actions
+  - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -19,9 +30,14 @@ updates:
       - "dependencies"
       # kodiak `merge.automerge_label`
       - "automerge"
+    groups:
+      github-actions:
+        patterns: ["*"]
 
-  - package-ecosystem: npm
-    directory: "/flipt-client-js"
+  - package-ecosystem: "npm"
+    directories:
+      - "/flipt-client-js"
+      - "/flipt-client-react"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
@@ -29,8 +45,19 @@ updates:
       - "dependencies"
       # kodiak `merge.automerge_label`
       - "automerge"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      npm-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
 
-  - package-ecosystem: nuget
+  - package-ecosystem: "nuget"
     directory: "/flipt-client-csharp"
     schedule:
       interval: "weekly"
@@ -39,8 +66,19 @@ updates:
       - "dependencies"
       # kodiak `merge.automerge_label`
       - "automerge"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      nuget-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      nuget-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
 
-  - package-ecosystem: pub
+  - package-ecosystem: "pub"
     directory: "/flipt-client-dart"
     schedule:
       interval: "weekly"
@@ -49,8 +87,19 @@ updates:
       - "dependencies"
       # kodiak `merge.automerge_label`
       - "automerge"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      pub-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      pub-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
 
-  - package-ecosystem: gomod
+  - package-ecosystem: "gomod"
     directory: "/flipt-client-go"
     schedule:
       interval: "weekly"
@@ -59,9 +108,22 @@ updates:
       - "dependencies"
       # kodiak `merge.automerge_label`
       - "automerge"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      gomod-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      gomod-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
 
-  - package-ecosystem: gradle
-    directory: "/flipt-client-java"
+  - package-ecosystem: "gradle"
+    directories:
+      - "/flipt-client-java"
+      - "/flipt-client-kotlin-android"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
@@ -69,18 +131,19 @@ updates:
       - "dependencies"
       # kodiak `merge.automerge_label`
       - "automerge"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      gradle-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      gradle-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
 
-  - package-ecosystem: gradle
-    directory: "/flipt-client-kotlin-android"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      # kodiak `merge.automerge_label`
-      - "automerge"
-
-  - package-ecosystem: pip
+  - package-ecosystem: "pip"
     directory: "/flipt-client-python"
     schedule:
       interval: "weekly"
@@ -89,18 +152,19 @@ updates:
       - "dependencies"
       # kodiak `merge.automerge_label`
       - "automerge"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      pip-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      pip-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
 
-  - package-ecosystem: npm
-    directory: "/flipt-client-react"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      # kodiak `merge.automerge_label`
-      - "automerge"
-
-  - package-ecosystem: bundler
+  - package-ecosystem: "bundler"
     directory: "/flipt-client-ruby"
     schedule:
       interval: "weekly"
@@ -109,43 +173,14 @@ updates:
       - "dependencies"
       # kodiak `merge.automerge_label`
       - "automerge"
-
-  - package-ecosystem: cargo
-    directory: "/flipt-evaluation"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      # kodiak `merge.automerge_label`
-      - "automerge"
-
-  - package-ecosystem: cargo
-    directory: "/flipt-engine-ffi"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      # kodiak `merge.automerge_label`
-      - "automerge"
-
-  - package-ecosystem: cargo
-    directory: "/flipt-engine-wasm"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      # kodiak `merge.automerge_label`
-      - "automerge"
-
-  - package-ecosystem: cargo
-    directory: "/flipt-engine-wasm-js"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      # kodiak `merge.automerge_label`
-      - "automerge"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      bundler-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      bundler-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
