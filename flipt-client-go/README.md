@@ -123,6 +123,7 @@ The `NewClient` constructor accepts a variadic number of `Option` functions that
 - `WithUpdateInterval`: The interval in which to fetch new flag state. If not provided, the client will default to 120 seconds.
 - `With{Method}Authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
 - `WithReference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
+- `WithSnapshot`: A base64-encoded snapshot returned by `Client.GetSnapshot`. When used with `ErrorStrategyFallback`, the client can initialize from this snapshot if Flipt is unreachable during startup.
 - `WithFetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
 - `WithErrorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to `Fail`. See the [Error Strategies](#error-strategies) section for more information.
 - `WithTLSConfig`: The TLS configuration for connecting to servers with custom certificates. See [TLS Configuration](#tls-configuration). Note: if used with `WithHTTPClient`, this should be called after setting the HTTP client.
@@ -262,6 +263,24 @@ tlsConfig := &tls.Config{
   // Server name for SNI
   ServerName: "flipt.example.com",
 }
+```
+
+### Snapshots
+
+Use `GetSnapshot` to persist the current flag state and pass it back with `WithSnapshot` on the next startup. This is useful for offline startup when paired with `ErrorStrategyFallback`.
+
+```go
+snapshot, err := client.GetSnapshot(ctx)
+if err != nil {
+    log.Fatal(err)
+}
+
+client, err = flipt.NewClient(
+    ctx,
+    flipt.WithURL("http://localhost:8080"),
+    flipt.WithSnapshot(snapshot),
+    flipt.WithErrorStrategy(flipt.ErrorStrategyFallback),
+)
 ```
 
 ### Error Strategies

@@ -34,13 +34,7 @@ jobs:
     timeout-minutes: 30
     steps:
       # Default ref is the base branch (main), NOT the PR head — keep it that way.
-      - uses: actions/checkout@v6
-
-      # This repo's .agents/skills currently contains human-invoked skills like
-      # release. The PR reviewer treats local skills as extra review
-      # instructions, so keep only prompts/personas for automated reviews.
-      - name: Ignore non-review local skills
-        run: rm -rf .agents/skills
+      - uses: actions/checkout@v7
 
       - uses: flipt-io/agents/actions/pr-review@main # pin to a tag/SHA to freeze the reviewer
         env:
@@ -48,4 +42,5 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         with:
           pr-number: ${{ github.event.pull_request.number }}
+          local-config-dir: .agents/pr-review
           model: cloudflare-workers-ai/@cf/moonshotai/kimi-k2.6

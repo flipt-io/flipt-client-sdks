@@ -69,7 +69,7 @@ This section is for users who are migrating from a previous (pre-1.0.0) version 
 - Backwards compatibility with Pydantic v1 is now maintained.
 - All errors now inherit from `FliptError` and use specific subclasses like `ValidationError` and `EvaluationError`.
 - The client and models now follow Python naming conventions (snake_case for methods and fields).
-- The minimum supported Python version is now 3.8.
+- The minimum supported Python version is now 3.11.
 
 ## Usage
 

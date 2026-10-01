@@ -1,6 +1,6 @@
 [package]
 name = "flipt-engine-ffi"
-version = "0.20.1"
+version = "0.21.3"
 edition = "2021"
 authors = ["Flipt Devs <dev@flipt.io>"]
 license = "MIT"
@@ -38,7 +38,7 @@ thiserror = "2.0.3"
 reqwest-retry = "0.8.0"
 reqwest-middleware = "0.4.0"
 async-trait = "0.1"
-base64 = "0.22"
+base64 = "0.23"
 log = "0.4"
 env_logger = "0.11"
 
@@ -46,7 +46,7 @@ env_logger = "0.11"
 path = "../flipt-evaluation"
 
 [dev-dependencies]
-mockall = "0.14.0"
+mockall = "0.15.0"
 mockito = "1.4.0"
 
 [build-dependencies]

@@ -69,7 +69,8 @@ Retriable errors include:
 This SDK currently supports the following OSes/architectures:
 
 - Android x86_64
-- Android arm64
+- Android arm64 (`arm64-v8a`)
+- Android 32-bit ARM (`armeabi-v7a`)
 
 ## Migration Notes
 

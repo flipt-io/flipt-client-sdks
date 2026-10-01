@@ -70,15 +70,17 @@ const (
 
 var (
 	pythonVersions = []containerConfig{
-		{base: "python:3.9-bookworm", useHTTPS: true},
-		{base: "python:3.9-bullseye", useHTTPS: true},
-		{base: "python:3.9-alpine", useHTTPS: true},
+		{base: "python:3.11-bookworm", useHTTPS: true},
+		{base: "python:3.11-bullseye", useHTTPS: true},
+		{base: "python:3.11-trixie", useHTTPS: true},
+		{base: "python:3.11-alpine", useHTTPS: true},
+		{base: "python:3.14-slim", useHTTPS: true},
 	}
 
 	goVersions = []containerConfig{
-		{base: "golang:1.25-bookworm", setup: []string{"apt-get update", "apt-get install -y build-essential"}, useHTTPS: true},
-		{base: "golang:1.25-trixie", setup: []string{"apt-get update", "apt-get install -y build-essential"}, useHTTPS: true},
-		{base: "golang:1.25-alpine", setup: []string{"apk update", "apk add --no-cache build-base"}, useHTTPS: true},
+		{base: "golang:1.26-bookworm", setup: []string{"apt-get update", "apt-get install -y build-essential"}, useHTTPS: true},
+		{base: "golang:1.26-trixie", setup: []string{"apt-get update", "apt-get install -y build-essential"}, useHTTPS: true},
+		{base: "golang:1.26-alpine", setup: []string{"apk update", "apk add --no-cache build-base"}, useHTTPS: true},
 	}
 
 	harnessVersions = []containerConfig{
@@ -98,9 +100,9 @@ var (
 	}
 
 	javascriptVersions = []containerConfig{
-		{base: "node:21.2-bookworm"},
-		{base: "node:21.2-bullseye"},
-		{base: "node:21.2-alpine"},
+		{base: "node:22-bookworm"},
+		{base: "node:22-bullseye"},
+		{base: "node:22-alpine"},
 	}
 
 	dartVersions = []containerConfig{
@@ -108,7 +110,7 @@ var (
 	}
 
 	reactVersions = []containerConfig{
-		{base: "node:21.2-bookworm"},
+		{base: "node:22-bookworm"},
 	}
 
 	csharpVersions = []containerConfig{
@@ -354,8 +356,12 @@ func createBaseContainer(client *dagger.Client, config containerConfig) *dagger.
 // their tests against.
 func getFFIBuildContainer(_ context.Context, client *dagger.Client, hostDirectory *dagger.Directory, arch arch) *dagger.Container {
 	return client.Container().
-		From("rust:1.83.0-bullseye"). // requires older version of glibc for best compatibility
-		WithExec(args("apt-get update")).
+		// Stay on bullseye. musl-gcc links against the host libgcc, so a newer base
+		// pulls in _dl_find_object and the engine then fails to load on alpine and on
+		// glibc older than 2.35. Bullseye LTS has ended and its security Release file
+		// is expired, so apt needs Check-Valid-Until turned off to read it.
+		From("rust:1.83.0-bullseye").
+		WithExec(args("apt-get -o Acquire::Check-Valid-Until=false update")).
 		WithExec(args("apt-get install -y build-essential musl-dev musl-tools")).
 		WithWorkdir("/src").
 		WithDirectory("/src/flipt-engine-ffi", hostDirectory.Directory("flipt-engine-ffi")).
@@ -538,6 +544,7 @@ func javascriptTests(ctx context.Context, root *dagger.Container, t *testCase) e
 		WithExec(args("npm install")).
 		WithExec(args("npm run build")).
 		WithExec(args("npm test")).
+		WithExec(args("node integration/snapshot.mjs")).
 		Sync(ctx)
 
 	return err
@@ -592,8 +599,8 @@ func csharpTests(ctx context.Context, root *dagger.Container, t *testCase) error
 		WithEnvVariable("FLIPT_URL", "https://flipt:8443").
 		WithEnvVariable("FLIPT_CA_CERT_PATH", "/src/test/fixtures/tls/ca.crt").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
-		WithExec(args("dotnet clean")).
 		WithExec(args("dotnet restore")).
+		WithExec(args("dotnet clean")).
 		WithExec(args("dotnet build")).
 		WithExec(args("dotnet test")).
 		Sync(ctx)

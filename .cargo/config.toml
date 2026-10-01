@@ -9,5 +9,8 @@ rustflags = ["-C", "target-feature=+crt-static"]
 [target.aarch64-linux-android]
 rustflags = ["-C", "target-feature=-crt-static"]
 
+[target.armv7-linux-androideabi]
+rustflags = ["-C", "target-feature=-crt-static"]
+
 [target.x86_64-linux-android]
 rustflags = ["-C", "target-feature=-crt-static"]

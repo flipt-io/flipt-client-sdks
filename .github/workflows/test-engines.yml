@@ -15,10 +15,10 @@ jobs:
       CARGO_TERM_COLOR: always
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install mise
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@v4.3.0
 
       - name: Install Rust toolchain
         run: mise install
@@ -35,15 +35,19 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
+      RUST_TOOLCHAIN: "1.94.0"
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install mise
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@v4.3.0
 
       - name: Install Rust toolchain
         run: mise install
+
+      - name: Install Rust lint components
+        run: rustup component add --toolchain "$RUST_TOOLCHAIN" rustfmt clippy
 
       - name: Check Formatting
         run: cargo fmt --all -- --check
@@ -57,10 +61,10 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install mise
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@v4.3.0
 
       - name: Install Rust tooling
         run: mise install
@@ -68,9 +72,12 @@ jobs:
       - name: Generate code coverage
         run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
 
+      # Dependabot and fork pull requests cannot read CODECOV_TOKEN, and Codecov
+      # rejects tokenless uploads on a protected branch. Report the upload but do
+      # not fail the job when the token is unavailable.
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
-          fail_ci_if_error: true
+          fail_ci_if_error: ${{ secrets.CODECOV_TOKEN != '' }}

@@ -41,10 +41,10 @@ jobs:
             os: macos-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup mise
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@v4.3.0
         with:
           working_directory: ${{ matrix.sdk }}
 

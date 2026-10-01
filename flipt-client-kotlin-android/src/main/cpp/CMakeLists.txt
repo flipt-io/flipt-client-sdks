@@ -8,6 +8,8 @@ add_library( libfliptengine STATIC IMPORTED )
 
 if (${ANDROID_ABI} STREQUAL "arm64-v8a")
     set_property(TARGET libfliptengine PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/libs/arm64-v8a/libfliptengine.a")
+elseif (${ANDROID_ABI} STREQUAL "armeabi-v7a")
+    set_property(TARGET libfliptengine PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/libs/armeabi-v7a/libfliptengine.a")
 elseif (${ANDROID_ABI} STREQUAL "x86_64")
     set_property(TARGET libfliptengine PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/libs/x86_64/libfliptengine.a")
 endif()

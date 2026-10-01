@@ -143,6 +143,12 @@ struct StreamChunk {
 
 static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
+/// Default overall request timeout for polling mode. Used as the builder's
+/// initial `request_timeout` so a stalled HTTP response (connection established,
+/// body never completes) cannot block the refresher forever. `connect_timeout`
+/// does not cover this case. See #1926.
+const DEFAULT_POLLING_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// Logging middleware that logs each request attempt
 #[derive(Debug, Clone, Default)]
 pub struct LoggingMiddleware {}
@@ -204,7 +210,10 @@ impl HTTPFetcherBuilder {
             namespace: None,
             authentication: HeaderMap::new(),
             reference: None,
-            request_timeout: None,
+            // Default to an overall request timeout so a stalled response cannot
+            // block the polling refresher forever (#1926). Callers can override
+            // via `request_timeout`.
+            request_timeout: Some(DEFAULT_POLLING_REQUEST_TIMEOUT),
             update_interval: Duration::from_secs(120),
             mode: FetchMode::default(),
             tls_config: None,
@@ -271,9 +280,7 @@ impl HTTPFetcherBuilder {
         match self.mode {
             FetchMode::Polling => {
                 if let Some(request_timeout) = self.request_timeout {
-                    if request_timeout.as_secs() > 0 {
-                        client_builder = client_builder.timeout(request_timeout);
-                    }
+                    client_builder = client_builder.timeout(request_timeout);
                 }
             }
             FetchMode::Streaming => {
@@ -1021,5 +1028,69 @@ mod tests {
         let result = fetcher.fetch().await;
         assert!(result.is_ok());
         mock_with_auth.assert();
+    }
+
+    // Regression test for #1926: the builder must default to an overall request
+    // timeout so a polling client that never sets one still cannot be blocked
+    // forever by a stalled response. Previously this defaulted to `None`.
+    #[test]
+    fn test_builder_defaults_request_timeout() {
+        use crate::http::DEFAULT_POLLING_REQUEST_TIMEOUT;
+
+        let builder = HTTPFetcherBuilder::new("http://localhost:8080");
+        assert_eq!(
+            builder.request_timeout,
+            Some(DEFAULT_POLLING_REQUEST_TIMEOUT)
+        );
+    }
+
+    // End-to-end regression test for #1926: in polling mode a stalled response
+    // (headers received but the body never completes) must not block the
+    // refresher forever. `connect_timeout` does not cover this, so the request
+    // timeout must fire. We set an explicit short timeout to keep it fast.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_polling_request_timeout_unblocks_stalled_response() {
+        use std::time::{Duration, Instant};
+
+        let mut server = Server::new_async().await;
+        // Send response headers, then hold the body open so the only way out is
+        // the client's overall request timeout.
+        let _mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("x-flipt-environment", "default")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_chunked_body(|_w| {
+                std::thread::sleep(Duration::from_secs(30));
+                Ok(())
+            })
+            .create_async()
+            .await;
+
+        let request_timeout = Duration::from_secs(1);
+        let mut fetcher = HTTPFetcherBuilder::new(&server.url())
+            .authentication(Authentication::None)
+            .request_timeout(request_timeout)
+            .build()
+            .unwrap();
+
+        let start = Instant::now();
+        let result = fetcher.initial_fetch().await;
+        let elapsed = start.elapsed();
+
+        assert!(
+            result.is_err(),
+            "stalled response should time out, not hang"
+        );
+        // Must actually hit the timeout, not fail instantly, and must not hang
+        // far beyond the retry/timeout window.
+        assert!(
+            elapsed >= request_timeout,
+            "fetch returned before the request timeout could fire: {elapsed:?}"
+        );
+        assert!(
+            elapsed < Duration::from_secs(20),
+            "stalled response did not time out promptly: {elapsed:?}"
+        );
     }
 }

@@ -56,6 +56,15 @@ func WithReference(ref string) Option {
 	}
 }
 
+// WithSnapshot sets a base64-encoded snapshot returned by Client.GetSnapshot.
+// When provided with ErrorStrategyFallback, the client can initialize from the
+// snapshot if the initial fetch fails.
+func WithSnapshot(snapshot string) Option {
+	return func(cfg *config) {
+		cfg.Snapshot = snapshot
+	}
+}
+
 // WithUpdateInterval sets the update interval for the client.
 func WithUpdateInterval(updateInterval time.Duration) Option {
 	return func(cfg *config) {
@@ -183,6 +192,8 @@ type config struct {
 	Authentication any
 	// Reference to use when fetching flag state. Optional.
 	Reference string
+	// Snapshot is base64-encoded flag state returned by Client.GetSnapshot. Optional.
+	Snapshot string
 	// FetchMode determines how flag state is fetched (polling or streaming). Defaults to polling.
 	FetchMode FetchMode
 	// ErrorStrategy determines how errors are handled (fail or fallback). Defaults to fail.

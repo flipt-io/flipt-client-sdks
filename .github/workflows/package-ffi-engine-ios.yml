@@ -14,7 +14,7 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Generate token
         id: generate_token
@@ -134,7 +134,7 @@ jobs:
           tar -czvf /tmp/Sources/FliptEngineFFI.xcframework.tar.gz -C /tmp/Sources FliptEngineFFI.xcframework
 
       - name: Upload Release Assets (Tag)
-        uses: softprops/action-gh-release@v3.0.0
+        uses: softprops/action-gh-release@v3.0.3
         if: startsWith(inputs.release_tag, 'flipt-engine-ffi-v')
         with:
           tag_name: ${{ inputs.release_tag }}

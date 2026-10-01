@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "flipt-client"
-version = "1.4.1"
+version = "1.4.4"
 description = "Flipt Client Evaluation SDK"
 authors = [ "Flipt Devs <dev@flipt.io>",]
 readme = "README.md"
@@ -17,10 +17,10 @@ path = "ext/**/*"
 path = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.8,<4.0"
+python = ">=3.11,<4.0"
 pydantic = ">=1.10,<3.0"
 packaging = ">=24,<27"
 
 [tool.poetry.group.dev.dependencies]
-black = ">=23.11,<26.0"
-pytest = "^8.2.0"
+black = ">=23.11,<27.0"
+pytest = ">=8.2,<10.0"

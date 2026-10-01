@@ -951,11 +951,11 @@ unsafe extern "C" fn _destroy_string(ptr: *mut c_char) {
 
 /// This function should not be called unless an Engine is initiated. It provides a helper
 /// utility to retrieve an Engine instance for evaluation use.
-unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a mut Engine, FFIError> {
+unsafe fn get_engine<'a>(engine_ptr: *mut c_void) -> Result<&'a Engine, FFIError> {
     if engine_ptr.is_null() {
         Err(FFIError::NullPointer)
     } else {
-        Ok(&mut *(engine_ptr as *mut Engine))
+        Ok(&*(engine_ptr as *const Engine))
     }
 }
 
@@ -1268,6 +1268,87 @@ mod tests {
             );
 
             _destroy_string(result_ptr as *mut c_char);
+            _destroy_engine(engine_ptr);
+        }
+    }
+
+    #[test]
+    fn test_concurrent_evaluation_shared_engine() {
+        const THREADS: usize = 8;
+        const ITERATIONS: usize = 500;
+
+        let snapshot = r#"
+{
+    "version": 1,
+    "namespace": {
+        "key": "default",
+        "flags": {
+            "flag1": {
+                "key": "flag1",
+                "enabled": true,
+                "type": "VARIANT_FLAG_TYPE",
+                "description": "flag description"
+            },
+            "flag_boolean": {
+                "key": "flag_boolean",
+                "enabled": true,
+                "type": "BOOLEAN_FLAG_TYPE",
+                "description": "flag description"
+            }
+        },
+        "eval_rules": { "flag1": [], "flag_boolean": [] },
+        "eval_rollouts": { "flag1": [], "flag_boolean": [] },
+        "eval_distributions": {}
+    }
+}
+"#;
+        let encoded_snapshot = BASE64_STANDARD.encode(snapshot);
+        let opts = CString::new(format!(
+            r#"{{"url":"http://localhost:1","error_strategy":"fallback","update_interval":9999,"snapshot":"{encoded_snapshot}"}}"#
+        ))
+        .unwrap();
+
+        unsafe {
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            assert!(!engine_ptr.is_null());
+
+            let engine_addr = engine_ptr as usize;
+
+            let handles: Vec<_> = (0..THREADS)
+                .map(|t| {
+                    std::thread::spawn(move || {
+                        let ptr = engine_addr as *mut c_void;
+                        let variant_req =
+                            CString::new(r#"{"flag_key":"flag1","entity_id":"entity","context":{}}"#)
+                                .unwrap();
+                        let boolean_req = CString::new(
+                            r#"{"flag_key":"flag_boolean","entity_id":"entity","context":{}}"#,
+                        )
+                        .unwrap();
+                        let batch_req = CString::new(
+                            r#"[{"flag_key":"flag1","entity_id":"entity","context":{}},{"flag_key":"flag_boolean","entity_id":"entity","context":{}}]"#,
+                        )
+                        .unwrap();
+
+                        for i in 0..ITERATIONS {
+                            let result_ptr = match (t + i) % 5 {
+                                0 => _evaluate_variant(ptr, variant_req.as_ptr()),
+                                1 => _evaluate_boolean(ptr, boolean_req.as_ptr()),
+                                2 => _evaluate_batch(ptr, batch_req.as_ptr()),
+                                3 => _list_flags(ptr),
+                                _ => _get_snapshot(ptr),
+                            };
+                            assert!(!result_ptr.is_null());
+                            _destroy_string(result_ptr as *mut c_char);
+                        }
+                    })
+                })
+                .collect();
+
+            for handle in handles {
+                handle.join().expect("evaluation thread panicked");
+            }
+
             _destroy_engine(engine_ptr);
         }
     }
