@@ -127,25 +127,7 @@ export class FliptClient extends BaseFliptClient {
       }) as any
     });
 
-    eventSource.onmessage = (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
-        this.logger.debug('sse message:', data);
-        if (data.type === 'refetchEvaluation') {
-          this.refresh().catch((err) => {
-            this.logger.warn('sse refresh failed:', err);
-          });
-        }
-      } catch {
-        this.logger.warn('sse parse error:', event.data);
-      }
-    };
-
-    eventSource.onerror = (err) => {
-      this.logger.warn('sse error:', err);
-    };
-
-    this.eventSource = eventSource;
+    this.attachStream(eventSource);
   }
 
   private setupAutoRefresh(interval: number = 120_000): void {

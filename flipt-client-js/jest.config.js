@@ -4,6 +4,9 @@ export default {
   testEnvironment: 'node',
   extensionsToTreatAsEsm: ['.ts'],
   moduleNameMapper: {
+    // Unit tests run against src/ with the generated WASM glue stubbed out.
+    '^\\.\\./wasm/flipt_engine_wasm_js\\.js$': '<rootDir>/__tests__/stubs/wasm-js.js',
+    '^\\.\\./wasm/flipt_engine_wasm_js_bg\\.wasm$': '<rootDir>/__tests__/stubs/wasm-bg.js',
     '^(\\.{1,2}/.*)\\.js$': '$1'
   },
   transform: {

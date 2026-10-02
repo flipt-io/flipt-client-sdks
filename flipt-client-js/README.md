@@ -62,6 +62,8 @@ The `FliptClient` constructor accepts the following optional arguments:
   - `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
   - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
   - `updateInterval`: **Node.js Only** The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
+  - `fetchMode`: How the client receives flag state updates: `FetchMode.Polling` (default) or `FetchMode.Streaming`. See [Streaming](#streaming-server-sent-events).
+  - `logger`: An optional logger (`debug`, `info`, `warn`, `error`) for diagnostics such as streaming events. Logging is disabled by default.
   - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
   - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
   - `snapshot`: A base64-encoded snapshot returned by `client.getSnapshot()`. When provided with `errorStrategy: ErrorStrategy.Fallback`, the client can initialize while offline and refresh from Flipt when the network becomes available.
@@ -215,11 +217,34 @@ const client = await FliptClient.init({
 });
 ```
 
-Make sure to call the `close` method on the `FliptClient` class once you are done using it to stop the timer and clean up resources.
+Make sure to call the `close` method on the `FliptClient` class once you are done using it to stop the timer (or close the stream) and clean up resources.
 
 ```typescript
 client.close();
 ```
+
+### Streaming (Server-Sent Events)
+
+Instead of polling, the client can receive flag state updates in real time over [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events). The client refetches the flag state whenever the server signals a change, and again each time the stream reconnects so no updates are missed.
+
+```typescript
+import { FliptClient, FetchMode } from '@flipt-io/flipt-client-js';
+
+const client = await FliptClient.init({
+  url: 'http://localhost:8080',
+  fetchMode: FetchMode.Streaming,
+  logger: console // optional
+});
+```
+
+> [!NOTE]
+>
+> - In streaming mode `updateInterval` is ignored and no polling timer is started.
+> - **Browser:** the native `EventSource` cannot send custom headers, so `authentication` is not applied to the stream. Use cookie-based auth or a Flipt server that does not require authentication for the stream endpoint.
+> - **Node.js:** streaming uses the [`eventsource`](https://www.npmjs.com/package/eventsource) package, which requires Node.js 20 or later. Authentication headers are sent with the stream request.
+> - `EventSource` reconnects automatically after transient errors. If the connection is closed permanently, the client logs an error (via `logger`) and keeps serving the last known flag state.
+
+Call `close()` when you are done with the client to close the stream.
 
 ## ETag Support
 

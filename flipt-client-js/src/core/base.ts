@@ -21,6 +21,15 @@ import { deserialize, serialize } from './utils';
 
 export type FliptClient = BaseFliptClient;
 
+/** The subset of the EventSource API used by the client (browser and `eventsource` package). */
+export interface StreamSource {
+  readyState: number;
+  onopen: ((event: any) => void) | null;
+  onmessage: ((event: any) => void) | null;
+  onerror: ((event: any) => void) | null;
+  close(): void;
+}
+
 const noopLogger: Logger = {
   debug: () => {},
   info: () => {},
@@ -34,8 +43,9 @@ export abstract class BaseFliptClient {
   protected etag?: string;
   protected errorStrategy?: ErrorStrategy;
   protected hook?: Hook;
-  protected eventSource?: any;
+  protected eventSource?: StreamSource;
   protected logger: Logger = noopLogger;
+
   constructor(engine: any, fetcher: IFetcher) {
     this.engine = engine;
     this.fetcher = fetcher;
@@ -46,6 +56,46 @@ export abstract class BaseFliptClient {
    */
   public close(): void {
     this.closeEventSource();
+  }
+
+  /**
+   * Wire up SSE handlers shared by the browser and Node clients.
+   * EventSource reconnects on its own after transient errors; on every
+   * (re)open we refresh so updates missed while disconnected are picked up.
+   */
+  protected attachStream(eventSource: StreamSource): void {
+    eventSource.onopen = () => {
+      this.logger.debug('sse connected');
+      this.refreshFromStream();
+    };
+
+    eventSource.onmessage = (event: { data: string }) => {
+      try {
+        const data = JSON.parse(event.data);
+        this.logger.debug('sse message:', data);
+        if (data.type === 'refetchEvaluation') {
+          this.refreshFromStream();
+        }
+      } catch {
+        this.logger.warn('sse parse error:', event.data);
+      }
+    };
+
+    eventSource.onerror = (err: unknown) => {
+      if (eventSource.readyState === 2 /* CLOSED */) {
+        this.logger.error('sse connection closed, no further updates:', err);
+      } else {
+        this.logger.warn('sse error, reconnecting:', err);
+      }
+    };
+
+    this.eventSource = eventSource;
+  }
+
+  private refreshFromStream(): void {
+    this.refresh().catch((err) => {
+      this.logger.warn('sse refresh failed:', err);
+    });
   }
 
   protected closeEventSource(): void {
