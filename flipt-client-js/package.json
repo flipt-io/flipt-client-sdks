@@ -109,7 +109,7 @@
     "undici": "^8.0.2"
   },
   "engines": {
-    "node": ">=14"
+    "node": ">=20"
   },
   "publishConfig": {
     "access": "public"
