@@ -105,7 +105,7 @@ const nodeConfig = {
     typescript(tsConfig),
     copyWasmFiles() // Add our dummy WASM creator
   ],
-  external: ['node-fetch']
+  external: ['node-fetch', 'eventsource']
 };
 
 // Slim configuration that doesn't bundle the WASM file
