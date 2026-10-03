@@ -118,13 +118,11 @@ export class FliptClient extends BaseFliptClient {
     const authHeaders = { ...baseHeaders, Accept: 'text/event-stream' };
 
     const eventSource = new EventSource(url, {
-      fetch: (async (input: any, init: any) => {
-        init.headers = {
-          ...init.headers,
-          ...authHeaders
-        };
-        return fetch(input, init);
-      }) as any
+      fetch: ((input: any, init: any) =>
+        fetch(input, {
+          ...init,
+          headers: { ...init?.headers, ...authHeaders }
+        })) as any
     });
 
     this.attachStream(eventSource);
