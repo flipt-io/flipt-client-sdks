@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install mise
-        uses: jdx/mise-action@v5.0.0
+        uses: jdx/mise-action@v5.1.1
 
       - name: Run Integration Tests (${{ matrix.group }})
         run: |
@@ -50,7 +50,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install mise
-        uses: jdx/mise-action@v5.0.0
+        uses: jdx/mise-action@v5.1.1
 
       - name: Run Integration Tests (${{ matrix.sdk }})
         run: |
