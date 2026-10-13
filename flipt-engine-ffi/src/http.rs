@@ -513,7 +513,10 @@ impl HTTPFetcher {
                 Some(request_timeout) => tokio::time::timeout(request_timeout, send)
                     .await
                     .map_err(|_| {
-                        Error::Server("timed out waiting for stream response headers".into())
+                        Error::Server(format!(
+                            "no stream response within {}s; Flipt sends none for a namespace without a snapshot",
+                            request_timeout.as_secs()
+                        ))
                     })?,
                 None => send.await,
             };
