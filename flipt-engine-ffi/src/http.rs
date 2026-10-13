@@ -514,8 +514,8 @@ impl HTTPFetcher {
                     .await
                     .map_err(|_| {
                         Error::Server(format!(
-                            "no stream response within {}s; Flipt sends none for a namespace without a snapshot",
-                            request_timeout.as_secs()
+                            "no stream headers within {:?} for env `{}` ns `{}` (Flipt sends none until a snapshot exists; otherwise server/network stalled)",
+                            request_timeout, self.environment, self.namespace
                         ))
                     })?,
                 None => send.await,
