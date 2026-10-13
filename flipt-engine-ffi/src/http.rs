@@ -538,7 +538,20 @@ impl HTTPFetcher {
         stop_signal: &Arc<AtomicBool>,
         stop_notify: &Arc<Notify>,
     ) -> Result<(), Error> {
-        let stream_result = self.fetch_stream().await;
+        // Enable the notification before checking the flag: notify_waiters()
+        // stores no permit, so a stop sent while waiting for response headers
+        // would otherwise be lost and close() would block forever.
+        let stop_notified = stop_notify.notified();
+        tokio::pin!(stop_notified);
+        stop_notified.as_mut().enable();
+        if stop_signal.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+
+        let stream_result = tokio::select! {
+            result = self.fetch_stream() => result,
+            _ = &mut stop_notified => return Ok(()),
+        };
 
         match stream_result {
             Ok(Some(resp)) => {
@@ -563,12 +576,12 @@ impl HTTPFetcher {
                     });
 
                 loop {
+                    let stop_notified = stop_notify.notified();
+                    tokio::pin!(stop_notified);
+                    stop_notified.as_mut().enable();
                     if stop_signal.load(Ordering::Relaxed) {
                         return Ok(());
                     }
-
-                    let stop_notified = stop_notify.notified();
-                    tokio::pin!(stop_notified);
 
                     tokio::select! {
                         value = stream.next() => {
@@ -976,6 +989,43 @@ mod tests {
         );
 
         mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_streaming_stop_while_waiting_for_headers() {
+        // A server that accepts the connection but never sends response headers,
+        // as Flipt v2 does for a namespace without a snapshot.
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let held = tokio::spawn(async move {
+            let mut connections = Vec::new();
+            loop {
+                let (socket, _) = listener.accept().await.unwrap();
+                connections.push(socket);
+            }
+        });
+
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
+            .authentication(Authentication::None)
+            .mode(FetchMode::Streaming)
+            .build()
+            .unwrap();
+
+        let stop_signal = Arc::new(AtomicBool::new(false));
+        let stop_notify = Arc::new(Notify::new());
+        let mut rx = fetcher.start(stop_signal.clone(), stop_notify.clone());
+
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        stop_signal.store(true, Ordering::Relaxed);
+        stop_notify.notify_waiters();
+
+        // The fetcher task drops its sender when it exits.
+        let exited = tokio::time::timeout(std::time::Duration::from_secs(5), rx.recv()).await;
+        assert!(
+            matches!(exited, Ok(None)),
+            "streaming fetcher did not stop while waiting for response headers"
+        );
+        held.abort();
     }
 
     #[tokio::test]
