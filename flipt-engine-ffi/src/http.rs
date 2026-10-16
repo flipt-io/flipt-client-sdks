@@ -103,6 +103,7 @@ pub struct HTTPFetcher {
     auth_sender: Option<watch::Sender<HeaderMap>>,
     etag: Option<String>,
     reference: Option<String>,
+    request_timeout: Duration,
     update_interval: Duration,
     mode: FetchMode,
 }
@@ -118,6 +119,7 @@ impl Clone for HTTPFetcher {
             auth_sender: None,
             etag: self.etag.clone(),
             reference: self.reference.clone(),
+            request_timeout: self.request_timeout,
             update_interval: self.update_interval,
             mode: self.mode.clone(),
         }
@@ -130,7 +132,7 @@ pub struct HTTPFetcherBuilder {
     namespace: Option<String>,
     authentication: HeaderMap,
     reference: Option<String>,
-    request_timeout: Option<Duration>,
+    request_timeout: Duration,
     update_interval: Duration,
     mode: FetchMode,
     tls_config: Option<TlsConfig>,
@@ -143,11 +145,61 @@ struct StreamChunk {
 
 static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
-/// Default overall request timeout for polling mode. Used as the builder's
-/// initial `request_timeout` so a stalled HTTP response (connection established,
-/// body never completes) cannot block the refresher forever. `connect_timeout`
-/// does not cover this case. See #1926.
-const DEFAULT_POLLING_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+/// Default overall request timeout for polling and streaming. Used as the
+/// builder's initial `request_timeout` so a stalled HTTP response (connection
+/// established, body never completes) cannot block the refresher forever.
+/// `connect_timeout` does not cover this case. See #1926.
+///
+/// In streaming mode this bounds only the wait for response headers on each
+/// reconnect; under `ErrorStrategy::Fail` a reconnect that gets no response
+/// within this timeout replaces the snapshot with an error.
+const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Bounds for the streaming reconnect backoff, mirroring the
+/// `RetryTransientMiddleware` retry bounds used for polling.
+const STREAM_BACKOFF_MIN: Duration = Duration::from_secs(1);
+const STREAM_BACKOFF_MAX: Duration = Duration::from_secs(30);
+
+/// Reconnect delay after `failures` consecutive stream failures.
+/// Mirrors the retry policy: `min(30s, 1s * 2^(failures-1))` with Full jitter
+/// (uniform in `[0, interval]`), so a fast terminal error (e.g. 404, which the
+/// retry middleware does not retry) cannot spin the reconnect loop.
+fn stream_backoff(failures: u32, jitter_state: &mut u64) -> Duration {
+    let shift = failures.saturating_sub(1).min(5);
+    let interval = STREAM_BACKOFF_MIN
+        .saturating_mul(1 << shift)
+        .min(STREAM_BACKOFF_MAX);
+    full_jitter(interval, jitter_state)
+}
+
+/// Uniform delay in `[0, interval]`. A small splitmix64 stepper instead of a
+/// dependency: backoff spreading needs no cryptographic randomness. Seeded
+/// once per streaming task so separate processes diverge.
+fn full_jitter(interval: Duration, state: &mut u64) -> Duration {
+    *state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    let mut z = *state;
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    let r = z ^ (z >> 31);
+    interval.mul_f64(r as f64 / u64::MAX as f64)
+}
+
+/// Sleep for `delay`, returning early if stopped. The caller (`start()`'s
+/// loop) owns the stop-vs-reconnect decision, so no return value is needed.
+async fn sleep_or_stop(stop_signal: &Arc<AtomicBool>, stop_notify: &Arc<Notify>, delay: Duration) {
+    // Same ordering as in `handle_streaming`: register first so a stop
+    // arriving between the flag check and the select! is not lost.
+    let notified = stop_notify.notified();
+    tokio::pin!(notified);
+    notified.as_mut().enable();
+    if stop_signal.load(Ordering::Relaxed) {
+        return;
+    }
+    tokio::select! {
+        _ = tokio::time::sleep(delay) => {},
+        _ = &mut notified => {},
+    }
+}
 
 /// Logging middleware that logs each request attempt
 #[derive(Debug, Clone, Default)]
@@ -211,9 +263,9 @@ impl HTTPFetcherBuilder {
             authentication: HeaderMap::new(),
             reference: None,
             // Default to an overall request timeout so a stalled response cannot
-            // block the polling refresher forever (#1926). Callers can override
-            // via `request_timeout`.
-            request_timeout: Some(DEFAULT_POLLING_REQUEST_TIMEOUT),
+            // block the refresher forever (#1926). Applies to polling and to the
+            // streaming header wait. Callers can override via `request_timeout`.
+            request_timeout: DEFAULT_REQUEST_TIMEOUT,
             update_interval: Duration::from_secs(120),
             mode: FetchMode::default(),
             tls_config: None,
@@ -241,8 +293,8 @@ impl HTTPFetcherBuilder {
     }
 
     pub fn request_timeout(mut self, request_timeout: Duration) -> Self {
-        if request_timeout.as_secs() > 0 {
-            self.request_timeout = Some(request_timeout);
+        if !request_timeout.is_zero() {
+            self.request_timeout = request_timeout;
         }
         self
     }
@@ -279,9 +331,7 @@ impl HTTPFetcherBuilder {
 
         match self.mode {
             FetchMode::Polling => {
-                if let Some(request_timeout) = self.request_timeout {
-                    client_builder = client_builder.timeout(request_timeout);
-                }
+                client_builder = client_builder.timeout(self.request_timeout);
             }
             FetchMode::Streaming => {
                 client_builder = client_builder
@@ -315,6 +365,7 @@ impl HTTPFetcherBuilder {
             auth_sender: Some(auth_sender),
             etag: None,
             reference: self.reference,
+            request_timeout: self.request_timeout,
             update_interval: self.update_interval,
             mode: self.mode,
         })
@@ -322,6 +373,17 @@ impl HTTPFetcherBuilder {
 }
 
 type FetchResult = Result<source::Document, Error>;
+
+/// What one `handle_streaming` episode did, so `start()` can manage the
+/// reconnect backoff.
+enum StreamOutcome {
+    /// Stop was requested; exit the task.
+    Stopped,
+    /// Episode ended; back off, then reconnect. `had_docs` reports whether
+    /// any valid document was forwarded (a productive connection reconnects
+    /// quickly; a barren one backs off harder).
+    Reconnect { had_docs: bool },
+}
 
 impl HTTPFetcher {
     /// Take the auth sender out of the fetcher. Returns `None` if already taken or if this is a clone.
@@ -341,6 +403,15 @@ impl HTTPFetcher {
         let update_interval = fetcher.update_interval;
         // Clone for move into async
         let stop_notify_clone = stop_notify.clone();
+        // Consecutive failed streaming episodes; reset whenever an episode
+        // forwards a valid document.
+        let mut stream_failures: u32 = 0;
+        // Jitter state for the reconnect backoff, seeded once per task so
+        // separate processes diverge.
+        let mut jitter_state: u64 = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.subsec_nanos() as u64 ^ d.as_secs())
+            .unwrap_or(0x853C_9E59_7A3C_4327);
 
         tokio::spawn(async move {
             while !stop_signal.load(Ordering::Relaxed) {
@@ -371,16 +442,30 @@ impl HTTPFetcher {
                         }
                     }
                     FetchMode::Streaming => {
-                        if let Err(e) = fetcher
+                        match fetcher
                             .handle_streaming(&tx, &stop_signal, &stop_notify_clone)
                             .await
                         {
-                            log::warn!("error fetching streaming: {e}");
-                            break;
-                        }
-                        // If handle_streaming returns without error, the stream was closed or stop_signal was set
-                        if stop_signal.load(Ordering::Relaxed) {
-                            return;
+                            Err(e) => {
+                                log::warn!("error fetching streaming: {e}");
+                                break;
+                            }
+                            Ok(StreamOutcome::Stopped) => return,
+                            Ok(StreamOutcome::Reconnect { had_docs }) => {
+                                if had_docs {
+                                    stream_failures = 0;
+                                }
+                                stream_failures = stream_failures.saturating_add(1);
+                                sleep_or_stop(
+                                    &stop_signal,
+                                    &stop_notify_clone,
+                                    stream_backoff(stream_failures, &mut jitter_state),
+                                )
+                                .await;
+                                if stop_signal.load(Ordering::Relaxed) {
+                                    return;
+                                }
+                            }
                         }
                     }
                 }
@@ -455,13 +540,15 @@ impl HTTPFetcher {
         };
 
         log::debug!("making HTTP request to: {url}");
-        match self
-            .http_client
-            .get(&url)
-            .headers(self.build_headers())
-            .send()
-            .await
-        {
+        let mut request = self.http_client.get(&url).headers(self.build_headers());
+        // Streaming mode has no client-wide timeout (it would cut long-lived
+        // streams), so bound this short snapshot request on its own. Otherwise
+        // the initial fetch blocks forever against a server that never responds.
+        // Note: this per-request timeout applies to each retry attempt, so a
+        // fully retried fetch can take ~4 x timeout + backoff, unlike the
+        // streaming header wait below which bounds all retries together.
+        request = request.timeout(self.request_timeout);
+        match request.send().await {
             Ok(response) => match response.error_for_status() {
                 Ok(response) => match response.status() {
                     reqwest::StatusCode::NOT_MODIFIED => Ok(None),
@@ -496,13 +583,25 @@ impl HTTPFetcher {
             self.base_url, self.environment, self.namespace
         );
 
-        match self
+        let send = self
             .http_client
             .get(url)
             .headers(self.build_headers())
-            .send()
+            .send();
+        // send() resolves once response headers arrive, so this bounds only the
+        // header wait, never the long-lived body. Unlike the per-attempt timeout
+        // in fetch() above, this single timeout covers all retries together.
+        // Flipt v2 sends no headers for a namespace without a snapshot; on
+        // timeout the caller reconnects.
+        let sent = tokio::time::timeout(self.request_timeout, send)
             .await
-        {
+            .map_err(|_| {
+                Error::Server(format!(
+                    "no stream response within {:?} for env `{}` ns `{}`",
+                    self.request_timeout, self.environment, self.namespace
+                ))
+            })?;
+        match sent {
             Ok(response) => response
                 .error_for_status()
                 .map_err(|e| Error::Server(format!("response: {e}")))
@@ -537,8 +636,22 @@ impl HTTPFetcher {
         sender: &mpsc::Sender<Result<source::Document, Error>>,
         stop_signal: &Arc<AtomicBool>,
         stop_notify: &Arc<Notify>,
-    ) -> Result<(), Error> {
-        let stream_result = self.fetch_stream().await;
+    ) -> Result<StreamOutcome, Error> {
+        // Create the Notified future before checking the flag: notify_waiters()
+        // stores no permit, so a stop arriving between the check and the
+        // select! below would otherwise be lost and close() would block
+        // forever while waiting for response headers.
+        let stop_notified = stop_notify.notified();
+        tokio::pin!(stop_notified);
+        stop_notified.as_mut().enable();
+        if stop_signal.load(Ordering::Relaxed) {
+            return Ok(StreamOutcome::Stopped);
+        }
+
+        let stream_result = tokio::select! {
+            result = self.fetch_stream() => result,
+            _ = &mut stop_notified => return Ok(StreamOutcome::Stopped),
+        };
 
         match stream_result {
             Ok(Some(resp)) => {
@@ -562,18 +675,22 @@ impl HTTPFetcher {
                         Err(err) => Err(err),
                     });
 
+                let mut had_docs = false;
                 loop {
-                    if stop_signal.load(Ordering::Relaxed) {
-                        return Ok(());
-                    }
-
                     let stop_notified = stop_notify.notified();
                     tokio::pin!(stop_notified);
+                    stop_notified.as_mut().enable();
+                    if stop_signal.load(Ordering::Relaxed) {
+                        return Ok(StreamOutcome::Stopped);
+                    }
 
                     tokio::select! {
                         value = stream.next() => {
                             match value {
                                 Some(result) => {
+                                    if result.is_ok() {
+                                        had_docs = true;
+                                    }
                                     match sender.send(result).await {
                                         Ok(_) => continue,
                                         Err(e) => {
@@ -583,20 +700,29 @@ impl HTTPFetcher {
                                         }
                                     }
                                 }
-                                None => return Ok(()),
+                                // The stream closed cleanly. Report it for backoff:
+                                // a server that closes immediately would otherwise
+                                // hot-loop. Nothing is sent, so the last snapshot
+                                // is kept.
+                                None => return Ok(StreamOutcome::Reconnect { had_docs }),
                             }
                         }
                         _ = &mut stop_notified => {
-                            return Ok(());
+                            return Ok(StreamOutcome::Stopped);
                         }
                     }
                 }
             }
-            Ok(None) => Ok(()),
-            Err(e) => sender
-                .send(Err(e.clone()))
-                .await
-                .map_err(|_| Error::Internal("failed to send error".into())),
+            Ok(None) => Ok(StreamOutcome::Reconnect { had_docs: false }),
+            Err(e) => {
+                sender
+                    .send(Err(e.clone()))
+                    .await
+                    .map_err(|_| Error::Internal("failed to send error".into()))?;
+                // A fast terminal error (e.g. 404) is not retried by the retry
+                // middleware; the caller backs off before reconnecting.
+                Ok(StreamOutcome::Reconnect { had_docs: false })
+            }
         }
     }
 }
@@ -613,6 +739,7 @@ mod tests {
     use crate::http::Authentication;
     use crate::http::FetchMode;
     use crate::http::HTTPFetcherBuilder;
+    use crate::http::StreamOutcome;
     use tokio::sync::{mpsc, Notify};
 
     #[tokio::test]
@@ -834,7 +961,11 @@ mod tests {
         let result = fetcher
             .handle_streaming(&tx, &stop_signal, &stop_notify)
             .await;
-        assert!(result.is_ok());
+        // Two valid documents went out before the bad chunk and EOF.
+        assert!(matches!(
+            result,
+            Ok(StreamOutcome::Reconnect { had_docs: true })
+        ));
         mock.assert();
         assert!(rx.len() == 3);
         // check first result
@@ -978,6 +1109,191 @@ mod tests {
         mock.assert();
     }
 
+    /// Accepts connections and never responds; returns its URL.
+    async fn unresponsive_server() -> (String, tokio::task::JoinHandle<()>) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let handle = tokio::spawn(async move {
+            let mut connections = Vec::new();
+            loop {
+                let (socket, _) = listener.accept().await.unwrap();
+                connections.push(socket);
+            }
+        });
+        (url, handle)
+    }
+
+    #[tokio::test]
+    async fn test_streaming_stop_while_waiting_for_headers() {
+        // A server that accepts the connection but never sends response headers,
+        // as Flipt v2 does for a namespace without a snapshot.
+        let (url, held) = unresponsive_server().await;
+
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
+            .authentication(Authentication::None)
+            .mode(FetchMode::Streaming)
+            .build()
+            .unwrap();
+
+        let stop_signal = Arc::new(AtomicBool::new(false));
+        let stop_notify = Arc::new(Notify::new());
+        let mut rx = fetcher.start(stop_signal.clone(), stop_notify.clone());
+
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        stop_signal.store(true, Ordering::Relaxed);
+        stop_notify.notify_waiters();
+
+        // The fetcher task drops its sender when it exits.
+        let exited = tokio::time::timeout(std::time::Duration::from_secs(5), rx.recv()).await;
+        assert!(
+            matches!(exited, Ok(None)),
+            "streaming fetcher did not stop while waiting for response headers"
+        );
+        held.abort();
+    }
+
+    #[tokio::test]
+    async fn test_streaming_initial_fetch_is_bounded() {
+        let (url, held) = unresponsive_server().await;
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
+            .authentication(Authentication::None)
+            .mode(FetchMode::Streaming)
+            .request_timeout(std::time::Duration::from_secs(1))
+            .build()
+            .unwrap();
+
+        // Each attempt is bounded by request_timeout; retries add backoff.
+        let result =
+            tokio::time::timeout(std::time::Duration::from_secs(30), fetcher.initial_fetch()).await;
+        assert!(
+            matches!(result, Ok(Err(_))),
+            "streaming initial fetch did not time out against an unresponsive server"
+        );
+        held.abort();
+    }
+
+    #[tokio::test]
+    async fn test_streaming_reconnects_after_header_timeout() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        // First connection: never respond. Later connections: one stream chunk.
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move {
+            // Hold the first connection open without responding so the initial
+            // header wait times out; later connections get a snapshot.
+            let (_held, _) = listener.accept().await.unwrap();
+            loop {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut request = [0u8; 4096];
+                let _ = socket.read(&mut request).await;
+                let body = "{\"result\":{\"namespace\":{\"key\":\"default\"},\"flags\":[]}}\n";
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                let _ = socket.write_all(response.as_bytes()).await;
+            }
+        });
+
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
+            .authentication(Authentication::None)
+            .mode(FetchMode::Streaming)
+            .request_timeout(std::time::Duration::from_secs(1))
+            .build()
+            .unwrap();
+        let stop_signal = Arc::new(AtomicBool::new(false));
+        let stop_notify = Arc::new(Notify::new());
+        let mut rx = fetcher.start(stop_signal.clone(), stop_notify.clone());
+
+        let received = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            loop {
+                match rx.recv().await {
+                    Some(Ok(document)) => return document,
+                    Some(Err(_)) => continue, // the header timeout is reported, then retried
+                    None => panic!("fetcher exited"),
+                }
+            }
+        })
+        .await;
+        assert!(
+            received.is_ok(),
+            "streaming fetcher did not reconnect after a header timeout"
+        );
+
+        stop_signal.store(true, Ordering::Relaxed);
+        stop_notify.notify_waiters();
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn test_streaming_fast_errors_back_off() {
+        use std::sync::atomic::AtomicUsize;
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        // Every connection gets an immediate 404, which the retry middleware
+        // does not retry. Without reconnect backoff this spins at
+        // thousands of reconnects per second.
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let hits = Arc::new(AtomicUsize::new(0));
+        let counted = hits.clone();
+        let server = tokio::spawn(async move {
+            loop {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                counted.fetch_add(1, Ordering::Relaxed);
+                let mut request = [0u8; 4096];
+                let _ = socket.read(&mut request).await;
+                let response =
+                    "HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\nconnection: close\r\n\r\n";
+                let _ = socket.write_all(response.as_bytes()).await;
+            }
+        });
+
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
+            .authentication(Authentication::None)
+            .mode(FetchMode::Streaming)
+            .build()
+            .unwrap();
+        let stop_signal = Arc::new(AtomicBool::new(false));
+        let stop_notify = Arc::new(Notify::new());
+        let mut rx = fetcher.start(stop_signal.clone(), stop_notify.clone());
+
+        // Errors must still be forwarded while the backoff slows reconnects.
+        let mut errors = 0;
+        let end = tokio::time::Instant::now() + std::time::Duration::from_secs(3);
+        loop {
+            let now = tokio::time::Instant::now();
+            if now >= end {
+                break;
+            }
+            match tokio::time::timeout(end - now, rx.recv()).await {
+                Ok(Some(Err(_))) => errors += 1,
+                Ok(Some(Ok(_))) => panic!("unexpected snapshot from 404 server"),
+                Ok(None) => panic!("fetcher exited"),
+                Err(_) => break,
+            }
+        }
+        assert!(errors >= 1, "stream errors were not forwarded");
+
+        let hits = hits.load(Ordering::Relaxed);
+        assert!(
+            hits <= 20,
+            "streaming reconnects did not back off: {hits} requests in 3s"
+        );
+
+        // Close must stay prompt even mid-backoff.
+        stop_signal.store(true, Ordering::Relaxed);
+        stop_notify.notify_waiters();
+        let exited = tokio::time::timeout(std::time::Duration::from_secs(5), rx.recv()).await;
+        assert!(
+            matches!(exited, Ok(None)),
+            "streaming fetcher did not stop promptly during reconnect backoff"
+        );
+        server.abort();
+    }
+
     #[tokio::test]
     async fn test_auth_update_via_watch_channel() {
         let mut server = Server::new_async().await;
@@ -1034,14 +1350,28 @@ mod tests {
     // timeout so a polling client that never sets one still cannot be blocked
     // forever by a stalled response. Previously this defaulted to `None`.
     #[test]
+    fn test_full_jitter_stays_within_interval() {
+        use std::time::Duration;
+
+        let mut state: u64 = 0x1234_5678_9ABC_DEF0;
+        let interval = Duration::from_secs(8);
+        let mut seen_spread = false;
+        for _ in 0..100 {
+            let d = crate::http::full_jitter(interval, &mut state);
+            assert!(d <= interval, "jittered delay exceeded interval: {d:?}");
+            if d > Duration::ZERO && d < interval {
+                seen_spread = true;
+            }
+        }
+        assert!(seen_spread, "jitter never varied within the interval");
+    }
+
+    #[test]
     fn test_builder_defaults_request_timeout() {
-        use crate::http::DEFAULT_POLLING_REQUEST_TIMEOUT;
+        use crate::http::DEFAULT_REQUEST_TIMEOUT;
 
         let builder = HTTPFetcherBuilder::new("http://localhost:8080");
-        assert_eq!(
-            builder.request_timeout,
-            Some(DEFAULT_POLLING_REQUEST_TIMEOUT)
-        );
+        assert_eq!(builder.request_timeout, DEFAULT_REQUEST_TIMEOUT);
     }
 
     // End-to-end regression test for #1926: in polling mode a stalled response
