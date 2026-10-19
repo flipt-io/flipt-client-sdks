@@ -7,9 +7,6 @@ permissions:
   contents: write
   id-token: write
 
-env:
-  NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-
 jobs:
   build:
     uses: ./.github/workflows/package-ffi-sdks.yml

@@ -27,7 +27,6 @@ env:
   PYPI_API_KEY: ${{ secrets.PYPI_API_KEY }}
   PGP_PRIVATE_KEY: ${{ secrets.PGP_PRIVATE_KEY }}
   PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
-  NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
   MISE_EXPERIMENTAL: "1"
 
 jobs:
@@ -59,8 +58,18 @@ jobs:
           fi
           echo "PUB_TOKEN=$OIDC_TOKEN" >> $GITHUB_ENV
 
+      # Trusted publishing: nuget.org matches this reusable workflow's file name
+      # (package-ffi-sdks.yml), not the caller's. See NuGet/login#9.
+      - name: NuGet Login (OIDC)
+        if: ${{ inputs.sdks == 'csharp' }}
+        id: nuget_login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Build Individual SDK(s)
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+          NUGET_API_KEY: ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
         run: |
           dagger run go run ./package/ffi --sdks=${{ inputs.sdks }} --push=true --tag=${{ inputs.tag }} --engine-tag=${{ inputs.engine-tag }}
