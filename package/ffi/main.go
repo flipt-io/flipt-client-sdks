@@ -2,17 +2,20 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"maps"
+	"net/http"
 	"os"
-	"os/exec"
 	"strings"
 
 	"dagger.io/dagger"
 	"go.flipt.io/flipt/client-sdks/package/ffi/platform"
 	"go.flipt.io/flipt/client-sdks/package/ffi/sdks"
+	"golang.org/x/mod/semver"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -140,38 +143,61 @@ func args(args string, a ...any) []string {
 	return strings.Split(fmt.Sprintf(args, a...), " ")
 }
 
-func getLatestEngineTag() (string, error) {
-	// check if jq is installed
-	if _, err := exec.LookPath("jq"); err != nil {
-		return "", fmt.Errorf("jq is not installed")
-	}
+const engineTagPrefix = "flipt-engine-ffi-"
 
-	// check if curl is installed
-	if _, err := exec.LookPath("curl"); err != nil {
-		return "", fmt.Errorf("curl is not installed")
-	}
-
-	// use github api to get the latest release of the ffi engine
-	cmd := exec.Command("sh", "-c", `
-		curl -s "https://api.github.com/repos/flipt-io/flipt-client-sdks/releases" |
-		jq -r '.[] | select(.tag_name | startswith("flipt-engine-ffi-")) | .tag_name' |
-		sort -Vr |
-		head -n 1 |
-		sed "s/^flipt-engine-ffi-//"
-	`)
-
-	output, err := cmd.Output()
+// getLatestEngineTag returns the highest published ffi engine version (e.g. v0.21.4).
+// GITHUB_TOKEN is sent when set, since unauthenticated requests are rate limited.
+func getLatestEngineTag(ctx context.Context) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		"https://api.github.com/repos/flipt-io/flipt-client-sdks/releases?per_page=100", nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to get latest engine tag: %w", err)
+		return "", err
 	}
 
-	return strings.TrimSpace(string(output)), nil
+	req.Header.Set("Accept", "application/vnd.github+json")
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to list releases: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return "", fmt.Errorf("failed to list releases: %s: %s", resp.Status, strings.TrimSpace(string(body)))
+	}
+
+	var releases []struct {
+		TagName    string `json:"tag_name"`
+		Draft      bool   `json:"draft"`
+		Prerelease bool   `json:"prerelease"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
+		return "", fmt.Errorf("failed to decode releases: %w", err)
+	}
+
+	var latest string
+	for _, r := range releases {
+		if r.Draft || r.Prerelease || !strings.HasPrefix(r.TagName, engineTagPrefix) {
+			continue
+		}
+
+		version := strings.TrimPrefix(r.TagName, engineTagPrefix)
+		if semver.IsValid(version) && (latest == "" || semver.Compare(version, latest) > 0) {
+			latest = version
+		}
+	}
+
+	return latest, nil
 }
 
 func downloadFFI(ctx context.Context, client *dagger.Client, sdk sdks.SDK) error {
 	var err error
 	if engineTag == "" {
-		engineTag, err = getLatestEngineTag()
+		engineTag, err = getLatestEngineTag(ctx)
 		if err != nil {
 			return err
 		}

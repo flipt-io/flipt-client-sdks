@@ -4,6 +4,7 @@ go 1.26.1
 
 require (
 	dagger.io/dagger v0.21.9
+	golang.org/x/mod v0.33.0
 	golang.org/x/sync v0.20.0
 )
 
