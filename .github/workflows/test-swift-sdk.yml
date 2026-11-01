@@ -38,7 +38,7 @@ jobs:
 
   test:
     name: Integration Tests (Package FFI Engine)
-    runs-on: macos-14
+    runs-on: macos-latest
     if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
     timeout-minutes: 20
     steps:
@@ -185,7 +185,7 @@ jobs:
 
   test-prebuilt:
     name: Integration Tests (Released Engine)
-    runs-on: macos-14
+    runs-on: macos-latest
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != '' }}
     timeout-minutes: 20
     steps:
