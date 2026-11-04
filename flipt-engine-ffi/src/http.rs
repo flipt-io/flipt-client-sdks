@@ -480,12 +480,19 @@ impl HTTPFetcher {
         let response = self.fetch().await?;
 
         match response {
-            Some(resp) => {
-                let document = resp.json::<source::Document>().await.map_err(|e| {
-                    Error::InvalidJSON(format!("failed to parse response body: {e}"))
-                })?;
-                Ok(document)
-            }
+            Some(resp) => match resp.json::<source::Document>().await {
+                Ok(document) => Ok(document),
+                Err(e) => {
+                    // The snapshot was never applied, so the etag stored by
+                    // fetch() must not stick. Otherwise the polling task that
+                    // takes over this fetcher gets a 304 for flags it never
+                    // loaded and stays on the initial snapshot.
+                    self.etag = None;
+                    Err(Error::InvalidJSON(format!(
+                        "failed to parse response body: {e}"
+                    )))
+                }
+            },
             None => Err(Error::Server("no data received from server".into())),
         }
     }
@@ -553,8 +560,15 @@ impl HTTPFetcher {
                 Ok(response) => match response.status() {
                     reqwest::StatusCode::NOT_MODIFIED => Ok(None),
                     reqwest::StatusCode::OK => {
-                        if let Some(etag) = response.headers().get(reqwest::header::ETAG) {
-                            self.etag = Some(etag.to_str().unwrap().to_string());
+                        // Skip an etag that is not visible ASCII instead of
+                        // panicking on it; without a stored etag the next poll
+                        // simply downloads the full snapshot.
+                        if let Some(etag) = response
+                            .headers()
+                            .get(reqwest::header::ETAG)
+                            .and_then(|value| value.to_str().ok())
+                        {
+                            self.etag = Some(etag.to_string());
                         }
 
                         Ok(Some(response))
@@ -617,9 +631,15 @@ impl HTTPFetcher {
         let result = match self.fetch().await {
             Ok(Some(resp)) => match resp.json::<source::Document>().await {
                 Ok(doc) => Ok(doc),
-                Err(e) => Err(Error::InvalidJSON(format!(
-                    "failed to parse response body: {e}"
-                ))),
+                Err(e) => {
+                    // A failed body read must not advance the stored etag: the
+                    // old snapshot is still in use, so the next poll has to
+                    // download the full snapshot instead of getting a 304.
+                    self.etag = None;
+                    Err(Error::InvalidJSON(format!(
+                        "failed to parse response body: {e}"
+                    )))
+                }
             },
             Ok(None) => return Ok(()),
             Err(e) => Err(e),
@@ -846,6 +866,136 @@ mod tests {
         let result = fetcher.fetch().await;
 
         assert!(result.is_err());
+        assert_eq!(fetcher.etag, None);
+        mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_polling_parse_failure_clears_etag() {
+        let mut server = mockito::Server::new_async().await;
+        // Truncated body: the response is a valid 200, but the body fails to parse.
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("x-flipt-environment", "default")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_header("etag", "v2")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":["#)
+            .create_async()
+            .await;
+
+        let url = server.url();
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
+            .authentication(Authentication::None)
+            .build()
+            .unwrap();
+        fetcher.etag = Some("v1".to_string());
+
+        let (tx, mut rx) = mpsc::channel(1);
+        let result = fetcher.handle_polling(&tx).await;
+
+        assert!(result.is_ok());
+        assert!(rx.recv().await.unwrap().is_err());
+        assert_eq!(fetcher.etag, None);
+        mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_polling_retries_full_snapshot_after_parse_failure() {
+        let mut server = mockito::Server::new_async().await;
+
+        // Second poll must be unconditional: no If-None-Match header.
+        let next_mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("if-none-match", Matcher::Missing)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_header("etag", "v2")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .create_async()
+            .await;
+
+        // First poll returns a 200 with a new etag and a body that fails to parse.
+        let broken_mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_header("etag", "v2")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":["#)
+            .expect(1)
+            .create_async()
+            .await;
+
+        let url = server.url();
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
+            .authentication(Authentication::None)
+            .build()
+            .unwrap();
+        fetcher.etag = Some("v1".to_string());
+
+        let (tx, mut rx) = mpsc::channel(1);
+        assert!(fetcher.handle_polling(&tx).await.is_ok());
+        assert!(rx.recv().await.unwrap().is_err());
+        assert_eq!(fetcher.etag, None);
+
+        assert!(fetcher.handle_polling(&tx).await.is_ok());
+        let doc = rx.recv().await.unwrap().expect("valid doc");
+        assert_eq!("default", doc.namespace.key);
+        assert_eq!(fetcher.etag, Some("v2".to_string()));
+
+        broken_mock.assert();
+        next_mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_initial_fetch_parse_failure_clears_etag() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .match_header("x-flipt-environment", "default")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_header("etag", "v2")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":["#)
+            .create_async()
+            .await;
+
+        let url = server.url();
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
+            .authentication(Authentication::None)
+            .build()
+            .unwrap();
+        fetcher.etag = Some("v1".to_string());
+
+        let result = fetcher.initial_fetch().await;
+
+        assert!(result.is_err());
+        assert_eq!(fetcher.etag, None);
+        mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_http_fetch_invalid_etag_is_ignored() {
+        let mut server = mockito::Server::new_async().await;
+        // 0x80 is not visible ASCII, so the etag cannot be sent back as a header.
+        let mock = server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_header("etag", "\u{80}bad")
+            .with_body(r#"{"namespace": {"key": "default"}, "flags":[]}"#)
+            .create_async()
+            .await;
+
+        let url = server.url();
+        let mut fetcher = HTTPFetcherBuilder::new(&url)
+            .authentication(Authentication::None)
+            .build()
+            .unwrap();
+
+        let result = fetcher.fetch().await;
+
+        assert!(result.is_ok());
         assert_eq!(fetcher.etag, None);
         mock.assert();
     }
