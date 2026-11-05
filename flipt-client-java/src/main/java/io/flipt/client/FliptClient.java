@@ -5,6 +5,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.sun.jna.Callback;
+import com.sun.jna.CallbackThreadInitializer;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
@@ -16,10 +18,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import lombok.Builder;
 
@@ -38,6 +43,13 @@ import lombok.Builder;
  * var tlsClient = FliptClient.builder()
  *     .url("https://flipt.example.com")
  *     .tlsConfig(TlsConfig.builder().caCertFile("/path/to/ca.pem").build())
+ *     .build();
+ *
+ * // Get notified when flag state changes
+ * var listeningClient = FliptClient.builder()
+ *     .url("http://localhost:8080")
+ *     .fetchMode(FetchMode.STREAMING)
+ *     .onStateUpdate(this::refreshFlags)
  *     .build();
  * }</pre>
  *
@@ -85,6 +97,13 @@ public class FliptClient implements AutoCloseable {
 
   private final Pointer engine;
   private final ObjectMapper objectMapper;
+  // Strong reference: JNA frees the native trampoline once the Java callback is collected, and
+  // the engine would then call into freed memory.
+  private CLibrary.StateUpdateCallback stateUpdateCallback;
+  // Keeps registered callbacks reachable even if a client is dropped without close(): the engine
+  // keeps running and calling them, so collecting one would crash the JVM.
+  private static final Set<CLibrary.StateUpdateCallback> LIVE_CALLBACKS =
+      ConcurrentHashMap.newKeySet();
 
   public interface CLibrary extends Library {
     CLibrary INSTANCE = Native.load("fliptengine", CLibrary.class);
@@ -106,6 +125,14 @@ public class FliptClient implements AutoCloseable {
     void destroy_string(Pointer str);
 
     Pointer update_authentication(Pointer engine, String auth_json);
+
+    /** Called by the engine, on its own native thread, after it applies changed flag state. */
+    interface StateUpdateCallback extends Callback {
+      void invoke(Pointer userData);
+    }
+
+    Pointer set_state_update_callback(
+        Pointer engine, StateUpdateCallback callback, Pointer user_data);
   }
 
   @Builder
@@ -121,7 +148,8 @@ public class FliptClient implements AutoCloseable {
       FetchMode fetchMode,
       ErrorStrategy errorStrategy,
       String snapshot,
-      TlsConfig tlsConfig) {
+      TlsConfig tlsConfig,
+      Runnable onStateUpdate) {
     this.environment = environment != null ? environment : "default";
     this.namespace = namespace != null ? namespace : "default";
     this.url = url != null ? url : "http://localhost:8080";
@@ -173,6 +201,20 @@ public class FliptClient implements AutoCloseable {
     }
 
     this.engine = CLibrary.INSTANCE.initialize_engine(clientOptionsSerialized);
+
+    if (onStateUpdate != null) {
+      try {
+        registerStateUpdateCallback(onStateUpdate);
+      } catch (RuntimeException e) {
+        // The caller never gets a client to close, so tear the engine down here.
+        CLibrary.INSTANCE.destroy_engine(this.engine);
+        if (this.stateUpdateCallback != null) {
+          LIVE_CALLBACKS.remove(this.stateUpdateCallback);
+          this.stateUpdateCallback = null;
+        }
+        throw e;
+      }
+    }
 
     // Start auth refresh scheduler only for bounded leases (with expiry)
     if (this.authenticationProvider != null && this.currentExpiry != null) {
@@ -355,6 +397,42 @@ public class FliptClient implements AutoCloseable {
     }
   }
 
+  /**
+   * Registers {@code listener} with the engine. The listener runs on a dedicated engine thread
+   * after each change to flag state; updates that arrive while it runs are coalesced into a single
+   * follow-up call. It may evaluate flags or call {@link #close()}, but must not block for long.
+   * The client must be closed to release the listener.
+   */
+  private void registerStateUpdateCallback(Runnable listener) {
+    CLibrary.StateUpdateCallback callback =
+        userData -> {
+          if (this.closed.get()) {
+            return;
+          }
+          try {
+            listener.run();
+          } catch (Throwable t) {
+            // Never let an exception unwind into native code.
+            logger.log(Level.WARNING, "State update listener threw", t);
+          }
+        };
+    // Daemon so the engine thread never keeps the JVM alive; stay attached so each call doesn't
+    // pay for attaching the native thread to the JVM again.
+    Native.setCallbackThreadInitializer(
+        callback, new CallbackThreadInitializer(true, false, "flipt-state-update"));
+
+    // Hold the callback strongly before the engine can call it.
+    this.stateUpdateCallback = callback;
+    LIVE_CALLBACKS.add(callback);
+
+    Pointer response = CLibrary.INSTANCE.set_state_update_callback(this.engine, callback, null);
+    Result<Void> resp = this.readValue(response, new TypeReference<Result<Void>>() {});
+    if (!STATUS_SUCCESS.equals(resp.getStatus())) {
+      throw new FliptException.EvaluationException(
+          resp.getErrorMessage().orElse("Failed to register state update callback"));
+    }
+  }
+
   private void startAuthRefreshScheduler() {
     this.authScheduler =
         Executors.newSingleThreadScheduledExecutor(
@@ -439,7 +517,12 @@ public class FliptClient implements AutoCloseable {
       }
     }
     if (this.engine != null) {
+      // Waits for any in-flight state update callback; none runs after this returns.
       CLibrary.INSTANCE.destroy_engine(this.engine);
+    }
+    if (this.stateUpdateCallback != null) {
+      LIVE_CALLBACKS.remove(this.stateUpdateCallback);
+      this.stateUpdateCallback = null;
     }
   }
 

@@ -4,6 +4,13 @@
 #include <stdlib.h>
 
 /**
+ * Called by the engine after it applies new flag state. `user_data` is the
+ * pointer the host passed at registration, returned untouched.
+ * Nullable in C: passing NULL clears the registered callback.
+ */
+typedef void (*StateUpdateCallback)(void *user_data);
+
+/**
  * # Safety
  *
  * This function will initialize an Engine and return a pointer back to the caller.
@@ -114,6 +121,42 @@ const char *update_authentication_ffi(void *engine_ptr, const char *auth_json);
  * This function will update the authentication for the engine.
  */
 const char *update_authentication(void *engine_ptr, const char *auth_json);
+
+/**
+ * # Safety
+ *
+ * Registers `callback` to be called, with `user_data`, after the engine applies
+ * changed flag state. Pass a null callback to clear it. Callbacks run on a
+ * single engine-owned thread; bursts of updates are coalesced into one call.
+ * Initial state and transitions into an error state do not fire; recovering
+ * from an error does.
+ *
+ * A callback may evaluate flags and may call `destroy_engine`, but changing
+ * the callback from inside one returns an error. `user_data` must stay valid
+ * until the callback is cleared or `destroy_engine` returns. The callback
+ * must not unwind: a panic across this boundary aborts the process.
+ */
+const char *set_state_update_callback_ffi(void *engine_ptr,
+                                          StateUpdateCallback callback,
+                                          void *user_data);
+
+/**
+ * # Safety
+ *
+ * Registers `callback` to be called, with `user_data`, after the engine applies
+ * changed flag state. Pass a null callback to clear it. Callbacks run on a
+ * single engine-owned thread; bursts of updates are coalesced into one call.
+ * Initial state and transitions into an error state do not fire; recovering
+ * from an error does.
+ *
+ * A callback may evaluate flags and may call `destroy_engine`, but changing
+ * the callback from inside one returns an error. `user_data` must stay valid
+ * until the callback is cleared or `destroy_engine` returns. The callback
+ * must not unwind: a panic across this boundary aborts the process.
+ */
+const char *set_state_update_callback(void *engine_ptr,
+                                      StateUpdateCallback callback,
+                                      void *user_data);
 
 /**
  * # Safety

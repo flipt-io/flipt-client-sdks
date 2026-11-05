@@ -30,15 +30,20 @@ impl Evaluator<snapshot::Snapshot> {
         }
     }
 
-    pub fn replace_snapshot(&mut self, res: Result<snapshot::Snapshot, Error>) {
+    /// Replaces the current snapshot and reports whether the evaluable state
+    /// changed: a different snapshot, or recovery from an error state.
+    pub fn replace_snapshot(&mut self, res: Result<snapshot::Snapshot, Error>) -> bool {
         let _w_lock = self.mtx.write().unwrap();
         match res {
             Ok(snap) => {
+                let changed = self.error.is_some() || self.store != snap;
                 self.store = snap;
                 self.error = None;
+                changed
             }
             Err(err) => {
                 self.error = Some(err);
+                false
             }
         }
     }
