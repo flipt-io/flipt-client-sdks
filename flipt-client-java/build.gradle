@@ -33,6 +33,7 @@ dependencies {
     testAnnotationProcessor libs.lombok
     testImplementation platform(libs.junit.bom)
     testImplementation libs.junit.jupiter
+    testRuntimeOnly libs.junit.platform.launcher
     testImplementation 'org.skyscreamer:jsonassert:1.5.3'
 }
 
