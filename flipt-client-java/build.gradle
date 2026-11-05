@@ -4,7 +4,7 @@ plugins {
     id 'java-library'
     id 'maven-publish'
     id 'signing'
-    id "com.diffplug.spotless" version "8.10.2"
+    id "com.diffplug.spotless" version "8.10.4"
     id 'io.github.gradle-nexus.publish-plugin' version '2.0.0'
 }
 
@@ -33,6 +33,7 @@ dependencies {
     testAnnotationProcessor libs.lombok
     testImplementation platform(libs.junit.bom)
     testImplementation libs.junit.jupiter
+    testRuntimeOnly libs.junit.platform.launcher
     testImplementation 'org.skyscreamer:jsonassert:1.5.3'
 }
 
