@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -50,6 +51,11 @@ import lombok.Builder;
  *     .url("http://localhost:8080")
  *     .fetchMode(FetchMode.STREAMING)
  *     .onStateUpdate(this::refreshFlags)
+ *     .build();
+ *
+ * // Or subscribe while the client is running
+ * FliptClient.Subscription sub = client.addStateUpdateListener(this::refreshFlags);
+ * sub.close(); // unsubscribe
  *     .build();
  * }</pre>
  *
@@ -99,7 +105,11 @@ public class FliptClient implements AutoCloseable {
   private final ObjectMapper objectMapper;
   // Strong reference: JNA frees the native trampoline once the Java callback is collected, and
   // the engine would then call into freed memory.
-  private CLibrary.StateUpdateCallback stateUpdateCallback;
+  private volatile CLibrary.StateUpdateCallback stateUpdateCallback;
+  private final List<Runnable> stateUpdateListeners = new CopyOnWriteArrayList<>();
+  // Serializes the one-time engine registration against close(), so registration never touches a
+  // destroyed engine. Never held while calling into the engine's teardown.
+  private final Object stateUpdateLock = new Object();
   // Keeps registered callbacks reachable even if a client is dropped without close(): the engine
   // keeps running and calling them, so collecting one would crash the JVM.
   private static final Set<CLibrary.StateUpdateCallback> LIVE_CALLBACKS =
@@ -204,14 +214,10 @@ public class FliptClient implements AutoCloseable {
 
     if (onStateUpdate != null) {
       try {
-        registerStateUpdateCallback(onStateUpdate);
+        addStateUpdateListener(onStateUpdate);
       } catch (RuntimeException e) {
         // The caller never gets a client to close, so tear the engine down here.
         CLibrary.INSTANCE.destroy_engine(this.engine);
-        if (this.stateUpdateCallback != null) {
-          LIVE_CALLBACKS.remove(this.stateUpdateCallback);
-          this.stateUpdateCallback = null;
-        }
         throw e;
       }
     }
@@ -397,23 +403,80 @@ public class FliptClient implements AutoCloseable {
     }
   }
 
+  /** A registered state update listener. Closing it unsubscribes; closing twice is a no-op. */
+  public interface Subscription extends AutoCloseable {
+    @Override
+    void close();
+  }
+
   /**
-   * Registers {@code listener} with the engine. The listener runs on a dedicated engine thread
-   * after each change to flag state; updates that arrive while it runs are coalesced into a single
-   * follow-up call. It may evaluate flags or call {@link #close()}, but must not block for long.
-   * The client must be closed to release the listener.
+   * Adds a listener that is called after each change to flag state. Listeners can be added at any
+   * time; a new listener is only called for changes applied after it was added.
+   *
+   * <p>Listeners run in the order they were added, on a dedicated engine thread. Updates that
+   * arrive while they run are coalesced into a single follow-up call. A listener may evaluate
+   * flags, add or remove listeners, or call {@link #close()}, but must not block for long. An
+   * exception thrown by one listener is logged and does not stop the others.
+   *
+   * <p>The client must be closed to release its listeners.
+   *
+   * @param listener the listener to call
+   * @return a subscription that removes the listener when closed
+   * @throws IllegalStateException if the client is closed
    */
-  private void registerStateUpdateCallback(Runnable listener) {
+  public Subscription addStateUpdateListener(Runnable listener) {
+    if (listener == null) {
+      throw new IllegalArgumentException("listener is required");
+    }
+    if (this.closed.get()) {
+      throw new IllegalStateException("client is closed");
+    }
+    // A distinct wrapper per call, so adding the same Runnable twice yields two independent
+    // subscriptions.
+    Runnable entry = listener::run;
+    this.stateUpdateListeners.add(entry);
+    try {
+      ensureStateUpdateCallback();
+    } catch (RuntimeException e) {
+      this.stateUpdateListeners.remove(entry);
+      throw e;
+    }
+    return () -> this.stateUpdateListeners.remove(entry);
+  }
+
+  /**
+   * Registers the single engine callback that fans out to all listeners, on first use. Once
+   * registered it stays registered until close(), so adding or removing listeners never calls into
+   * the engine, including from inside a listener.
+   */
+  private void ensureStateUpdateCallback() {
+    if (this.stateUpdateCallback != null) {
+      return;
+    }
+    synchronized (this.stateUpdateLock) {
+      if (this.stateUpdateCallback != null) {
+        return;
+      }
+      if (this.closed.get()) {
+        throw new IllegalStateException("client is closed");
+      }
+      registerStateUpdateCallback();
+    }
+  }
+
+  private void registerStateUpdateCallback() {
     CLibrary.StateUpdateCallback callback =
         userData -> {
-          if (this.closed.get()) {
-            return;
-          }
-          try {
-            listener.run();
-          } catch (Throwable t) {
-            // Never let an exception unwind into native code.
-            logger.log(Level.WARNING, "State update listener threw", t);
+          for (Runnable listener : this.stateUpdateListeners) {
+            if (this.closed.get()) {
+              return;
+            }
+            try {
+              listener.run();
+            } catch (Throwable t) {
+              // Never let an exception unwind into native code.
+              logger.log(Level.WARNING, "State update listener threw", t);
+            }
           }
         };
     // Daemon so the engine thread never keeps the JVM alive; stay attached so each call doesn't
@@ -422,15 +485,17 @@ public class FliptClient implements AutoCloseable {
         callback, new CallbackThreadInitializer(true, false, "flipt-state-update"));
 
     // Hold the callback strongly before the engine can call it.
-    this.stateUpdateCallback = callback;
     LIVE_CALLBACKS.add(callback);
 
     Pointer response = CLibrary.INSTANCE.set_state_update_callback(this.engine, callback, null);
     Result<Void> resp = this.readValue(response, new TypeReference<Result<Void>>() {});
     if (!STATUS_SUCCESS.equals(resp.getStatus())) {
+      // The engine never took it, so it is safe to let it go.
+      LIVE_CALLBACKS.remove(callback);
       throw new FliptException.EvaluationException(
           resp.getErrorMessage().orElse("Failed to register state update callback"));
     }
+    this.stateUpdateCallback = callback;
   }
 
   private void startAuthRefreshScheduler() {
@@ -516,6 +581,10 @@ public class FliptClient implements AutoCloseable {
         this.authScheduler.shutdownNow();
       }
     }
+    // Wait out a registration already in progress; later ones see closed and give up. The lock is
+    // released before destroy_engine, which may wait on a listener that adds another listener.
+    synchronized (this.stateUpdateLock) {
+    }
     if (this.engine != null) {
       // Waits for any in-flight state update callback; none runs after this returns.
       CLibrary.INSTANCE.destroy_engine(this.engine);
@@ -524,6 +593,7 @@ public class FliptClient implements AutoCloseable {
       LIVE_CALLBACKS.remove(this.stateUpdateCallback);
       this.stateUpdateCallback = null;
     }
+    this.stateUpdateListeners.clear();
   }
 
   private <T> T readValue(Pointer ptr, TypeReference<T> typeRef) {

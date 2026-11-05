@@ -213,6 +213,85 @@ public class StateUpdateListenerTest {
   }
 
   @Test
+  void testAddAndRemoveListenerWhileRunning() throws Exception {
+    AtomicInteger first = new AtomicInteger();
+    AtomicInteger second = new AtomicInteger();
+    CountDownLatch firstFired = new CountDownLatch(1);
+    CountDownLatch secondFired = new CountDownLatch(2);
+
+    try (FliptClient client = builder().fetchMode(FetchMode.STREAMING).build()) {
+      FliptClient.Subscription sub =
+          client.addStateUpdateListener(
+              () -> {
+                first.incrementAndGet();
+                firstFired.countDown();
+              });
+      client.addStateUpdateListener(
+          () -> {
+            second.incrementAndGet();
+            secondFired.countDown();
+          });
+
+      streamDocs.put(WITH_FLAG);
+      Assertions.assertTrue(firstFired.await(5, TimeUnit.SECONDS), "first did not fire");
+
+      // After unsubscribing, only the remaining listener sees the next change.
+      sub.close();
+      sub.close();
+      streamDocs.put(EMPTY);
+      Assertions.assertTrue(secondFired.await(5, TimeUnit.SECONDS), "second did not fire twice");
+      Assertions.assertEquals(1, first.get());
+      Assertions.assertEquals(2, second.get());
+    }
+  }
+
+  @Test
+  void testAddListenerFromInsideListener() throws Exception {
+    AtomicReference<FliptClient> clientRef = new AtomicReference<>();
+    AtomicInteger outer = new AtomicInteger();
+    CountDownLatch innerFired = new CountDownLatch(1);
+
+    try (FliptClient client =
+        builder()
+            .fetchMode(FetchMode.STREAMING)
+            .onStateUpdate(
+                () -> {
+                  if (outer.incrementAndGet() == 1) {
+                    clientRef.get().addStateUpdateListener(innerFired::countDown);
+                  }
+                })
+            .build()) {
+      clientRef.set(client);
+
+      streamDocs.put(WITH_FLAG);
+      // The inner listener is added during this change; it only sees the next one.
+      Assertions.assertTrue(waitFor(() -> outer.get() == 1));
+      streamDocs.put(EMPTY);
+      Assertions.assertTrue(innerFired.await(5, TimeUnit.SECONDS), "inner did not fire");
+    }
+  }
+
+  @Test
+  void testAddListenerAfterCloseThrows() {
+    FliptClient client = builder().build();
+    client.close();
+    Assertions.assertThrows(
+        IllegalStateException.class, () -> client.addStateUpdateListener(() -> {}));
+  }
+
+  private static boolean waitFor(java.util.function.BooleanSupplier cond)
+      throws InterruptedException {
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+    while (System.nanoTime() < deadline) {
+      if (cond.getAsBoolean()) {
+        return true;
+      }
+      Thread.sleep(20);
+    }
+    return cond.getAsBoolean();
+  }
+
+  @Test
   void testCloseStopsListener() throws Exception {
     AtomicInteger calls = new AtomicInteger();
     FliptClient client = builder().onStateUpdate(calls::incrementAndGet).build();

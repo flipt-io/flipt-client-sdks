@@ -151,7 +151,7 @@ struct StateUpdateDispatcher {
 impl StateUpdateDispatcher {
     /// Returns the dispatcher and the sender the fetch task signals on. The
     /// dispatcher thread exits once every sender is dropped.
-    fn spawn() -> (Self, SyncSender<()>) {
+    fn spawn() -> std::io::Result<(Self, SyncSender<()>)> {
         // Capacity 1 coalesces bursts: while a callback runs, any number of
         // updates collapse into a single follow-up call.
         let (tx, rx) = sync_channel::<()>(1);
@@ -179,11 +179,10 @@ impl StateUpdateDispatcher {
                         (registered.callback)(registered.user_data as *mut c_void);
                     }
                 }
-            })
-            .expect("failed to spawn callback thread");
+            })?;
 
         let thread_id = thread.thread().id();
-        (
+        Ok((
             Self {
                 slot,
                 stopped,
@@ -191,7 +190,7 @@ impl StateUpdateDispatcher {
                 thread_id,
             },
             tx,
-        )
+        ))
     }
 
     /// Guarantees no further callback starts. Safe to call from inside one.
@@ -239,7 +238,20 @@ pub struct Engine {
     fetcher_handle: Option<tokio::task::JoinHandle<()>>,
     stop_notify: Arc<Notify>,
     auth_sender: Option<watch::Sender<HeaderMap>>,
-    dispatcher: StateUpdateDispatcher,
+    // Spawned on the first callback registration, so engines that never
+    // register one don't pay for an extra OS thread.
+    dispatcher: OnceLock<StateUpdateDispatcher>,
+    dispatcher_init: Mutex<()>,
+    // Shared with the fetch task; None until a dispatcher exists. Taken (and
+    // so dropped) by destroy_engine to let the dispatcher thread exit.
+    update_tx: Arc<Mutex<Option<SyncSender<()>>>>,
+}
+
+fn lock_ignoring_poison<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    match m.lock() {
+        Ok(g) => g,
+        Err(p) => p.into_inner(),
+    }
 }
 
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
@@ -289,7 +301,8 @@ impl Engine {
 
         let handle = get_or_create_runtime();
 
-        let (dispatcher, update_tx) = StateUpdateDispatcher::spawn();
+        let update_tx: Arc<Mutex<Option<SyncSender<()>>>> = Arc::new(Mutex::new(None));
+        let update_tx_clone = update_tx.clone();
 
         // Set the initial snapshot
         if let Ok(mut lock) = evaluator.write() {
@@ -332,10 +345,12 @@ impl Engine {
                             Err(_) => false,
                         };
                         if changed {
-                            match update_tx.try_send(()) {
-                                Ok(()) | Err(TrySendError::Full(())) => {}
-                                Err(TrySendError::Disconnected(())) => {
-                                    log::warn!("state update dispatcher is gone");
+                            if let Some(tx) = lock_ignoring_poison(&update_tx_clone).as_ref() {
+                                match tx.try_send(()) {
+                                    Ok(()) | Err(TrySendError::Full(())) => {}
+                                    Err(TrySendError::Disconnected(())) => {
+                                        log::warn!("state update dispatcher is gone");
+                                    }
                                 }
                             }
                         }
@@ -358,8 +373,27 @@ impl Engine {
             fetcher_handle: Some(fetcher_handle),
             stop_notify,
             auth_sender,
-            dispatcher,
+            dispatcher: OnceLock::new(),
+            dispatcher_init: Mutex::new(()),
+            update_tx,
         }
+    }
+
+    /// Returns the dispatcher, spawning its thread on first use.
+    fn dispatcher(&self) -> Result<&StateUpdateDispatcher, Error> {
+        // Lock-free when it already exists, so a callback calling back in
+        // reaches set()'s reentrancy check instead of blocking here.
+        if let Some(d) = self.dispatcher.get() {
+            return Ok(d);
+        }
+        let _init = lock_ignoring_poison(&self.dispatcher_init);
+        if let Some(d) = self.dispatcher.get() {
+            return Ok(d);
+        }
+        let (d, tx) = StateUpdateDispatcher::spawn()
+            .map_err(|e| Error::Internal(format!("failed to spawn state update thread: {e}")))?;
+        *lock_ignoring_poison(&self.update_tx) = Some(tx);
+        Ok(self.dispatcher.get_or_init(|| d))
     }
 
     /// Registers, replaces, or (with `None`) clears the state update callback.
@@ -370,11 +404,15 @@ impl Engine {
         callback: StateUpdateCallback,
         user_data: *mut c_void,
     ) -> Result<(), Error> {
-        self.dispatcher
-            .set(callback.map(|callback| RegisteredCallback {
-                callback,
-                user_data: user_data as usize,
-            }))
+        let registered = callback.map(|callback| RegisteredCallback {
+            callback,
+            user_data: user_data as usize,
+        });
+        match (registered, self.dispatcher.get()) {
+            // Clearing when nothing was ever registered needs no thread.
+            (None, None) => Ok(()),
+            (registered, _) => self.dispatcher()?.set(registered),
+        }
     }
 
     /// Helper to lock the evaluator for reading and run a closure, mapping lock errors to Error::Internal
@@ -1157,22 +1195,25 @@ unsafe extern "C" fn _destroy_engine(engine_ptr: *mut c_void) {
     if engine_ptr.is_null() {
         return;
     }
-    let engine = Box::from_raw(engine_ptr as *mut Engine);
+    let mut engine = *Box::from_raw(engine_ptr as *mut Engine);
     engine.stop_signal.store(true, Ordering::Relaxed);
     // Notify the fetcher task to stop
     engine.stop_notify.notify_waiters();
     // Wait for fetcher task to exit
-    if let Some(handle) = engine.fetcher_handle {
+    if let Some(handle) = engine.fetcher_handle.take() {
         let rt = get_or_create_runtime();
         let _ = rt.block_on(handle);
     }
 
-    // The fetcher task owned the only sender, so the dispatcher thread exits
-    // after any in-flight callback. Joining guarantees no callback runs once
+    // Dropping the only sender lets the dispatcher thread exit after any
+    // in-flight callback. Joining guarantees no callback runs once
     // destroy_engine returns.
-    engine.dispatcher.stop();
-    let _ = engine.dispatcher.set(None);
-    engine.dispatcher.join();
+    if let Some(dispatcher) = engine.dispatcher.take() {
+        dispatcher.stop();
+        let _ = dispatcher.set(None);
+        drop(lock_ignoring_poison(&engine.update_tx).take());
+        dispatcher.join();
+    }
 
     // Engine is dropped here
 }
@@ -1528,7 +1569,7 @@ mod tests {
     #[test]
     fn test_dispatcher_invokes_registered_callback() {
         let counter = AtomicUsize::new(0);
-        let (dispatcher, tx) = StateUpdateDispatcher::spawn();
+        let (dispatcher, tx) = StateUpdateDispatcher::spawn().unwrap();
         dispatcher
             .set(Some(RegisteredCallback {
                 callback: count_calls,
@@ -1550,7 +1591,7 @@ mod tests {
     #[test]
     fn test_dispatcher_cleared_callback_is_not_invoked() {
         let counter = AtomicUsize::new(0);
-        let (dispatcher, tx) = StateUpdateDispatcher::spawn();
+        let (dispatcher, tx) = StateUpdateDispatcher::spawn().unwrap();
         dispatcher
             .set(Some(RegisteredCallback {
                 callback: count_calls,
@@ -1568,7 +1609,7 @@ mod tests {
     #[test]
     fn test_dispatcher_coalesces_bursts() {
         let counter = AtomicUsize::new(0);
-        let (dispatcher, tx) = StateUpdateDispatcher::spawn();
+        let (dispatcher, tx) = StateUpdateDispatcher::spawn().unwrap();
         dispatcher
             .set(Some(RegisteredCallback {
                 callback: count_calls,
@@ -1611,7 +1652,7 @@ mod tests {
 
     #[test]
     fn test_dispatcher_no_call_after_destroy_from_callback() {
-        let (dispatcher, tx) = StateUpdateDispatcher::spawn();
+        let (dispatcher, tx) = StateUpdateDispatcher::spawn().unwrap();
         let slot = dispatcher.slot.clone();
         let thread_done = dispatcher.stopped.clone();
         let state = Box::leak(Box::new(ReentrantDestroy {
@@ -1639,6 +1680,37 @@ mod tests {
         std::thread::sleep(Duration::from_millis(200));
         drop(slot);
         assert_eq!(state.calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn test_dispatcher_spawned_only_on_registration() {
+        let opts = CString::new(
+            r#"{"url":"http://localhost:1","error_strategy":"fallback","update_interval":9999}"#,
+        )
+        .unwrap();
+        let counter = AtomicUsize::new(0);
+        unsafe {
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            assert!(!engine_ptr.is_null());
+            let engine = get_engine(engine_ptr).unwrap();
+            assert!(engine.dispatcher.get().is_none());
+
+            // Clearing with nothing registered must not spawn the thread.
+            let r = _set_state_update_callback(engine_ptr, None, std::ptr::null_mut());
+            _destroy_string(r as *mut c_char);
+            assert!(engine.dispatcher.get().is_none());
+
+            let r = _set_state_update_callback(
+                engine_ptr,
+                Some(count_calls),
+                &counter as *const AtomicUsize as *mut c_void,
+            );
+            _destroy_string(r as *mut c_char);
+            assert!(engine.dispatcher.get().is_some());
+            assert!(lock_ignoring_poison(&engine.update_tx).is_some());
+
+            _destroy_engine(engine_ptr);
+        }
     }
 
     #[test]
