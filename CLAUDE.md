@@ -134,6 +134,27 @@ All SDKs support two modes for keeping flag state up-to-date:
    - Automatic reconnection on failure
    - Lower latency but requires persistent connection
 
+### State Update Callbacks (FFI)
+
+The FFI engine can notify a host after it applies changed flag state, via `set_state_update_callback(engine, callback, user_data)` (`set_state_update_callback_ffi` in the static musl build; see `wrapper.c`). The full contract is in the doc comment in `flipt-engine-ffi/src/lib.rs` and the generated `include/flipt_engine.h`. Java is the reference binding: `addStateUpdateListener` / `onStateUpdate` in `flipt-client-java/src/main/java/io/flipt/client/FliptClient.java`, tests in `StateUpdateListenerTest.java`.
+
+Engine guarantees to rely on, not reimplement:
+
+- Fires only when evaluable state actually changes (`Evaluator::replace_snapshot` returns `changed`). Initial state and transitions into an error state never fire; recovery from an error does.
+- Runs on one engine-owned thread, spawned lazily on first registration. Bursts are coalesced into one call.
+- Once `set_state_update_callback(NULL)` or `destroy_engine` returns, no callback is running and none will start. `destroy_engine` may be called from inside the callback.
+- Changing the callback from inside a callback returns an error (it would deadlock otherwise).
+
+When adding this to another language client, watch for:
+
+1. **Keep the native trampoline alive.** Most FFI layers (JNA, ctypes, Ruby FFI, P/Invoke delegates, Dart `NativeCallable`) free the function pointer when the host object is collected. Hold it strongly until after `destroy_engine` returns, including for clients that are never closed (Java uses a static set). A collected trampoline is a hard crash, not an exception.
+2. **Never unwind into the engine.** Catch every exception in the trampoline and log it. A panic or exception crossing the `extern "C"` boundary aborts the process.
+3. **Foreign threads.** The callback arrives on a native thread the host runtime didn't create. Check how the runtime handles that: Python needs the GIL (ctypes takes it), Dart must use `NativeCallable.listener` (not `isolateLocal`), Ruby needs `FFI::Function` with a callback thread, C# must keep the delegate referenced. Make the thread daemon/background so it never keeps the process alive.
+4. **Register once, fan out in the host.** Register one engine callback lazily and dispatch to a host-side listener list. This keeps add/remove (even from inside a listener) off the engine, and avoids the "change callback from inside callback" error.
+5. **Close ordering.** Mark the client closed, call `destroy_engine` (it waits for any in-flight callback), then release the trampoline reference. Don't hold a host lock across `destroy_engine` that a listener might need, or close-from-a-listener deadlocks.
+6. **Don't replay initial state.** Listeners only see changes applied after they were added; document that callers should read flags once on registration.
+7. **Tests to port** (see `StateUpdateListenerTest` and the `test_state_update_callback_*` / `test_dispatcher_*` Rust tests): unchanged poll doesn't fire; polled and streamed changes fire once; a repeated streamed document doesn't fire; evaluating inside the listener doesn't deadlock; a throwing listener doesn't break the client; `close()` from inside a listener; nothing fires after `close()`. Use a local HTTP server, not a live Flipt, so they run without Dagger.
+
 ## Development Workflow
 
 1. Changes to core evaluation logic go in `flipt-evaluation/`
