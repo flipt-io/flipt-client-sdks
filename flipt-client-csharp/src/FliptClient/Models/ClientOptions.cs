@@ -89,12 +89,12 @@ namespace FliptClient.Models
         Fallback,
     }
 
-    [JsonConverter(typeof(JsonStringEnumConverter))]
+    // The engine expects lowercase names. JsonStringEnumConverter ignores JsonPropertyName on enum
+    // members, so it would send "Streaming".
+    [JsonConverter(typeof(LowercaseEnumConverter<FetchMode>))]
     public enum FetchMode
     {
-        [JsonPropertyName("polling")]
         Polling,
-        [JsonPropertyName("streaming")]
         Streaming,
     }
 
