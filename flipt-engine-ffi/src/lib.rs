@@ -1783,8 +1783,6 @@ mod tests {
 
     #[test]
     fn test_state_update_callback_fires_on_streamed_change() {
-        use std::io::Write;
-
         const EMPTY: &str = r#"{"namespace":{"key":"default"},"flags":[]}"#;
         const WITH_FLAG: &str = r#"{"namespace":{"key":"default"},"flags":[{"key":"new_flag","name":"New","type":"BOOLEAN_FLAG_TYPE","enabled":true}]}"#;
 
