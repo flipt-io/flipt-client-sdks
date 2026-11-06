@@ -127,8 +127,8 @@ public class StateUpdateListenerTest {
   @Test
   void testListenerFiresOnStreamedChange() throws Exception {
     AtomicInteger calls = new AtomicInteger();
-    CountDownLatch fired = new CountDownLatch(1);
-    CountDownLatch barrierSeen = new CountDownLatch(1);
+    // One entry per finished call: the flag keys the listener saw.
+    BlockingQueue<String> seen = new LinkedBlockingQueue<>();
     AtomicReference<FliptClient> clientRef = new AtomicReference<>();
 
     FliptClient client =
@@ -137,13 +137,9 @@ public class StateUpdateListenerTest {
             .onStateUpdate(
                 () -> {
                   calls.incrementAndGet();
-                  fired.countDown();
-                  if (clientRef
-                      .get()
-                      .evaluateBoolean("barrier", "entity", new HashMap<>())
-                      .isEnabled()) {
-                    barrierSeen.countDown();
-                  }
+                  StringBuilder keys = new StringBuilder();
+                  clientRef.get().listFlags().forEach(f -> keys.append(f.getKey()));
+                  seen.offer(keys.toString());
                 })
             .build();
     clientRef.set(client);
@@ -154,16 +150,17 @@ public class StateUpdateListenerTest {
       Assertions.assertEquals(0, calls.get());
 
       streamDocs.put(WITH_FLAG);
-      Assertions.assertTrue(fired.await(5, TimeUnit.SECONDS), "listener did not fire");
+      Assertions.assertEquals("new_flag", seen.poll(5, TimeUnit.SECONDS), "first call");
       Assertions.assertTrue(
           client.evaluateBoolean("new_flag", "entity", new HashMap<>()).isEnabled());
 
-      // A resend of the same state, then a different barrier document. Once the barrier is seen
-      // the resend has been processed too. A spurious change could coalesce with the barrier, so
-      // the engine tests check the resend itself; this checks it didn't add a separate call.
+      // The first call has returned. Now a resend of the same state, then a different barrier
+      // document. The next call must already see the barrier: a call fired by the resend alone
+      // would still see new_flag. (A spurious change that coalesces with the barrier can't be told
+      // apart here; the engine tests cover that.)
       streamDocs.put(WITH_FLAG);
       streamDocs.put(BARRIER);
-      Assertions.assertTrue(barrierSeen.await(5, TimeUnit.SECONDS), "barrier not seen");
+      Assertions.assertEquals("barrier", seen.poll(5, TimeUnit.SECONDS), "second call");
       Assertions.assertEquals(2, calls.get());
     } finally {
       // Closing with the stream still open must not hang.
