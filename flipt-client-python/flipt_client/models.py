@@ -6,9 +6,9 @@ import os
 PYDANTIC_V2 = version.parse(pydantic.VERSION) >= version.parse("2.0.0")
 
 from enum import Enum
-from typing import List, Optional
+from typing import Callable, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 if PYDANTIC_V2:
     from pydantic import RootModel
@@ -134,6 +134,9 @@ class ClientOptions(BaseModel):
     tls_config: Optional[TlsConfig] = (
         None  #: TLS configuration for connecting to servers with custom certificates.
     )
+    #: Called with no arguments after the client applies changed flag state. Never sent to
+    #: the engine.
+    on_state_update: Optional[Callable[[], None]] = Field(default=None, exclude=True)
 
     if PYDANTIC_V2:
         from pydantic import field_serializer, field_validator

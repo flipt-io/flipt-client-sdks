@@ -93,7 +93,7 @@ client.close()
 
 ### Constructor Arguments
 
-The `FliptClient` constructor accepts these arguments:
+The `FliptClient` constructor accepts a single `opts` argument:
 
 - `opts`: An instance of the `ClientOptions` class. The structure is:
   - `environment`: The environment (Flipt v2) to fetch flag state from. If not provided, the client will default to the `default` environment.
@@ -107,7 +107,7 @@ The `FliptClient` constructor accepts these arguments:
   - `error_strategy`: Error strategy (`fail` or `fallback`). Defaults to fail.
   - `snapshot`: A base64 encoded snapshot of the engine state. Defaults to `None`. See [Snapshotting](#snapshotting).
   - `tls_config`: TLS configuration for connecting to Flipt servers with custom certificates. See [TLS Configuration](#tls-configuration).
-- `on_state_update`: Optional. A callable with no arguments that is called after the client applies changed flag state. See [State Update Listeners](#state-update-listeners).
+  - `on_state_update`: A callable with no arguments that is called after the client applies changed flag state. See [State Update Listeners](#state-update-listeners).
 
 ### Authentication
 
@@ -269,8 +269,11 @@ from flipt_client import FliptClient
 from flipt_client.models import ClientOptions, FetchMode
 
 client = FliptClient(
-    opts=ClientOptions(url="http://localhost:8080", fetch_mode=FetchMode.STREAMING),
-    on_state_update=refresh_flags,
+    opts=ClientOptions(
+        url="http://localhost:8080",
+        fetch_mode=FetchMode.STREAMING,
+        on_state_update=refresh_flags,
+    )
 )
 ```
 

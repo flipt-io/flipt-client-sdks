@@ -56,11 +56,7 @@ class Subscription:
 class FliptClient:
     """Main client for interacting with Flipt feature flag engine."""
 
-    def __init__(
-        self,
-        opts: ClientOptions = ClientOptions(),
-        on_state_update: Callable[[], None] | None = None,
-    ):
+    def __init__(self, opts: ClientOptions = ClientOptions()):
         self.engine = None
         self._closed = False
         # Guards the fields below and _closed. Never held while running listeners, joining the
@@ -146,9 +142,9 @@ class FliptClient:
 
         self.engine = self.ffi_core.initialize_engine(client_opts_serialized)
 
-        if on_state_update is not None:
+        if opts.on_state_update is not None:
             try:
-                self.add_state_update_listener(on_state_update)
+                self.add_state_update_listener(opts.on_state_update)
             except BaseException:
                 # The caller never gets a client to close, so tear the engine down here.
                 self.close()

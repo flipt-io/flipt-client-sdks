@@ -7,7 +7,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from flipt_client import FliptClient
 from flipt_client.errors import FliptError
-from flipt_client.models import ClientOptions, ErrorStrategy, FetchMode
+from flipt_client.models import ClientOptions, ErrorStrategy, FetchMode, model_to_json
 
 EMPTY = '{"namespace":{"key":"default"},"flags":[]}'
 WITH_FLAG = (
@@ -84,16 +84,19 @@ class TestStateUpdateListener(unittest.TestCase):
         self.server.server_close()
 
     def client(self, **kwargs) -> FliptClient:
-        fetch_mode = kwargs.pop("fetch_mode", None)
         return FliptClient(
             opts=ClientOptions(
                 url=f"http://127.0.0.1:{self.server.server_address[1]}",
                 update_interval=timedelta(seconds=1),
                 error_strategy=ErrorStrategy.FALLBACK,
-                fetch_mode=fetch_mode,
-            ),
-            **kwargs,
+                **kwargs,
+            )
         )
+
+    def test_on_state_update_is_not_serialized(self):
+        opts = ClientOptions(url="http://localhost:8080", on_state_update=lambda: None)
+        self.assertNotIn("on_state_update", model_to_json(opts, exclude_none=True))
+        self.assertNotIn("on_state_update", model_to_json(opts))
 
     def test_listener_fires_on_change_and_can_evaluate(self):
         calls = []
