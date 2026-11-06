@@ -11,6 +11,10 @@ extern const char* get_snapshot_ffi(void* engine);
 extern void destroy_engine_ffi(void* engine);
 extern void destroy_string_ffi(char* str);
 extern const char* update_authentication_ffi(void* engine, const char* auth_json);
+extern void* subscribe_state_updates_ffi(void* engine);
+extern const char* wait_for_state_update_ffi(void* subscription);
+extern void close_state_subscription_ffi(void* subscription);
+extern void destroy_state_subscription_ffi(void* subscription);
 
 // Wrapper functions that will be exported in our .so
 void* initialize_engine(const char* options) {
@@ -47,4 +51,20 @@ void destroy_string(char* str) {
 
 const char* update_authentication(void* engine, const char* auth_json) {
     return update_authentication_ffi(engine, auth_json);
-} 
+}
+
+void* subscribe_state_updates(void* engine) {
+    return subscribe_state_updates_ffi(engine);
+}
+
+const char* wait_for_state_update(void* subscription) {
+    return wait_for_state_update_ffi(subscription);
+}
+
+void close_state_subscription(void* subscription) {
+    close_state_subscription_ffi(subscription);
+}
+
+void destroy_state_subscription(void* subscription) {
+    destroy_state_subscription_ffi(subscription);
+}

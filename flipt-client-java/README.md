@@ -143,6 +143,7 @@ The `FliptClient.builder()` method returns a `FliptClient.Builder` object that a
 - `errorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to fail. See the [Error Strategies](#error-strategies) section for more information.
 - `snapshot`: The initial snapshot to use when instantiating the client. See the [Snapshotting](#snapshotting) section for more information.
 - `tlsConfig`: The TLS configuration to use when connecting to the upstream Flipt instance. See the [TLS Configuration](#tls-configuration) section for more information.
+- `onStateUpdate`: A `Runnable` called after the client applies changed flag state. See the [State Update Listeners](#state-update-listeners) section for more information.
 
 ### Authentication
 
@@ -376,6 +377,43 @@ You also may want to store the snapshot in a local file so that you can use it t
 
 > [!IMPORTANT]
 > If the Flipt server becomes reachable after the setting the snapshot, the client will replace the snapshot with the new flag state from the Flipt server.
+
+### State Update Listeners
+
+The client can tell you when flag state changes, so you can re-read the flags you care about instead of re-evaluating them on a timer. This works in both polling and streaming mode.
+
+Register a listener when you build the client:
+
+```java
+FliptClient client = FliptClient.builder()
+    .url("http://localhost:8080")
+    .fetchMode(FetchMode.STREAMING)
+    .onStateUpdate(() -> refreshFlags())
+    .build();
+```
+
+Or add and remove listeners while the client is running:
+
+```java
+FliptClient.Subscription subscription = client.addStateUpdateListener(() -> refreshFlags());
+
+// Later, to stop listening:
+subscription.close();
+```
+
+How listeners behave:
+
+- **Only real changes.** A listener is called after the client applies flag state that differs from the current state. Unchanged polls and repeated streaming messages do not call it.
+- **Not called for initial state.** The state loaded when the client is built doesn't trigger a listener, and a new listener hears about changes applied after it was added (occasionally with one extra call). Read the flags you need once when you register.
+- **Errors don't trigger it.** A failed fetch does not call listeners. Recovering from a failure does.
+- **One background thread.** Listeners run in the order they were added, on a single daemon thread owned by the client. Updates that arrive while listeners run are merged into one follow-up call, so you always see the latest state but may not see every intermediate one.
+- **Keep listeners fast.** A slow listener delays later notifications. Hand long work off to your own executor.
+- **Safe to call back in.** A listener may evaluate flags, add or remove listeners, or call `close()`.
+- **`close()` waits for a running listener.** When called from another thread, `close()` lets a listener that is already running finish, then stops. A listener must not block on a lock held by the thread that calls `close()`, or the two will deadlock.
+- **Exceptions are logged.** An exception thrown by one listener is logged and does not stop the other listeners.
+
+> [!IMPORTANT]
+> Always call `close()` on a client that has listeners. The listener thread runs until the client is closed, so a client that is dropped without closing will not be garbage collected. No listener is called after `close()` returns.
 
 ## Contributing
 

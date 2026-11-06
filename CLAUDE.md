@@ -1,282 +1,113 @@
 # AGENTS.md
 
-This file provides guidance to AI Agents when working with code in this repository.
-
-## Project Overview
-
-This is the Flipt Client SDKs repository - a collection of client-side evaluation SDKs for the Flipt feature flag system. The repository contains multiple language implementations that wrap Rust-based evaluation engines.
+Client-side evaluation SDKs for the Flipt feature flag system. Flag evaluation is written once in Rust (`flipt-evaluation/`) and embedded in each language SDK, either through a native library (FFI) or WebAssembly. Language clients should stay thin wrappers.
 
 ## Architecture
 
-The project uses a multi-layered architecture:
+- `flipt-evaluation/`: core evaluation logic. A behavior change here affects every SDK.
+- `flipt-engine-ffi/`: native library (`libfliptengine`). It owns fetching (polling and streaming), the snapshot and evaluation. Hosts call it through a C ABI that takes and returns JSON strings, and must free every returned string with `destroy_string`.
+- `flipt-engine-wasm/` (Go) and `flipt-engine-wasm-js/` (JS): evaluation only. The host SDK fetches state and passes it in.
+- FFI clients: Python (ctypes), Ruby (ffi gem), Java (JNA), C# (P/Invoke), Dart (dart:ffi), Kotlin Android, Swift.
+- WASM clients: Go, `flipt-client-js` (browser and Node), `flipt-client-react`. `flipt-client-node` and `flipt-client-browser` are deprecated in favor of `flipt-client-js`; don't add features to them.
+- `test/`: Dagger integration harness (`test/main.go`). `package/`: engine packaging. `release/`: release scripts.
 
-1. **Core Evaluation Engine** (`flipt-evaluation/`): Rust library containing the core evaluation logic
-2. **Engine Implementations**:
-   - **FFI Engine** (`flipt-engine-ffi/`): For native platform integration via Foreign Function Interface
-   - **WASM Engine** (`flipt-engine-wasm/`): WebAssembly for non-JS environments
-   - **WASM JS Engine** (`flipt-engine-wasm-js/`): WebAssembly optimized for JavaScript environments
-3. **Language Clients**: Thin wrappers in various languages that interface with the engines
+Polling is the default fetch mode (every 120s, `update_interval`). Streaming exists in the FFI engine and in the JS and Go SDKs; check the SDK's README before assuming support.
 
-## Supported Languages
+See `ARCHITECTURE.md` for diagrams and per-engine responsibilities.
 
-- **FFI-based**: Python, Ruby, Java, C#, Dart/Flutter, Kotlin (Android), Swift (iOS)
-- **WASM-based**: Go, JavaScript, Node.js, React, Browser
+## Tooling
 
-### FFI-based Clients
+- [mise](https://mise.jdx.dev/) pins every toolchain. The root `.mise.toml` covers Rust, Go, Dagger, wasm-pack and cargo-llvm-cov, and each `flipt-client-*/.mise.toml` covers its SDK. Treat these files as the source of truth for versions, and run SDK tooling through them (e.g. `mise exec -- ./gradlew test`).
+- The Rust workspace (root `Cargo.toml`) contains the three engines and `flipt-evaluation`. Engine versions live in their own `Cargo.toml`.
+- Java: mise installs JDK 21, but `build.gradle` targets Java 8. Don't use Java 9+ APIs (`Cleaner`, `List.of`, `var`) in `src/main`.
+- Docker is required for integration tests. Linux FFI builds need `musl-gcc` (`flipt-engine-ffi/build.sh`).
 
-- **Python** (`flipt-client-python/`): Python SDK using ctypes for FFI bindings
-- **Ruby** (`flipt-client-ruby/`): Ruby gem with FFI bindings
-- **Java** (`flipt-client-java/`): Java SDK with JNI bindings
-- **C#** (`flipt-client-csharp/`): .NET SDK with P/Invoke bindings
-- **Dart** (`flipt-client-dart/`): Dart/Flutter SDK with dart:ffi bindings
-- **Kotlin Android** (`flipt-client-kotlin-android/`): Android-specific Kotlin SDK
-- **Swift** (`flipt-client-swift/`): iOS/macOS SDK with Swift Package Manager support
+## Checks CI enforces
 
-### WASM-based Clients
-
-- **Go** (`flipt-client-go/`): Go SDK embedding WASM module directly
-- **Node.js** (`flipt-client-node/`): Node.js SDK using WASM-JS engine (deprecated: consolidated into `flipt-client-js`)
-- **Browser** (`flipt-client-browser/`): Browser JavaScript SDK (deprecated: consolidated into `flipt-client-js`)
-- **React** (`flipt-client-react/`): React hooks and components
-- **JavaScript** (`flipt-client-js/`): Core JavaScript utilities and types shared by browser/node
-
-## Common Development Commands
-
-### Rust (Core Engines)
+Run the ones that apply before committing.
 
 ```bash
-# Build all Rust components
-cargo build --release
-
-# Run tests
-cargo test --all-features
-
-# Format code
-cargo fmt --all
-
-# Lint code
+# Rust engines (test-engines.yml)
+cargo fmt --all -- --check
 cargo clippy --all -- -D warnings
+cargo test --all-features
+(cd flipt-engine-wasm-js && wasm-pack test --node)
 
-# Test WASM JS engine specifically
-cd flipt-engine-wasm-js && wasm-pack test --node
-```
+# Any SDK you touched (lint-sdks.yml)
+cd flipt-client-<lang> && mise run lint
 
-### Linting / Formatting
-
-Before committing, run `mise run lint` from the relevant SDK directory to check formatting and lint:
-
-```bash
-cd flipt-client-python && mise run lint
-cd flipt-client-go && mise run lint
-# etc.
-```
-
-### Integration Tests
-
-```bash
-# Run all integration tests
-dagger --progress=plain run go run ./test
-
-# Run specific SDK tests
+# Integration tests (test-sdks.yml); --progress=plain shows test output
+dagger --progress=plain run go run ./test -groups ffi        # python, ruby, java, dart, csharp
+dagger --progress=plain run go run ./test -groups wasm       # go, harness
+dagger --progress=plain run go run ./test -groups js         # js, react
 dagger --progress=plain run go run ./test -sdks python,ruby
-
-# Run by implementation group
-dagger --progress=plain run go run ./test -groups ffi,wasm,js
 ```
 
-Note: Use `progress=plain` to see the output of the tests.
+Kotlin Android and Swift aren't in the Dagger harness. They have their own workflows (`test-android-sdk.yml`, `test-swift-sdk.yml`).
 
-## Test Groups
+## Hard constraints
 
-- `ffi`: Python, Ruby, Java, Dart, C# (FFI-based SDKs)
-- `wasm`: Go (Direct WASM)
-- `js`: Node, Browser, React (JavaScript WASM bindings)
+- Don't hand-edit generated files. Regenerate them instead:
+  - `flipt-engine-ffi/include/flipt_engine.h` is regenerated by `build.rs` (cbindgen) on every `cargo build`.
+  - `flipt-client-dart/lib/src/ffi/bindings.dart` is generated with `dart run ffigen --config ffigen.yaml`.
+- Every public FFI function has two exports: `name` for normal builds and `name_ffi` under `cfg(all(target_feature = "crt-static", target_os = "linux"))`. The `_ffi` variant is re-exported under the plain name by `flipt-engine-ffi/wrapper.c` for the static musl build. A new FFI function needs both variants and a `wrapper.c` entry. Check the C side with `clang -fsyntax-only -Iinclude wrapper.c` from `flipt-engine-ffi/`.
+- Every FFI entry point wraps its body in `catch_unwind` and returns a JSON `{status, result, error_message}` string. Never let a panic cross `extern "C"`.
+- Don't commit engine binaries. SDKs load native libs from gitignored folders (e.g. `flipt-client-java/src/main/resources/<platform>/`).
 
-## File Structure
+## Gotchas
 
-- `.mise.toml`: Root mise config (shared tools + monorepo config roots)
-- `flipt-evaluation/`: Core evaluation logic in Rust
-- `flipt-engine-*/`: Engine implementations (FFI, WASM, WASM-JS)
-- `flipt-client-*/`: Language-specific client implementations (each has its own `.mise.toml`)
-- `test/`: Integration test infrastructure using Dagger
-- `package/`: Build tooling for packaging engines
-- `release/`: Release automation scripts
+- **cbindgen and `Option` aliases.** `Option<SomeAlias>` becomes an opaque struct in `flipt_engine.h` and breaks `wrapper.c`. Write nullable function pointers inline: `Option<extern "C" fn(...)>`.
+- **Clippy targets.** `cargo clippy --all-targets -- -D warnings` already fails on an existing `single_match` in the `lib.rs` tests. CI runs without `--all-targets`, so match CI. Don't "fix" the lint unless you mean to.
+- **Etags.** Polling relies on ETags (`If-None-Match` / 304). If a 200 body fails to parse, the stored etag must be cleared, or the client stays stuck on old state (#2020).
+- **Stop ordering in streaming.** In `http.rs` streaming, the `Notified` future is created and `enable()`d *before* checking `stop_signal`, because `notify_waiters()` stores no permit. Reordering this brings back the `close()` hang fixed in #2000.
+- **Java tests and the native lib.** Java tests load `libfliptengine` from `src/main/resources/<platform>/`. For local runs, build with `cargo build --release -p flipt-engine-ffi` and copy `target/release/libfliptengine.dylib` to `src/main/resources/darwin-aarch64/`.
+- **`TestFliptClient` needs Dagger.** It fails locally at its `FLIPT_URL` / `FLIPT_AUTH_TOKEN` check; those are only set by the Dagger harness.
 
-## Key Implementation Patterns
+### State Updates (FFI)
 
-### Client Interface
+The FFI engine tells a host when it applies changed flag state through a blocking wait, not a callback. The full contract is in the doc comments in `flipt-engine-ffi/src/lib.rs`. Java is the reference binding: `addStateUpdateListener` / `onStateUpdate` in `flipt-client-java/src/main/java/io/flipt/client/FliptClient.java`.
 
-All clients implement a standard interface:
-
-- `EvaluateVariant`: Evaluates multi-variant flags
-- `EvaluateBoolean`: Evaluates boolean flags
-- `EvaluateBatch`: Evaluates multiple flags in one call
-- `ListFlags`: Returns available flags
-- `GetSnapshot`: Returns current flag state (if supported)
-- `Close`: Cleanup method
-
-### Engine Integration
-
-- **FFI clients**: Link to native libraries, handle state polling/streaming
-- **WASM clients**: Embed WASM module, handle state fetching from client side
-
-### State Management
-
-All SDKs support two modes for keeping flag state up-to-date:
-
-1. **Polling**: Periodically fetch state at configured intervals
-   - Default: 120 seconds
-   - Configurable via `update_interval` option
-   - Simple and reliable
-
-2. **Streaming** (FFI-based only): Real-time updates via Server-Sent Events (SSE)
-   - Instant flag updates
-   - Automatic reconnection on failure
-   - Lower latency but requires persistent connection
-
-## Development Workflow
-
-1. Changes to core evaluation logic go in `flipt-evaluation/`
-2. Engine changes go in respective `flipt-engine-*/` directories
-3. Client changes go in `flipt-client-*/` directories
-4. Use integration tests to verify cross-language compatibility
-5. Create a new branch for your changes
-6. Follow conventional commits for commit messages prefer shorter commit messages over longer ones
-7. Create a PR for your changes using the `gh pr create` command. Give detailed description of the changes and why you made them.
-
-## Tooling with mise
-
-This monorepo uses [mise](https://mise.jdx.dev/) to manage all development tool versions. Install mise first, then tools are installed automatically when you `cd` into the repo or any SDK subdirectory.
-
-### Setup
-
-```bash
-# Install mise (see https://mise.jdx.dev/getting-started.html)
-curl https://mise.run | sh
-
-# Trust and install all tools for the repo
-mise trust
-mise install
+```c
+void *sub = subscribe_state_updates(engine);
+const char *r = wait_for_state_update(sub); // {"result":"changed"} or {"result":"closed"}
+close_state_subscription(sub);             // wakes a blocked wait; any thread
+destroy_state_subscription(sub);           // frees; nobody may be waiting
 ```
 
-### How It Works
+**Don't add engine-to-host callbacks.** The Linux `.so` statically links its own musl. A thread it creates has no TLS for the host's libc, so calling host runtime code on it crashes on musl hosts (Alpine JVM: SIGSEGV in JNA's `initializeThread`). Host-owned threads that call into the engine are fine.
 
-- **Root `.mise.toml`**: Defines shared tools (Go, Rust, Dagger, wasm-pack, cargo-llvm-cov) and declares SDK subdirectories as monorepo config roots
-- **Per-SDK `.mise.toml`**: Each `flipt-client-*/` directory has its own config specifying the language toolchain and a `lint` task
+Engine guarantees to rely on, not reimplement:
 
-When you `cd` into an SDK directory, mise automatically activates the correct tool versions for that SDK.
+- It reports only when evaluable state actually changes. Initial state and transitions into an error state never report; recovery from an error does.
+- Changes made while the host is busy are coalesced into one `changed`. A change applied just before subscribing may be reported once.
+- `destroy_engine` wakes every waiter with `closed`. A subscription holds its own reference to the update state, so waiting on it after `destroy_engine` is safe and returns `closed`.
+- Change detection is skipped while no subscription is open.
 
-### Tools Managed by mise
+When adding this to another language client:
 
-| Scope                      | Tools                                                           |
-| -------------------------- | --------------------------------------------------------------- |
-| Root                       | Go 1.25, Rust stable, Dagger 0.18.19, wasm-pack, cargo-llvm-cov |
-| Python SDK                 | Python 3.11, Poetry 1.7.0, Black                                |
-| Ruby SDK                   | Ruby 3.2                                                        |
-| Java SDK                   | Java 21                                                         |
-| Kotlin SDK                 | Java 21, ktlint                                                 |
-| Go SDK                     | Go 1.25, golangci-lint 2.12.2                                    |
-| JS/Node/Browser/React SDKs | Node 22                                                         |
-| C# SDK                     | .NET 8                                                          |
-| Dart SDK                   | Flutter stable                                                  |
-| Swift SDK                  | Swift, swiftformat, swiftlint                                   |
+1. **One host thread per client, started lazily.** It loops on `wait_for_state_update` and fans out to a host-side listener list, so add/remove never touches the engine. Make it daemon/background.
+2. **Close ordering.** Mark the client closed, call `close_state_subscription`, join the thread (unless `close()` runs on it), then `destroy_engine`. Joining first means a listener evaluating flags never touches a freed engine. Don't hold a lock across the join that a listener might need.
+3. **The loop thread frees the subscription** when it exits. Guard `close_state_subscription` and the free with the same lock, so close never wakes a freed handle.
+4. **Catch listener exceptions** in the loop and log them.
+5. **Don't replay initial state.** Document that callers should read flags once when they register.
 
-### Lint Tasks
+## Workflow
 
-Each SDK defines a `mise run lint` task. Run it from the SDK directory:
+- Conventional commits; keep messages short.
+- Open PRs with `gh pr create` and a description that explains what changed and why.
 
-```bash
-cd flipt-client-python && mise run lint
-cd flipt-client-go && mise run lint
-# etc.
-```
+## Releasing
 
-### Build Dependencies (beyond mise)
+Use the `/release` skill (`.agents/skills/release/SKILL.md`) to work out what needs releasing. See `release/README.md` for the release CLI and `RELEASE.md` for background.
 
-- Docker (for integration tests)
-- Platform-specific requirements:
-  - **Linux**: musl-gcc for static linking
-  - **Mobile**: Xcode (iOS), Android SDK
+The one ordering rule: pushing a `flipt-engine-ffi-v{version}` tag is what builds and publishes the FFI binaries. FFI-based SDKs can't be released until those builds finish. WASM SDKs bundle their engine at release time and can be released right away.
 
-## Release Process
+Each SDK keeps its own version: `pyproject.toml`, `package.json`, `build.gradle` (Java/Kotlin), `flipt_client.gemspec`, or git tags only (Go).
 
-### Versioning
+## Adding a new SDK
 
-- The engines versions are managed in the `Cargo.toml` files
-
-- Each SDK maintains its own version in language-specific files:
-  - Python: `pyproject.toml`
-  - JavaScript/TypeScript: `package.json`
-  - Java/Kotlin: `build.gradle`
-  - Ruby: `flipt_client.gemspec`
-  - Go: Git tags only
-  - Rust: `Cargo.toml`
-
-### Release Workflow
-
-Use the `/release` skill (`.agents/skills/release/SKILL.md`) to audit unreleased changes and determine what needs releasing. It walks through the full process: engine audit, SDK audit, version bumps, tagging, and publishing.
-
-#### Engines
-
-Each engine has its own tag that triggers CI builds:
-
-1. Bump the version in the relevant `Cargo.toml` file(s)
-2. Run `cargo check` to verify compilation
-3. Create a PR for the changes, merge it
-4. Create and push tags from main:
-   - `flipt-engine-ffi-v{version}` — triggers CI to build and publish FFI binaries
-   - `flipt-engine-wasm-v{version}` — bookkeeping (WASM is bundled with SDKs at release time)
-   - `flipt-engine-wasm-js-v{version}` — bookkeeping (WASM-JS is bundled with SDKs at release time)
-
-**Note**: Only the FFI engine tag triggers builds that publish platform binaries. FFI-based SDKs must wait for these builds to complete before releasing. WASM/WASM-JS SDKs can be released immediately.
-
-#### Client SDKs
-
-Two options:
-
-1. **Non-interactive** (preferred for automation): `cd release && .venv/bin/python release_cli.py --sdk flipt-client-go --bump patch --publish`
-2. **Interactive**: `cd release && .venv/bin/python release.py`
-
-Both handle version bumps, file updates, tagging, and pushing. See `release/README.md` for full usage.
-
-## CI/CD Structure
-
-### Workflow Files
-
-- **Testing**: `test-{sdk}-sdk.yml` - Runs on PRs
-- **Packaging**: `package-{sdk}-sdk.yml` - Runs on tag push
-- **Engine builds**: Automated for Rust components
-
-## Adding a New SDK
-
-To add a new language SDK:
-
-1. **Choose the engine type**:
-   - FFI: For languages with native library support (C interop)
-   - WASM: For languages that can run WebAssembly
-
-2. **Create the client directory**: `flipt-client-{language}/`
-
-3. **Implement the standard interface**:
-   - `EvaluateVariant`, `EvaluateBoolean`, `EvaluateBatch`
-   - `ListFlags`, `Close`
-   - State management (polling/streaming)
-
-4. **Add integration tests**:
-   - Create test file in the language-specific test directory
-   - Update `test/main.go` to include new SDK
-   - Add to appropriate test group (ffi/wasm/js)
-
-5. **Add mise config**:
-   - Create `.mise.toml` in the SDK directory with required tool versions and a `lint` task
-   - Add the SDK directory to `config_roots` in the root `.mise.toml`
-
-6. **Set up CI/CD**:
-   - Create `.github/workflows/test-{language}-sdk.yml`
-   - Create `.github/workflows/package-{language}-sdk.yml`
-   - Add Dependabot configuration
-
-7. **Update documentation**:
-   - Add to this file (CLAUDE.md)
-   - Create SDK-specific README
-   - Add to main repository README
+1. Create `flipt-client-<lang>/` on the FFI or WASM engine, and follow the existing SDKs' method set (variant, boolean, batch, list flags, snapshot, close).
+2. Add `.mise.toml` with the toolchain and a `lint` task, and add the directory to `config_roots` in the root `.mise.toml`.
+3. Add a test function and container config in `test/main.go`, and add the SDK to a group in `sdkGroups`.
+4. Add it to the matrices in `test-sdks.yml` and `lint-sdks.yml`, and add a `package-<lang>-sdk.yml` and a Dependabot entry.
+5. Add it to this file, the root `README.md`, and an SDK README.

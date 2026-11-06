@@ -16,10 +16,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import lombok.Builder;
 
@@ -39,6 +41,17 @@ import lombok.Builder;
  *     .url("https://flipt.example.com")
  *     .tlsConfig(TlsConfig.builder().caCertFile("/path/to/ca.pem").build())
  *     .build();
+ *
+ * // Get notified when flag state changes
+ * var listeningClient = FliptClient.builder()
+ *     .url("http://localhost:8080")
+ *     .fetchMode(FetchMode.STREAMING)
+ *     .onStateUpdate(this::refreshFlags)
+ *     .build();
+ *
+ * // Or subscribe while the client is running
+ * FliptClient.Subscription sub = listeningClient.addStateUpdateListener(this::refreshFlags);
+ * sub.close(); // unsubscribe
  * }</pre>
  *
  * @since 1.0.0
@@ -85,6 +98,13 @@ public class FliptClient implements AutoCloseable {
 
   private final Pointer engine;
   private final ObjectMapper objectMapper;
+  private final List<Runnable> stateUpdateListeners = new CopyOnWriteArrayList<>();
+  // Serializes starting the update thread against close(), so it never subscribes to a destroyed
+  // engine. Never held while joining the thread or destroying the engine.
+  private final Object stateUpdateLock = new Object();
+  // Started on the first listener. It owns the native subscription and frees it on exit.
+  private Thread stateUpdateThread;
+  private Pointer stateSubscription;
 
   public interface CLibrary extends Library {
     CLibrary INSTANCE = Native.load("fliptengine", CLibrary.class);
@@ -106,6 +126,15 @@ public class FliptClient implements AutoCloseable {
     void destroy_string(Pointer str);
 
     Pointer update_authentication(Pointer engine, String auth_json);
+
+    Pointer subscribe_state_updates(Pointer engine);
+
+    /** Blocks until flag state changes or the subscription closes. */
+    Pointer wait_for_state_update(Pointer subscription);
+
+    void close_state_subscription(Pointer subscription);
+
+    void destroy_state_subscription(Pointer subscription);
   }
 
   @Builder
@@ -121,7 +150,8 @@ public class FliptClient implements AutoCloseable {
       FetchMode fetchMode,
       ErrorStrategy errorStrategy,
       String snapshot,
-      TlsConfig tlsConfig) {
+      TlsConfig tlsConfig,
+      Runnable onStateUpdate) {
     this.environment = environment != null ? environment : "default";
     this.namespace = namespace != null ? namespace : "default";
     this.url = url != null ? url : "http://localhost:8080";
@@ -173,6 +203,16 @@ public class FliptClient implements AutoCloseable {
     }
 
     this.engine = CLibrary.INSTANCE.initialize_engine(clientOptionsSerialized);
+
+    if (onStateUpdate != null) {
+      try {
+        addStateUpdateListener(onStateUpdate);
+      } catch (Throwable t) {
+        // The caller never gets a client to close, so tear the engine down here.
+        CLibrary.INSTANCE.destroy_engine(this.engine);
+        throw t;
+      }
+    }
 
     // Start auth refresh scheduler only for bounded leases (with expiry)
     if (this.authenticationProvider != null && this.currentExpiry != null) {
@@ -355,6 +395,129 @@ public class FliptClient implements AutoCloseable {
     }
   }
 
+  /** A registered state update listener. Closing it unsubscribes; closing twice is a no-op. */
+  public interface Subscription extends AutoCloseable {
+    @Override
+    void close();
+  }
+
+  /**
+   * Adds a listener that is called after each change to flag state. Listeners can be added at any
+   * time. Read the flags you care about once after adding a listener: it is called for changes
+   * applied after it was added, and may occasionally see one extra call.
+   *
+   * <p>Listeners run in the order they were added, on a dedicated daemon thread named {@code
+   * flipt-state-update}. Updates that arrive while they run are coalesced into a single follow-up
+   * call. A listener may evaluate flags, add or remove listeners, or call {@link #close()}. {@link
+   * #close()} from another thread waits for a running listener to return, so a listener must not
+   * block on anything held by the thread that closes the client. An exception thrown by one
+   * listener is logged and does not stop the others.
+   *
+   * <p>The client must be closed to stop its update thread.
+   *
+   * @param listener the listener to call
+   * @return a subscription that removes the listener when closed
+   * @throws IllegalStateException if the client is closed
+   * @throws FliptException.EvaluationException if the engine cannot subscribe to updates
+   */
+  public Subscription addStateUpdateListener(Runnable listener) {
+    if (listener == null) {
+      throw new IllegalArgumentException("listener is required");
+    }
+    if (this.closed.get()) {
+      throw new IllegalStateException("client is closed");
+    }
+    // A distinct wrapper per call, so adding the same Runnable twice yields two independent
+    // subscriptions.
+    Runnable entry = listener::run;
+    this.stateUpdateListeners.add(entry);
+    try {
+      ensureStateUpdateThread();
+    } catch (RuntimeException e) {
+      this.stateUpdateListeners.remove(entry);
+      throw e;
+    }
+    // close() may have finished between the checks above and the add.
+    if (this.closed.get()) {
+      this.stateUpdateListeners.remove(entry);
+      throw new IllegalStateException("client is closed");
+    }
+    return () -> this.stateUpdateListeners.remove(entry);
+  }
+
+  /**
+   * Starts the single thread that waits on the engine and fans out to all listeners, on first use.
+   * It runs until close(), so adding or removing listeners never calls into the engine, including
+   * from inside a listener.
+   */
+  private void ensureStateUpdateThread() {
+    synchronized (this.stateUpdateLock) {
+      if (this.stateUpdateThread != null) {
+        return;
+      }
+      if (this.closed.get()) {
+        throw new IllegalStateException("client is closed");
+      }
+      Pointer subscription = CLibrary.INSTANCE.subscribe_state_updates(this.engine);
+      if (subscription == null) {
+        throw new FliptException.EvaluationException("Failed to subscribe to state updates");
+      }
+      Thread thread = new Thread(() -> runStateUpdateLoop(subscription), "flipt-state-update");
+      // Never keep the JVM alive just to wait for flag changes.
+      thread.setDaemon(true);
+      try {
+        thread.start();
+      } catch (Throwable t) {
+        CLibrary.INSTANCE.destroy_state_subscription(subscription);
+        throw t;
+      }
+      // The thread can't exit before these are set: its cleanup takes this lock.
+      this.stateSubscription = subscription;
+      this.stateUpdateThread = thread;
+    }
+  }
+
+  private void runStateUpdateLoop(Pointer subscription) {
+    TypeReference<Result<String>> typeRef = new TypeReference<Result<String>>() {};
+    try {
+      while (!this.closed.get()) {
+        Result<String> resp =
+            this.readValue(CLibrary.INSTANCE.wait_for_state_update(subscription), typeRef);
+        if (!STATUS_SUCCESS.equals(resp.getStatus())) {
+          logger.warning(
+              "Failed to wait for state update: " + resp.getErrorMessage().orElse("Unknown error"));
+          return;
+        }
+        if (!"changed".equals(resp.getResult().orElse(null))) {
+          return;
+        }
+        for (Runnable listener : this.stateUpdateListeners) {
+          if (this.closed.get()) {
+            return;
+          }
+          try {
+            listener.run();
+          } catch (Throwable t) {
+            logger.log(Level.WARNING, "State update listener threw", t);
+          }
+        }
+      }
+    } catch (Throwable t) {
+      logger.log(Level.WARNING, "State update thread failed", t);
+    } finally {
+      // This thread is the only one that waits on the subscription, so it frees it. Under the lock,
+      // so close() never wakes a handle that is already freed.
+      synchronized (this.stateUpdateLock) {
+        this.stateSubscription = null;
+        CLibrary.INSTANCE.destroy_state_subscription(subscription);
+        // If this thread died early, the next listener starts a new one.
+        if (this.stateUpdateThread == Thread.currentThread()) {
+          this.stateUpdateThread = null;
+        }
+      }
+    }
+  }
+
   private void startAuthRefreshScheduler() {
     this.authScheduler =
         Executors.newSingleThreadScheduledExecutor(
@@ -438,9 +601,34 @@ public class FliptClient implements AutoCloseable {
         this.authScheduler.shutdownNow();
       }
     }
+    // Wait out a thread start already in progress; later ones see closed and give up. The lock is
+    // released before joining, since a running listener may add another listener.
+    Thread thread;
+    synchronized (this.stateUpdateLock) {
+      thread = this.stateUpdateThread;
+      if (this.stateSubscription != null) {
+        // Wakes the update thread if it is waiting. It still owns and frees the handle.
+        CLibrary.INSTANCE.close_state_subscription(this.stateSubscription);
+      }
+    }
+    if (thread != null && thread != Thread.currentThread()) {
+      // Let a running listener finish before the engine it may be evaluating against is freed.
+      boolean interrupted = false;
+      while (thread.isAlive()) {
+        try {
+          thread.join();
+        } catch (InterruptedException e) {
+          interrupted = true;
+        }
+      }
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
+    }
     if (this.engine != null) {
       CLibrary.INSTANCE.destroy_engine(this.engine);
     }
+    this.stateUpdateListeners.clear();
   }
 
   private <T> T readValue(Pointer ptr, TypeReference<T> typeRef) {

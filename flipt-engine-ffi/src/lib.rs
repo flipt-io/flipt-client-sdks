@@ -19,8 +19,8 @@ use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, OnceLock, RwLock};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, RwLock};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::runtime::Builder;
@@ -121,12 +121,136 @@ impl Default for EngineOpts {
     }
 }
 
+/// What `wait_for_state_update` reports to the host.
+#[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum StateUpdate {
+    /// Flag state changed at least once since the previous wait returned.
+    Changed,
+    /// The subscription or the engine was closed. Every later wait returns
+    /// this too.
+    Closed,
+}
+
+#[derive(Default)]
+struct UpdateState {
+    // Bumped each time the engine applies changed flag state.
+    generation: u64,
+    closed: bool,
+    subscribers: usize,
+}
+
+/// Flag-state generations, shared by the engine, its fetch task and every
+/// subscription. Waiters block here rather than on the `Engine`, so a waiter
+/// never touches engine memory that `destroy_engine` frees.
+#[derive(Default)]
+struct StateUpdates {
+    state: Mutex<UpdateState>,
+    changed: Condvar,
+}
+
+impl StateUpdates {
+    fn lock(&self) -> MutexGuard<'_, UpdateState> {
+        match self.state.lock() {
+            Ok(g) => g,
+            Err(p) => p.into_inner(),
+        }
+    }
+
+    /// Skips change detection when nobody is subscribed.
+    fn has_subscribers(&self) -> bool {
+        self.lock().subscribers > 0
+    }
+
+    fn publish(&self) {
+        self.lock().generation += 1;
+        self.changed.notify_all();
+    }
+
+    fn close(&self) {
+        self.lock().closed = true;
+        self.changed.notify_all();
+    }
+
+    fn subscribe(self: &Arc<Self>) -> StateSubscription {
+        let mut state = self.lock();
+        state.subscribers += 1;
+        StateSubscription(Arc::new(SubscriptionInner {
+            updates: self.clone(),
+            // Start at the current generation, so the initial state is never
+            // reported as a change.
+            seen: AtomicU64::new(state.generation),
+            closed: AtomicBool::new(false),
+        }))
+    }
+}
+
+struct SubscriptionInner {
+    updates: Arc<StateUpdates>,
+    seen: AtomicU64,
+    // Set once by `close`, which then takes `updates.state` before notifying.
+    // A waiter holds that lock from its check until it blocks, so the notify
+    // can't land in between.
+    closed: AtomicBool,
+}
+
+/// A host's handle on state updates. It owns its own reference to the shared
+/// state, so it stays usable after `destroy_engine`: waiting on it then
+/// reports `Closed`.
+#[derive(Clone)]
+struct StateSubscription(Arc<SubscriptionInner>);
+
+impl StateSubscription {
+    /// Blocks until state changes after the last return, or until the
+    /// subscription or engine is closed. Changes that land while the host is
+    /// busy are coalesced into one `Changed`.
+    fn wait(&self) -> StateUpdate {
+        let inner = &self.0;
+        let mut state = inner.updates.lock();
+        loop {
+            if state.closed || inner.closed.load(Ordering::SeqCst) {
+                return StateUpdate::Closed;
+            }
+            if state.generation != inner.seen.load(Ordering::SeqCst) {
+                inner.seen.store(state.generation, Ordering::SeqCst);
+                return StateUpdate::Changed;
+            }
+            state = match inner.updates.changed.wait(state) {
+                Ok(g) => g,
+                Err(p) => p.into_inner(),
+            };
+        }
+    }
+
+    /// Wakes a blocked `wait` and makes every later one return `Closed`.
+    /// Idempotent.
+    fn close(&self) {
+        let inner = &self.0;
+        if inner.closed.swap(true, Ordering::SeqCst) {
+            // Already closed, and that close woke every waiter.
+            return;
+        }
+        inner.updates.lock().subscribers -= 1;
+        inner.updates.changed.notify_all();
+    }
+}
+
+impl Drop for SubscriptionInner {
+    fn drop(&mut self) {
+        // A host that destroys a subscription without closing it first.
+        if !*self.closed.get_mut() {
+            self.updates.lock().subscribers -= 1;
+        }
+    }
+}
+
 pub struct Engine {
     evaluator: Arc<RwLock<Evaluator<snapshot::Snapshot>>>,
     stop_signal: Arc<AtomicBool>,
     fetcher_handle: Option<tokio::task::JoinHandle<()>>,
     stop_notify: Arc<Notify>,
     auth_sender: Option<watch::Sender<HeaderMap>>,
+    state_updates: Arc<StateUpdates>,
 }
 
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
@@ -176,9 +300,12 @@ impl Engine {
 
         let handle = get_or_create_runtime();
 
+        let state_updates = Arc::new(StateUpdates::default());
+        let state_updates_clone = state_updates.clone();
+
         // Set the initial snapshot
         if let Ok(mut lock) = evaluator.write() {
-            lock.replace_snapshot(Ok(initial_snapshot));
+            lock.replace_snapshot(Ok(initial_snapshot), false);
         }
 
         // Block on initial fetch
@@ -188,14 +315,14 @@ impl Engine {
                     log::debug!("initial fetch succeeded");
                     let snap = snapshot::Snapshot::build(doc);
                     if let Ok(mut lock) = evaluator.write() {
-                        lock.replace_snapshot(Ok(snap));
+                        lock.replace_snapshot(Ok(snap), false);
                     }
                 }
                 Err(err) => {
                     log::warn!("initial fetch failed: {err:?}");
                     if error_strategy == ErrorStrategy::Fail {
                         if let Ok(mut lock) = evaluator.write() {
-                            lock.replace_snapshot(Err(err));
+                            lock.replace_snapshot(Err(err), false);
                         }
                     }
                 }
@@ -210,15 +337,27 @@ impl Engine {
                     Ok(doc) => {
                         log::debug!("fetch succeeded");
                         let snap = snapshot::Snapshot::build(doc);
-                        if let Ok(mut lock) = evaluator_clone.write() {
-                            lock.replace_snapshot(Ok(snap));
+                        // Subscribers are checked under the write lock, and
+                        // subscribing takes the read lock, so a new subscriber
+                        // either sees this change reported or reads the new
+                        // state itself. Waiters are woken after the lock is
+                        // released.
+                        let changed = match evaluator_clone.write() {
+                            Ok(mut lock) => {
+                                let detect = state_updates_clone.has_subscribers();
+                                lock.replace_snapshot(Ok(snap), detect)
+                            }
+                            Err(_) => false,
+                        };
+                        if changed {
+                            state_updates_clone.publish();
                         }
                     }
                     Err(err) => {
                         log::warn!("fetch failed: {err:?}");
                         if error_strategy == ErrorStrategy::Fail {
                             if let Ok(mut lock) = evaluator_clone.write() {
-                                lock.replace_snapshot(Err(err));
+                                lock.replace_snapshot(Err(err), false);
                             }
                         }
                     }
@@ -232,7 +371,17 @@ impl Engine {
             fetcher_handle: Some(fetcher_handle),
             stop_notify,
             auth_sender,
+            state_updates,
         }
+    }
+
+    /// Subscribes to changes applied after this call returns. A change applied
+    /// just before it may also be reported once.
+    fn subscribe_state_updates(&self) -> StateSubscription {
+        // Held so a fetch can't apply new state between its subscriber check
+        // and this subscription. See the fetch task.
+        let _r_lock = self.evaluator.read();
+        self.state_updates.subscribe()
     }
 
     /// Helper to lock the evaluator for reading and run a closure, mapping lock errors to Error::Internal
@@ -669,6 +818,204 @@ pub unsafe extern "C" fn update_authentication(
 
 /// # Safety
 ///
+/// Subscribes to flag state changes applied after this call returns (a change
+/// applied just before may also be reported once), and returns a subscription
+/// handle, or null if `engine_ptr` is null. Pass the
+/// handle to `wait_for_state_update` from a thread the host owns.
+///
+/// The handle holds its own reference to the engine's update state, so it
+/// stays valid after `destroy_engine`; waiting on it then reports `closed`.
+/// Free it with `destroy_state_subscription`.
+#[no_mangle]
+#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
+pub unsafe extern "C" fn subscribe_state_updates_ffi(engine_ptr: *mut c_void) -> *mut c_void {
+    match std::panic::catch_unwind(|| {
+        log::trace!(
+            "subscribe_state_updates_ffi called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _subscribe_state_updates(engine_ptr)
+    }) {
+        Ok(v) => v,
+        Err(e) => {
+            log::error!("PANIC in subscribe_state_updates_ffi: {e:?}");
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// # Safety
+///
+/// Subscribes to flag state changes applied after this call returns (a change
+/// applied just before may also be reported once), and returns a subscription
+/// handle, or null if `engine_ptr` is null. Pass the
+/// handle to `wait_for_state_update` from a thread the host owns.
+///
+/// The handle holds its own reference to the engine's update state, so it
+/// stays valid after `destroy_engine`; waiting on it then reports `closed`.
+/// Free it with `destroy_state_subscription`.
+#[no_mangle]
+#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
+pub unsafe extern "C" fn subscribe_state_updates(engine_ptr: *mut c_void) -> *mut c_void {
+    match std::panic::catch_unwind(|| {
+        log::trace!(
+            "subscribe_state_updates called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _subscribe_state_updates(engine_ptr)
+    }) {
+        Ok(v) => v,
+        Err(e) => {
+            log::error!("PANIC in subscribe_state_updates: {e:?}");
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// # Safety
+///
+/// Blocks until flag state changes, or until the subscription or engine is
+/// closed. Returns a JSON response whose `result` is `"changed"` or
+/// `"closed"`. Changes that land while the host is busy are coalesced into
+/// one `"changed"`. Initial state and transitions into an error state are
+/// not reported; recovering from an error is. Once a wait returns `"closed"`,
+/// every later wait does too, without blocking.
+#[no_mangle]
+#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
+pub unsafe extern "C" fn wait_for_state_update_ffi(subscription_ptr: *mut c_void) -> *const c_char {
+    match std::panic::catch_unwind(|| {
+        log::trace!(
+            "wait_for_state_update_ffi called: subscription ptr=0x{:x}",
+            subscription_ptr as usize
+        );
+        _wait_for_state_update(subscription_ptr)
+    }) {
+        Ok(v) => v,
+        Err(e) => {
+            log::error!("PANIC in wait_for_state_update_ffi: {e:?}");
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in wait_for_state_update_ffi".to_string(),
+            )))
+        }
+    }
+}
+
+/// # Safety
+///
+/// Blocks until flag state changes, or until the subscription or engine is
+/// closed. Returns a JSON response whose `result` is `"changed"` or
+/// `"closed"`. Changes that land while the host is busy are coalesced into
+/// one `"changed"`. Initial state and transitions into an error state are
+/// not reported; recovering from an error is. Once a wait returns `"closed"`,
+/// every later wait does too, without blocking.
+#[no_mangle]
+#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
+pub unsafe extern "C" fn wait_for_state_update(subscription_ptr: *mut c_void) -> *const c_char {
+    match std::panic::catch_unwind(|| {
+        log::trace!(
+            "wait_for_state_update called: subscription ptr=0x{:x}",
+            subscription_ptr as usize
+        );
+        _wait_for_state_update(subscription_ptr)
+    }) {
+        Ok(v) => v,
+        Err(e) => {
+            log::error!("PANIC in wait_for_state_update: {e:?}");
+            result_to_json_ptr::<(), _>(Err(Error::Internal(
+                "panic in wait_for_state_update".to_string(),
+            )))
+        }
+    }
+}
+
+/// # Safety
+///
+/// Wakes any thread blocked in `wait_for_state_update` on this subscription
+/// and makes every later wait return `"closed"`. Safe to call from any thread,
+/// and more than once. Does not free the handle.
+#[no_mangle]
+#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
+pub unsafe extern "C" fn close_state_subscription_ffi(subscription_ptr: *mut c_void) {
+    match std::panic::catch_unwind(|| {
+        log::trace!(
+            "close_state_subscription_ffi called: subscription ptr=0x{:x}",
+            subscription_ptr as usize
+        );
+        _close_state_subscription(subscription_ptr)
+    }) {
+        Ok(()) => (),
+        Err(e) => {
+            log::error!("PANIC in close_state_subscription_ffi: {e:?}");
+        }
+    }
+}
+
+/// # Safety
+///
+/// Wakes any thread blocked in `wait_for_state_update` on this subscription
+/// and makes every later wait return `"closed"`. Safe to call from any thread,
+/// and more than once. Does not free the handle.
+#[no_mangle]
+#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
+pub unsafe extern "C" fn close_state_subscription(subscription_ptr: *mut c_void) {
+    match std::panic::catch_unwind(|| {
+        log::trace!(
+            "close_state_subscription called: subscription ptr=0x{:x}",
+            subscription_ptr as usize
+        );
+        _close_state_subscription(subscription_ptr)
+    }) {
+        Ok(()) => (),
+        Err(e) => {
+            log::error!("PANIC in close_state_subscription: {e:?}");
+        }
+    }
+}
+
+/// # Safety
+///
+/// Closes and frees a subscription handle. No other thread may be using the
+/// handle, including waiting on it, when this is called.
+#[no_mangle]
+#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
+pub unsafe extern "C" fn destroy_state_subscription_ffi(subscription_ptr: *mut c_void) {
+    match std::panic::catch_unwind(|| {
+        log::trace!(
+            "destroy_state_subscription_ffi called: subscription ptr=0x{:x}",
+            subscription_ptr as usize
+        );
+        _destroy_state_subscription(subscription_ptr)
+    }) {
+        Ok(()) => (),
+        Err(e) => {
+            log::error!("PANIC in destroy_state_subscription_ffi: {e:?}");
+        }
+    }
+}
+
+/// # Safety
+///
+/// Closes and frees a subscription handle. No other thread may be using the
+/// handle, including waiting on it, when this is called.
+#[no_mangle]
+#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
+pub unsafe extern "C" fn destroy_state_subscription(subscription_ptr: *mut c_void) {
+    match std::panic::catch_unwind(|| {
+        log::trace!(
+            "destroy_state_subscription called: subscription ptr=0x{:x}",
+            subscription_ptr as usize
+        );
+        _destroy_state_subscription(subscription_ptr)
+    }) {
+        Ok(()) => (),
+        Err(e) => {
+            log::error!("PANIC in destroy_state_subscription: {e:?}");
+        }
+    }
+}
+
+/// # Safety
+///
 /// This function will take in a pointer to a string and destroy it.
 #[no_mangle]
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
@@ -926,16 +1273,55 @@ unsafe extern "C" fn _update_authentication(
     }
 }
 
+unsafe extern "C" fn _subscribe_state_updates(engine_ptr: *mut c_void) -> *mut c_void {
+    match get_engine(engine_ptr) {
+        Ok(e) => Box::into_raw(Box::new(e.subscribe_state_updates())) as *mut c_void,
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+unsafe fn get_subscription<'a>(ptr: *mut c_void) -> Result<&'a StateSubscription, FFIError> {
+    if ptr.is_null() {
+        Err(FFIError::NullPointer)
+    } else {
+        Ok(&*(ptr as *const StateSubscription))
+    }
+}
+
+unsafe extern "C" fn _wait_for_state_update(subscription_ptr: *mut c_void) -> *const c_char {
+    result_to_json_ptr(get_subscription(subscription_ptr).map(|s| s.wait()))
+}
+
+unsafe extern "C" fn _close_state_subscription(subscription_ptr: *mut c_void) {
+    if let Ok(s) = get_subscription(subscription_ptr) {
+        s.close();
+    }
+}
+
+unsafe extern "C" fn _destroy_state_subscription(subscription_ptr: *mut c_void) {
+    if subscription_ptr.is_null() {
+        return;
+    }
+    let subscription = Box::from_raw(subscription_ptr as *mut StateSubscription);
+    subscription.close();
+}
+
 unsafe extern "C" fn _destroy_engine(engine_ptr: *mut c_void) {
     if engine_ptr.is_null() {
         return;
     }
-    let engine = Box::from_raw(engine_ptr as *mut Engine);
+    // No other call on this engine may be in flight. Subscriptions are the
+    // exception: they never touch the engine, only the shared update state.
+    // The `Box` (not `*Box`) frees the engine only at the end of this function.
+    let mut engine = Box::from_raw(engine_ptr as *mut Engine);
+    // Wake every waiting subscription first; they hold their own reference to
+    // the update state, so they never touch the engine being freed.
+    engine.state_updates.close();
     engine.stop_signal.store(true, Ordering::Relaxed);
     // Notify the fetcher task to stop
     engine.stop_notify.notify_waiters();
     // Wait for fetcher task to exit
-    if let Some(handle) = engine.fetcher_handle {
+    if let Some(handle) = engine.fetcher_handle.take() {
         let rt = get_or_create_runtime();
         let _ = rt.block_on(handle);
     }
@@ -1269,6 +1655,350 @@ mod tests {
 
             _destroy_string(result_ptr as *mut c_char);
             _destroy_engine(engine_ptr);
+        }
+    }
+
+    use std::sync::atomic::AtomicUsize;
+    use std::time::Instant;
+
+    fn wait_for(cond: impl Fn() -> bool, timeout: Duration) -> bool {
+        let deadline = Instant::now() + timeout;
+        while Instant::now() < deadline {
+            if cond() {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        cond()
+    }
+
+    unsafe fn wait_result(sub: *mut c_void) -> String {
+        let ptr = _wait_for_state_update(sub);
+        let s = CStr::from_ptr(ptr).to_str().unwrap().to_string();
+        _destroy_string(ptr as *mut c_char);
+        s
+    }
+
+    /// Runs a host-style wait loop on its own thread, counting changes until
+    /// the subscription reports closed.
+    fn spawn_waiter(sub: *mut c_void, changes: Arc<AtomicUsize>) -> std::thread::JoinHandle<()> {
+        let sub = sub as usize;
+        std::thread::spawn(move || loop {
+            let res = unsafe { wait_result(sub as *mut c_void) };
+            if res.contains(r#""result":"changed""#) {
+                changes.fetch_add(1, Ordering::SeqCst);
+            } else {
+                assert!(res.contains(r#""result":"closed""#), "got: {res}");
+                return;
+            }
+        })
+    }
+
+    #[test]
+    fn test_subscription_reports_publish_and_coalesces() {
+        let updates = Arc::new(StateUpdates::default());
+        updates.publish();
+        // Changes before subscribing are not reported.
+        let sub = updates.subscribe();
+        updates.publish();
+        updates.publish();
+        updates.publish();
+        assert_eq!(sub.wait(), StateUpdate::Changed);
+
+        let closer = sub.clone();
+        let t = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            closer.close();
+        });
+        // The burst was coalesced, so this blocks until close.
+        assert_eq!(sub.wait(), StateUpdate::Closed);
+        assert_eq!(sub.wait(), StateUpdate::Closed);
+        t.join().unwrap();
+    }
+
+    #[test]
+    fn test_subscription_closed_by_engine_close() {
+        let updates = Arc::new(StateUpdates::default());
+        let sub = updates.subscribe();
+        let waiter = sub.clone();
+        let t = std::thread::spawn(move || waiter.wait());
+        std::thread::sleep(Duration::from_millis(50));
+        updates.close();
+        assert_eq!(t.join().unwrap(), StateUpdate::Closed);
+        assert_eq!(sub.wait(), StateUpdate::Closed);
+    }
+
+    #[test]
+    fn test_subscriber_count() {
+        let updates = Arc::new(StateUpdates::default());
+        assert!(!updates.has_subscribers());
+        let a = updates.subscribe();
+        let b = updates.subscribe();
+        assert!(updates.has_subscribers());
+        a.close();
+        a.close();
+        assert!(updates.has_subscribers());
+        // Dropped without close.
+        drop(b);
+        assert!(!updates.has_subscribers());
+        drop(a);
+        assert!(!updates.has_subscribers());
+    }
+
+    #[test]
+    fn test_state_subscription_null_pointers() {
+        unsafe {
+            assert!(_subscribe_state_updates(std::ptr::null_mut()).is_null());
+            let res = wait_result(std::ptr::null_mut());
+            assert!(res.contains("failure"), "got: {res}");
+            _close_state_subscription(std::ptr::null_mut());
+            _destroy_state_subscription(std::ptr::null_mut());
+        }
+    }
+
+    #[test]
+    fn test_destroy_engine_wakes_waiter_and_subscription_outlives_engine() {
+        let opts = CString::new(
+            r#"{"url":"http://localhost:1","error_strategy":"fallback","update_interval":9999}"#,
+        )
+        .unwrap();
+        unsafe {
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            assert!(!engine_ptr.is_null());
+            let sub = _subscribe_state_updates(engine_ptr);
+            assert!(!sub.is_null());
+
+            let changes = Arc::new(AtomicUsize::new(0));
+            let waiter = spawn_waiter(sub, changes.clone());
+            std::thread::sleep(Duration::from_millis(100));
+            _destroy_engine(engine_ptr);
+            waiter.join().unwrap();
+            assert_eq!(changes.load(Ordering::SeqCst), 0);
+
+            // The handle is still valid after the engine is gone.
+            let res = wait_result(sub);
+            assert!(res.contains(r#""result":"closed""#), "got: {res}");
+            _destroy_state_subscription(sub);
+        }
+    }
+
+    #[test]
+    fn test_close_subscription_wakes_waiter() {
+        let opts = CString::new(
+            r#"{"url":"http://localhost:1","error_strategy":"fallback","update_interval":9999}"#,
+        )
+        .unwrap();
+        unsafe {
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            let sub = _subscribe_state_updates(engine_ptr);
+            let waiter = spawn_waiter(sub, Arc::new(AtomicUsize::new(0)));
+            std::thread::sleep(Duration::from_millis(100));
+            _close_state_subscription(sub);
+            waiter.join().unwrap();
+            assert!(!get_engine(engine_ptr)
+                .unwrap()
+                .state_updates
+                .has_subscribers());
+            _destroy_state_subscription(sub);
+            _destroy_engine(engine_ptr);
+        }
+    }
+
+    #[test]
+    fn test_state_update_reported_on_polled_change() {
+        let path = "/internal/v1/evaluation/snapshot/namespace/default";
+        // A dedicated server, not one from mockito's shared pool: a pooled
+        // server can still be stuck joining a blocking chunked body left by
+        // another test (e.g. test_streaming_close_does_not_hang's 1000s sleep).
+        let mut server = mockito::Server::new_with_opts(mockito::ServerOpts::default());
+        let initial = server
+            .mock("GET", path)
+            .with_status(200)
+            .with_body(r#"{"namespace":{"key":"default"},"flags":[]}"#)
+            .create();
+
+        let opts = CString::new(format!(
+            r#"{{"url":"{}","update_interval":1}}"#,
+            server.url()
+        ))
+        .unwrap();
+        let changes = Arc::new(AtomicUsize::new(0));
+
+        unsafe {
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            assert!(!engine_ptr.is_null());
+            let sub = _subscribe_state_updates(engine_ptr);
+            let waiter = spawn_waiter(sub, changes.clone());
+
+            // The first background poll returns the same (empty) state.
+            std::thread::sleep(Duration::from_millis(1500));
+            assert_eq!(changes.load(Ordering::SeqCst), 0);
+
+            initial.remove();
+            server
+                .mock("GET", path)
+                .with_status(200)
+                .with_body(
+                    r#"{"namespace":{"key":"default"},"flags":[{"key":"new_flag","name":"New","type":"BOOLEAN_FLAG_TYPE","enabled":true}]}"#,
+                )
+                .create();
+
+            assert!(wait_for(
+                || changes.load(Ordering::SeqCst) >= 1,
+                Duration::from_secs(5)
+            ));
+
+            // Unchanged polls after the update must not report again.
+            std::thread::sleep(Duration::from_millis(2500));
+            assert_eq!(changes.load(Ordering::SeqCst), 1);
+
+            _destroy_engine(engine_ptr);
+            waiter.join().unwrap();
+            _destroy_state_subscription(sub);
+        }
+    }
+
+    #[test]
+    fn test_state_update_reported_on_recovery_from_error() {
+        let path = "/internal/v1/evaluation/snapshot/namespace/default";
+        let mut server = mockito::Server::new_with_opts(mockito::ServerOpts::default());
+        let failing = server.mock("GET", path).with_status(500).create();
+
+        let opts = CString::new(format!(
+            r#"{{"url":"{}","update_interval":1,"error_strategy":"fail"}}"#,
+            server.url()
+        ))
+        .unwrap();
+        let changes = Arc::new(AtomicUsize::new(0));
+
+        unsafe {
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            assert!(!engine_ptr.is_null());
+            let sub = _subscribe_state_updates(engine_ptr);
+            let waiter = spawn_waiter(sub, changes.clone());
+
+            // Staying in the error state is not a change.
+            std::thread::sleep(Duration::from_millis(1500));
+            assert_eq!(changes.load(Ordering::SeqCst), 0);
+
+            failing.remove();
+            server
+                .mock("GET", path)
+                .with_status(200)
+                .with_body(r#"{"namespace":{"key":"default"},"flags":[]}"#)
+                .create();
+
+            // Recovery fires even though the recovered snapshot is empty.
+            assert!(wait_for(
+                || changes.load(Ordering::SeqCst) >= 1,
+                Duration::from_secs(5)
+            ));
+            assert!(get_engine(engine_ptr).unwrap().list_flags().is_ok());
+
+            _destroy_engine(engine_ptr);
+            waiter.join().unwrap();
+            _destroy_state_subscription(sub);
+        }
+    }
+
+    #[test]
+    fn test_state_update_reported_on_streamed_change() {
+        const EMPTY: &str = r#"{"namespace":{"key":"default"},"flags":[]}"#;
+        const WITH_FLAG: &str = r#"{"namespace":{"key":"default"},"flags":[{"key":"new_flag","name":"New","type":"BOOLEAN_FLAG_TYPE","enabled":true}]}"#;
+        const BARRIER: &str = r#"{"namespace":{"key":"default"},"flags":[{"key":"barrier","name":"Barrier","type":"BOOLEAN_FLAG_TYPE","enabled":true}]}"#;
+
+        let mut server = mockito::Server::new_with_opts(mockito::ServerOpts::default());
+        server
+            .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
+            .with_status(200)
+            .with_body(EMPTY)
+            .create();
+
+        // The stream body advances one gated step at a time, so the test decides
+        // when each chunk is sent.
+        let step = Arc::new(AtomicUsize::new(0));
+        let body_step = step.clone();
+        server
+            .mock(
+                "GET",
+                "/client/v2/environments/default/namespaces/default/stream",
+            )
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_chunked_body(move |w| {
+                let wait_step = |n: usize| {
+                    wait_for(
+                        || body_step.load(Ordering::SeqCst) >= n,
+                        Duration::from_secs(30),
+                    );
+                };
+                let chunk = |doc: &str| format!("{{\"result\":{doc}}}\n");
+
+                wait_step(1);
+                // Same state as the initial fetch: must not report.
+                w.write_all(chunk(EMPTY).as_bytes())?;
+                w.flush()?;
+                wait_step(2);
+                // A real change: reported once.
+                w.write_all(chunk(WITH_FLAG).as_bytes())?;
+                w.flush()?;
+                wait_step(3);
+                // A resend of it, then a different barrier document. Once the
+                // barrier is reported, the resend has been processed too.
+                w.write_all(chunk(WITH_FLAG).as_bytes())?;
+                w.write_all(chunk(BARRIER).as_bytes())?;
+                w.flush()?;
+                // Hold the stream open until the test is done.
+                wait_step(4);
+                Ok(())
+            })
+            .create();
+
+        let opts = CString::new(format!(
+            r#"{{"url":"{}","fetch_mode":"streaming"}}"#,
+            server.url()
+        ))
+        .unwrap();
+
+        unsafe {
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            assert!(!engine_ptr.is_null());
+            let sub = _subscribe_state_updates(engine_ptr);
+            let engine = get_engine(engine_ptr).unwrap();
+            let changes = Arc::new(AtomicUsize::new(0));
+            let waiter = spawn_waiter(sub, changes.clone());
+
+            step.store(1, Ordering::SeqCst);
+            std::thread::sleep(Duration::from_millis(500));
+            assert_eq!(changes.load(Ordering::SeqCst), 0);
+
+            step.store(2, Ordering::SeqCst);
+            assert!(wait_for(
+                || changes.load(Ordering::SeqCst) >= 1,
+                Duration::from_secs(5)
+            ));
+            assert_eq!(engine.list_flags().unwrap()[0].key, "new_flag");
+
+            step.store(3, Ordering::SeqCst);
+            assert!(wait_for(
+                || engine.list_flags().unwrap()[0].key == "barrier",
+                Duration::from_secs(5)
+            ));
+            assert!(wait_for(
+                || changes.load(Ordering::SeqCst) >= 2,
+                Duration::from_secs(5)
+            ));
+            assert_eq!(changes.load(Ordering::SeqCst), 2);
+            // Reports can coalesce, so count applied changes instead: the
+            // resend must not have bumped the generation.
+            assert_eq!(engine.state_updates.lock().generation, 2);
+
+            // Closing with the stream still open must not hang, and wakes the
+            // waiter.
+            _destroy_engine(engine_ptr);
+            waiter.join().unwrap();
+            step.store(4, Ordering::SeqCst);
+            _destroy_state_subscription(sub);
         }
     }
 
