@@ -114,6 +114,7 @@ The `FliptClient` constructor accepts one optional argument:
   - `FetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
   - `ErrorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to `Fail`. See the [Error Strategies](#error-strategies) section for more information.
   - `Snapshot`: The initial snapshot to use when instantiating the client. See the [Snapshotting](#snapshotting) section for more information.
+  - `OnStateUpdate`: An `Action` called after the client applies changed flag state. See the [State Update Listeners](#state-update-listeners) section for more information.
 
 ### Authentication
 
@@ -295,6 +296,44 @@ You also may want to store the snapshot in a local file so that you can use it t
 
 > [!IMPORTANT]
 > If the Flipt server becomes reachable after the setting the snapshot, the client will replace the snapshot with the new flag state from the Flipt server.
+
+### State Update Listeners
+
+The client can tell you when flag state changes, so you can re-read the flags you care about instead of re-evaluating them on a timer. This works in both polling and streaming mode.
+
+Register a listener when you create the client:
+
+```csharp
+using var client = new FliptClient(new ClientOptions
+{
+    Url = "http://localhost:8080",
+    FetchMode = FetchMode.Streaming,
+    OnStateUpdate = () => RefreshFlags(),
+});
+```
+
+Or add and remove listeners while the client is running:
+
+```csharp
+IDisposable subscription = client.AddStateUpdateListener(() => RefreshFlags());
+
+// Later, to stop listening:
+subscription.Dispose();
+```
+
+How listeners behave:
+
+- **Only real changes.** A listener is called after the client applies flag state that differs from the current state. Unchanged polls and repeated streaming messages do not call it.
+- **Not called for initial state.** The state loaded when the client is created doesn't trigger a listener, and a new listener hears about changes applied after it was added (occasionally with one extra call). Read the flags you need once when you register.
+- **Errors don't trigger it.** A failed fetch does not call listeners. Recovering from a failure does.
+- **One background thread.** Listeners run in the order they were added, on a single background thread named `flipt-state-update` owned by the client. Updates that arrive while listeners run are merged into one follow-up call, so you always see the latest state but may not see every intermediate one.
+- **Keep listeners fast.** A slow listener delays later notifications. Hand long work off with `Task.Run` or your own queue.
+- **Safe to call back in.** A listener may evaluate flags, add or remove listeners, or dispose the client. A listener removed while a notification is running may still be called once for that notification.
+- **`Dispose` waits for a running listener.** When called from another thread, `Dispose` lets a listener that is already running finish, then stops. A listener must not block on a lock held by the thread that calls `Dispose`, or the two will deadlock.
+- **Exceptions are logged.** An exception thrown by one listener is written to standard error and does not stop the other listeners.
+
+> [!IMPORTANT]
+> Always dispose a client that has listeners. The listener thread holds a reference to the client until it is disposed, so a client that is dropped without disposing is never garbage collected. No listener is called after the first `Dispose` call from a thread other than the listener thread returns.
 
 ## Contributing
 

@@ -80,6 +80,13 @@ namespace FliptClient.Models
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("tls_config")]
         public TlsConfig? TlsConfig { get; set; }
+
+        /// <summary>
+        /// Gets or sets a listener called after the client applies changed flag state. Never sent to the engine.
+        /// See <see cref="FliptClient.AddStateUpdateListener(Action)"/>.
+        /// </summary>
+        [JsonIgnore]
+        public Action? OnStateUpdate { get; set; }
     }
 
     [JsonConverter(typeof(LowercaseEnumConverter<ErrorStrategy>))]

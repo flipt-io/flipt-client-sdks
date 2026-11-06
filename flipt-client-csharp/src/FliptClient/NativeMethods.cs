@@ -33,6 +33,19 @@ namespace FliptClient
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate IntPtr GetSnapshotDelegate(IntPtr engine);
 
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate IntPtr SubscribeStateUpdatesDelegate(IntPtr engine);
+
+        // Blocks until flag state changes or the subscription closes.
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate IntPtr WaitForStateUpdateDelegate(IntPtr subscription);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void CloseStateSubscriptionDelegate(IntPtr subscription);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void DestroyStateSubscriptionDelegate(IntPtr subscription);
+
         public static InitializeEngineDelegate InitializeEngine;
         public static EvaluateVariantDelegate EvaluateVariant;
         public static EvaluateBooleanDelegate EvaluateBoolean;
@@ -41,6 +54,10 @@ namespace FliptClient
         public static DestroyEngineDelegate DestroyEngine;
         public static DestroyStringDelegate DestroyString;
         public static GetSnapshotDelegate GetSnapshot;
+        public static SubscribeStateUpdatesDelegate SubscribeStateUpdates;
+        public static WaitForStateUpdateDelegate WaitForStateUpdate;
+        public static CloseStateSubscriptionDelegate CloseStateSubscription;
+        public static DestroyStateSubscriptionDelegate DestroyStateSubscription;
 
         static NativeMethods()
         {
@@ -67,6 +84,10 @@ namespace FliptClient
             DestroyEngine = GetDelegate<DestroyEngineDelegate>("destroy_engine");
             DestroyString = GetDelegate<DestroyStringDelegate>("destroy_string");
             GetSnapshot = GetDelegate<GetSnapshotDelegate>("get_snapshot");
+            SubscribeStateUpdates = GetDelegate<SubscribeStateUpdatesDelegate>("subscribe_state_updates");
+            WaitForStateUpdate = GetDelegate<WaitForStateUpdateDelegate>("wait_for_state_update");
+            CloseStateSubscription = GetDelegate<CloseStateSubscriptionDelegate>("close_state_subscription");
+            DestroyStateSubscription = GetDelegate<DestroyStateSubscriptionDelegate>("destroy_state_subscription");
         }
 
         private static string GetLibraryName()
