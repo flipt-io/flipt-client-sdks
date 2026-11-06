@@ -11,6 +11,14 @@ BARRIER = '{"namespace":{"key":"default"},"flags":[{"key":"barrier","name":"Barr
           '"type":"BOOLEAN_FLAG_TYPE","enabled":true}]}'
 END_STREAM = '<end>'
 
+# Pops from the queue, or returns nil after seconds. Queue#pop(timeout:) needs Ruby 3.2, and on
+# 3.1 the keyword is taken as non_block, so pop raises at once on an empty queue.
+def pop_with_timeout(queue, seconds)
+  Timeout.timeout(seconds) { queue.pop }
+rescue Timeout::Error
+  nil
+end
+
 # A minimal HTTP server for the snapshot and stream endpoints, so no Flipt instance is needed.
 class FakeFlipt
   attr_accessor :body
@@ -57,7 +65,7 @@ class FakeFlipt
     elsif path.start_with?('/client/v2/environments/default/namespaces/default/stream')
       socket.write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\n\r\n")
       loop do
-        doc = @stream_docs.pop(timeout: 30)
+        doc = pop_with_timeout(@stream_docs, 30)
         break if doc.nil? || doc == END_STREAM
 
         chunk = "{\"result\":#{doc}}\n"
@@ -127,7 +135,7 @@ RSpec.describe 'Flipt::Client state update listeners' do
     finished = false
     client = new_client(on_state_update: lambda {
       started << true
-      release.pop(timeout: 5)
+      pop_with_timeout(release, 5)
       finished = true
     })
     begin
