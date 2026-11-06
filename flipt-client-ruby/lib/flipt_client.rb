@@ -2,6 +2,7 @@
 
 require 'flipt_client/version'
 require 'flipt_client/models'
+require 'flipt_client/state_updates'
 require 'ffi'
 require 'json'
 
@@ -35,9 +36,11 @@ module Flipt
     ffi_lib File.expand_path(libfile, __dir__)
 
     # void *initialize_engine(const char *opts);
-    attach_function :initialize_engine, [:string], :pointer
+    # Does the initial fetch, and destroy_engine stops the fetch thread, so both release the GVL
+    # to let other Ruby threads run while they wait on the network.
+    attach_function :initialize_engine, [:string], :pointer, blocking: true
     # void destroy_engine(void *engine_ptr);
-    attach_function :destroy_engine, [:pointer], :void
+    attach_function :destroy_engine, [:pointer], :void, blocking: true
     # const char *evaluate_variant(void *engine_ptr, const char *evaluation_request);
     attach_function :evaluate_variant, %i[pointer string], :strptr
     # const char *evaluate_boolean(void *engine_ptr, const char *evaluation_request);
@@ -50,6 +53,15 @@ module Flipt
     attach_function :destroy_string, [:pointer], :void
     # const char *get_snapshot(void *engine_ptr);
     attach_function :get_snapshot, [:pointer], :strptr
+    # void *subscribe_state_updates(void *engine_ptr);
+    attach_function :subscribe_state_updates, [:pointer], :pointer
+    # const char *wait_for_state_update(void *subscription_ptr);
+    # Blocks until flag state changes or the subscription closes, so it releases the GVL.
+    attach_function :wait_for_state_update, [:pointer], :strptr, blocking: true
+    # void close_state_subscription(void *subscription_ptr);
+    attach_function :close_state_subscription, [:pointer], :void
+    # void destroy_state_subscription(void *subscription_ptr);
+    attach_function :destroy_state_subscription, [:pointer], :void
 
     # Create a new Flipt client
     #
@@ -66,8 +78,10 @@ module Flipt
     # @option opts [Symbol] :error_strategy error strategy to use for the client (:fail or :fallback).
     # @option opts [String] :snapshot snapshot to use when initializing the client
     # @option opts [TlsConfig] :tls_config TLS configuration for connecting to servers with custom certificates
+    # @option opts [#call] :on_state_update called with no arguments after the client applies changed flag state
     def initialize(**opts)
       @namespace = opts.fetch(:namespace, 'default')
+      on_state_update = opts.delete(:on_state_update)
 
       opts[:authentication] = validate_authentication(opts.fetch(:authentication, NoAuthentication.new))
       opts[:fetch_mode] = validate_fetch_mode(opts.fetch(:fetch_mode, :polling))
@@ -76,6 +90,49 @@ module Flipt
 
       @engine = self.class.initialize_engine(opts.to_json)
       ObjectSpace.define_finalizer(self, self.class.finalize(@engine))
+      @state_updates = StateUpdates.new(@engine)
+
+      return if on_state_update.nil?
+
+      begin
+        add_state_update_listener(on_state_update)
+      rescue StandardError
+        # The caller never gets a client to close, so tear the engine down here.
+        close
+        raise
+      end
+    end
+
+    # Close the client and release the engine. When called from a thread other than the state
+    # update thread, waits for a running listener to return first. Closing twice is a no-op.
+    def close
+      return unless @state_updates.close
+
+      # Clear the pointer before destroying: destroy_engine releases the GVL, so other threads
+      # keep running and must see a closed client rather than a pointer being freed.
+      engine = @engine
+      @engine = nil
+      ObjectSpace.undefine_finalizer(self)
+      self.class.destroy_engine(engine)
+    end
+
+    # Add a listener that is called after each change to flag state. Read the flags you care
+    # about once after adding a listener: it is called for changes applied after it was added,
+    # and may occasionally see one extra call.
+    #
+    # Listeners run in the order they were added, on a single thread named flipt-state-update.
+    # Updates that arrive while they run are coalesced into a single follow-up call. A listener
+    # may evaluate flags, add or remove listeners, or call close. close from another thread waits
+    # for a running listener to return. An error raised by one listener is logged and does not
+    # stop the others. The client must be closed to stop its update thread.
+    #
+    # @param listener [#call] the listener to call, or pass a block
+    # @return [Subscription] a subscription that removes the listener when closed
+    def add_state_update_listener(listener = nil, &block)
+      listener ||= block
+      raise ValidationError, 'listener must respond to call' unless listener.respond_to?(:call)
+
+      @state_updates.add(listener)
     end
 
     def self.finalize(engine)
@@ -90,7 +147,7 @@ module Flipt
     def evaluate_variant(flag_key:, entity_id:, context: {})
       validate_evaluation_request(flag_key, entity_id, context)
       req = { flag_key: flag_key, entity_id: entity_id, context: context }
-      resp, ptr = self.class.evaluate_variant(@engine, req.to_json)
+      resp, ptr = self.class.evaluate_variant(open_engine, req.to_json)
       ptr = FFI::AutoPointer.new(ptr, Client.method(:destroy_string))
       data = JSON.parse(resp)
       raise EvaluationError, data['error_message'] if data['status'] != 'success'
@@ -114,7 +171,7 @@ module Flipt
     def evaluate_boolean(flag_key:, entity_id:, context: {})
       validate_evaluation_request(flag_key, entity_id, context)
       req = { flag_key: flag_key, entity_id: entity_id, context: context }
-      resp, ptr = self.class.evaluate_boolean(@engine, req.to_json)
+      resp, ptr = self.class.evaluate_boolean(open_engine, req.to_json)
       ptr = FFI::AutoPointer.new(ptr, Client.method(:destroy_string))
       data = JSON.parse(resp)
       raise EvaluationError, data['error_message'] if data['status'] != 'success'
@@ -141,7 +198,7 @@ module Flipt
       requests.each do |request|
         validate_evaluation_request(request[:flag_key], request[:entity_id], request[:context] || {})
       end
-      resp, ptr = self.class.evaluate_batch(@engine, requests.to_json)
+      resp, ptr = self.class.evaluate_batch(open_engine, requests.to_json)
       ptr = FFI::AutoPointer.new(ptr, Client.method(:destroy_string))
       data = JSON.parse(resp)
       raise EvaluationError, data['error_message'] if data['status'] != 'success'
@@ -183,7 +240,7 @@ module Flipt
 
     # List all flags in the namespace
     def list_flags
-      resp, ptr = self.class.list_flags(@engine)
+      resp, ptr = self.class.list_flags(open_engine)
       ptr = FFI::AutoPointer.new(ptr, Client.method(:destroy_string))
       data = JSON.parse(resp)
       raise Error, data['error_message'] if data['status'] != 'success'
@@ -193,12 +250,19 @@ module Flipt
 
     # Get the snapshot of the current flag state
     def snapshot
-      resp, ptr = self.class.get_snapshot(@engine)
+      resp, ptr = self.class.get_snapshot(open_engine)
       ptr = FFI::AutoPointer.new(ptr, Client.method(:destroy_string))
       resp
     end
 
     private
+
+    def open_engine
+      engine = @engine
+      raise Error, 'client is closed' if engine.nil?
+
+      engine
+    end
 
     def validate_evaluation_request(flag_key, entity_id, context)
       raise ValidationError, 'flag_key is required' if flag_key.nil? || flag_key.empty?
