@@ -19,10 +19,8 @@ use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{sync_channel, SyncSender, TrySendError};
-use std::sync::{Arc, Mutex, OnceLock, RwLock};
-use std::thread::{JoinHandle, ThreadId};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, RwLock};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::runtime::Builder;
@@ -123,111 +121,124 @@ impl Default for EngineOpts {
     }
 }
 
-/// Called by the engine after it applies new flag state. `user_data` is the
-/// pointer the host passed at registration, returned untouched.
-/// Nullable in C: passing NULL clears the registered callback.
-pub type StateUpdateCallback = Option<extern "C" fn(user_data: *mut c_void)>;
-
-#[derive(Clone, Copy)]
-struct RegisteredCallback {
-    callback: extern "C" fn(user_data: *mut c_void),
-    // Stored as usize so the slot is Send; the engine never dereferences it.
-    user_data: usize,
+/// What `wait_for_state_update` reports to the host.
+#[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum StateUpdate {
+    /// Flag state changed at least once since the previous wait returned.
+    Changed,
+    /// The subscription or the engine was closed. Every later wait returns
+    /// this too.
+    Closed,
 }
 
-/// Delivers state-update callbacks on a dedicated thread, so a slow or
-/// blocking host callback never stalls the tokio runtime that fetches state.
-struct StateUpdateDispatcher {
-    // Held for the duration of each callback invocation, so replacing or
-    // clearing the callback waits for any in-flight call to finish.
-    slot: Arc<Mutex<Option<RegisteredCallback>>>,
-    // Set by destroy_engine without taking the slot lock, so it also works
-    // from inside a callback. Checked under the lock before every call.
-    stopped: Arc<AtomicBool>,
-    thread: Option<JoinHandle<()>>,
-    thread_id: ThreadId,
+#[derive(Default)]
+struct UpdateState {
+    // Bumped each time the engine applies changed flag state.
+    generation: u64,
+    closed: bool,
+    subscribers: usize,
 }
 
-impl StateUpdateDispatcher {
-    /// Returns the dispatcher and the sender the fetch task signals on. The
-    /// dispatcher thread exits once every sender is dropped.
-    fn spawn() -> std::io::Result<(Self, SyncSender<()>)> {
-        // Capacity 1 coalesces bursts: while a callback runs, any number of
-        // updates collapse into a single follow-up call.
-        let (tx, rx) = sync_channel::<()>(1);
-        let slot: Arc<Mutex<Option<RegisteredCallback>>> = Arc::new(Mutex::new(None));
-        let thread_slot = slot.clone();
-        let stopped = Arc::new(AtomicBool::new(false));
-        let thread_stopped = stopped.clone();
+/// Flag-state generations, shared by the engine, its fetch task and every
+/// subscription. Waiters block here rather than on the `Engine`, so a waiter
+/// never touches engine memory that `destroy_engine` frees.
+#[derive(Default)]
+struct StateUpdates {
+    state: Mutex<UpdateState>,
+    changed: Condvar,
+}
 
-        let thread = std::thread::Builder::new()
-            .name("flipt-engine-callback".into())
-            .spawn(move || {
-                while rx.recv().is_ok() {
-                    let guard = match thread_slot.lock() {
-                        Ok(g) => g,
-                        Err(p) => p.into_inner(),
-                    };
-                    // A signal buffered before destroy_engine must not reach
-                    // a host that has already torn down its user_data.
-                    if thread_stopped.load(Ordering::SeqCst) {
-                        break;
-                    }
-                    if let Some(registered) = *guard {
-                        // No catch_unwind: a panic cannot cross the extern "C"
-                        // boundary (it aborts), so hosts must not unwind.
-                        (registered.callback)(registered.user_data as *mut c_void);
-                    }
-                }
-            })?;
-
-        let thread_id = thread.thread().id();
-        Ok((
-            Self {
-                slot,
-                stopped,
-                thread: Some(thread),
-                thread_id,
-            },
-            tx,
-        ))
-    }
-
-    /// Guarantees no further callback starts. Safe to call from inside one.
-    fn stop(&self) {
-        self.stopped.store(true, Ordering::SeqCst);
-    }
-
-    fn on_dispatcher_thread(&self) -> bool {
-        std::thread::current().id() == self.thread_id
-    }
-
-    fn set(&self, registered: Option<RegisteredCallback>) -> Result<(), Error> {
-        // The dispatcher holds the slot lock while a callback runs, so
-        // changing it from inside a callback would deadlock.
-        if self.on_dispatcher_thread() {
-            return Err(Error::Internal(
-                "cannot change state update callback from within the callback".into(),
-            ));
-        }
-        let mut guard = match self.slot.lock() {
+impl StateUpdates {
+    fn lock(&self) -> MutexGuard<'_, UpdateState> {
+        match self.state.lock() {
             Ok(g) => g,
             Err(p) => p.into_inner(),
-        };
-        *guard = registered;
-        Ok(())
+        }
     }
 
-    /// Joins the dispatcher thread. The caller must have stopped the fetch
-    /// task first so the sender is dropped and the thread can exit.
-    fn join(mut self) {
-        if let Some(thread) = self.thread.take() {
-            if self.on_dispatcher_thread() {
-                // destroy_engine called from inside a callback: the thread
-                // exits on its own once this call returns.
-                return;
+    /// Skips change detection when nobody is subscribed.
+    fn has_subscribers(&self) -> bool {
+        self.lock().subscribers > 0
+    }
+
+    fn publish(&self) {
+        self.lock().generation += 1;
+        self.changed.notify_all();
+    }
+
+    fn close(&self) {
+        self.lock().closed = true;
+        self.changed.notify_all();
+    }
+
+    fn subscribe(self: &Arc<Self>) -> StateSubscription {
+        let mut state = self.lock();
+        state.subscribers += 1;
+        StateSubscription(Arc::new(SubscriptionInner {
+            updates: self.clone(),
+            // Start at the current generation, so the initial state is never
+            // reported as a change.
+            seen: AtomicU64::new(state.generation),
+            closed: AtomicBool::new(false),
+        }))
+    }
+}
+
+struct SubscriptionInner {
+    updates: Arc<StateUpdates>,
+    seen: AtomicU64,
+    // Only written while holding `updates.state`, so a waiter can't miss it
+    // between checking and blocking.
+    closed: AtomicBool,
+}
+
+/// A host's handle on state updates. It owns its own reference to the shared
+/// state, so it stays usable after `destroy_engine`: waiting on it then
+/// reports `Closed`.
+#[derive(Clone)]
+struct StateSubscription(Arc<SubscriptionInner>);
+
+impl StateSubscription {
+    /// Blocks until state changes after the last return, or until the
+    /// subscription or engine is closed. Changes that land while the host is
+    /// busy are coalesced into one `Changed`.
+    fn wait(&self) -> StateUpdate {
+        let inner = &self.0;
+        let mut state = inner.updates.lock();
+        loop {
+            if state.closed || inner.closed.load(Ordering::SeqCst) {
+                return StateUpdate::Closed;
             }
-            let _ = thread.join();
+            if state.generation != inner.seen.load(Ordering::SeqCst) {
+                inner.seen.store(state.generation, Ordering::SeqCst);
+                return StateUpdate::Changed;
+            }
+            state = match inner.updates.changed.wait(state) {
+                Ok(g) => g,
+                Err(p) => p.into_inner(),
+            };
+        }
+    }
+
+    /// Wakes a blocked `wait` and makes every later one return `Closed`.
+    /// Idempotent.
+    fn close(&self) {
+        let inner = &self.0;
+        let mut state = inner.updates.lock();
+        if !inner.closed.swap(true, Ordering::SeqCst) {
+            state.subscribers -= 1;
+        }
+        drop(state);
+        inner.updates.changed.notify_all();
+    }
+}
+
+impl Drop for SubscriptionInner {
+    fn drop(&mut self) {
+        // A host that destroys a subscription without closing it first.
+        if !*self.closed.get_mut() {
+            self.updates.lock().subscribers -= 1;
         }
     }
 }
@@ -238,20 +249,7 @@ pub struct Engine {
     fetcher_handle: Option<tokio::task::JoinHandle<()>>,
     stop_notify: Arc<Notify>,
     auth_sender: Option<watch::Sender<HeaderMap>>,
-    // Spawned on the first callback registration, so engines that never
-    // register one don't pay for an extra OS thread.
-    dispatcher: OnceLock<StateUpdateDispatcher>,
-    dispatcher_init: Mutex<()>,
-    // Shared with the fetch task; None until a dispatcher exists. Taken (and
-    // so dropped) by destroy_engine to let the dispatcher thread exit.
-    update_tx: Arc<Mutex<Option<SyncSender<()>>>>,
-}
-
-fn lock_ignoring_poison<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-    match m.lock() {
-        Ok(g) => g,
-        Err(p) => p.into_inner(),
-    }
+    state_updates: Arc<StateUpdates>,
 }
 
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
@@ -301,12 +299,12 @@ impl Engine {
 
         let handle = get_or_create_runtime();
 
-        let update_tx: Arc<Mutex<Option<SyncSender<()>>>> = Arc::new(Mutex::new(None));
-        let update_tx_clone = update_tx.clone();
+        let state_updates = Arc::new(StateUpdates::default());
+        let state_updates_clone = state_updates.clone();
 
         // Set the initial snapshot
         if let Ok(mut lock) = evaluator.write() {
-            lock.replace_snapshot(Ok(initial_snapshot));
+            lock.replace_snapshot(Ok(initial_snapshot), false);
         }
 
         // Block on initial fetch
@@ -316,14 +314,14 @@ impl Engine {
                     log::debug!("initial fetch succeeded");
                     let snap = snapshot::Snapshot::build(doc);
                     if let Ok(mut lock) = evaluator.write() {
-                        lock.replace_snapshot(Ok(snap));
+                        lock.replace_snapshot(Ok(snap), false);
                     }
                 }
                 Err(err) => {
                     log::warn!("initial fetch failed: {err:?}");
                     if error_strategy == ErrorStrategy::Fail {
                         if let Ok(mut lock) = evaluator.write() {
-                            lock.replace_snapshot(Err(err));
+                            lock.replace_snapshot(Err(err), false);
                         }
                     }
                 }
@@ -338,28 +336,27 @@ impl Engine {
                     Ok(doc) => {
                         log::debug!("fetch succeeded");
                         let snap = snapshot::Snapshot::build(doc);
-                        // The write lock is released before signalling, so a
-                        // callback can evaluate flags without deadlocking.
+                        // Subscribers are checked under the write lock, and
+                        // subscribing takes the read lock, so a new subscriber
+                        // either sees this change reported or reads the new
+                        // state itself. Waiters are woken after the lock is
+                        // released.
                         let changed = match evaluator_clone.write() {
-                            Ok(mut lock) => lock.replace_snapshot(Ok(snap)),
+                            Ok(mut lock) => {
+                                let detect = state_updates_clone.has_subscribers();
+                                lock.replace_snapshot(Ok(snap), detect)
+                            }
                             Err(_) => false,
                         };
                         if changed {
-                            if let Some(tx) = lock_ignoring_poison(&update_tx_clone).as_ref() {
-                                match tx.try_send(()) {
-                                    Ok(()) | Err(TrySendError::Full(())) => {}
-                                    Err(TrySendError::Disconnected(())) => {
-                                        log::warn!("state update dispatcher is gone");
-                                    }
-                                }
-                            }
+                            state_updates_clone.publish();
                         }
                     }
                     Err(err) => {
                         log::warn!("fetch failed: {err:?}");
                         if error_strategy == ErrorStrategy::Fail {
                             if let Ok(mut lock) = evaluator_clone.write() {
-                                lock.replace_snapshot(Err(err));
+                                lock.replace_snapshot(Err(err), false);
                             }
                         }
                     }
@@ -373,46 +370,17 @@ impl Engine {
             fetcher_handle: Some(fetcher_handle),
             stop_notify,
             auth_sender,
-            dispatcher: OnceLock::new(),
-            dispatcher_init: Mutex::new(()),
-            update_tx,
+            state_updates,
         }
     }
 
-    /// Returns the dispatcher, spawning its thread on first use.
-    fn dispatcher(&self) -> Result<&StateUpdateDispatcher, Error> {
-        // Lock-free when it already exists, so a callback calling back in
-        // reaches set()'s reentrancy check instead of blocking here.
-        if let Some(d) = self.dispatcher.get() {
-            return Ok(d);
-        }
-        let _init = lock_ignoring_poison(&self.dispatcher_init);
-        if let Some(d) = self.dispatcher.get() {
-            return Ok(d);
-        }
-        let (d, tx) = StateUpdateDispatcher::spawn()
-            .map_err(|e| Error::Internal(format!("failed to spawn state update thread: {e}")))?;
-        *lock_ignoring_poison(&self.update_tx) = Some(tx);
-        Ok(self.dispatcher.get_or_init(|| d))
-    }
-
-    /// Registers, replaces, or (with `None`) clears the state update callback.
-    /// Once this returns, no call to a previously registered callback is in
-    /// flight.
-    fn set_state_update_callback(
-        &self,
-        callback: StateUpdateCallback,
-        user_data: *mut c_void,
-    ) -> Result<(), Error> {
-        let registered = callback.map(|callback| RegisteredCallback {
-            callback,
-            user_data: user_data as usize,
-        });
-        match (registered, self.dispatcher.get()) {
-            // Clearing when nothing was ever registered needs no thread.
-            (None, None) => Ok(()),
-            (registered, _) => self.dispatcher()?.set(registered),
-        }
+    /// Subscribes to changes applied after this call returns. A change applied
+    /// just before it may also be reported once.
+    fn subscribe_state_updates(&self) -> StateSubscription {
+        // Held so a fetch can't apply new state between its subscriber check
+        // and this subscription. See the fetch task.
+        let _r_lock = self.evaluator.read();
+        self.state_updates.subscribe()
     }
 
     /// Helper to lock the evaluator for reading and run a closure, mapping lock errors to Error::Internal
@@ -849,35 +817,83 @@ pub unsafe extern "C" fn update_authentication(
 
 /// # Safety
 ///
-/// Registers `callback` to be called, with `user_data`, after the engine applies
-/// changed flag state. Pass a null callback to clear it. Callbacks run on a
-/// single engine-owned thread; bursts of updates are coalesced into one call.
-/// Initial state and transitions into an error state do not fire; recovering
-/// from an error does.
+/// Subscribes to flag state changes applied after this call returns (a change
+/// applied just before may also be reported once), and returns a subscription
+/// handle, or null if `engine_ptr` is null. Pass the
+/// handle to `wait_for_state_update` from a thread the host owns.
 ///
-/// A callback may evaluate flags and may call `destroy_engine`, but changing
-/// the callback from inside one returns an error. `user_data` must stay valid
-/// until the callback is cleared or `destroy_engine` returns. The callback
-/// must not unwind: a panic across this boundary aborts the process.
+/// The handle holds its own reference to the engine's update state, so it
+/// stays valid after `destroy_engine`; waiting on it then reports `closed`.
+/// Free it with `destroy_state_subscription`.
 #[no_mangle]
 #[cfg(all(target_feature = "crt-static", target_os = "linux"))]
-pub unsafe extern "C" fn set_state_update_callback_ffi(
-    engine_ptr: *mut c_void,
-    callback: StateUpdateCallback,
-    user_data: *mut c_void,
-) -> *const c_char {
+pub unsafe extern "C" fn subscribe_state_updates_ffi(engine_ptr: *mut c_void) -> *mut c_void {
     match std::panic::catch_unwind(|| {
         log::trace!(
-            "set_state_update_callback_ffi called: engine ptr=0x{:x}",
+            "subscribe_state_updates_ffi called: engine ptr=0x{:x}",
             engine_ptr as usize
         );
-        _set_state_update_callback(engine_ptr, callback, user_data)
+        _subscribe_state_updates(engine_ptr)
     }) {
-        Ok(ptr) => ptr,
+        Ok(v) => v,
         Err(e) => {
-            log::error!("PANIC in set_state_update_callback_ffi: {e:?}");
+            log::error!("PANIC in subscribe_state_updates_ffi: {e:?}");
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// # Safety
+///
+/// Subscribes to flag state changes applied after this call returns (a change
+/// applied just before may also be reported once), and returns a subscription
+/// handle, or null if `engine_ptr` is null. Pass the
+/// handle to `wait_for_state_update` from a thread the host owns.
+///
+/// The handle holds its own reference to the engine's update state, so it
+/// stays valid after `destroy_engine`; waiting on it then reports `closed`.
+/// Free it with `destroy_state_subscription`.
+#[no_mangle]
+#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
+pub unsafe extern "C" fn subscribe_state_updates(engine_ptr: *mut c_void) -> *mut c_void {
+    match std::panic::catch_unwind(|| {
+        log::trace!(
+            "subscribe_state_updates called: engine ptr=0x{:x}",
+            engine_ptr as usize
+        );
+        _subscribe_state_updates(engine_ptr)
+    }) {
+        Ok(v) => v,
+        Err(e) => {
+            log::error!("PANIC in subscribe_state_updates: {e:?}");
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// # Safety
+///
+/// Blocks until flag state changes, or until the subscription or engine is
+/// closed. Returns a JSON response whose `result` is `"changed"` or
+/// `"closed"`. Changes that land while the host is busy are coalesced into
+/// one `"changed"`. Initial state and transitions into an error state are
+/// not reported; recovering from an error is. Once a wait returns `"closed"`,
+/// every later wait does too, without blocking.
+#[no_mangle]
+#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
+pub unsafe extern "C" fn wait_for_state_update_ffi(subscription_ptr: *mut c_void) -> *const c_char {
+    match std::panic::catch_unwind(|| {
+        log::trace!(
+            "wait_for_state_update_ffi called: subscription ptr=0x{:x}",
+            subscription_ptr as usize
+        );
+        _wait_for_state_update(subscription_ptr)
+    }) {
+        Ok(v) => v,
+        Err(e) => {
+            log::error!("PANIC in wait_for_state_update_ffi: {e:?}");
             result_to_json_ptr::<(), _>(Err(Error::Internal(
-                "panic in set_state_update_callback_ffi".to_string(),
+                "panic in wait_for_state_update_ffi".to_string(),
             )))
         }
     }
@@ -885,36 +901,114 @@ pub unsafe extern "C" fn set_state_update_callback_ffi(
 
 /// # Safety
 ///
-/// Registers `callback` to be called, with `user_data`, after the engine applies
-/// changed flag state. Pass a null callback to clear it. Callbacks run on a
-/// single engine-owned thread; bursts of updates are coalesced into one call.
-/// Initial state and transitions into an error state do not fire; recovering
-/// from an error does.
-///
-/// A callback may evaluate flags and may call `destroy_engine`, but changing
-/// the callback from inside one returns an error. `user_data` must stay valid
-/// until the callback is cleared or `destroy_engine` returns. The callback
-/// must not unwind: a panic across this boundary aborts the process.
+/// Blocks until flag state changes, or until the subscription or engine is
+/// closed. Returns a JSON response whose `result` is `"changed"` or
+/// `"closed"`. Changes that land while the host is busy are coalesced into
+/// one `"changed"`. Initial state and transitions into an error state are
+/// not reported; recovering from an error is. Once a wait returns `"closed"`,
+/// every later wait does too, without blocking.
 #[no_mangle]
 #[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
-pub unsafe extern "C" fn set_state_update_callback(
-    engine_ptr: *mut c_void,
-    callback: StateUpdateCallback,
-    user_data: *mut c_void,
-) -> *const c_char {
+pub unsafe extern "C" fn wait_for_state_update(subscription_ptr: *mut c_void) -> *const c_char {
     match std::panic::catch_unwind(|| {
         log::trace!(
-            "set_state_update_callback called: engine ptr=0x{:x}",
-            engine_ptr as usize
+            "wait_for_state_update called: subscription ptr=0x{:x}",
+            subscription_ptr as usize
         );
-        _set_state_update_callback(engine_ptr, callback, user_data)
+        _wait_for_state_update(subscription_ptr)
     }) {
-        Ok(ptr) => ptr,
+        Ok(v) => v,
         Err(e) => {
-            log::error!("PANIC in set_state_update_callback: {e:?}");
+            log::error!("PANIC in wait_for_state_update: {e:?}");
             result_to_json_ptr::<(), _>(Err(Error::Internal(
-                "panic in set_state_update_callback".to_string(),
+                "panic in wait_for_state_update".to_string(),
             )))
+        }
+    }
+}
+
+/// # Safety
+///
+/// Wakes any thread blocked in `wait_for_state_update` on this subscription
+/// and makes every later wait return `"closed"`. Safe to call from any thread,
+/// and more than once. Does not free the handle.
+#[no_mangle]
+#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
+pub unsafe extern "C" fn close_state_subscription_ffi(subscription_ptr: *mut c_void) {
+    match std::panic::catch_unwind(|| {
+        log::trace!(
+            "close_state_subscription_ffi called: subscription ptr=0x{:x}",
+            subscription_ptr as usize
+        );
+        _close_state_subscription(subscription_ptr)
+    }) {
+        Ok(()) => (),
+        Err(e) => {
+            log::error!("PANIC in close_state_subscription_ffi: {e:?}");
+        }
+    }
+}
+
+/// # Safety
+///
+/// Wakes any thread blocked in `wait_for_state_update` on this subscription
+/// and makes every later wait return `"closed"`. Safe to call from any thread,
+/// and more than once. Does not free the handle.
+#[no_mangle]
+#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
+pub unsafe extern "C" fn close_state_subscription(subscription_ptr: *mut c_void) {
+    match std::panic::catch_unwind(|| {
+        log::trace!(
+            "close_state_subscription called: subscription ptr=0x{:x}",
+            subscription_ptr as usize
+        );
+        _close_state_subscription(subscription_ptr)
+    }) {
+        Ok(()) => (),
+        Err(e) => {
+            log::error!("PANIC in close_state_subscription: {e:?}");
+        }
+    }
+}
+
+/// # Safety
+///
+/// Closes and frees a subscription handle. No other thread may be using the
+/// handle, including waiting on it, when this is called.
+#[no_mangle]
+#[cfg(all(target_feature = "crt-static", target_os = "linux"))]
+pub unsafe extern "C" fn destroy_state_subscription_ffi(subscription_ptr: *mut c_void) {
+    match std::panic::catch_unwind(|| {
+        log::trace!(
+            "destroy_state_subscription_ffi called: subscription ptr=0x{:x}",
+            subscription_ptr as usize
+        );
+        _destroy_state_subscription(subscription_ptr)
+    }) {
+        Ok(()) => (),
+        Err(e) => {
+            log::error!("PANIC in destroy_state_subscription_ffi: {e:?}");
+        }
+    }
+}
+
+/// # Safety
+///
+/// Closes and frees a subscription handle. No other thread may be using the
+/// handle, including waiting on it, when this is called.
+#[no_mangle]
+#[cfg(not(all(target_feature = "crt-static", target_os = "linux")))]
+pub unsafe extern "C" fn destroy_state_subscription(subscription_ptr: *mut c_void) {
+    match std::panic::catch_unwind(|| {
+        log::trace!(
+            "destroy_state_subscription called: subscription ptr=0x{:x}",
+            subscription_ptr as usize
+        );
+        _destroy_state_subscription(subscription_ptr)
+    }) {
+        Ok(()) => (),
+        Err(e) => {
+            log::error!("PANIC in destroy_state_subscription: {e:?}");
         }
     }
 }
@@ -1178,24 +1272,50 @@ unsafe extern "C" fn _update_authentication(
     }
 }
 
-unsafe extern "C" fn _set_state_update_callback(
-    engine_ptr: *mut c_void,
-    callback: StateUpdateCallback,
-    user_data: *mut c_void,
-) -> *const c_char {
-    let e = match get_engine(engine_ptr) {
-        Ok(e) => e,
-        Err(e) => return result_to_json_ptr::<(), _>(Err(e)),
-    };
+unsafe extern "C" fn _subscribe_state_updates(engine_ptr: *mut c_void) -> *mut c_void {
+    match get_engine(engine_ptr) {
+        Ok(e) => Box::into_raw(Box::new(e.subscribe_state_updates())) as *mut c_void,
+        Err(_) => std::ptr::null_mut(),
+    }
+}
 
-    result_to_json_ptr(e.set_state_update_callback(callback, user_data))
+unsafe fn get_subscription<'a>(ptr: *mut c_void) -> Result<&'a StateSubscription, FFIError> {
+    if ptr.is_null() {
+        Err(FFIError::NullPointer)
+    } else {
+        Ok(&*(ptr as *const StateSubscription))
+    }
+}
+
+unsafe extern "C" fn _wait_for_state_update(subscription_ptr: *mut c_void) -> *const c_char {
+    result_to_json_ptr(get_subscription(subscription_ptr).map(|s| s.wait()))
+}
+
+unsafe extern "C" fn _close_state_subscription(subscription_ptr: *mut c_void) {
+    if let Ok(s) = get_subscription(subscription_ptr) {
+        s.close();
+    }
+}
+
+unsafe extern "C" fn _destroy_state_subscription(subscription_ptr: *mut c_void) {
+    if subscription_ptr.is_null() {
+        return;
+    }
+    let subscription = Box::from_raw(subscription_ptr as *mut StateSubscription);
+    subscription.close();
 }
 
 unsafe extern "C" fn _destroy_engine(engine_ptr: *mut c_void) {
     if engine_ptr.is_null() {
         return;
     }
-    let mut engine = *Box::from_raw(engine_ptr as *mut Engine);
+    // No other call on this engine may be in flight. Subscriptions are the
+    // exception: they never touch the engine, only the shared update state.
+    // The `Box` (not `*Box`) frees the engine only at the end of this function.
+    let mut engine = Box::from_raw(engine_ptr as *mut Engine);
+    // Wake every waiting subscription first; they hold their own reference to
+    // the update state, so they never touch the engine being freed.
+    engine.state_updates.close();
     engine.stop_signal.store(true, Ordering::Relaxed);
     // Notify the fetcher task to stop
     engine.stop_notify.notify_waiters();
@@ -1203,16 +1323,6 @@ unsafe extern "C" fn _destroy_engine(engine_ptr: *mut c_void) {
     if let Some(handle) = engine.fetcher_handle.take() {
         let rt = get_or_create_runtime();
         let _ = rt.block_on(handle);
-    }
-
-    // Dropping the only sender lets the dispatcher thread exit after any
-    // in-flight callback. Joining guarantees no callback runs once
-    // destroy_engine returns.
-    if let Some(dispatcher) = engine.dispatcher.take() {
-        dispatcher.stop();
-        let _ = dispatcher.set(None);
-        drop(lock_ignoring_poison(&engine.update_tx).take());
-        dispatcher.join();
     }
 
     // Engine is dropped here
@@ -1550,11 +1660,6 @@ mod tests {
     use std::sync::atomic::AtomicUsize;
     use std::time::Instant;
 
-    extern "C" fn count_calls(user_data: *mut c_void) {
-        let counter = unsafe { &*(user_data as *const AtomicUsize) };
-        counter.fetch_add(1, Ordering::SeqCst);
-    }
-
     fn wait_for(cond: impl Fn() -> bool, timeout: Duration) -> bool {
         let deadline = Instant::now() + timeout;
         while Instant::now() < deadline {
@@ -1566,168 +1671,145 @@ mod tests {
         cond()
     }
 
-    #[test]
-    fn test_dispatcher_invokes_registered_callback() {
-        let counter = AtomicUsize::new(0);
-        let (dispatcher, tx) = StateUpdateDispatcher::spawn().unwrap();
-        dispatcher
-            .set(Some(RegisteredCallback {
-                callback: count_calls,
-                user_data: &counter as *const AtomicUsize as usize,
-            }))
-            .unwrap();
+    unsafe fn wait_result(sub: *mut c_void) -> String {
+        let ptr = _wait_for_state_update(sub);
+        let s = CStr::from_ptr(ptr).to_str().unwrap().to_string();
+        _destroy_string(ptr as *mut c_char);
+        s
+    }
 
-        tx.send(()).unwrap();
-        assert!(wait_for(
-            || counter.load(Ordering::SeqCst) == 1,
-            Duration::from_secs(2)
-        ));
-
-        drop(tx);
-        dispatcher.join();
-        assert_eq!(counter.load(Ordering::SeqCst), 1);
+    /// Runs a host-style wait loop on its own thread, counting changes until
+    /// the subscription reports closed.
+    fn spawn_waiter(sub: *mut c_void, changes: Arc<AtomicUsize>) -> std::thread::JoinHandle<()> {
+        let sub = sub as usize;
+        std::thread::spawn(move || loop {
+            let res = unsafe { wait_result(sub as *mut c_void) };
+            if res.contains(r#""result":"changed""#) {
+                changes.fetch_add(1, Ordering::SeqCst);
+            } else {
+                assert!(res.contains(r#""result":"closed""#), "got: {res}");
+                return;
+            }
+        })
     }
 
     #[test]
-    fn test_dispatcher_cleared_callback_is_not_invoked() {
-        let counter = AtomicUsize::new(0);
-        let (dispatcher, tx) = StateUpdateDispatcher::spawn().unwrap();
-        dispatcher
-            .set(Some(RegisteredCallback {
-                callback: count_calls,
-                user_data: &counter as *const AtomicUsize as usize,
-            }))
-            .unwrap();
-        dispatcher.set(None).unwrap();
+    fn test_subscription_reports_publish_and_coalesces() {
+        let updates = Arc::new(StateUpdates::default());
+        updates.publish();
+        // Changes before subscribing are not reported.
+        let sub = updates.subscribe();
+        updates.publish();
+        updates.publish();
+        updates.publish();
+        assert_eq!(sub.wait(), StateUpdate::Changed);
 
-        tx.send(()).unwrap();
-        drop(tx);
-        dispatcher.join();
-        assert_eq!(counter.load(Ordering::SeqCst), 0);
+        let closer = sub.clone();
+        let t = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            closer.close();
+        });
+        // The burst was coalesced, so this blocks until close.
+        assert_eq!(sub.wait(), StateUpdate::Closed);
+        assert_eq!(sub.wait(), StateUpdate::Closed);
+        t.join().unwrap();
     }
 
     #[test]
-    fn test_dispatcher_coalesces_bursts() {
-        let counter = AtomicUsize::new(0);
-        let (dispatcher, tx) = StateUpdateDispatcher::spawn().unwrap();
-        dispatcher
-            .set(Some(RegisteredCallback {
-                callback: count_calls,
-                user_data: &counter as *const AtomicUsize as usize,
-            }))
-            .unwrap();
+    fn test_subscription_closed_by_engine_close() {
+        let updates = Arc::new(StateUpdates::default());
+        let sub = updates.subscribe();
+        let waiter = sub.clone();
+        let t = std::thread::spawn(move || waiter.wait());
+        std::thread::sleep(Duration::from_millis(50));
+        updates.close();
+        assert_eq!(t.join().unwrap(), StateUpdate::Closed);
+        assert_eq!(sub.wait(), StateUpdate::Closed);
+    }
 
-        // Hold the slot so the dispatcher can't drain while we signal.
-        let guard = dispatcher.slot.lock().unwrap();
-        for _ in 0..10 {
-            let _ = tx.try_send(());
+    #[test]
+    fn test_subscriber_count() {
+        let updates = Arc::new(StateUpdates::default());
+        assert!(!updates.has_subscribers());
+        let a = updates.subscribe();
+        let b = updates.subscribe();
+        assert!(updates.has_subscribers());
+        a.close();
+        a.close();
+        assert!(updates.has_subscribers());
+        // Dropped without close.
+        drop(b);
+        assert!(!updates.has_subscribers());
+        drop(a);
+        assert!(!updates.has_subscribers());
+    }
+
+    #[test]
+    fn test_state_subscription_null_pointers() {
+        unsafe {
+            assert!(_subscribe_state_updates(std::ptr::null_mut()).is_null());
+            let res = wait_result(std::ptr::null_mut());
+            assert!(res.contains("failure"), "got: {res}");
+            _close_state_subscription(std::ptr::null_mut());
+            _destroy_state_subscription(std::ptr::null_mut());
         }
-        drop(guard);
-
-        drop(tx);
-        dispatcher.join();
-        let calls = counter.load(Ordering::SeqCst);
-        assert!((1..=2).contains(&calls), "expected 1-2 calls, got {calls}");
-    }
-
-    struct ReentrantDestroy {
-        calls: AtomicUsize,
-        dispatcher: Mutex<Option<StateUpdateDispatcher>>,
-        tx: Mutex<Option<SyncSender<()>>>,
-    }
-
-    extern "C" fn destroy_from_callback(user_data: *mut c_void) {
-        let state = unsafe { &*(user_data as *const ReentrantDestroy) };
-        state.calls.fetch_add(1, Ordering::SeqCst);
-        // An update lands while the callback runs, then the host tears down
-        // from inside the callback, mirroring _destroy_engine's sequence.
-        let tx = state.tx.lock().unwrap().take().unwrap();
-        tx.try_send(()).unwrap();
-        drop(tx);
-        let dispatcher = state.dispatcher.lock().unwrap().take().unwrap();
-        dispatcher.stop();
-        assert!(dispatcher.set(None).is_err());
-        dispatcher.join();
     }
 
     #[test]
-    fn test_dispatcher_no_call_after_destroy_from_callback() {
-        let (dispatcher, tx) = StateUpdateDispatcher::spawn().unwrap();
-        let slot = dispatcher.slot.clone();
-        let thread_done = dispatcher.stopped.clone();
-        let state = Box::leak(Box::new(ReentrantDestroy {
-            calls: AtomicUsize::new(0),
-            dispatcher: Mutex::new(None),
-            tx: Mutex::new(None),
-        }));
-        dispatcher
-            .set(Some(RegisteredCallback {
-                callback: destroy_from_callback,
-                user_data: state as *const ReentrantDestroy as usize,
-            }))
-            .unwrap();
-        *state.dispatcher.lock().unwrap() = Some(dispatcher);
-        let first = tx.clone();
-        *state.tx.lock().unwrap() = Some(tx);
-
-        first.send(()).unwrap();
-        drop(first);
-        assert!(wait_for(
-            || thread_done.load(Ordering::SeqCst),
-            Duration::from_secs(2)
-        ));
-        // Give the dispatcher time to drain the buffered signal, if it would.
-        std::thread::sleep(Duration::from_millis(200));
-        drop(slot);
-        assert_eq!(state.calls.load(Ordering::SeqCst), 1);
-    }
-
-    #[test]
-    fn test_dispatcher_spawned_only_on_registration() {
+    fn test_destroy_engine_wakes_waiter_and_subscription_outlives_engine() {
         let opts = CString::new(
             r#"{"url":"http://localhost:1","error_strategy":"fallback","update_interval":9999}"#,
         )
         .unwrap();
-        let counter = AtomicUsize::new(0);
         unsafe {
             let engine_ptr = _initialize_engine(opts.as_ptr());
             assert!(!engine_ptr.is_null());
-            let engine = get_engine(engine_ptr).unwrap();
-            assert!(engine.dispatcher.get().is_none());
+            let sub = _subscribe_state_updates(engine_ptr);
+            assert!(!sub.is_null());
 
-            // Clearing with nothing registered must not spawn the thread.
-            let r = _set_state_update_callback(engine_ptr, None, std::ptr::null_mut());
-            _destroy_string(r as *mut c_char);
-            assert!(engine.dispatcher.get().is_none());
+            let changes = Arc::new(AtomicUsize::new(0));
+            let waiter = spawn_waiter(sub, changes.clone());
+            std::thread::sleep(Duration::from_millis(100));
+            _destroy_engine(engine_ptr);
+            waiter.join().unwrap();
+            assert_eq!(changes.load(Ordering::SeqCst), 0);
 
-            let r = _set_state_update_callback(
-                engine_ptr,
-                Some(count_calls),
-                &counter as *const AtomicUsize as *mut c_void,
-            );
-            _destroy_string(r as *mut c_char);
-            assert!(engine.dispatcher.get().is_some());
-            assert!(lock_ignoring_poison(&engine.update_tx).is_some());
+            // The handle is still valid after the engine is gone.
+            let res = wait_result(sub);
+            assert!(res.contains(r#""result":"closed""#), "got: {res}");
+            _destroy_state_subscription(sub);
+        }
+    }
 
+    #[test]
+    fn test_close_subscription_wakes_waiter() {
+        let opts = CString::new(
+            r#"{"url":"http://localhost:1","error_strategy":"fallback","update_interval":9999}"#,
+        )
+        .unwrap();
+        unsafe {
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            let sub = _subscribe_state_updates(engine_ptr);
+            let waiter = spawn_waiter(sub, Arc::new(AtomicUsize::new(0)));
+            std::thread::sleep(Duration::from_millis(100));
+            _close_state_subscription(sub);
+            waiter.join().unwrap();
+            assert!(!get_engine(engine_ptr)
+                .unwrap()
+                .state_updates
+                .has_subscribers());
+            _destroy_state_subscription(sub);
             _destroy_engine(engine_ptr);
         }
     }
 
     #[test]
-    fn test_set_state_update_callback_null_engine_ptr() {
-        unsafe {
-            let result_ptr =
-                _set_state_update_callback(std::ptr::null_mut(), None, std::ptr::null_mut());
-            let result_str = CStr::from_ptr(result_ptr).to_str().unwrap();
-            assert!(result_str.contains("failure"), "got: {result_str}");
-            _destroy_string(result_ptr as *mut c_char);
-        }
-    }
-
-    #[test]
-    fn test_state_update_callback_fires_on_polled_change() {
+    fn test_state_update_reported_on_polled_change() {
         let path = "/internal/v1/evaluation/snapshot/namespace/default";
-        let mut server = mockito::Server::new();
+        // A dedicated server, not one from mockito's shared pool: a pooled
+        // server can still be stuck joining a blocking chunked body left by
+        // another test (e.g. test_streaming_close_does_not_hang's 1000s sleep).
+        let mut server = mockito::Server::new_with_opts(mockito::ServerOpts::default());
         let initial = server
             .mock("GET", path)
             .with_status(200)
@@ -1739,25 +1821,17 @@ mod tests {
             server.url()
         ))
         .unwrap();
-        let counter = AtomicUsize::new(0);
+        let changes = Arc::new(AtomicUsize::new(0));
 
         unsafe {
             let engine_ptr = _initialize_engine(opts.as_ptr());
             assert!(!engine_ptr.is_null());
+            let sub = _subscribe_state_updates(engine_ptr);
+            let waiter = spawn_waiter(sub, changes.clone());
 
-            let result_ptr = _set_state_update_callback(
-                engine_ptr,
-                Some(count_calls),
-                &counter as *const AtomicUsize as *mut c_void,
-            );
-            let result_str = CStr::from_ptr(result_ptr).to_str().unwrap();
-            assert!(result_str.contains("success"), "got: {result_str}");
-            _destroy_string(result_ptr as *mut c_char);
-
-            // The first background poll returns the same (empty) state: no
-            // callback. Then the server starts serving a new flag.
+            // The first background poll returns the same (empty) state.
             std::thread::sleep(Duration::from_millis(1500));
-            assert_eq!(counter.load(Ordering::SeqCst), 0);
+            assert_eq!(changes.load(Ordering::SeqCst), 0);
 
             initial.remove();
             server
@@ -1769,24 +1843,70 @@ mod tests {
                 .create();
 
             assert!(wait_for(
-                || counter.load(Ordering::SeqCst) >= 1,
+                || changes.load(Ordering::SeqCst) >= 1,
                 Duration::from_secs(5)
             ));
 
-            // Unchanged polls after the update must not fire again.
+            // Unchanged polls after the update must not report again.
             std::thread::sleep(Duration::from_millis(2500));
-            assert_eq!(counter.load(Ordering::SeqCst), 1);
+            assert_eq!(changes.load(Ordering::SeqCst), 1);
 
             _destroy_engine(engine_ptr);
+            waiter.join().unwrap();
+            _destroy_state_subscription(sub);
         }
     }
 
     #[test]
-    fn test_state_update_callback_fires_on_streamed_change() {
+    fn test_state_update_reported_on_recovery_from_error() {
+        let path = "/internal/v1/evaluation/snapshot/namespace/default";
+        let mut server = mockito::Server::new_with_opts(mockito::ServerOpts::default());
+        let failing = server.mock("GET", path).with_status(500).create();
+
+        let opts = CString::new(format!(
+            r#"{{"url":"{}","update_interval":1,"error_strategy":"fail"}}"#,
+            server.url()
+        ))
+        .unwrap();
+        let changes = Arc::new(AtomicUsize::new(0));
+
+        unsafe {
+            let engine_ptr = _initialize_engine(opts.as_ptr());
+            assert!(!engine_ptr.is_null());
+            let sub = _subscribe_state_updates(engine_ptr);
+            let waiter = spawn_waiter(sub, changes.clone());
+
+            // Staying in the error state is not a change.
+            std::thread::sleep(Duration::from_millis(1500));
+            assert_eq!(changes.load(Ordering::SeqCst), 0);
+
+            failing.remove();
+            server
+                .mock("GET", path)
+                .with_status(200)
+                .with_body(r#"{"namespace":{"key":"default"},"flags":[]}"#)
+                .create();
+
+            // Recovery fires even though the recovered snapshot is empty.
+            assert!(wait_for(
+                || changes.load(Ordering::SeqCst) >= 1,
+                Duration::from_secs(5)
+            ));
+            assert!(get_engine(engine_ptr).unwrap().list_flags().is_ok());
+
+            _destroy_engine(engine_ptr);
+            waiter.join().unwrap();
+            _destroy_state_subscription(sub);
+        }
+    }
+
+    #[test]
+    fn test_state_update_reported_on_streamed_change() {
         const EMPTY: &str = r#"{"namespace":{"key":"default"},"flags":[]}"#;
         const WITH_FLAG: &str = r#"{"namespace":{"key":"default"},"flags":[{"key":"new_flag","name":"New","type":"BOOLEAN_FLAG_TYPE","enabled":true}]}"#;
+        const BARRIER: &str = r#"{"namespace":{"key":"default"},"flags":[{"key":"barrier","name":"Barrier","type":"BOOLEAN_FLAG_TYPE","enabled":true}]}"#;
 
-        let mut server = mockito::Server::new();
+        let mut server = mockito::Server::new_with_opts(mockito::ServerOpts::default());
         server
             .mock("GET", "/internal/v1/evaluation/snapshot/namespace/default")
             .with_status(200)
@@ -1814,16 +1934,21 @@ mod tests {
                 let chunk = |doc: &str| format!("{{\"result\":{doc}}}\n");
 
                 wait_step(1);
-                // Same state as the initial fetch: must not fire.
+                // Same state as the initial fetch: must not report.
                 w.write_all(chunk(EMPTY).as_bytes())?;
                 w.flush()?;
                 wait_step(2);
-                // A real change, then a resend of it: must fire exactly once.
-                w.write_all(chunk(WITH_FLAG).as_bytes())?;
+                // A real change: reported once.
                 w.write_all(chunk(WITH_FLAG).as_bytes())?;
                 w.flush()?;
-                // Hold the stream open until the test is done.
                 wait_step(3);
+                // A resend of it, then a different barrier document. Once the
+                // barrier is reported, the resend has been processed too.
+                w.write_all(chunk(WITH_FLAG).as_bytes())?;
+                w.write_all(chunk(BARRIER).as_bytes())?;
+                w.flush()?;
+                // Hold the stream open until the test is done.
+                wait_step(4);
                 Ok(())
             })
             .create();
@@ -1833,41 +1958,47 @@ mod tests {
             server.url()
         ))
         .unwrap();
-        let counter = AtomicUsize::new(0);
 
         unsafe {
             let engine_ptr = _initialize_engine(opts.as_ptr());
             assert!(!engine_ptr.is_null());
-
-            let result_ptr = _set_state_update_callback(
-                engine_ptr,
-                Some(count_calls),
-                &counter as *const AtomicUsize as *mut c_void,
-            );
-            _destroy_string(result_ptr as *mut c_char);
+            let sub = _subscribe_state_updates(engine_ptr);
+            let engine = get_engine(engine_ptr).unwrap();
+            let changes = Arc::new(AtomicUsize::new(0));
+            let waiter = spawn_waiter(sub, changes.clone());
 
             step.store(1, Ordering::SeqCst);
             std::thread::sleep(Duration::from_millis(500));
-            assert_eq!(counter.load(Ordering::SeqCst), 0);
+            assert_eq!(changes.load(Ordering::SeqCst), 0);
 
             step.store(2, Ordering::SeqCst);
             assert!(wait_for(
-                || counter.load(Ordering::SeqCst) >= 1,
+                || changes.load(Ordering::SeqCst) >= 1,
                 Duration::from_secs(5)
             ));
+            assert_eq!(engine.list_flags().unwrap()[0].key, "new_flag");
 
-            let engine = get_engine(engine_ptr).unwrap();
-            assert_eq!(engine.list_flags().unwrap().len(), 1);
-
-            std::thread::sleep(Duration::from_millis(500));
-            assert_eq!(counter.load(Ordering::SeqCst), 1);
-
-            // Closing with the stream still open must not hang, and no
-            // callback may run afterwards.
-            _destroy_engine(engine_ptr);
             step.store(3, Ordering::SeqCst);
+            assert!(wait_for(
+                || engine.list_flags().unwrap()[0].key == "barrier",
+                Duration::from_secs(5)
+            ));
+            assert!(wait_for(
+                || changes.load(Ordering::SeqCst) >= 2,
+                Duration::from_secs(5)
+            ));
+            assert_eq!(changes.load(Ordering::SeqCst), 2);
+            // Reports can coalesce, so count applied changes instead: the
+            // resend must not have bumped the generation.
+            assert_eq!(engine.state_updates.lock().generation, 2);
+
+            // Closing with the stream still open must not hang, and wakes the
+            // waiter.
+            _destroy_engine(engine_ptr);
+            waiter.join().unwrap();
+            step.store(4, Ordering::SeqCst);
+            _destroy_state_subscription(sub);
         }
-        assert_eq!(counter.load(Ordering::SeqCst), 1);
     }
 
     #[test]

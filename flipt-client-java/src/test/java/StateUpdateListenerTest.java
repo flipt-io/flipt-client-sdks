@@ -27,6 +27,9 @@ public class StateUpdateListenerTest {
   private static final String WITH_FLAG =
       "{\"namespace\":{\"key\":\"default\"},\"flags\":[{\"key\":\"new_flag\",\"name\":\"New\","
           + "\"type\":\"BOOLEAN_FLAG_TYPE\",\"enabled\":true}]}";
+  private static final String BARRIER =
+      "{\"namespace\":{\"key\":\"default\"},\"flags\":[{\"key\":\"barrier\",\"name\":\"Barrier\","
+          + "\"type\":\"BOOLEAN_FLAG_TYPE\",\"enabled\":true}]}";
 
   private static final String END_STREAM = "<end>";
 
@@ -125,6 +128,8 @@ public class StateUpdateListenerTest {
   void testListenerFiresOnStreamedChange() throws Exception {
     AtomicInteger calls = new AtomicInteger();
     CountDownLatch fired = new CountDownLatch(1);
+    CountDownLatch barrierSeen = new CountDownLatch(1);
+    AtomicReference<FliptClient> clientRef = new AtomicReference<>();
 
     FliptClient client =
         builder()
@@ -133,23 +138,33 @@ public class StateUpdateListenerTest {
                 () -> {
                   calls.incrementAndGet();
                   fired.countDown();
+                  if (clientRef
+                      .get()
+                      .evaluateBoolean("barrier", "entity", new HashMap<>())
+                      .isEnabled()) {
+                    barrierSeen.countDown();
+                  }
                 })
             .build();
+    clientRef.set(client);
     try {
       // Same state as the initial fetch: must not fire.
       streamDocs.put(EMPTY);
       Thread.sleep(500);
       Assertions.assertEquals(0, calls.get());
 
-      // A real change followed by a resend of it: must fire exactly once.
-      streamDocs.put(WITH_FLAG);
       streamDocs.put(WITH_FLAG);
       Assertions.assertTrue(fired.await(5, TimeUnit.SECONDS), "listener did not fire");
       Assertions.assertTrue(
           client.evaluateBoolean("new_flag", "entity", new HashMap<>()).isEnabled());
 
-      Thread.sleep(500);
-      Assertions.assertEquals(1, calls.get());
+      // A resend of the same state, then a different barrier document. Once the barrier is seen
+      // the resend has been processed too. A spurious change could coalesce with the barrier, so
+      // the engine tests check the resend itself; this checks it didn't add a separate call.
+      streamDocs.put(WITH_FLAG);
+      streamDocs.put(BARRIER);
+      Assertions.assertTrue(barrierSeen.await(5, TimeUnit.SECONDS), "barrier not seen");
+      Assertions.assertEquals(2, calls.get());
     } finally {
       // Closing with the stream still open must not hang.
       long start = System.nanoTime();
@@ -158,10 +173,64 @@ public class StateUpdateListenerTest {
           Duration.ofNanos(System.nanoTime() - start).compareTo(Duration.ofSeconds(5)) < 0,
           "close() took too long with an open stream");
     }
+  }
 
-    // Nothing fires after close, even if the server keeps sending.
+  @Test
+  void testCloseWaitsForRunningListener() throws Exception {
+    AtomicInteger calls = new AtomicInteger();
+    AtomicBoolean evaluatedAfterRelease = new AtomicBoolean();
+    AtomicReference<FliptClient> clientRef = new AtomicReference<>();
+    CountDownLatch entered = new CountDownLatch(1);
+    CountDownLatch release = new CountDownLatch(1);
+
+    FliptClient client =
+        builder()
+            .fetchMode(FetchMode.STREAMING)
+            .onStateUpdate(
+                () -> {
+                  calls.incrementAndGet();
+                  entered.countDown();
+                  try {
+                    release.await(10, TimeUnit.SECONDS);
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                  }
+                  // close() has started by now; the engine must still be alive.
+                  clientRef.get().listFlags();
+                  evaluatedAfterRelease.set(true);
+                })
+            .build();
+    clientRef.set(client);
+
+    streamDocs.put(WITH_FLAG);
+    Assertions.assertTrue(entered.await(5, TimeUnit.SECONDS), "listener did not fire");
+    // A change that lands while the listener runs is pending when close() starts.
     streamDocs.put(EMPTY);
-    Thread.sleep(500);
+    Thread.sleep(300);
+
+    CountDownLatch closeReturned = new CountDownLatch(1);
+    Thread closer =
+        new Thread(
+            () -> {
+              client.close();
+              closeReturned.countDown();
+            });
+    closer.start();
+    // Once the closer is blocked in join(), closed is set and the pending change can't run.
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+    while (closer.getState() != Thread.State.WAITING
+        && closer.getState() != Thread.State.TIMED_WAITING
+        && System.nanoTime() < deadline) {
+      Thread.sleep(10);
+    }
+    Assertions.assertFalse(
+        closeReturned.await(300, TimeUnit.MILLISECONDS), "close() did not wait for listener");
+
+    release.countDown();
+    Assertions.assertTrue(closeReturned.await(5, TimeUnit.SECONDS), "close() hung");
+    closer.join();
+    Assertions.assertTrue(evaluatedAfterRelease.get());
+    // The pending change is dropped once close() has started.
     Assertions.assertEquals(1, calls.get());
   }
 
@@ -172,12 +241,13 @@ public class StateUpdateListenerTest {
         builder()
             .onStateUpdate(
                 () -> {
-                  fired.countDown();
                   throw new RuntimeException("boom");
                 })
             .build()) {
+      // A listener after the throwing one still runs.
+      client.addStateUpdateListener(fired::countDown);
       body.set(WITH_FLAG);
-      Assertions.assertTrue(fired.await(5, TimeUnit.SECONDS), "listener did not fire");
+      Assertions.assertTrue(fired.await(5, TimeUnit.SECONDS), "second listener did not fire");
       Assertions.assertTrue(
           client.evaluateBoolean("new_flag", "entity", new HashMap<>()).isEnabled());
     }

@@ -4,13 +4,6 @@
 #include <stdlib.h>
 
 /**
- * Called by the engine after it applies new flag state. `user_data` is the
- * pointer the host passed at registration, returned untouched.
- * Nullable in C: passing NULL clears the registered callback.
- */
-typedef void (*StateUpdateCallback)(void *user_data);
-
-/**
  * # Safety
  *
  * This function will initialize an Engine and return a pointer back to the caller.
@@ -125,38 +118,88 @@ const char *update_authentication(void *engine_ptr, const char *auth_json);
 /**
  * # Safety
  *
- * Registers `callback` to be called, with `user_data`, after the engine applies
- * changed flag state. Pass a null callback to clear it. Callbacks run on a
- * single engine-owned thread; bursts of updates are coalesced into one call.
- * Initial state and transitions into an error state do not fire; recovering
- * from an error does.
+ * Subscribes to flag state changes applied after this call returns (a change
+ * applied just before may also be reported once), and returns a subscription
+ * handle, or null if `engine_ptr` is null. Pass the
+ * handle to `wait_for_state_update` from a thread the host owns.
  *
- * A callback may evaluate flags and may call `destroy_engine`, but changing
- * the callback from inside one returns an error. `user_data` must stay valid
- * until the callback is cleared or `destroy_engine` returns. The callback
- * must not unwind: a panic across this boundary aborts the process.
+ * The handle holds its own reference to the engine's update state, so it
+ * stays valid after `destroy_engine`; waiting on it then reports `closed`.
+ * Free it with `destroy_state_subscription`.
  */
-const char *set_state_update_callback_ffi(void *engine_ptr,
-                                          StateUpdateCallback callback,
-                                          void *user_data);
+void *subscribe_state_updates_ffi(void *engine_ptr);
 
 /**
  * # Safety
  *
- * Registers `callback` to be called, with `user_data`, after the engine applies
- * changed flag state. Pass a null callback to clear it. Callbacks run on a
- * single engine-owned thread; bursts of updates are coalesced into one call.
- * Initial state and transitions into an error state do not fire; recovering
- * from an error does.
+ * Subscribes to flag state changes applied after this call returns (a change
+ * applied just before may also be reported once), and returns a subscription
+ * handle, or null if `engine_ptr` is null. Pass the
+ * handle to `wait_for_state_update` from a thread the host owns.
  *
- * A callback may evaluate flags and may call `destroy_engine`, but changing
- * the callback from inside one returns an error. `user_data` must stay valid
- * until the callback is cleared or `destroy_engine` returns. The callback
- * must not unwind: a panic across this boundary aborts the process.
+ * The handle holds its own reference to the engine's update state, so it
+ * stays valid after `destroy_engine`; waiting on it then reports `closed`.
+ * Free it with `destroy_state_subscription`.
  */
-const char *set_state_update_callback(void *engine_ptr,
-                                      StateUpdateCallback callback,
-                                      void *user_data);
+void *subscribe_state_updates(void *engine_ptr);
+
+/**
+ * # Safety
+ *
+ * Blocks until flag state changes, or until the subscription or engine is
+ * closed. Returns a JSON response whose `result` is `"changed"` or
+ * `"closed"`. Changes that land while the host is busy are coalesced into
+ * one `"changed"`. Initial state and transitions into an error state are
+ * not reported; recovering from an error is. Once a wait returns `"closed"`,
+ * every later wait does too, without blocking.
+ */
+const char *wait_for_state_update_ffi(void *subscription_ptr);
+
+/**
+ * # Safety
+ *
+ * Blocks until flag state changes, or until the subscription or engine is
+ * closed. Returns a JSON response whose `result` is `"changed"` or
+ * `"closed"`. Changes that land while the host is busy are coalesced into
+ * one `"changed"`. Initial state and transitions into an error state are
+ * not reported; recovering from an error is. Once a wait returns `"closed"`,
+ * every later wait does too, without blocking.
+ */
+const char *wait_for_state_update(void *subscription_ptr);
+
+/**
+ * # Safety
+ *
+ * Wakes any thread blocked in `wait_for_state_update` on this subscription
+ * and makes every later wait return `"closed"`. Safe to call from any thread,
+ * and more than once. Does not free the handle.
+ */
+void close_state_subscription_ffi(void *subscription_ptr);
+
+/**
+ * # Safety
+ *
+ * Wakes any thread blocked in `wait_for_state_update` on this subscription
+ * and makes every later wait return `"closed"`. Safe to call from any thread,
+ * and more than once. Does not free the handle.
+ */
+void close_state_subscription(void *subscription_ptr);
+
+/**
+ * # Safety
+ *
+ * Closes and frees a subscription handle. No other thread may be using the
+ * handle, including waiting on it, when this is called.
+ */
+void destroy_state_subscription_ffi(void *subscription_ptr);
+
+/**
+ * # Safety
+ *
+ * Closes and frees a subscription handle. No other thread may be using the
+ * handle, including waiting on it, when this is called.
+ */
+void destroy_state_subscription(void *subscription_ptr);
 
 /**
  * # Safety

@@ -404,15 +404,16 @@ subscription.close();
 How listeners behave:
 
 - **Only real changes.** A listener is called after the client applies flag state that differs from the current state. Unchanged polls and repeated streaming messages do not call it.
-- **Not called for initial state.** The state loaded when the client is built doesn't trigger a listener, and a new listener only hears about changes applied after it was added. Read the flags you need once when you register.
+- **Not called for initial state.** The state loaded when the client is built doesn't trigger a listener, and a new listener hears about changes applied after it was added (occasionally with one extra call). Read the flags you need once when you register.
 - **Errors don't trigger it.** A failed fetch does not call listeners. Recovering from a failure does.
 - **One background thread.** Listeners run in the order they were added, on a single daemon thread owned by the client. Updates that arrive while listeners run are merged into one follow-up call, so you always see the latest state but may not see every intermediate one.
 - **Keep listeners fast.** A slow listener delays later notifications. Hand long work off to your own executor.
 - **Safe to call back in.** A listener may evaluate flags, add or remove listeners, or call `close()`.
+- **`close()` waits for a running listener.** When called from another thread, `close()` lets a listener that is already running finish, then stops. A listener must not block on a lock held by the thread that calls `close()`, or the two will deadlock.
 - **Exceptions are logged.** An exception thrown by one listener is logged and does not stop the other listeners.
 
 > [!IMPORTANT]
-> Always call `close()` on a client that has listeners. The client keeps its listeners alive until it is closed, so a client that is dropped without closing will not be garbage collected. No listener is called after `close()` returns.
+> Always call `close()` on a client that has listeners. The listener thread runs until the client is closed, so a client that is dropped without closing will not be garbage collected. No listener is called after `close()` returns.
 
 ## Contributing
 

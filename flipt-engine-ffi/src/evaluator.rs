@@ -30,13 +30,18 @@ impl Evaluator<snapshot::Snapshot> {
         }
     }
 
-    /// Replaces the current snapshot and reports whether the evaluable state
-    /// changed: a different snapshot, or recovery from an error state.
-    pub fn replace_snapshot(&mut self, res: Result<snapshot::Snapshot, Error>) -> bool {
+    /// Replaces the current snapshot. With `detect_change`, reports whether the
+    /// evaluable state changed: a different snapshot, or recovery from an
+    /// error state. Without it, skips the comparison and returns false.
+    pub fn replace_snapshot(
+        &mut self,
+        res: Result<snapshot::Snapshot, Error>,
+        detect_change: bool,
+    ) -> bool {
         let _w_lock = self.mtx.write().unwrap();
         match res {
             Ok(snap) => {
-                let changed = self.error.is_some() || self.store != snap;
+                let changed = detect_change && (self.error.is_some() || self.store != snap);
                 self.store = snap;
                 self.error = None;
                 changed
@@ -162,14 +167,28 @@ mod tests {
     fn test_replace_snapshot() {
         let mut evaluator = Evaluator::new("namespace");
         let snapshot = snapshot::Snapshot::empty("namespace");
-        evaluator.replace_snapshot(Ok(snapshot.clone()));
+        evaluator.replace_snapshot(Ok(snapshot.clone()), false);
         assert_eq!(evaluator.store, snapshot);
+    }
+
+    #[test]
+    fn test_replace_snapshot_detects_change() {
+        let mut evaluator = Evaluator::new("namespace");
+        let empty = snapshot::Snapshot::empty("namespace");
+        assert!(!evaluator.replace_snapshot(Ok(empty.clone()), true));
+        // Without detection nothing is reported, even for an error recovery.
+        evaluator.replace_snapshot(Err(Error::Unknown("error".to_string())), true);
+        assert!(!evaluator.replace_snapshot(Ok(empty.clone()), false));
+        // Entering an error state is not a change; recovering from one is.
+        assert!(!evaluator.replace_snapshot(Err(Error::Unknown("error".to_string())), true));
+        assert!(evaluator.replace_snapshot(Ok(empty.clone()), true));
+        assert!(!evaluator.replace_snapshot(Ok(empty), true));
     }
 
     #[test]
     fn test_replace_snapshot_error() {
         let mut evaluator = Evaluator::new("namespace");
-        evaluator.replace_snapshot(Err(Error::Unknown("error".to_string())));
+        evaluator.replace_snapshot(Err(Error::Unknown("error".to_string())), false);
 
         let response = evaluator.list_flags();
         assert_error_response(response, "unknown error: error");
@@ -198,7 +217,7 @@ mod tests {
     fn test_get_snapshot() {
         let mut evaluator = Evaluator::new("namespace");
         let snapshot = snapshot::Snapshot::empty("namespace");
-        evaluator.replace_snapshot(Ok(snapshot.clone()));
+        evaluator.replace_snapshot(Ok(snapshot.clone()), false);
         let result = evaluator.get_snapshot();
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), snapshot);

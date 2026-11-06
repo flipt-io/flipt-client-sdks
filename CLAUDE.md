@@ -63,25 +63,33 @@ Kotlin Android and Swift aren't in the Dagger harness. They have their own workf
 - **Java tests and the native lib.** Java tests load `libfliptengine` from `src/main/resources/<platform>/`. For local runs, build with `cargo build --release -p flipt-engine-ffi` and copy `target/release/libfliptengine.dylib` to `src/main/resources/darwin-aarch64/`.
 - **`TestFliptClient` needs Dagger.** It fails locally at its `FLIPT_URL` / `FLIPT_AUTH_TOKEN` check; those are only set by the Dagger harness.
 
-### State Update Callbacks (FFI)
+### State Updates (FFI)
 
-The FFI engine can notify a host after it applies changed flag state, through `set_state_update_callback(engine, callback, user_data)`. The full contract is in the doc comment in `flipt-engine-ffi/src/lib.rs`. Java is the reference binding: `addStateUpdateListener` / `onStateUpdate` in `flipt-client-java/src/main/java/io/flipt/client/FliptClient.java`.
+The FFI engine tells a host when it applies changed flag state through a blocking wait, not a callback. The full contract is in the doc comments in `flipt-engine-ffi/src/lib.rs`. Java is the reference binding: `addStateUpdateListener` / `onStateUpdate` in `flipt-client-java/src/main/java/io/flipt/client/FliptClient.java`.
+
+```c
+void *sub = subscribe_state_updates(engine);
+const char *r = wait_for_state_update(sub); // {"result":"changed"} or {"result":"closed"}
+close_state_subscription(sub);             // wakes a blocked wait; any thread
+destroy_state_subscription(sub);           // frees; nobody may be waiting
+```
+
+**Don't add engine-to-host callbacks.** The Linux `.so` statically links its own musl. A thread it creates has no TLS for the host's libc, so calling host runtime code on it crashes on musl hosts (Alpine JVM: SIGSEGV in JNA's `initializeThread`). Host-owned threads that call into the engine are fine.
 
 Engine guarantees to rely on, not reimplement:
 
-- It fires only when evaluable state actually changes. Initial state and transitions into an error state never fire; recovery from an error does.
-- It runs on one engine-owned thread, spawned lazily on first registration. Bursts are coalesced into one call.
-- Once `set_state_update_callback(NULL)` or `destroy_engine` returns, no callback is running and none will start. `destroy_engine` may be called from inside the callback.
-- Changing the callback from inside a callback returns an error.
+- It reports only when evaluable state actually changes. Initial state and transitions into an error state never report; recovery from an error does.
+- Changes made while the host is busy are coalesced into one `changed`. A change applied just before subscribing may be reported once.
+- `destroy_engine` wakes every waiter with `closed`. A subscription holds its own reference to the update state, so waiting on it after `destroy_engine` is safe and returns `closed`.
+- Change detection is skipped while no subscription is open.
 
 When adding this to another language client:
 
-1. **Keep the native trampoline alive.** Most FFI layers free the function pointer when the host object is collected. Hold it strongly until `destroy_engine` returns, including for clients that are never closed (Java uses a static set). A collected trampoline is a hard crash.
-2. **Never unwind into the engine.** Catch every exception in the trampoline and log it.
-3. **Foreign threads.** The callback arrives on a native thread the runtime didn't create. Check how the runtime handles that (Python GIL, Dart `NativeCallable.listener`, Ruby `FFI::Function`, C# delegate lifetime). Make the thread daemon/background.
-4. **Register once, fan out in the host.** Register one engine callback lazily and dispatch to a host-side listener list, so add/remove never touches the engine.
-5. **Close ordering.** Mark the client closed, call `destroy_engine`, then release the trampoline. Don't hold a host lock across `destroy_engine` that a listener might need.
-6. **Don't replay initial state.** Document that callers should read flags once when they register.
+1. **One host thread per client, started lazily.** It loops on `wait_for_state_update` and fans out to a host-side listener list, so add/remove never touches the engine. Make it daemon/background.
+2. **Close ordering.** Mark the client closed, call `close_state_subscription`, join the thread (unless `close()` runs on it), then `destroy_engine`. Joining first means a listener evaluating flags never touches a freed engine. Don't hold a lock across the join that a listener might need.
+3. **The loop thread frees the subscription** when it exits. Guard `close_state_subscription` and the free with the same lock, so close never wakes a freed handle.
+4. **Catch listener exceptions** in the loop and log them.
+5. **Don't replay initial state.** Document that callers should read flags once when they register.
 
 ## Workflow
 
