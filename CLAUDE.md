@@ -153,7 +153,6 @@ When adding this to another language client, watch for:
 4. **Register once, fan out in the host.** Register one engine callback lazily and dispatch to a host-side listener list. This keeps add/remove (even from inside a listener) off the engine, and avoids the "change callback from inside callback" error.
 5. **Close ordering.** Mark the client closed, call `destroy_engine` (it waits for any in-flight callback), then release the trampoline reference. Don't hold a host lock across `destroy_engine` that a listener might need, or close-from-a-listener deadlocks.
 6. **Don't replay initial state.** Listeners only see changes applied after they were added; document that callers should read flags once on registration.
-7. **Tests to port** (see `StateUpdateListenerTest` and the `test_state_update_callback_*` / `test_dispatcher_*` Rust tests): unchanged poll doesn't fire; polled and streamed changes fire once; a repeated streamed document doesn't fire; evaluating inside the listener doesn't deadlock; a throwing listener doesn't break the client; `close()` from inside a listener; nothing fires after `close()`. Use a local HTTP server, not a live Flipt, so they run without Dagger.
 
 ## Development Workflow
 
