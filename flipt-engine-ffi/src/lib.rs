@@ -188,8 +188,9 @@ impl StateUpdates {
 struct SubscriptionInner {
     updates: Arc<StateUpdates>,
     seen: AtomicU64,
-    // Only written while holding `updates.state`, so a waiter can't miss it
-    // between checking and blocking.
+    // Set once by `close`, which then takes `updates.state` before notifying.
+    // A waiter holds that lock from its check until it blocks, so the notify
+    // can't land in between.
     closed: AtomicBool,
 }
 
@@ -225,11 +226,11 @@ impl StateSubscription {
     /// Idempotent.
     fn close(&self) {
         let inner = &self.0;
-        let mut state = inner.updates.lock();
-        if !inner.closed.swap(true, Ordering::SeqCst) {
-            state.subscribers -= 1;
+        if inner.closed.swap(true, Ordering::SeqCst) {
+            // Already closed, and that close woke every waiter.
+            return;
         }
-        drop(state);
+        inner.updates.lock().subscribers -= 1;
         inner.updates.changed.notify_all();
     }
 }
