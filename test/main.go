@@ -474,7 +474,12 @@ func harnessTests(ctx context.Context, root *dagger.Container, t *testCase) erro
 		WithDirectory("/src/flipt-client-go", t.hostDir.Directory("flipt-client-go")).
 		WithFile("/src/flipt-client-go/ext/flipt_engine_wasm.wasm", t.engine.File(wasmFile)).
 		WithDirectory("/src/test/fixtures/tls", t.hostDir.Directory("test/fixtures/tls")).
-		WithServiceBinding("flipt", t.flipt.From("ghcr.io/flipt-io/flipt:v2-nightly").WithEnvVariable("FLIPT_LOG_LEVEL", "WARN").AsService()).
+		WithServiceBinding("flipt",
+			t.flipt.From("ghcr.io/flipt-io/flipt:v2-nightly").
+				WithEnvVariable("FLIPT_LOG_LEVEL", "WARN").
+				WithEnvVariable("FLIPT_META_CHECK_FOR_UPDATES", "false").
+				AsService(),
+		).
 		WithEnvVariable("FLIPT_URL", "http://flipt:8080").
 		WithEnvVariable("FLIPT_AUTH_TOKEN", "secret").
 		WithExec(args("go mod tidy")).
