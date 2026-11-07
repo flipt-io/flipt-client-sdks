@@ -15,6 +15,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -34,6 +35,8 @@ class FliptClient(
             encodeDefaults = false
             ignoreUnknownKeys = true
         }
+
+    private val closed = AtomicBoolean(false)
 
     init {
         val clientOptionsSerialized = json.encodeToString(options)
@@ -284,9 +287,13 @@ class FliptClient(
     fun getSnapshot(): String = CLibrary.INSTANCE.getSnapshot(engine)
 
     /**
-     * Closes the Flipt client and releases resources.
+     * Closes the Flipt client and releases resources. Calling it more than once is a no-op.
      */
     fun close() {
+        // destroyEngine frees the engine, so a second call would free it twice.
+        if (!closed.compareAndSet(false, true)) {
+            return
+        }
         CLibrary.INSTANCE.destroyEngine(engine)
     }
 
