@@ -91,6 +91,10 @@ When adding this to another language client:
 4. **Catch listener exceptions** in the loop and log them.
 5. **Don't replay initial state.** Document that callers should read flags once when they register.
 
+### State Updates (WASM)
+
+The WASM engines don't fetch, so they have no subscription API. `snapshot()` returns `true` when the new state differs from the current one, and the host dispatches to its own listeners. Go (`flipt-client-go/state_updates.go`) also reports recovery from a fetch error; JS (`addStateUpdateListener` in `flipt-client-js/src/core/base.ts`) calls listeners synchronously from `refresh()`. React subscribes to the JS client's listener when it exists.
+
 ## Workflow
 
 - Conventional commits; keep messages short.
