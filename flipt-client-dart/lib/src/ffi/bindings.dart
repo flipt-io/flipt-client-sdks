@@ -289,6 +289,220 @@ class FliptEngine {
 
   /// # Safety
   ///
+  /// This function will update the authentication for the engine.
+  ffi.Pointer<ffi.Char> update_authentication_ffi(
+    ffi.Pointer<ffi.Void> engine_ptr,
+    ffi.Pointer<ffi.Char> auth_json,
+  ) {
+    return _update_authentication_ffi(
+      engine_ptr,
+      auth_json,
+    );
+  }
+
+  late final _update_authentication_ffiPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Char>)>>('update_authentication_ffi');
+  late final _update_authentication_ffi =
+      _update_authentication_ffiPtr.asFunction<
+          ffi.Pointer<ffi.Char> Function(
+              ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>)>();
+
+  /// # Safety
+  ///
+  /// This function will update the authentication for the engine.
+  ffi.Pointer<ffi.Char> update_authentication(
+    ffi.Pointer<ffi.Void> engine_ptr,
+    ffi.Pointer<ffi.Char> auth_json,
+  ) {
+    return _update_authentication(
+      engine_ptr,
+      auth_json,
+    );
+  }
+
+  late final _update_authenticationPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Char>)>>('update_authentication');
+  late final _update_authentication = _update_authenticationPtr.asFunction<
+      ffi.Pointer<ffi.Char> Function(
+          ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>)>();
+
+  /// # Safety
+  ///
+  /// Subscribes to flag state changes applied after this call returns (a change
+  /// applied just before may also be reported once), and returns a subscription
+  /// handle, or null if `engine_ptr` is null. Pass the
+  /// handle to `wait_for_state_update` from a thread the host owns.
+  ///
+  /// The handle holds its own reference to the engine's update state, so it
+  /// stays valid after `destroy_engine`; waiting on it then reports `closed`.
+  /// Free it with `destroy_state_subscription`.
+  ffi.Pointer<ffi.Void> subscribe_state_updates_ffi(
+    ffi.Pointer<ffi.Void> engine_ptr,
+  ) {
+    return _subscribe_state_updates_ffi(
+      engine_ptr,
+    );
+  }
+
+  late final _subscribe_state_updates_ffiPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Void> Function(
+              ffi.Pointer<ffi.Void>)>>('subscribe_state_updates_ffi');
+  late final _subscribe_state_updates_ffi = _subscribe_state_updates_ffiPtr
+      .asFunction<ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Void>)>();
+
+  /// # Safety
+  ///
+  /// Subscribes to flag state changes applied after this call returns (a change
+  /// applied just before may also be reported once), and returns a subscription
+  /// handle, or null if `engine_ptr` is null. Pass the
+  /// handle to `wait_for_state_update` from a thread the host owns.
+  ///
+  /// The handle holds its own reference to the engine's update state, so it
+  /// stays valid after `destroy_engine`; waiting on it then reports `closed`.
+  /// Free it with `destroy_state_subscription`.
+  ffi.Pointer<ffi.Void> subscribe_state_updates(
+    ffi.Pointer<ffi.Void> engine_ptr,
+  ) {
+    return _subscribe_state_updates(
+      engine_ptr,
+    );
+  }
+
+  late final _subscribe_state_updatesPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Void> Function(
+              ffi.Pointer<ffi.Void>)>>('subscribe_state_updates');
+  late final _subscribe_state_updates = _subscribe_state_updatesPtr
+      .asFunction<ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Void>)>();
+
+  /// # Safety
+  ///
+  /// Blocks until flag state changes, or until the subscription or engine is
+  /// closed. Returns a JSON response whose `result` is `"changed"` or
+  /// `"closed"`. Changes that land while the host is busy are coalesced into
+  /// one `"changed"`. Initial state and transitions into an error state are
+  /// not reported; recovering from an error is. Once a wait returns `"closed"`,
+  /// every later wait does too, without blocking.
+  ffi.Pointer<ffi.Char> wait_for_state_update_ffi(
+    ffi.Pointer<ffi.Void> subscription_ptr,
+  ) {
+    return _wait_for_state_update_ffi(
+      subscription_ptr,
+    );
+  }
+
+  late final _wait_for_state_update_ffiPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(
+              ffi.Pointer<ffi.Void>)>>('wait_for_state_update_ffi');
+  late final _wait_for_state_update_ffi = _wait_for_state_update_ffiPtr
+      .asFunction<ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>)>();
+
+  /// # Safety
+  ///
+  /// Blocks until flag state changes, or until the subscription or engine is
+  /// closed. Returns a JSON response whose `result` is `"changed"` or
+  /// `"closed"`. Changes that land while the host is busy are coalesced into
+  /// one `"changed"`. Initial state and transitions into an error state are
+  /// not reported; recovering from an error is. Once a wait returns `"closed"`,
+  /// every later wait does too, without blocking.
+  ffi.Pointer<ffi.Char> wait_for_state_update(
+    ffi.Pointer<ffi.Void> subscription_ptr,
+  ) {
+    return _wait_for_state_update(
+      subscription_ptr,
+    );
+  }
+
+  late final _wait_for_state_updatePtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(
+              ffi.Pointer<ffi.Void>)>>('wait_for_state_update');
+  late final _wait_for_state_update = _wait_for_state_updatePtr
+      .asFunction<ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>)>();
+
+  /// # Safety
+  ///
+  /// Wakes any thread blocked in `wait_for_state_update` on this subscription
+  /// and makes every later wait return `"closed"`. Safe to call from any thread,
+  /// and more than once. Does not free the handle.
+  void close_state_subscription_ffi(
+    ffi.Pointer<ffi.Void> subscription_ptr,
+  ) {
+    return _close_state_subscription_ffi(
+      subscription_ptr,
+    );
+  }
+
+  late final _close_state_subscription_ffiPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+          'close_state_subscription_ffi');
+  late final _close_state_subscription_ffi = _close_state_subscription_ffiPtr
+      .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  /// # Safety
+  ///
+  /// Wakes any thread blocked in `wait_for_state_update` on this subscription
+  /// and makes every later wait return `"closed"`. Safe to call from any thread,
+  /// and more than once. Does not free the handle.
+  void close_state_subscription(
+    ffi.Pointer<ffi.Void> subscription_ptr,
+  ) {
+    return _close_state_subscription(
+      subscription_ptr,
+    );
+  }
+
+  late final _close_state_subscriptionPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+          'close_state_subscription');
+  late final _close_state_subscription = _close_state_subscriptionPtr
+      .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  /// # Safety
+  ///
+  /// Closes and frees a subscription handle. No other thread may be using the
+  /// handle, including waiting on it, when this is called.
+  void destroy_state_subscription_ffi(
+    ffi.Pointer<ffi.Void> subscription_ptr,
+  ) {
+    return _destroy_state_subscription_ffi(
+      subscription_ptr,
+    );
+  }
+
+  late final _destroy_state_subscription_ffiPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+          'destroy_state_subscription_ffi');
+  late final _destroy_state_subscription_ffi =
+      _destroy_state_subscription_ffiPtr
+          .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  /// # Safety
+  ///
+  /// Closes and frees a subscription handle. No other thread may be using the
+  /// handle, including waiting on it, when this is called.
+  void destroy_state_subscription(
+    ffi.Pointer<ffi.Void> subscription_ptr,
+  ) {
+    return _destroy_state_subscription(
+      subscription_ptr,
+    );
+  }
+
+  late final _destroy_state_subscriptionPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+          'destroy_state_subscription');
+  late final _destroy_state_subscription = _destroy_state_subscriptionPtr
+      .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  /// # Safety
+  ///
   /// This function will take in a pointer to a string and destroy it.
   void destroy_string_ffi(
     ffi.Pointer<ffi.Char> ptr,
