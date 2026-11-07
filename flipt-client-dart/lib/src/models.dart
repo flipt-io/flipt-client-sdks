@@ -173,6 +173,11 @@ class Options {
   /// TLS configuration for connecting to servers with custom certificates.
   final TlsConfig? tlsConfig;
 
+  /// Called with no arguments after the client applies changed flag state.
+  /// Never sent to the engine. See [FliptClient.addStateUpdateListener].
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  final void Function()? onStateUpdate;
+
   Options({
     this.url = 'http://localhost:8080',
     this.environment = 'default',
@@ -185,6 +190,7 @@ class Options {
     this.errorStrategy = ErrorStrategy.fail,
     this.snapshot,
     this.tlsConfig,
+    this.onStateUpdate,
   }) {
     if (url != null && url!.isEmpty) {
       throw ValidationError('url must not be empty');
@@ -253,6 +259,7 @@ class Options {
     FetchMode? fetchMode,
     ErrorStrategy? errorStrategy,
     TlsConfig? tlsConfig,
+    void Function()? onStateUpdate,
   }) {
     return Options(
       url: url,
@@ -267,6 +274,7 @@ class Options {
       fetchMode: fetchMode,
       errorStrategy: errorStrategy,
       tlsConfig: tlsConfig,
+      onStateUpdate: onStateUpdate,
     );
   }
 
@@ -281,6 +289,7 @@ class Options {
     FetchMode? fetchMode,
     ErrorStrategy? errorStrategy,
     TlsConfig? tlsConfig,
+    void Function()? onStateUpdate,
   }) {
     return Options(
       url: url,
@@ -295,6 +304,7 @@ class Options {
       fetchMode: fetchMode,
       errorStrategy: errorStrategy,
       tlsConfig: tlsConfig,
+      onStateUpdate: onStateUpdate,
     );
   }
 }
