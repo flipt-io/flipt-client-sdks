@@ -59,6 +59,10 @@ type Client struct {
 
 	engine uint32
 	err    error
+	// closed is set under mu once the engine is destroyed.
+	closed bool
+
+	updates *stateUpdates
 
 	cfg  config
 	etag string
@@ -128,6 +132,7 @@ func NewClient(ctx context.Context, opts ...Option) (_ *Client, err error) {
 		cancel:       cancel,
 		errChan:      make(chan error, 1),
 		snapshotChan: make(chan snapshot, 1),
+		updates:      newStateUpdates(),
 	}
 
 	var (
@@ -222,11 +227,20 @@ func NewClient(ctx context.Context, opts ...Option) (_ *Client, err error) {
 				if err != nil {
 					c.mu.Lock()
 					c.err = err
+					// clear the etag so the next successful fetch returns a
+					// body and the client recovers from the error state
+					c.etag = ""
 					c.mu.Unlock()
 				}
 			}
 		}
 	}()
+
+	// Listeners added now hear only about changes applied after the initial
+	// state, which is already loaded.
+	for _, fn := range cfg.StateUpdateListeners {
+		c.updates.add(fn)
+	}
 
 	c.wg.Add(1)
 	go func() {
@@ -269,6 +283,26 @@ func (c *Client) Err() error {
 	return c.err
 }
 
+// AddStateUpdateListener registers fn to be called after the client applies
+// changed flag state, and returns a function that removes it.
+//
+// Listeners are called only when evaluable state actually changes, including
+// recovery from a fetch error. They are not called for the initial state, so
+// read the flags you need once when you register. Listeners run in the order
+// they were added on a single goroutine owned by the client; changes that
+// arrive while they run are coalesced into one follow-up call. A listener may
+// evaluate flags, add or remove listeners, or call Close. A panic in a
+// listener is recovered and logged with log/slog.
+//
+// Close waits for a listener that is already running, so no listener is
+// called after Close returns. A listener must not block on a lock held by the
+// goroutine that calls Close. When Close is called from a listener it returns
+// without waiting, the remaining listeners are skipped, and calls the listener
+// makes on the closed client return ErrClientClosed.
+func (c *Client) AddStateUpdateListener(fn func()) (remove func()) {
+	return c.updates.add(fn)
+}
+
 // GetSnapshot returns a base64-encoded snapshot of the current flag state.
 func (c *Client) GetSnapshot(ctx context.Context) (string, error) {
 	getSnapshotFunc, ok := c.exportedFuncs[fGetSnapshot]
@@ -279,6 +313,10 @@ func (c *Client) GetSnapshot(ctx context.Context) (string, error) {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if c.closed {
+		return "", ErrClientClosed
+	}
 
 	res, err := getSnapshotFunc.Call(ctx, uint64(c.engine))
 	if err != nil {
@@ -330,6 +368,10 @@ func (c *Client) callWASMWithPayload(ctx context.Context, fn api.Function, paylo
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if c.closed {
+		return ErrClientClosed
+	}
 
 	payloadPtr, err := allocFunc.Call(ctx, uint64(len(payload)))
 	if err != nil {
@@ -475,8 +517,13 @@ func (c *Client) EvaluateBatch(ctx context.Context, requests []*EvaluationReques
 
 // ListFlags lists all flags.
 func (c *Client) ListFlags(ctx context.Context) ([]Flag, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	// list_flags allocates in wasm memory, so calls must not run concurrently
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.closed {
+		return nil, ErrClientClosed
+	}
 
 	if c.err != nil && c.cfg.ErrorStrategy == ErrorStrategyFail {
 		return nil, c.err
@@ -535,6 +582,10 @@ func (c *Client) ListFlags(ctx context.Context) ([]Flag, error) {
 // Close cleans up the allocated resources.
 func (c *Client) Close(ctx context.Context) (err error) {
 	c.closeOnce.Do(func() {
+		// stop listener dispatch first and wait for a running listener,
+		// unless Close is called from that listener
+		c.updates.close()
+
 		// signal background goroutines to stop
 		c.cancel()
 
@@ -544,6 +595,13 @@ func (c *Client) Close(ctx context.Context) (err error) {
 		// close channels
 		close(c.snapshotChan)
 		close(c.errChan)
+
+		// when Close is called from a listener, that listener may still
+		// evaluate, so destroy the engine under the lock and mark the client
+		// closed for any later calls
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		c.closed = true
 
 		if c.engine != 0 {
 			// destroy engine
@@ -614,11 +672,11 @@ func (c *Client) handleUpdates(ctx context.Context) error {
 				return nil
 			}
 
-			c.mu.Lock()
-			c.etag = s.etag
-			c.mu.Unlock()
-
+			// an empty payload is a 304: the state is unchanged
 			if len(s.payload) == 0 {
+				c.mu.Lock()
+				c.etag = s.etag
+				c.mu.Unlock()
 				continue
 			}
 
@@ -646,20 +704,52 @@ func (c *Client) handleUpdates(ctx context.Context) error {
 			// update the engine with the new snapshot while holding the lock
 			res, err := snapshotFunc.Call(ctx, uint64(c.engine), pmPtr[0], uint64(len(s.payload)))
 
-			ptr, length := decodePtr(res[0])
 			// always deallocate the memory after we're done with it
 			if _, err := deallocFunc.Call(ctx, uint64(pmPtr[0]), uint64(len(s.payload))); err != nil {
 				c.mu.Unlock()
 				return fmt.Errorf("failed to deallocate memory: %w", err)
 			}
+			if err != nil {
+				c.mu.Unlock()
+				return fmt.Errorf("failed to update engine: %w", err)
+			}
+			if len(res) < 1 {
+				c.mu.Unlock()
+				return errors.New("failed to update engine: no result returned")
+			}
+
+			ptr, length := decodePtr(res[0])
+			b, ok := c.mod.Memory().Read(ptr, length)
+			result := slices.Clone(b)
 			if _, err := deallocFunc.Call(ctx, uint64(ptr), uint64(length)); err != nil {
 				c.mu.Unlock()
 				return fmt.Errorf("failed to deallocate memory: %w", err)
 			}
+
+			var applied *bool
+			if !ok {
+				err = errors.New("failed to read result from memory")
+			} else {
+				applied, err = decodeResult[bool](result)
+			}
+			if err != nil {
+				// keep the old state, and drop the etag so the next fetch
+				// returns a body instead of a 304 for the state that failed
+				c.err = fmt.Errorf("failed to update engine: %w", err)
+				c.etag = ""
+				c.mu.Unlock()
+				continue
+			}
+
+			// the engine reports whether evaluable state changed; recovering
+			// from an error state counts as a change too
+			changed := *applied || c.err != nil
+			c.etag = s.etag
 			c.err = nil
 			c.mu.Unlock()
-			if err != nil {
-				return fmt.Errorf("failed to update engine: %w", err)
+
+			if changed {
+				c.updates.publish()
 			}
 		}
 	}
@@ -920,6 +1010,10 @@ func (c *Client) handleStream(ctx context.Context, r io.ReadCloser) error {
 // evaluateWASM evaluates the given function name with the given request.
 func (c *Client) evaluateWASM(ctx context.Context, funcName string, request any) ([]byte, error) {
 	c.mu.RLock()
+	if c.closed {
+		c.mu.RUnlock()
+		return nil, ErrClientClosed
+	}
 	if c.err != nil && c.cfg.ErrorStrategy == ErrorStrategyFail {
 		c.mu.RUnlock()
 		return nil, c.err
@@ -938,6 +1032,10 @@ func (c *Client) evaluateWASM(ctx context.Context, funcName string, request any)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if c.closed {
+		return nil, ErrClientClosed
+	}
 
 	reqPtr, err := allocFunc.Call(ctx, uint64(len(reqBytes)))
 	if err != nil {
