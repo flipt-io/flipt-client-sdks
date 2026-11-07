@@ -68,7 +68,9 @@ impl Engine {
         }
     }
 
-    pub fn snapshot(&mut self, data: JsValue) -> Result<(), JsValue> {
+    /// Replaces the current snapshot and returns `true` when the evaluable
+    /// state changed.
+    pub fn snapshot(&mut self, data: JsValue) -> Result<bool, JsValue> {
         let doc: source::Document = match serde_wasm_bindgen::from_value(data) {
             Ok(document) => document,
             Err(e) => {
@@ -76,8 +78,10 @@ impl Engine {
             }
         };
 
-        self.store = snapshot::Snapshot::build(doc);
-        Ok(())
+        let snap = snapshot::Snapshot::build(doc);
+        let changed = self.store != snap;
+        self.store = snap;
+        Ok(changed)
     }
 
     pub fn seed_snapshot(&mut self, snapshot_b64: &str) -> Result<(), JsValue> {
@@ -191,8 +195,9 @@ pub mod tests {
 
         let document: source::Document = serde_json::from_str(state).expect("valid snapshot");
         let data = serde_wasm_bindgen::to_value(&document).unwrap();
-        let result = engine.snapshot(data);
-        assert!(result.is_ok());
+        let result = engine.snapshot(data.clone());
+        assert_eq!(result, Ok(true));
+        assert_eq!(engine.snapshot(data), Ok(false));
         let flags = engine.list_flags();
         assert!(flags.is_ok());
 

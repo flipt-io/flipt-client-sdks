@@ -7,8 +7,11 @@ export class Engine {
     this.snapshots = [];
   }
 
+  // Like the real engine, reports whether the state changed.
   snapshot(data) {
+    const prev = this.snapshots[this.snapshots.length - 1];
     this.snapshots.push(data);
+    return JSON.stringify(prev) !== JSON.stringify(data);
   }
 
   get_snapshot() {

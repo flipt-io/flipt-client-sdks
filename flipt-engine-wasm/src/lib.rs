@@ -101,10 +101,14 @@ impl Engine {
         })
     }
 
-    pub fn snapshot(&mut self, data: &str) -> Result<(), WASMError> {
+    /// Replaces the current snapshot and reports whether the evaluable state
+    /// changed.
+    pub fn snapshot(&mut self, data: &str) -> Result<bool, WASMError> {
         let doc: source::Document = serde_json::from_str(data).map_err(WASMError::InvalidJson)?;
-        self.store = snapshot::Snapshot::build(doc);
-        Ok(())
+        let snap = snapshot::Snapshot::build(doc);
+        let changed = self.store != snap;
+        self.store = snap;
+        Ok(changed)
     }
 
     pub fn seed_snapshot(&mut self, snapshot_b64: &str) -> Result<(), WASMError> {
@@ -400,7 +404,8 @@ pub unsafe extern "C" fn list_flags(engine_ptr: *mut c_void) -> u64 {
 
 /// # Safety
 ///
-/// This function will take in a pointer to the engine and snapshot.
+/// This function will take in a pointer to the engine and snapshot. On success
+/// the result is `true` when the evaluable state changed.
 #[no_mangle]
 pub unsafe extern "C" fn snapshot(
     engine_ptr: *mut c_void,
@@ -410,18 +415,18 @@ pub unsafe extern "C" fn snapshot(
     let result = std::panic::catch_unwind(|| {
         let e = match get_engine_mut(engine_ptr) {
             Ok(e) => e,
-            Err(e) => return result_to_ptr::<(), _>(Err(e)),
+            Err(e) => return result_to_ptr::<bool, _>(Err(e)),
         };
 
         if snapshot_ptr.is_null() || snapshot_len == 0 {
-            return result_to_ptr::<(), _>(Err(WASMError::NullPointer));
+            return result_to_ptr::<bool, _>(Err(WASMError::NullPointer));
         }
 
         let snapshot =
             match std::str::from_utf8(std::slice::from_raw_parts(snapshot_ptr, snapshot_len)) {
                 Ok(s) => s,
                 Err(_) => {
-                    return result_to_ptr::<(), _>(Err(WASMError::InvalidJson(
+                    return result_to_ptr::<bool, _>(Err(WASMError::InvalidJson(
                         serde_json::Error::io(std::io::Error::new(
                             std::io::ErrorKind::InvalidData,
                             "Invalid UTF-8 in snapshot",
@@ -434,7 +439,7 @@ pub unsafe extern "C" fn snapshot(
     });
 
     result.unwrap_or_else(|_| unsafe {
-        result_to_ptr::<(), _>(Err(WASMError::InternalError(
+        result_to_ptr::<bool, _>(Err(WASMError::InternalError(
             "panic in snapshot".to_string(),
         )))
     })
@@ -690,7 +695,8 @@ mod tests {
             .expect("list flags on startup");
         assert_eq!(flags.len(), 1);
 
-        engine.snapshot(flags_two).expect("snapshot");
+        assert!(engine.snapshot(flags_two).expect("snapshot"));
+        assert!(!engine.snapshot(flags_two).expect("snapshot"));
         let flags = engine
             .list_flags()
             .expect("list flags")
@@ -698,7 +704,7 @@ mod tests {
         assert_eq!(flags.len(), 2);
 
         let empty = r#"{"namespace":{"key":"default"},"flags":[]}"#;
-        engine.snapshot(empty).expect("snapshot");
+        assert!(engine.snapshot(empty).expect("snapshot"));
         let flags = engine
             .list_flags()
             .expect("list flags")

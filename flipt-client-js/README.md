@@ -73,6 +73,7 @@ The `FliptClient` constructor accepts the following optional arguments:
   - `fetcher`: An implementation of a [fetcher](https://github.com/flipt-io/flipt-client-sdks/blob/d0869dc9f6b3a65052712926b88fa0f9b18defaa/flipt-client-js/src/core/types.ts#L60-L62) interface to use when requesting flag state. If not provided, a default fetcher using the browser's [`fetch` API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) will be used.
   - `errorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to fail. See the [Error Strategies](#error-strategies) section for more information.
   - `hook`: A hook implementation for before and after evaluation callbacks. See the [Hooks](#hooks) section for more information.
+  - `onStateUpdate`: A function with no arguments that is called after the client applies changed flag state. See [State Update Listeners](#state-update-listeners).
 
 ### Authentication
 
@@ -248,6 +249,38 @@ const client = await FliptClient.init({
 > - `EventSource` reconnects automatically after transient errors. If the connection is closed permanently, the client logs an error (via `logger`) and keeps serving the last known flag state.
 
 Call `close()` when you are done with the client to close the stream.
+
+### State Update Listeners
+
+The client can tell you when flag state changes, so you can re-read the flags you care about. Listeners are called for changes applied by auto-refresh, streaming, or a manual `refresh()`.
+
+Register a listener when you create the client:
+
+```typescript
+const client = await FliptClient.init({
+  url: 'http://localhost:8080',
+  fetchMode: FetchMode.Streaming,
+  onStateUpdate: refreshFlags
+});
+```
+
+Or add and remove listeners while the client is running:
+
+```typescript
+const unsubscribe = client.addStateUpdateListener(refreshFlags);
+
+// Later, to stop listening:
+unsubscribe();
+```
+
+How listeners behave:
+
+- **Only real changes.** A listener is called after the client applies flag state that differs from the current state. Unchanged fetches and repeated streaming messages do not call it, and `refresh()` returns `false` for them.
+- **Not called for initial state.** The state loaded by `init` doesn't trigger a listener. Read the flags you need once when you register.
+- **Errors don't trigger it.** A failed fetch does not call listeners.
+- **In order, synchronously.** Listeners run in the order they were added, right after the new state is applied. A listener may evaluate flags, add or remove listeners, or call `close()`.
+- **Exceptions are logged.** An exception thrown by one listener is logged with `logger.error` and does not stop the others.
+- **Nothing after `close()`.** No listener is called after `close()`.
 
 ## ETag Support
 

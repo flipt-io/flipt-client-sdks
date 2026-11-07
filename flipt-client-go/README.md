@@ -128,6 +128,7 @@ The `NewClient` constructor accepts a variadic number of `Option` functions that
 - `WithErrorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to `Fail`. See the [Error Strategies](#error-strategies) section for more information.
 - `WithTLSConfig`: The TLS configuration for connecting to servers with custom certificates. See [TLS Configuration](#tls-configuration). Note: if used with `WithHTTPClient`, this should be called after setting the HTTP client.
 - `WithHook`: A hook implementation for before and after evaluation callbacks. See the [Hooks](#hooks) section for more information.
+- `WithStateUpdateListener`: A function called after the client applies changed flag state. Can be given more than once. See [State Update Listeners](#state-update-listeners).
 
 ### Authentication
 
@@ -367,6 +368,40 @@ The hooks are called for all evaluation methods:
 - `EvaluateBatch`: The "before" hook is called once for each request in the batch, and the "after" hook is called once for each successful response.
 
 **Note:** Hooks are optional. If no hook is provided, evaluations proceed normally without any callbacks.
+
+### State Update Listeners
+
+The client can tell you when flag state changes, so you can re-read the flags you care about instead of re-evaluating them on a timer. This works in both polling and streaming mode.
+
+Register a listener when you create the client:
+
+```go
+client, err := flipt.NewClient(ctx,
+  flipt.WithURL("http://localhost:8080"),
+  flipt.WithFetchMode(flipt.FetchModeStreaming),
+  flipt.WithStateUpdateListener(refreshFlags),
+)
+```
+
+Or add and remove listeners while the client is running:
+
+```go
+remove := client.AddStateUpdateListener(refreshFlags)
+
+// Later, to stop listening:
+remove()
+```
+
+How listeners behave:
+
+- **Only real changes.** A listener is called after the client applies flag state that differs from the current state. Unchanged polls and repeated streaming messages do not call it.
+- **Not called for initial state.** The state loaded by `NewClient` doesn't trigger a listener. Read the flags you need once when you register.
+- **Errors don't trigger it.** A failed fetch does not call listeners. Recovering from a failure does.
+- **One goroutine.** Listeners run in the order they were added, on a single goroutine owned by the client. Updates that arrive while listeners run are merged into one follow-up call, so you always see the latest state but may not see every intermediate one.
+- **Keep listeners fast.** A slow listener delays later notifications. Hand long work off to your own goroutine.
+- **Safe to call back in.** A listener may evaluate flags, add or remove listeners, or call `Close`.
+- **`Close` waits for a running listener.** When called from another goroutine, `Close` lets a listener that is already running finish, then stops, so no listener is called after `Close` returns. A listener must not block on a lock held by the goroutine that calls `Close`, or the two will deadlock. When a listener calls `Close` itself, the remaining listeners are skipped, and any later calls it makes on the client return `ErrClientClosed`.
+- **Panics are recovered.** A panic in one listener is logged with `log/slog` and does not stop the other listeners.
 
 ## Memory Management
 

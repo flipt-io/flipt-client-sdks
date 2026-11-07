@@ -158,6 +158,12 @@ export interface ClientOptions {
    * The hook to use for before and after evaluation calls.
    */
   hook?: Hook;
+
+  /**
+   * Called after the client applies changed flag state.
+   * See {@link BaseFliptClient.addStateUpdateListener} for how listeners are called.
+   */
+  onStateUpdate?: () => void;
 }
 
 /**
