@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    flipt_client (1.3.5)
+    flipt_client (1.4.0)
       ffi (~> 1.17)
 
 GEM

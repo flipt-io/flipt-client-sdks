@@ -20,3 +20,20 @@ class RubySDK(SDK):
         with open(version_rb, "w") as f:
             f.write(updated_content)
         print(f"Updated {self.name} version to {new_version} in version.rb")
+
+        # Gemfile.lock records the gem's own version under PATH specs, so it goes stale (and
+        # bundle install rewrites it) unless it moves with version.rb.
+        gemfile_lock = os.path.join(self.path, "Gemfile.lock")
+        with open(gemfile_lock) as f:
+            content = f.read()
+        updated_content, count = re.subn(
+            r"^(    flipt_client \()[^)]+(\))$",
+            rf"\g<1>{new_version}\g<2>",
+            content,
+            flags=re.MULTILINE,
+        )
+        if count != 1:
+            raise ValueError("flipt_client version not found in Gemfile.lock")
+        with open(gemfile_lock, "w") as f:
+            f.write(updated_content)
+        print(f"Updated {self.name} version to {new_version} in Gemfile.lock")
