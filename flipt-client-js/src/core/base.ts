@@ -45,6 +45,8 @@ export abstract class BaseFliptClient {
   protected hook?: Hook;
   protected eventSource?: StreamSource;
   protected logger: Logger = noopLogger;
+  private stateUpdateListeners: { fn: () => void }[] = [];
+  private closed = false;
 
   constructor(engine: any, fetcher: IFetcher) {
     this.engine = engine;
@@ -52,10 +54,55 @@ export abstract class BaseFliptClient {
   }
 
   /**
-   * Close the client and clean up resources.
+   * Close the client and clean up resources. No state update listener is
+   * called after close.
    */
   public close(): void {
+    this.closed = true;
+    this.stateUpdateListeners = [];
     this.closeEventSource();
+  }
+
+  /**
+   * Register a listener that is called after the client applies changed flag
+   * state, in polling, streaming, or a manual {@link refresh}.
+   *
+   * Listeners are called only when evaluable state actually changes, and not
+   * for the initial state, so read the flags you need once when you register.
+   * Failed fetches do not call listeners. Listeners run in the order they
+   * were added; an exception thrown by one is logged and does not stop the
+   * others.
+   *
+   * @returns a function that removes the listener
+   */
+  public addStateUpdateListener(fn: () => void): () => void {
+    if (this.closed || typeof fn !== 'function') {
+      return () => {};
+    }
+    const entry = { fn };
+    this.stateUpdateListeners.push(entry);
+    return () => {
+      this.stateUpdateListeners = this.stateUpdateListeners.filter(
+        (l) => l !== entry
+      );
+    };
+  }
+
+  private notifyStateUpdate(): void {
+    // Copy so listeners can add or remove listeners while being called.
+    for (const listener of [...this.stateUpdateListeners]) {
+      if (this.closed) {
+        return;
+      }
+      if (!this.stateUpdateListeners.includes(listener)) {
+        continue;
+      }
+      try {
+        listener.fn();
+      } catch (err) {
+        this.logger.error('state update listener failed:', err);
+      }
+    }
   }
 
   /**
@@ -124,7 +171,7 @@ export abstract class BaseFliptClient {
 
   /**
    * Refresh the flags snapshot
-   * @returns true if snapshot changed
+   * @returns true if the evaluable flag state changed
    */
   public async refresh(): Promise<boolean> {
     try {
@@ -136,12 +183,21 @@ export abstract class BaseFliptClient {
         return false;
       }
 
-      this.storeEtag(resp);
-
       const data = await resp.json();
-      this.engine.snapshot(data);
-      return true;
+      if (this.closed) {
+        return false;
+      }
+      const changed = this.engine.snapshot(data) === true;
+      // Store the etag only once its state is applied, or a later 304
+      // would keep the client on the old state.
+      this.storeEtag(resp);
+      if (changed) {
+        this.notifyStateUpdate();
+      }
+      return changed;
     } catch (error) {
+      // Drop the etag so the next fetch returns a body and recovers.
+      this.etag = undefined;
       if (this.errorStrategy === ErrorStrategy.Fail) {
         throw error;
       }

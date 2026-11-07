@@ -90,6 +90,9 @@ export class FliptClient extends BaseFliptClient {
     client.errorStrategy = options.errorStrategy;
     client.hook = options.hook;
     client.logger = options.logger ?? client.logger;
+    if (options.onStateUpdate) {
+      client.addStateUpdateListener(options.onStateUpdate);
+    }
 
     // Setup data refresh based on fetch mode
     if (fetchMode === FetchMode.Streaming) {
