@@ -6,3 +6,6 @@
 # https://dart.dev/guides/libraries/private-files#pubspeclock.
 pubspec.lock
 *.h
+
+# Native engine binaries placed locally for tests
+native/

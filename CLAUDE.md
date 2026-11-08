@@ -91,6 +91,8 @@ When adding this to another language client:
 4. **Catch listener exceptions** in the loop and log them.
 5. **Don't replay initial state.** Document that callers should read flags once when they register.
 
+Dart differs on purpose: an FFI call blocks its isolate, so a helper isolate does the wait and listeners run on the client's isolate. The client isolate frees the subscription when the helper exits, and `close()` doesn't need a join.
+
 ## Workflow
 
 - Conventional commits; keep messages short.
