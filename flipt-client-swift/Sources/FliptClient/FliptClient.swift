@@ -14,7 +14,10 @@ public class FliptClient {
     private var errorStrategy: ErrorStrategy = .fail
     private var snapshot: String?
     private var tlsConfig: TlsConfig?
-    private var stateUpdates: StateUpdates?
+    private let stateUpdates: StateUpdates
+    // Set by the close() caller that destroys the engine, so later callers can wait for it.
+    private let teardown = NSCondition()
+    private var tornDown = false
 
     public init(
         environment: String? = nil,
@@ -69,7 +72,8 @@ public class FliptClient {
             free(clientOptionsCString)
         }
 
-        engine = initialize_engine(clientOptionsCString)
+        let engine = initialize_engine(clientOptionsCString)
+        self.engine = engine
         stateUpdates = StateUpdates(engine: engine)
 
         if let onStateUpdate {
@@ -88,11 +92,20 @@ public class FliptClient {
     }
 
     /// Closes the client and releases the engine. When called from a thread other than the state
-    /// update thread, waits for a running listener to return first. Closing twice is a no-op.
+    /// update thread, waits for a running listener to return and for the engine to be released
+    /// first. Closing twice is a no-op.
     public func close() {
         // Only the first caller tears down the engine, after any running listener has returned.
-        // Later callers wait for that listener too, then return.
-        guard let stateUpdates, stateUpdates.close() else {
+        guard stateUpdates.close() else {
+            // Wait for that caller to finish, unless this is the update thread, which the first
+            // caller may itself be waiting on.
+            if !stateUpdates.isUpdateThread {
+                teardown.lock()
+                while !tornDown {
+                    teardown.wait()
+                }
+                teardown.unlock()
+            }
             return
         }
         // Clear the pointer first, so later calls see a closed client rather than a freed engine.
@@ -100,6 +113,10 @@ public class FliptClient {
             self.engine = nil
             destroy_engine(engine)
         }
+        teardown.lock()
+        tornDown = true
+        teardown.broadcast()
+        teardown.unlock()
     }
 
     /// Adds a listener that is called after each change to flag state. Listeners can be added at any
@@ -112,18 +129,17 @@ public class FliptClient {
     /// waits for a running listener to return, so a listener must not block on anything held by the
     /// thread that closes the client.
     ///
-    /// A listener that captures the client strongly keeps it alive until `close()` is called, so
-    /// capture it weakly or close the client explicitly.
+    /// Listeners are `@Sendable`, so in Swift 6 mode they can't capture the client, which isn't
+    /// `Sendable`. Keep the client in a `@MainActor` type (or another `Sendable` owner) and capture
+    /// that weakly, hopping to the main actor to do work. A listener that keeps the client alive
+    /// keeps it open until `close()` is called.
     ///
     /// - Returns: A subscription that removes the listener when closed.
     /// - Throws: `ClientError.evaluationFailed` if the client is closed or the engine cannot
     ///   subscribe to updates.
     @discardableResult
     public func addStateUpdateListener(_ listener: @escaping @Sendable () -> Void) throws -> StateUpdateSubscription {
-        guard let stateUpdates else {
-            throw ClientError.evaluationFailed(message: StateUpdates.closedMessage)
-        }
-        return try stateUpdates.add(listener)
+        try stateUpdates.add(listener)
     }
 
     public func evaluateVariant(

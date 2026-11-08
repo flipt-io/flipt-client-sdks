@@ -11,11 +11,13 @@ private let barrier =
 private let waitSeconds: TimeInterval = 5
 
 /// A minimal HTTP server for the snapshot and stream endpoints, so no Flipt instance is needed.
-final class FakeFlipt {
+/// State is guarded by the lock or confined to the queue.
+final class FakeFlipt: @unchecked Sendable {
     private let listener: NWListener
     private let queue = DispatchQueue(label: "fake-flipt")
     private let lock = NSLock()
     private var bodyValue = empty
+    private var snapshotRequestCount = 0
     // Documents the stream endpoint sends, one per line, and the open stream to send them on.
     private var pendingDocs: [String] = []
     private var stream: NWConnection?
@@ -47,6 +49,11 @@ final class FakeFlipt {
         set { lock.withLock { bodyValue = newValue } }
     }
 
+    /// How many snapshot polls the server has answered. It stops growing once the engine is destroyed.
+    var snapshotRequests: Int {
+        lock.withLock { snapshotRequestCount }
+    }
+
     /// Sends a document on the open stream, or queues it for the next one.
     func send(_ doc: String) {
         queue.async { [self] in
@@ -75,7 +82,7 @@ final class FakeFlipt {
             }
             let path = request.split(separator: " ").dropFirst().first.map(String.init) ?? ""
             if path.hasPrefix("/internal/v1/evaluation/snapshot/namespace/default") {
-                let body = body
+                let body = recordSnapshotRequest()
                 let response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
                     + "Content-Length: \(body.utf8.count)\r\nConnection: close\r\n\r\n\(body)"
                 connection.send(content: Data(response.utf8), completion: .contentProcessed { _ in
@@ -96,6 +103,14 @@ final class FakeFlipt {
                     connection.cancel()
                 })
             }
+        }
+    }
+
+    /// Counts a snapshot poll and returns the body to answer it with.
+    private func recordSnapshotRequest() -> String {
+        lock.withLock {
+            snapshotRequestCount += 1
+            return bodyValue
         }
     }
 
@@ -191,9 +206,18 @@ class StateUpdateListenerTests: XCTestCase {
     func testListenerFiresOnStreamedChange() throws {
         let fired = expectation(description: "listener fired")
         fired.assertForOverFulfill = false
+        let calls = Counter()
         flipt?.send(empty)
-        let client = try newClient(fetchMode: .streaming) { fired.fulfill() }
+        let client = try newClient(fetchMode: .streaming) {
+            calls.increment()
+            fired.fulfill()
+        }
         defer { client.close() }
+
+        // A repeated, unchanged document must not fire the listener.
+        flipt?.send(empty)
+        Thread.sleep(forTimeInterval: 0.5)
+        XCTAssertEqual(calls.value, 0)
 
         flipt?.send(withFlag)
         wait(for: [fired], timeout: waitSeconds)
@@ -217,8 +241,9 @@ class StateUpdateListenerTests: XCTestCase {
         XCTAssertEqual(started.wait(timeout: .now() + waitSeconds), .success, "listener did not start")
 
         let closed = DispatchSemaphore(value: 0)
+        let closer = Box(client)
         Thread.detachNewThread {
-            client.close()
+            closer.value.close()
             closed.signal()
         }
         // close must still be waiting for the listener.
@@ -245,9 +270,10 @@ class StateUpdateListenerTests: XCTestCase {
 
         // Both callers must wait for the running listener, not just the first.
         let closed = DispatchSemaphore(value: 0)
+        let closer = Box(client)
         for _ in 0 ..< 2 {
             Thread.detachNewThread {
-                client.close()
+                closer.value.close()
                 closed.signal()
             }
         }
@@ -335,6 +361,40 @@ class StateUpdateListenerTests: XCTestCase {
         flipt?.body = withFlag
         Thread.sleep(forTimeInterval: 1.5)
         XCTAssertEqual(calls.value, 0)
+    }
+
+    func testClientReleasedFromInsideListenerDeinits() throws {
+        // The listener holds the last strong reference to the client and unsubscribes itself, so
+        // the client deinits (and closes) on the update thread. That must not deadlock.
+        weak var weakClient: FliptClient?
+        let subscription = Box<StateUpdateSubscription?>(nil)
+        try autoreleasepool {
+            let client = try newClient()
+            // Only the listener references holder, so it is the client's last owner.
+            let holder = Box<FliptClient?>(client)
+            // The closure keeps holder (and so the client) alive until the update loop drops it.
+            subscription.value = try client.addStateUpdateListener {
+                _ = holder
+                subscription.value?.close()
+            }
+            weakClient = client
+        }
+        // The test's own reference is gone, so the listener now owns the client.
+        XCTAssertNotNil(weakClient)
+
+        flipt?.body = withFlag
+        let deadline = Date().addingTimeInterval(waitSeconds)
+        while weakClient != nil, Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        XCTAssertNil(weakClient, "client was not released")
+
+        // Weak references are cleared when deinit starts, so also check that close finished: a
+        // destroyed engine stops polling, while one stuck in a deadlocked close keeps going.
+        Thread.sleep(forTimeInterval: 0.5)
+        let polls = try XCTUnwrap(flipt).snapshotRequests
+        Thread.sleep(forTimeInterval: 2.5)
+        XCTAssertEqual(try XCTUnwrap(flipt).snapshotRequests, polls, "engine is still polling")
     }
 
     func testDroppedClientDeinits() throws {

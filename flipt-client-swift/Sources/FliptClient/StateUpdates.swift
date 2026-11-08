@@ -20,6 +20,12 @@ public final class StateUpdateSubscription: @unchecked Sendable {
     }
 }
 
+/// Carries the native subscription pointer to the update thread. Only that thread uses it after
+/// start, and it frees the handle under the lock, so sharing it is safe.
+private struct SubscriptionHandle: @unchecked Sendable {
+    let pointer: UnsafeMutableRawPointer
+}
+
 /// Owns the single thread that waits on the engine for flag state changes and fans out to the
 /// client's listeners. Internal to FliptClient. The thread holds this object, not the client, so a
 /// client that is no longer referenced can still deinit and close.
@@ -88,6 +94,13 @@ final class StateUpdates: @unchecked Sendable {
         return closed
     }
 
+    /// Whether the caller is running on the update thread, for example inside a listener.
+    var isUpdateThread: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return thread === Thread.current
+    }
+
     private func remove(_ id: Int) {
         lock.lock()
         // Released after the lock, since dropping a listener may deinit a client that calls close.
@@ -108,8 +121,9 @@ final class StateUpdates: @unchecked Sendable {
         }
         let finished = DispatchGroup()
         finished.enter()
+        let handle = SubscriptionHandle(pointer: subscription)
         let thread = Thread { [self] in
-            run(subscription, finished: finished)
+            run(handle.pointer, finished: finished)
         }
         thread.name = "flipt-state-update"
         // The thread can't exit before these are set: its cleanup takes the lock we hold.

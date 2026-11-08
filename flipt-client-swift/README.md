@@ -263,17 +263,43 @@ Register a listener when you create the client:
 let client = try FliptClient(
     url: "http://localhost:8080",
     fetchMode: .streaming,
-    onStateUpdate: { refreshFlags() }
+    onStateUpdate: { DispatchQueue.main.async { refreshFlags() } }
 )
 ```
 
 Or add and remove listeners while the client is running:
 
 ```swift
-let subscription = try client.addStateUpdateListener { refreshFlags() }
+let subscription = try client.addStateUpdateListener {
+    DispatchQueue.main.async { refreshFlags() }
+}
 
 // Later, to stop listening:
 subscription.close()
+```
+
+Listeners are `@Sendable`, because they run on another thread. `FliptClient` isn't `Sendable`, so in Swift 6 mode a listener can't capture the client directly, even weakly. Keep the client in a `@MainActor` type and capture that weakly instead:
+
+```swift
+@MainActor
+final class FlagStore {
+    private var client: FliptClient?
+    private var subscription: StateUpdateSubscription?
+
+    func start() throws {
+        let client = try FliptClient(url: "http://localhost:8080", fetchMode: .streaming)
+        subscription = try client.addStateUpdateListener { [weak self] in
+            guard let self else { return }
+            Task { @MainActor in self.refreshFlags() }
+        }
+        self.client = client
+        refreshFlags()
+    }
+
+    func refreshFlags() {
+        // Evaluate the flags you care about with client.
+    }
+}
 ```
 
 How listeners behave:
@@ -287,7 +313,7 @@ How listeners behave:
 - **`close()` waits for a running listener.** When called from another thread, `close()` lets a listener that is already running finish, then stops. A listener must not wait on a lock or queue held by the thread that calls `close()` (for example, `DispatchQueue.main.sync` when closing from the main thread), or the two will deadlock.
 
 > [!IMPORTANT]
-> A listener that captures the client strongly keeps it alive until you call `close()`. Capture it `weak`, or close the client explicitly. No listener is called after `close()` returns, and calling `addStateUpdateListener` after `close()` throws `ClientError.evaluationFailed(message: "client is closed")`.
+> A listener that keeps the client alive (directly, or through an object that owns it) keeps it open until you call `close()`. Capture the owner `weak`, as above, or close the client explicitly. No listener is called after `close()` returns, and calling `addStateUpdateListener` after `close()` throws `ClientError.evaluationFailed(message: "client is closed")`.
 
 ## Memory Management
 
