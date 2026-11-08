@@ -14,6 +14,7 @@ public class FliptClient {
     private var errorStrategy: ErrorStrategy = .fail
     private var snapshot: String?
     private var tlsConfig: TlsConfig?
+    private var stateUpdates: StateUpdates?
 
     public init(
         environment: String? = nil,
@@ -26,7 +27,8 @@ public class FliptClient {
         fetchMode: FetchMode = .polling,
         errorStrategy: ErrorStrategy = .fail,
         snapshot: String? = nil,
-        tlsConfig: TlsConfig? = nil) throws
+        tlsConfig: TlsConfig? = nil,
+        onStateUpdate: (@Sendable () -> Void)? = nil) throws
     {
         self.environment = environment ?? "default"
         self.namespace = namespace ?? "default"
@@ -68,17 +70,60 @@ public class FliptClient {
         }
 
         engine = initialize_engine(clientOptionsCString)
+        stateUpdates = StateUpdates(engine: engine)
+
+        if let onStateUpdate {
+            do {
+                try addStateUpdateListener(onStateUpdate)
+            } catch {
+                // The caller never gets a client to close, so tear the engine down here.
+                close()
+                throw error
+            }
+        }
     }
 
     deinit {
         close()
     }
 
+    /// Closes the client and releases the engine. When called from a thread other than the state
+    /// update thread, waits for a running listener to return first. Closing twice is a no-op.
     public func close() {
-        if let engine {
-            destroy_engine(engine)
-            self.engine = nil
+        // Only the first caller tears down the engine, after any running listener has returned.
+        // Later callers wait for that listener too, then return.
+        guard let stateUpdates, stateUpdates.close() else {
+            return
         }
+        // Clear the pointer first, so later calls see a closed client rather than a freed engine.
+        if let engine {
+            self.engine = nil
+            destroy_engine(engine)
+        }
+    }
+
+    /// Adds a listener that is called after each change to flag state. Listeners can be added at any
+    /// time. Read the flags you care about once after adding a listener: it is called for changes
+    /// applied after it was added, and may occasionally see one extra call.
+    ///
+    /// Listeners run in the order they were added, on a single thread named `flipt-state-update`.
+    /// Updates that arrive while they run are coalesced into a single follow-up call. A listener may
+    /// evaluate flags, add or remove listeners, or call `close()`. `close()` from another thread
+    /// waits for a running listener to return, so a listener must not block on anything held by the
+    /// thread that closes the client.
+    ///
+    /// A listener that captures the client strongly keeps it alive until `close()` is called, so
+    /// capture it weakly or close the client explicitly.
+    ///
+    /// - Returns: A subscription that removes the listener when closed.
+    /// - Throws: `ClientError.evaluationFailed` if the client is closed or the engine cannot
+    ///   subscribe to updates.
+    @discardableResult
+    public func addStateUpdateListener(_ listener: @escaping @Sendable () -> Void) throws -> StateUpdateSubscription {
+        guard let stateUpdates else {
+            throw ClientError.evaluationFailed(message: StateUpdates.closedMessage)
+        }
+        return try stateUpdates.add(listener)
     }
 
     public func evaluateVariant(
