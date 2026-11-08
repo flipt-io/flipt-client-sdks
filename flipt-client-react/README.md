@@ -151,6 +151,7 @@ The `FliptProvider` component accepts two optional arguments:
   - `reference`: The [reference](https://docs.flipt.io/guides/user/using-references) to use when fetching flag state. If not provided, reference will not be used.
   - `snapshot`: A base64-encoded snapshot returned by the underlying JS client's `getSnapshot()` method. Use this with `errorStrategy: ErrorStrategy.Fallback` to allow startup while Flipt is unreachable.
   - `errorStrategy`: The strategy for fetch errors. Use `ErrorStrategy.Fallback` with `snapshot` for offline startup.
+  - `fetchMode`: `FetchMode.Polling` (default) or `FetchMode.Streaming`. With `@flipt-io/flipt-client-js` 0.7.0 or later, components re-render whenever the client applies changed flag state, including streamed updates.
   - `fetcher`: An implementation of a [fetcher](https://github.com/flipt-io/flipt-client-sdks/blob/4821cb227c6c8b10419b96674d44ad1d6668a647/flipt-client-browser/src/models.ts#L5) interface to use when requesting flag state. If not provided, a default fetcher using the browser's [`fetch` API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) will be used.
 
 ### Authentication

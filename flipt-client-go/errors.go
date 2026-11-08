@@ -1,5 +1,10 @@
 package flipt
 
+import "errors"
+
+// ErrClientClosed is returned by calls made on a client after Close.
+var ErrClientClosed = errors.New("flipt: client is closed")
+
 // ErrorCode represents a category of error for the Flipt client.
 type ErrorCode string
 

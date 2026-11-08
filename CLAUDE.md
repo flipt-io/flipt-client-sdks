@@ -93,6 +93,10 @@ When adding this to another language client:
 
 Dart differs on purpose: an FFI call blocks its isolate, so a helper isolate does the wait and listeners run on the client's isolate. The client isolate frees the subscription when the helper exits, and `close()` doesn't need a join.
 
+### State Updates (WASM)
+
+The WASM engines don't fetch, so they have no subscription API. `snapshot()` returns `true` when the new state differs from the current one, and the host dispatches to its own listeners. Go (`flipt-client-go/state_updates.go`) also reports recovery from a fetch error; JS (`addStateUpdateListener` in `flipt-client-js/src/core/base.ts`) calls listeners synchronously from `refresh()`. React subscribes to the JS client's listener when it exists.
+
 ## Workflow
 
 - Conventional commits; keep messages short.

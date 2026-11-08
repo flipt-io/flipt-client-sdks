@@ -116,6 +116,17 @@ func WithHook(hook Hook) Option {
 	}
 }
 
+// WithStateUpdateListener registers a function that is called after the client
+// applies changed flag state. It may be given more than once. See
+// Client.AddStateUpdateListener for how listeners are called.
+func WithStateUpdateListener(fn func()) Option {
+	return func(cfg *config) {
+		if fn != nil {
+			cfg.StateUpdateListeners = append(cfg.StateUpdateListeners, fn)
+		}
+	}
+}
+
 // WithTLSConfig sets the TLS configuration for the client using the standard library tls.Config.
 // This provides maximum flexibility for configuring TLS settings including custom CAs,
 // mutual TLS authentication, and certificate verification options.
@@ -202,6 +213,8 @@ type config struct {
 	HTTPClient *http.Client
 	// Hook for before and after evaluation callbacks. Optional.
 	Hook Hook
+	// StateUpdateListeners are called after the client applies changed flag state. Optional.
+	StateUpdateListeners []func()
 	// ForceAttemptHTTP2 optionally overrides the transport's HTTP/2 negotiation behavior.
 	ForceAttemptHTTP2 *bool
 }
