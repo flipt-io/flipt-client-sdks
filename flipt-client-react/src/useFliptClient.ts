@@ -129,11 +129,9 @@ export const useStore = (options: FliptProviderOptions): FliptStore => {
             dataRef.current.isLoading = false;
             dataRef.current.error = null;
             // Re-render on every applied change, including streaming updates.
-            const subscribable = client as FliptClient & {
-              addStateUpdateListener?: (fn: () => void) => () => void;
-            };
-            if (typeof subscribable.addStateUpdateListener === 'function') {
-              unsubscribe = subscribable.addStateUpdateListener(notify);
+            // Checked at runtime because flipt-client-js 0.6 lacks it.
+            if (typeof client.addStateUpdateListener === 'function') {
+              unsubscribe = client.addStateUpdateListener(notify);
               clientNotifiesRef.current = true;
             }
             setupPolling();
