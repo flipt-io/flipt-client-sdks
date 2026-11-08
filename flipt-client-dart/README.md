@@ -126,6 +126,7 @@ The `FliptClient` initializer accepts several options that can be used to config
 - `fetchMode`: The fetch mode to use when fetching flag state. If not provided, the client will default to polling.
 - `errorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to `fail`. See the [Error Strategies](#error-strategies) section for more information.
 - `snapshot`: The initial snapshot to use when instantiating the client. See the [Snapshotting](#snapshotting) section for more information.
+- `onStateUpdate`: A function with no arguments that is called after the client applies changed flag state. See the [State Update Listeners](#state-update-listeners) section for more information.
 
 ### Authentication
 
@@ -278,6 +279,44 @@ You also may want to store the snapshot in a local file so that you can use it t
 
 > [!IMPORTANT]
 > If the Flipt server becomes reachable after the setting the snapshot, the client will replace the snapshot with the new flag state from the Flipt server.
+
+### State Update Listeners
+
+The client can tell you when flag state changes, so you can re-read the flags you care about instead of re-evaluating them on a timer. This works in both polling and streaming mode.
+
+Register a listener when you create the client:
+
+```dart
+final client = FliptClient(
+  options: Options(
+    url: 'http://localhost:8080',
+    fetchMode: FetchMode.streaming,
+    onStateUpdate: () => refreshFlags(),
+  ),
+);
+```
+
+Or add and remove listeners while the client is running:
+
+```dart
+final subscription = client.addStateUpdateListener(() => refreshFlags());
+
+// Later, to stop listening:
+subscription.close();
+```
+
+How listeners behave:
+
+- **Only real changes.** A listener is called after the client applies flag state that differs from the current state. Unchanged polls and repeated streaming messages do not call it.
+- **Not called for initial state.** The state loaded when the client is created doesn't trigger a listener, and a new listener hears about changes applied after it was added (occasionally with one extra call). Read the flags you need once when you register.
+- **Errors don't trigger it.** A failed fetch does not call listeners. Recovering from a failure does.
+- **Runs on your isolate.** Listeners run in the order they were added, on the isolate that created the client, from its event loop. A helper isolate waits for changes, so the client never blocks your isolate while it waits. Updates that arrive while listeners run are merged into one follow-up call, so you always see the latest state but may not see every intermediate one.
+- **Keep listeners fast.** A listener runs on your isolate's event loop (in Flutter, the UI isolate), so slow work there delays everything else. Start long work asynchronously instead.
+- **Safe to call back in.** A listener may evaluate flags, add or remove listeners, or call `close()`.
+- **Exceptions are logged.** An exception thrown by one listener is written to stderr and does not stop the other listeners.
+
+> [!IMPORTANT]
+> Always call `close()` on a client that has ever had a listener, including `onStateUpdate`. Until then, even if every subscription is closed, the client keeps a port open, so a Dart program won't exit on its own. No listener is called after `close()` returns, and calling any client method after `close()` throws a `FliptError`.
 
 ## iOS Integration 📱
 
