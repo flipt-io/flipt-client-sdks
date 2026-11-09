@@ -80,3 +80,34 @@ void JNICALL Java_io_flipt_client_CLibrary_destroyEngine(
         JNIEnv *env, jobject obj, jlong enginePtr) {
     destroy_engine((void *) enginePtr);
 }
+
+// State updates. The Kotlin client runs one thread of its own that blocks in
+// waitForStateUpdate, so the engine never calls back into the JVM.
+
+jlong JNICALL Java_io_flipt_client_CLibrary_subscribeStateUpdates(
+        JNIEnv *env, jobject obj, jlong enginePtr) {
+    return (jlong) subscribe_state_updates((void *) enginePtr);
+}
+
+jstring JNICALL Java_io_flipt_client_CLibrary_waitForStateUpdate(
+        JNIEnv *env, jobject obj, jlong subscriptionPtr) {
+    // Blocks until state changes or the subscription/engine is closed.
+    const char *result = wait_for_state_update((void *) subscriptionPtr);
+
+    jstring result_j = (*env)->NewStringUTF(env, result);
+    destroy_string((char *) result); // Free the result string
+
+    return result_j;
+}
+
+void JNICALL Java_io_flipt_client_CLibrary_closeStateSubscription(
+        JNIEnv *env, jobject obj, jlong subscriptionPtr) {
+    // Wakes a blocked waitForStateUpdate. Safe from any thread.
+    close_state_subscription((void *) subscriptionPtr);
+}
+
+void JNICALL Java_io_flipt_client_CLibrary_destroyStateSubscription(
+        JNIEnv *env, jobject obj, jlong subscriptionPtr) {
+    // Frees the subscription. Nobody may be waiting on it.
+    destroy_state_subscription((void *) subscriptionPtr);
+}
