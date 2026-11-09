@@ -125,6 +125,7 @@ The `FliptClient` initializer accepts several options that can be used to config
 - `errorStrategy`: The error strategy to use when fetching flag state. If not provided, the client will default to `fail`. See the [Error Strategies](#error-strategies) section for more information.
 - `snapshot`: The snapshot to use when fetching flag state. If not provided, the client will default to no snapshot. See the [Snapshot](#snapshotting) section for more information.
 - `tlsConfig`: The TLS configuration to use when communicating with the upstream Flipt instance. If not provided, the client will default to standard TLS configuration. See the [TLS Configuration](#tls-configuration) section for more information.
+- `onStateUpdate`: A closure with no arguments that is called after the client applies changed flag state. See the [State Update Listeners](#state-update-listeners) section for more information.
 
 ### Authentication
 
@@ -251,6 +252,68 @@ You also may want to store the snapshot in a local file so that you can use it t
 
 > [!IMPORTANT]
 > If the Flipt server becomes reachable after the setting the snapshot, the client will replace the snapshot with the new flag state from the Flipt server.
+
+### State Update Listeners
+
+The client can tell you when flag state changes, so you can re-read the flags you care about instead of re-evaluating them on a timer. This works in both polling and streaming mode.
+
+Register a listener when you create the client:
+
+```swift
+let client = try FliptClient(
+    url: "http://localhost:8080",
+    fetchMode: .streaming,
+    onStateUpdate: { DispatchQueue.main.async { refreshFlags() } }
+)
+```
+
+Or add and remove listeners while the client is running:
+
+```swift
+let subscription = try client.addStateUpdateListener {
+    DispatchQueue.main.async { refreshFlags() }
+}
+
+// Later, to stop listening:
+subscription.close()
+```
+
+Listeners are `@Sendable`, because they run on another thread. `FliptClient` isn't `Sendable`, so in Swift 6 mode a listener can't capture the client directly, even weakly. Keep the client in a `@MainActor` type and capture that weakly instead:
+
+```swift
+@MainActor
+final class FlagStore {
+    private var client: FliptClient?
+    private var subscription: StateUpdateSubscription?
+
+    func start() throws {
+        let client = try FliptClient(url: "http://localhost:8080", fetchMode: .streaming)
+        subscription = try client.addStateUpdateListener { [weak self] in
+            guard let self else { return }
+            Task { @MainActor in self.refreshFlags() }
+        }
+        self.client = client
+        refreshFlags()
+    }
+
+    func refreshFlags() {
+        // Evaluate the flags you care about with client.
+    }
+}
+```
+
+How listeners behave:
+
+- **Only real changes.** A listener is called after the client applies flag state that differs from the current state. Unchanged polls and repeated streaming messages do not call it.
+- **Not called for initial state.** The state loaded when the client is created doesn't trigger a listener, and a new listener hears about changes applied after it was added (occasionally with one extra call). Read the flags you need once when you register.
+- **Errors don't trigger it.** A failed fetch does not call listeners. Recovering from a failure does.
+- **One background thread.** Listeners run in the order they were added, on a single thread named `flipt-state-update` owned by the client, not on the main thread. To update UI, dispatch to the main queue. Updates that arrive while listeners run are merged into one follow-up call, so you always see the latest state but may not see every intermediate one.
+- **Keep listeners fast.** A slow listener delays later notifications. Hand long work off to your own queue.
+- **Safe to call back in.** A listener may evaluate flags, add or remove listeners, or call `close()`.
+- **`close()` waits for a running listener.** When called from another thread, `close()` lets a listener that is already running finish, then stops. A listener must not wait on a lock or queue held by the thread that calls `close()` (for example, `DispatchQueue.main.sync` when closing from the main thread), or the two will deadlock.
+
+> [!IMPORTANT]
+> A listener that keeps the client alive (directly, or through an object that owns it) keeps it open until you call `close()`. Capture the owner `weak`, as above, or close the client explicitly. No listener is called after `close()` returns, and calling `addStateUpdateListener` after `close()` throws `ClientError.evaluationFailed(message: "client is closed")`.
 
 ## Memory Management
 

@@ -14,6 +14,10 @@ public class FliptClient {
     private var errorStrategy: ErrorStrategy = .fail
     private var snapshot: String?
     private var tlsConfig: TlsConfig?
+    private let stateUpdates: StateUpdates
+    // Set by the close() caller that destroys the engine, so later callers can wait for it.
+    private let teardown = NSCondition()
+    private var tornDown = false
 
     public init(
         environment: String? = nil,
@@ -26,7 +30,8 @@ public class FliptClient {
         fetchMode: FetchMode = .polling,
         errorStrategy: ErrorStrategy = .fail,
         snapshot: String? = nil,
-        tlsConfig: TlsConfig? = nil) throws
+        tlsConfig: TlsConfig? = nil,
+        onStateUpdate: (@Sendable () -> Void)? = nil) throws
     {
         self.environment = environment ?? "default"
         self.namespace = namespace ?? "default"
@@ -67,18 +72,74 @@ public class FliptClient {
             free(clientOptionsCString)
         }
 
-        engine = initialize_engine(clientOptionsCString)
+        let engine = initialize_engine(clientOptionsCString)
+        self.engine = engine
+        stateUpdates = StateUpdates(engine: engine)
+
+        if let onStateUpdate {
+            do {
+                try addStateUpdateListener(onStateUpdate)
+            } catch {
+                // The caller never gets a client to close, so tear the engine down here.
+                close()
+                throw error
+            }
+        }
     }
 
     deinit {
         close()
     }
 
+    /// Closes the client and releases the engine. When called from a thread other than the state
+    /// update thread, waits for a running listener to return and for the engine to be released
+    /// first. Closing twice is a no-op.
     public func close() {
-        if let engine {
-            destroy_engine(engine)
-            self.engine = nil
+        // Only the first caller tears down the engine, after any running listener has returned.
+        guard stateUpdates.close() else {
+            // Wait for that caller to finish, unless this is the update thread, which the first
+            // caller may itself be waiting on.
+            if !stateUpdates.isUpdateThread {
+                teardown.lock()
+                while !tornDown {
+                    teardown.wait()
+                }
+                teardown.unlock()
+            }
+            return
         }
+        // Clear the pointer first, so later calls see a closed client rather than a freed engine.
+        if let engine {
+            self.engine = nil
+            destroy_engine(engine)
+        }
+        teardown.lock()
+        tornDown = true
+        teardown.broadcast()
+        teardown.unlock()
+    }
+
+    /// Adds a listener that is called after each change to flag state. Listeners can be added at any
+    /// time. Read the flags you care about once after adding a listener: it is called for changes
+    /// applied after it was added, and may occasionally see one extra call.
+    ///
+    /// Listeners run in the order they were added, on a single thread named `flipt-state-update`.
+    /// Updates that arrive while they run are coalesced into a single follow-up call. A listener may
+    /// evaluate flags, add or remove listeners, or call `close()`. `close()` from another thread
+    /// waits for a running listener to return, so a listener must not block on anything held by the
+    /// thread that closes the client.
+    ///
+    /// Listeners are `@Sendable`, so in Swift 6 mode they can't capture the client, which isn't
+    /// `Sendable`. Keep the client in a `@MainActor` type (or another `Sendable` owner) and capture
+    /// that weakly, hopping to the main actor to do work. A listener that keeps the client alive
+    /// keeps it open until `close()` is called.
+    ///
+    /// - Returns: A subscription that removes the listener when closed.
+    /// - Throws: `ClientError.evaluationFailed` if the client is closed or the engine cannot
+    ///   subscribe to updates.
+    @discardableResult
+    public func addStateUpdateListener(_ listener: @escaping @Sendable () -> Void) throws -> StateUpdateSubscription {
+        try stateUpdates.add(listener)
     }
 
     public func evaluateVariant(
