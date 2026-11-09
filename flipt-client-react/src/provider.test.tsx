@@ -267,3 +267,50 @@ it('fetches all flags', async () => {
   // Assert that the mock client's listFlags was called
   expect(mockClient.listFlags).toHaveBeenCalled();
 });
+
+it('re-renders when the client reports a state update', async () => {
+  let onStateUpdate: (() => void) | undefined;
+  let enabled = false;
+  const unsubscribe = jest.fn();
+  const mockClient = {
+    evaluateBoolean: jest.fn(() => ({ enabled }) as BooleanEvaluationResponse),
+    addStateUpdateListener: jest.fn((fn: () => void) => {
+      onStateUpdate = fn;
+      return unsubscribe;
+    })
+  };
+
+  (FliptClient.init as jest.Mock).mockResolvedValue(mockClient);
+
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <FliptProvider
+      options={{
+        environment: 'test',
+        namespace: 'foo',
+        url: 'http://localhost:8080'
+      }}
+    >
+      {children}
+    </FliptProvider>
+  );
+
+  const { result, unmount } = renderHook(
+    () => useFliptBoolean('test-flag', true, 'user-1'),
+    { wrapper }
+  );
+
+  await waitFor(() => {
+    expect(result.current).toEqual(false);
+  });
+  expect(mockClient.addStateUpdateListener).toHaveBeenCalledTimes(1);
+
+  enabled = true;
+  act(() => {
+    onStateUpdate?.();
+  });
+
+  expect(result.current).toEqual(true);
+
+  unmount();
+  expect(unsubscribe).toHaveBeenCalledTimes(1);
+});

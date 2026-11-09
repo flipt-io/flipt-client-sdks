@@ -48,6 +48,9 @@ export const useStore = (options: FliptProviderOptions): FliptStore => {
   const notify = useCallback(() => {
     listenersRef.current.forEach((l) => l());
   }, []);
+  // Set when the client reports its own state updates (flipt-client-js
+  // 0.7+), so polling doesn't notify a second time.
+  const clientNotifiesRef = useRef<boolean>(false);
 
   const setupPolling = useCallback(() => {
     const interval =
@@ -68,7 +71,7 @@ export const useStore = (options: FliptProviderOptions): FliptStore => {
           dataRef.current.client
             .refresh()
             .then((updated) => {
-              if (updated) {
+              if (updated && !clientNotifiesRef.current) {
                 notify();
               }
             })
@@ -109,6 +112,7 @@ export const useStore = (options: FliptProviderOptions): FliptStore => {
 
   useEffect(() => {
     let isMounted = true;
+    let unsubscribe: (() => void) | undefined;
 
     const initializeClient = async () => {
       let attempt = 0;
@@ -124,6 +128,12 @@ export const useStore = (options: FliptProviderOptions): FliptStore => {
             dataRef.current.client = client;
             dataRef.current.isLoading = false;
             dataRef.current.error = null;
+            // Re-render on every applied change, including streaming updates.
+            // Checked at runtime because flipt-client-js 0.6 lacks it.
+            if (typeof client.addStateUpdateListener === 'function') {
+              unsubscribe = client.addStateUpdateListener(notify);
+              clientNotifiesRef.current = true;
+            }
             setupPolling();
             notify();
           }
@@ -161,6 +171,8 @@ export const useStore = (options: FliptProviderOptions): FliptStore => {
 
     return () => {
       isMounted = false;
+      unsubscribe?.();
+      clientNotifiesRef.current = false;
     };
   }, [options, notify, setupPolling, maxRetryAttempts]);
 
