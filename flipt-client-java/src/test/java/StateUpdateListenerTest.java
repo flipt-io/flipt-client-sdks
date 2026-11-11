@@ -96,17 +96,16 @@ public class StateUpdateListenerTest {
 
     try (FliptClient client =
         builder()
-            .onStateUpdate(
-                () -> {
-                  calls.incrementAndGet();
-                  // Evaluating from inside the listener must not deadlock.
-                  evaluatedInListener.set(
-                      clientRef
-                          .get()
-                          .evaluateBoolean("new_flag", "entity", new HashMap<>())
-                          .isEnabled());
-                  fired.countDown();
-                })
+            .onStateUpdate(() -> {
+              calls.incrementAndGet();
+              // Evaluating from inside the listener must not deadlock.
+              evaluatedInListener.set(
+                  clientRef
+                      .get()
+                      .evaluateBoolean("new_flag", "entity", new HashMap<>())
+                      .isEnabled());
+              fired.countDown();
+            })
             .build()) {
       clientRef.set(client);
 
@@ -134,13 +133,12 @@ public class StateUpdateListenerTest {
     FliptClient client =
         builder()
             .fetchMode(FetchMode.STREAMING)
-            .onStateUpdate(
-                () -> {
-                  calls.incrementAndGet();
-                  StringBuilder keys = new StringBuilder();
-                  clientRef.get().listFlags().forEach(f -> keys.append(f.getKey()));
-                  seen.offer(keys.toString());
-                })
+            .onStateUpdate(() -> {
+              calls.incrementAndGet();
+              StringBuilder keys = new StringBuilder();
+              clientRef.get().listFlags().forEach(f -> keys.append(f.getKey()));
+              seen.offer(keys.toString());
+            })
             .build();
     clientRef.set(client);
     try {
@@ -183,19 +181,18 @@ public class StateUpdateListenerTest {
     FliptClient client =
         builder()
             .fetchMode(FetchMode.STREAMING)
-            .onStateUpdate(
-                () -> {
-                  calls.incrementAndGet();
-                  entered.countDown();
-                  try {
-                    release.await(10, TimeUnit.SECONDS);
-                  } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                  }
-                  // close() has started by now; the engine must still be alive.
-                  clientRef.get().listFlags();
-                  evaluatedAfterRelease.set(true);
-                })
+            .onStateUpdate(() -> {
+              calls.incrementAndGet();
+              entered.countDown();
+              try {
+                release.await(10, TimeUnit.SECONDS);
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              }
+              // close() has started by now; the engine must still be alive.
+              clientRef.get().listFlags();
+              evaluatedAfterRelease.set(true);
+            })
             .build();
     clientRef.set(client);
 
@@ -207,11 +204,10 @@ public class StateUpdateListenerTest {
 
     CountDownLatch closeReturned = new CountDownLatch(1);
     Thread closer =
-        new Thread(
-            () -> {
-              client.close();
-              closeReturned.countDown();
-            });
+        new Thread(() -> {
+          client.close();
+          closeReturned.countDown();
+        });
     closer.start();
     // Once the closer is blocked in join(), closed is set and the pending change can't run.
     long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
@@ -236,10 +232,9 @@ public class StateUpdateListenerTest {
     CountDownLatch fired = new CountDownLatch(1);
     try (FliptClient client =
         builder()
-            .onStateUpdate(
-                () -> {
-                  throw new RuntimeException("boom");
-                })
+            .onStateUpdate(() -> {
+              throw new RuntimeException("boom");
+            })
             .build()) {
       // A listener after the throwing one still runs.
       client.addStateUpdateListener(fired::countDown);
@@ -259,12 +254,11 @@ public class StateUpdateListenerTest {
     FliptClient client =
         builder()
             .fetchMode(FetchMode.STREAMING)
-            .onStateUpdate(
-                () -> {
-                  calls.incrementAndGet();
-                  clientRef.get().close();
-                  closed.countDown();
-                })
+            .onStateUpdate(() -> {
+              calls.incrementAndGet();
+              clientRef.get().close();
+              closed.countDown();
+            })
             .build();
     clientRef.set(client);
 
@@ -288,16 +282,14 @@ public class StateUpdateListenerTest {
 
     try (FliptClient client = builder().fetchMode(FetchMode.STREAMING).build()) {
       FliptClient.Subscription sub =
-          client.addStateUpdateListener(
-              () -> {
-                first.incrementAndGet();
-                firstFired.countDown();
-              });
-      client.addStateUpdateListener(
-          () -> {
-            second.incrementAndGet();
-            secondFired.countDown();
+          client.addStateUpdateListener(() -> {
+            first.incrementAndGet();
+            firstFired.countDown();
           });
+      client.addStateUpdateListener(() -> {
+        second.incrementAndGet();
+        secondFired.countDown();
+      });
 
       streamDocs.put(WITH_FLAG);
       Assertions.assertTrue(firstFired.await(5, TimeUnit.SECONDS), "first did not fire");
@@ -321,12 +313,11 @@ public class StateUpdateListenerTest {
     try (FliptClient client =
         builder()
             .fetchMode(FetchMode.STREAMING)
-            .onStateUpdate(
-                () -> {
-                  if (outer.incrementAndGet() == 1) {
-                    clientRef.get().addStateUpdateListener(innerFired::countDown);
-                  }
-                })
+            .onStateUpdate(() -> {
+              if (outer.incrementAndGet() == 1) {
+                clientRef.get().addStateUpdateListener(innerFired::countDown);
+              }
+            })
             .build()) {
       clientRef.set(client);
 
