@@ -213,6 +213,10 @@ export abstract class BaseFliptClient {
    * Delay before the next restart attempt. Half of it is fixed and half is
    * random, so clients that lost the server at the same time do not all
    * reconnect at the same moment.
+   *
+   * The result is always in `[capped / 2, capped)`. Rounding would let a
+   * random value close to 1 round up to exactly `capped`, so the value is
+   * truncated instead.
    */
   private reconnectDelay(attempt: number): number {
     const capped = Math.min(
@@ -220,7 +224,7 @@ export abstract class BaseFliptClient {
       STREAM_RECONNECT_MAX_DELAY_MS
     );
 
-    return Math.round(capped / 2 + Math.random() * (capped / 2));
+    return Math.floor(capped / 2 + Math.random() * (capped / 2));
   }
 
   private refreshFromStream(): void {
