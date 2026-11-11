@@ -246,7 +246,7 @@ const client = await FliptClient.init({
 > - In streaming mode `updateInterval` is ignored and no polling timer is started.
 > - **Browser:** the native `EventSource` cannot send custom headers, so `authentication` is not applied to the stream. Use cookie-based auth or a Flipt server that does not require authentication for the stream endpoint.
 > - **Node.js:** streaming uses the [`eventsource`](https://www.npmjs.com/package/eventsource) package. Authentication headers are sent with the stream request.
-> - `EventSource` reconnects automatically after transient errors. If the connection is closed permanently, the client logs an error (via `logger`) and keeps serving the last known flag state.
+> - `EventSource` reconnects automatically after transient errors. If the connection is closed permanently (for example, the server answers with an error status), the client logs an error (via `logger`) and opens a new stream with an exponential backoff (1s up to 30s) until `close()` is called. While the stream is down, the client keeps serving the last known flag state.
 
 Call `close()` when you are done with the client to close the stream.
 
