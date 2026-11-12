@@ -120,15 +120,16 @@ export class FliptClient extends BaseFliptClient {
   private setupStream(url: string, baseHeaders: Record<string, string>): void {
     const authHeaders = { ...baseHeaders, Accept: 'text/event-stream' };
 
-    const eventSource = new EventSource(url, {
-      fetch: ((input: any, init: any) =>
-        fetch(input, {
-          ...init,
-          headers: { ...init?.headers, ...authHeaders }
-        })) as any
-    });
-
-    this.attachStream(eventSource);
+    this.attachStream(
+      () =>
+        new EventSource(url, {
+          fetch: ((input: any, init: any) =>
+            fetch(input, {
+              ...init,
+              headers: { ...init?.headers, ...authHeaders }
+            })) as any
+        })
+    );
   }
 
   private setupAutoRefresh(interval: number = 120_000): void {

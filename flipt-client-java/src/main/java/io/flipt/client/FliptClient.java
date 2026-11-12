@@ -520,12 +520,11 @@ public class FliptClient implements AutoCloseable {
 
   private void startAuthRefreshScheduler() {
     this.authScheduler =
-        Executors.newSingleThreadScheduledExecutor(
-            r -> {
-              Thread t = new Thread(r, "flipt-auth-refresh");
-              t.setDaemon(true);
-              return t;
-            });
+        Executors.newSingleThreadScheduledExecutor(r -> {
+          Thread t = new Thread(r, "flipt-auth-refresh");
+          t.setDaemon(true);
+          return t;
+        });
 
     scheduleNextAuthCheck();
   }

@@ -168,9 +168,100 @@ describe.each([
     sources[0].readyState = 2;
     sources[0].onerror(new Error('gone'));
     expect(logger.error).toHaveBeenCalledWith(
-      'sse connection closed, no further updates:',
+      'sse connection closed:',
       expect.any(Error)
     );
+  });
+
+  test('restarts the stream after the connection is closed permanently', async () => {
+    jest.useFakeTimers();
+    try {
+      client = await init({ fetchMode: FetchMode.Streaming });
+      expect(sources).toHaveLength(1);
+
+      sources[0].readyState = 2;
+      sources[0].onerror(new Error('gone'));
+
+      await jest.advanceTimersByTimeAsync(2_000);
+
+      expect(sources).toHaveLength(2);
+      expect(sources[1].url).toBe(sources[0].url);
+
+      // The new stream refreshes the flag state once it connects.
+      const before = fetcher.mock.calls.length;
+      sources[1].onopen({});
+      await jest.advanceTimersByTimeAsync(1);
+      expect(fetcher.mock.calls.length).toBe(before + 1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('does not restart the stream after close()', async () => {
+    jest.useFakeTimers();
+    try {
+      client = await init({ fetchMode: FetchMode.Streaming });
+
+      sources[0].readyState = 2;
+      sources[0].onerror(new Error('gone'));
+      client.close();
+
+      await jest.advanceTimersByTimeAsync(5_000);
+
+      expect(sources).toHaveLength(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('schedules a single restart for repeated errors', async () => {
+    jest.useFakeTimers();
+    try {
+      client = await init({ fetchMode: FetchMode.Streaming });
+
+      sources[0].readyState = 2;
+      sources[0].onerror(new Error('gone'));
+      sources[0].onerror(new Error('gone again'));
+
+      await jest.advanceTimersByTimeAsync(2_000);
+
+      expect(sources).toHaveLength(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('backs off between restart attempts', async () => {
+    jest.useFakeTimers();
+    try {
+      client = await init({ fetchMode: FetchMode.Streaming });
+
+      sources[0].readyState = 2;
+      sources[0].onerror(new Error('gone'));
+      await jest.advanceTimersByTimeAsync(2_000);
+      expect(sources).toHaveLength(2);
+
+      // The restarted stream fails as well, so the next attempt waits longer.
+      sources[1].readyState = 2;
+      sources[1].onerror(new Error('gone again'));
+
+      const delays = logger.warn.mock.calls
+        .map((call) => call[0])
+        .filter(
+          (msg) =>
+            typeof msg === 'string' &&
+            msg.startsWith('sse connection closed, restarting in')
+        )
+        .map((msg) => Number(msg.match(/in (\d+)ms/)[1]));
+
+      expect(delays).toHaveLength(2);
+      expect(delays[0]).toBeGreaterThanOrEqual(500);
+      expect(delays[0]).toBeLessThan(1_000);
+      expect(delays[1]).toBeGreaterThanOrEqual(1_000);
+      expect(delays[1]).toBeLessThan(2_000);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   test('close() closes the stream once', async () => {
@@ -230,6 +321,27 @@ describe('node client streaming specifics', () => {
       client.close();
     } finally {
       globalThis.fetch = realFetch;
+    }
+  });
+
+  test('the restarted stream keeps the auth headers', async () => {
+    jest.useFakeTimers();
+    try {
+      const client = await NodeClient.init({
+        fetcher: async () => snapshotResponse('e'),
+        fetchMode: FetchMode.Streaming,
+        authentication: { clientToken: 'secret' }
+      });
+
+      sources[0].readyState = 2;
+      sources[0].onerror(new Error('gone'));
+      await jest.advanceTimersByTimeAsync(2_000);
+
+      expect(sources).toHaveLength(2);
+      expect(sources[1].init.fetch).toBeDefined();
+      client.close();
+    } finally {
+      jest.useRealTimers();
     }
   });
 });

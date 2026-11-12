@@ -105,8 +105,6 @@ export class FliptClient extends BaseFliptClient {
   private setupStream(url: string): void {
     // Native browser EventSource does not support custom headers.
     // For authenticated SSE, use cookies or configure the server accordingly.
-    const eventSource = new EventSource(url);
-
-    this.attachStream(eventSource);
+    this.attachStream(() => new EventSource(url));
   }
 }

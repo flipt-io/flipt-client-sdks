@@ -37,6 +37,12 @@ const noopLogger: Logger = {
   error: () => {}
 };
 
+/** Base delay before the stream is restarted after a permanent close. */
+const STREAM_RECONNECT_BASE_DELAY_MS = 1_000;
+
+/** Upper bound for the delay between stream restart attempts. */
+const STREAM_RECONNECT_MAX_DELAY_MS = 30_000;
+
 export abstract class BaseFliptClient {
   protected engine: any; // Type will be provided by platform implementations
   protected fetcher: IFetcher;
@@ -47,6 +53,9 @@ export abstract class BaseFliptClient {
   protected logger: Logger = noopLogger;
   private stateUpdateListeners: { fn: () => void }[] = [];
   private closed = false;
+  private streamFactory?: () => StreamSource;
+  private reconnectTimer?: ReturnType<typeof setTimeout>;
+  private reconnectAttempts = 0;
 
   constructor(engine: any, fetcher: IFetcher) {
     this.engine = engine;
@@ -60,6 +69,10 @@ export abstract class BaseFliptClient {
   public close(): void {
     this.closed = true;
     this.stateUpdateListeners = [];
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = undefined;
+    }
     this.closeEventSource();
   }
 
@@ -107,12 +120,41 @@ export abstract class BaseFliptClient {
 
   /**
    * Wire up SSE handlers shared by the browser and Node clients.
+   *
+   * The factory is called again to open a new stream when the current one is
+   * closed permanently (see {@link scheduleReconnect}).
+   *
+   * @param createSource creates the stream. Called once to open the stream and
+   * again for every restart.
+   */
+  protected attachStream(createSource: () => StreamSource): void {
+    this.streamFactory = createSource;
+    this.openStream();
+  }
+
+  /**
+   * Open the stream and attach the SSE handlers to it.
+   */
+  private openStream(): void {
+    if (this.closed || !this.streamFactory) {
+      return;
+    }
+
+    const eventSource = this.streamFactory();
+    this.attachStreamHandlers(eventSource);
+    this.eventSource = eventSource;
+  }
+
+  /**
    * EventSource reconnects on its own after transient errors; on every
    * (re)open we refresh so updates missed while disconnected are picked up.
    */
-  protected attachStream(eventSource: StreamSource): void {
+  private attachStreamHandlers(eventSource: StreamSource): void {
     eventSource.onopen = () => {
       this.logger.debug('sse connected');
+      // The stream is healthy again, so the next failure starts over from the
+      // base delay.
+      this.reconnectAttempts = 0;
       this.refreshFromStream();
     };
 
@@ -130,13 +172,59 @@ export abstract class BaseFliptClient {
 
     eventSource.onerror = (err: unknown) => {
       if (eventSource.readyState === 2 /* CLOSED */) {
-        this.logger.error('sse connection closed, no further updates:', err);
+        this.logger.error('sse connection closed:', err);
+        if (!this.closed) {
+          this.scheduleReconnect();
+        }
       } else {
         this.logger.warn('sse error, reconnecting:', err);
       }
     };
+  }
 
-    this.eventSource = eventSource;
+  /**
+   * Restart the stream after it was closed permanently.
+   *
+   * An EventSource gives up on connections it cannot recover from by itself
+   * (for example, a non-200 response), so the client opens a new one. The
+   * attempts repeat with an exponential backoff until the client is closed.
+   */
+  private scheduleReconnect(): void {
+    if (this.reconnectTimer) {
+      // A restart is already scheduled.
+      return;
+    }
+
+    const delay = this.reconnectDelay(this.reconnectAttempts);
+    this.reconnectAttempts++;
+    this.logger.warn(`sse connection closed, restarting in ${delay}ms`);
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined;
+      if (this.closed) {
+        return;
+      }
+      this.closeEventSource();
+      this.openStream();
+    }, delay);
+  }
+
+  /**
+   * Delay before the next restart attempt. Half of it is fixed and half is
+   * random, so clients that lost the server at the same time do not all
+   * reconnect at the same moment.
+   *
+   * The result is always in `[capped / 2, capped)`. Rounding would let a
+   * random value close to 1 round up to exactly `capped`, so the value is
+   * truncated instead.
+   */
+  private reconnectDelay(attempt: number): number {
+    const capped = Math.min(
+      STREAM_RECONNECT_BASE_DELAY_MS * 2 ** attempt,
+      STREAM_RECONNECT_MAX_DELAY_MS
+    );
+
+    return Math.floor(capped / 2 + Math.random() * (capped / 2));
   }
 
   private refreshFromStream(): void {
@@ -147,6 +235,10 @@ export abstract class BaseFliptClient {
 
   protected closeEventSource(): void {
     if (this.eventSource) {
+      // Detach the handlers so a discarded source cannot trigger anything.
+      this.eventSource.onopen = null;
+      this.eventSource.onmessage = null;
+      this.eventSource.onerror = null;
       this.eventSource.close();
       this.eventSource = undefined;
     }
@@ -183,7 +275,18 @@ export abstract class BaseFliptClient {
         return false;
       }
 
-      const data = await resp.json();
+      let data: unknown;
+
+      try {
+        data = await resp.json();
+      } catch (err) {
+        // Drop the etag so the next fetch returns a body and recovers.
+        this.etag = undefined;
+        if (this.errorStrategy === ErrorStrategy.Fail) {
+          throw err;
+        }
+        return false;
+      }
       if (this.closed) {
         return false;
       }
