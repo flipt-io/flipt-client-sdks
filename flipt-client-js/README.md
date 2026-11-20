@@ -65,6 +65,7 @@ The `FliptClient` constructor accepts the following optional arguments:
   - `namespace`: The namespace to fetch flag state from. If not provided, the client will default to the `default` namespace.
   - `url`: The URL of the upstream Flipt instance. If not provided, the client will default to `http://localhost:8080`.
   - `updateInterval`: **Node.js Only** The interval (in seconds) in which to fetch new flag state. If not provided, the client will default to 120 seconds.
+  - `requestTimeout`: The maximum time (in seconds) a request for flag state can take. A request that exceeds it fails and is handled by the [error strategy](#error-strategies). If not provided, the client will default to 30 seconds. Not applied to a custom [fetcher](#custom-fetcher), or to the connection that [streaming](#streaming-server-sent-events) mode keeps open.
   - `fetchMode`: How the client receives flag state updates: `FetchMode.Polling` (default) or `FetchMode.Streaming`. See [Streaming](#streaming-server-sent-events).
   - `logger`: An optional logger (`debug`, `info`, `warn`, `error`) for diagnostics such as streaming events. Logging is disabled by default.
   - `authentication`: The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication. See the [Authentication](#authentication) section for more information.
