@@ -22,6 +22,7 @@ export class FliptClient extends BaseFliptClient {
   ): Promise<FliptClient> {
     const environment = options.environment ?? 'default';
     const namespace = options.namespace ?? 'default';
+    const requestTimeout = options.requestTimeout ?? 30;
     const fetchMode = options.fetchMode ?? FetchMode.Polling;
 
     let baseUrl = options.url ?? 'http://localhost:8080';
@@ -66,7 +67,8 @@ export class FliptClient extends BaseFliptClient {
 
         const resp = await fetch(url, {
           method: 'GET',
-          headers
+          headers,
+          signal: AbortSignal.timeout(requestTimeout * 1_000)
         });
 
         if (!resp.ok && resp.status !== 304) {

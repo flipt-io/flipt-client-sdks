@@ -44,6 +44,7 @@ export class FliptClient extends BaseFliptClient {
 
     const environment = options.environment ?? 'default';
     const namespace = options.namespace ?? 'default';
+    const requestTimeout = options.requestTimeout ?? 30;
 
     let url = options.url ?? 'http://localhost:8080';
     url = url.replace(/\/$/, '');
@@ -78,7 +79,8 @@ export class FliptClient extends BaseFliptClient {
 
         const resp = await fetch(url, {
           method: 'GET',
-          headers
+          headers,
+          signal: AbortSignal.timeout(requestTimeout * 1_000)
         });
 
         if (!resp.ok && resp.status !== 304) {
