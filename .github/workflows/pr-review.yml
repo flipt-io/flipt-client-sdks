@@ -43,4 +43,4 @@ jobs:
         with:
           pr-number: ${{ github.event.pull_request.number }}
           local-config-dir: .agents/pr-review
-          model: cloudflare-workers-ai/@cf/moonshotai/kimi-k2.6
+          model: cloudflare-workers-ai/@cf/deepseek-ai/deepseek-v4.1-flash-1017
