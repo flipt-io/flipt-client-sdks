@@ -33,4 +33,4 @@ jobs:
         with:
           issue-number: ${{ github.event.issue.number }}
           local-config-dir: .agents/issue-health
-          model: cloudflare-workers-ai/@cf/moonshotai/kimi-k2.6
+          model: cloudflare-workers-ai/@cf/deepseek-ai/deepseek-v4.1-flash-1017
