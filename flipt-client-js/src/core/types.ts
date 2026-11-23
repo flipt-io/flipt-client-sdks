@@ -114,9 +114,9 @@ export interface ClientOptions {
   updateInterval?: number;
   /**
    * The maximum time (seconds) a request for flag state can take before it
-   * fails. Not applied to a custom {@link fetcher}, or to the connection that
+   * fails. If not provided (or `0`), requests have no timeout. Not applied to
+   * a custom {@link fetcher}, or to the connection that
    * {@link FetchMode.Streaming} keeps open.
-   * @defaultValue `30` seconds.
    */
   requestTimeout?: number;
   /**
@@ -337,7 +337,6 @@ export class ClientOptionsFactory {
       url: 'http://localhost:8080',
       reference: '',
       updateInterval: 120,
-      requestTimeout: 30,
       errorStrategy: ErrorStrategy.Fail,
       fetchMode: FetchMode.Polling
     };

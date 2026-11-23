@@ -70,11 +70,11 @@ describe.each([
     await expect(client.refresh()).resolves.toBeDefined();
   });
 
-  test('defaults to 30 seconds', async () => {
+  test('has no timeout by default', async () => {
     const timeout = jest.spyOn(AbortSignal, 'timeout');
 
     client = await init();
 
-    expect(timeout).toHaveBeenCalledWith(30_000);
+    expect(timeout).not.toHaveBeenCalled();
   });
 });
