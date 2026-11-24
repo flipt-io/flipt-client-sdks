@@ -29,3 +29,12 @@ export function serialize<T>(data: T): any {
   }
   return result;
 }
+
+export function requestTimeoutSignal(
+  requestTimeout: number = 0
+): AbortSignal | undefined {
+  if (requestTimeout > 0) {
+    return AbortSignal.timeout(requestTimeout * 1_000);
+  }
+  return undefined;
+}

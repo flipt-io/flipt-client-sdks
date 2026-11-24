@@ -396,7 +396,7 @@ func getWasmBuildContainer(_ context.Context, client *dagger.Client, hostDirecto
 		WithFile("/src/Cargo.toml", hostDirectory.File("Cargo.toml")).
 		WithExec(args("rustup target add " + target)).
 		WithExec(args("cargo build -p flipt-engine-wasm --release --target " + target)).
-		WithExec(args("cargo install wasm-opt")).
+		WithExec(args("cargo install wasm-opt --version 0.116.1")).
 		WithExec(args("wasm-opt --converge --flatten --rereloop -Oz -Oz --gufa -o %s %s", wasmFile, wasmFile))
 }
 

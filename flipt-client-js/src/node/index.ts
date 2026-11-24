@@ -2,6 +2,7 @@ import init, { Engine } from '../wasm/flipt_engine_wasm_js.js';
 import wasm from '../wasm/flipt_engine_wasm_js_bg.wasm';
 import { BaseFliptClient } from '../core/base';
 import { initializeSnapshot } from '../core/snapshot';
+import { requestTimeoutSignal } from '../core/utils';
 import { ClientOptions, ClientOptionsFactory, FetchMode } from '../core/types';
 import { EventSource } from 'eventsource';
 
@@ -66,7 +67,8 @@ export class FliptClient extends BaseFliptClient {
 
         const resp = await fetch(url, {
           method: 'GET',
-          headers
+          headers,
+          signal: requestTimeoutSignal(options.requestTimeout)
         });
 
         if (!resp.ok && resp.status !== 304) {

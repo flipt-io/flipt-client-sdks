@@ -113,6 +113,13 @@ export interface ClientOptions {
    */
   updateInterval?: number;
   /**
+   * The maximum time (seconds) a request for flag state can take before it
+   * fails. If not provided (or `0`), requests have no timeout. Not applied to
+   * a custom {@link fetcher}, or to the connection that
+   * {@link FetchMode.Streaming} keeps open.
+   */
+  requestTimeout?: number;
+  /**
    * The authentication strategy to use when communicating with the upstream Flipt instance. If not provided, the client will default to no authentication.
    *
    * @remarks
